@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Master plan and issue order
+    url: https://github.com/RealAhmedOsama/Warehouse-Management-System/issues/108
+    about: Check the authoritative modernization order and dependencies first.
+  - name: Security report
+    url: https://github.com/RealAhmedOsama/Warehouse-Management-System/security/advisories/new
+    about: Report suspected vulnerabilities privately instead of publishing credentials or exploit details.

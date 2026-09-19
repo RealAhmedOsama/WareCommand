@@ -82,11 +82,15 @@ Development, never an automatic production behavior.
 
 ## Documentation
 
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow, versioning, commits, issue
+  evidence, and release/tag governance
+- [`CHANGELOG.md`](CHANGELOG.md) — unreleased and approved release changes
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — layers, capability ownership, and composition rules
 - [`TESTING.md`](TESTING.md) — repeatable local, integration, and smoke verification
 - [`DEPLOYMENT.md`](DEPLOYMENT.md) — current deployment boundary and migration gates
 - [`SECURITY.md`](SECURITY.md) — repository and runtime security expectations
 - [`ROADMAP.md`](ROADMAP.md) — implemented, partial, planned, and deferred work
+- [`docs/release/RELEASE_CHECKLIST.md`](docs/release/RELEASE_CHECKLIST.md) — backup, migration, rollout, monitoring, and rollback gates
 - [`docs/modernization/POSTGRESQL_LOCAL_SETUP.md`](docs/modernization/POSTGRESQL_LOCAL_SETUP.md)
 - [`docs/modernization/SQLITE_TO_POSTGRESQL_MIGRATION.md`](docs/modernization/SQLITE_TO_POSTGRESQL_MIGRATION.md)
 - [`docs/modernization/BASELINE_STATUS.md`](docs/modernization/BASELINE_STATUS.md) — original baseline evidence
