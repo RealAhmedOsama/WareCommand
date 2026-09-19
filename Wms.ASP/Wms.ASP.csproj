@@ -18,7 +18,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Wms.Application\Wms.Application.csproj" />
     <ProjectReference Include="..\Wms.Infrastructure\Wms.Infrastructure.csproj" />
-    <ProjectReference Include="..\Wms.Domain\Wms.Domain.csproj" />
   </ItemGroup>
 
 </Project>
