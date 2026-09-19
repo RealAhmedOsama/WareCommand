@@ -1,8 +1,8 @@
 ﻿# 📦 Warehouse Management System (WMS)
 
-> An early-stage Warehouse Management System MVP built with .NET 8, featuring both WinForms desktop application and ASP.NET Core web interface using Clean Architecture principles. See `docs/modernization/BASELINE_STATUS.md` for verified status; production readiness is not claimed.
+> An early-stage Warehouse Management System MVP built with .NET 10, featuring both WinForms desktop application and ASP.NET Core web interface using Clean Architecture principles. See `docs/modernization/BASELINE_STATUS.md` for verified status; production readiness is not claimed.
 
-[![.NET](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/download)
+[![.NET](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)]()
@@ -171,9 +171,15 @@ Built using Clean Architecture principles with Domain-Driven Design, the system 
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Visual Studio 2022](https://visualstudio.microsoft.com/) or [VS Code](https://code.visualstudio.com/)
 - SQLite (embedded database - no additional setup required)
+
+`Wms.ASP`, the domain, application, infrastructure, and test projects target
+.NET 10 and run on supported .NET 10 hosts. `Wms.WinForms` targets
+`net10.0-windows` and requires Windows with the .NET 10 Windows Desktop runtime;
+it is intentionally not a Linux/macOS target. The web application remains the
+cross-platform host.
 
 ### 🖥️ Running the Desktop Application
 
@@ -503,7 +509,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-<p>Built with ❤️ using .NET 8, Clean Architecture, and modern design principles</p>
+<p>Built with ❤️ using .NET 10, Clean Architecture, and modern design principles</p>
 <p><strong>⭐ Star this repo if you find it helpful!</strong></p>
 
 </div>

@@ -93,7 +93,8 @@ These are baseline findings, not completed modernization work:
 
 Run `scripts/verify-baseline.ps1` from the repository root. The script repeats
 restore, Debug/Release builds, Release tests, disposable MVC requests, and the
-WinForms process smoke test. It was rerun successfully with
-`pwsh -NoProfile -File .\scripts\verify-baseline.ps1 -WebPort 5236` on this
-baseline. It writes transient logs/databases under the system temporary
-directory and never uses the repository databases.
+WinForms process smoke test. It was first run successfully against the .NET 8
+baseline with `-WebPort 5236`; after issue #3 it tracks the current .NET 10
+output paths so the same local verification remains runnable. It writes
+transient logs/databases under the system temporary directory and never uses
+the repository databases.

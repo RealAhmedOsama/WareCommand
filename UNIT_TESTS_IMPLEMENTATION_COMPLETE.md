@@ -49,18 +49,18 @@ Warehouse Management System/
 - **xUnit** 2.6.2 - Modern testing framework
 - **FluentAssertions** 6.12.0 - Readable assertions
 - **Moq** 4.20.69 - Mocking dependencies
-- **EF Core InMemory** 8.0.0 - Database testing
-- **Microsoft.NET.Test.Sdk** 17.8.0 - Test runner
+- **EF Core InMemory** 10.0.12 - Database testing
+- **Microsoft.NET.Test.Sdk** 18.10.1 - Test runner
 
 ### **Project References:**
 ```xml
 <ItemGroup>
-  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
   <PackageReference Include="xunit" Version="2.6.2" />
   <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
   <PackageReference Include="FluentAssertions" Version="6.12.0" />
   <PackageReference Include="Moq" Version="4.20.69" />
-  <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
+  <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.12" />
 </ItemGroup>
 ```
 
@@ -293,7 +293,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '8.0.x'
+        dotnet-version: '10.0.x'
     
     - name: Restore dependencies
       run: dotnet restore

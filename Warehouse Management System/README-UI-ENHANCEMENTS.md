@@ -1,6 +1,6 @@
 # Warehouse Management System (WMS) - Enhanced Bootstrap 5 UI
 
-A modern, enterprise-grade Warehouse Management System built with .NET 8 and WinForms, featuring a Bootstrap 5-inspired design system.
+A modern Warehouse Management System MVP built with .NET 10 and WinForms, featuring a Bootstrap 5-inspired design system.
 
 ## ?? UI Enhancement Features
 

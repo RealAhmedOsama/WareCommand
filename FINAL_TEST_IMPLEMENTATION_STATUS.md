@@ -129,17 +129,17 @@ using var context = new WmsDbContext(options);
 - **xUnit 2.6.2** - Modern, extensible testing framework
 - **FluentAssertions 6.12.0** - Readable, expressive assertions
 - **Moq 4.20.69** - Powerful mocking framework
-- **EF Core InMemory 8.0.0** - Fast database testing
-- **Microsoft.NET.Test.Sdk 17.8.0** - Test execution platform
+- **EF Core InMemory 10.0.12** - Fast database testing
+- **Microsoft.NET.Test.Sdk 18.10.1** - Test execution platform
 
 ### **Test Project Configuration:**
 ```xml
-<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
 <PackageReference Include="xunit" Version="2.6.2" />
 <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
 <PackageReference Include="FluentAssertions" Version="6.12.0" />
 <PackageReference Include="Moq" Version="4.20.69" />
-<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
+<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.12" />
 ```
 
 ---
