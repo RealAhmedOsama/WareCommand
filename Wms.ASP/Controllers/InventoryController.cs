@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Inventory;
 using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
+[Authorize]
 public class InventoryController : Controller
 {
-    private const string CurrentUserId = "WEB_USER"; // TODO: Implement proper user management
+    private readonly ICurrentUser _currentUser;
     private readonly IGetStockUseCase _getStockUseCase;
     private readonly ILogger<InventoryController> _logger;
     private readonly IStockAdjustmentUseCase _stockAdjustmentUseCase;
@@ -14,10 +17,12 @@ public class InventoryController : Controller
     public InventoryController(
         IGetStockUseCase getStockUseCase,
         IStockAdjustmentUseCase stockAdjustmentUseCase,
+        ICurrentUser currentUser,
         ILogger<InventoryController> logger)
     {
         _getStockUseCase = getStockUseCase;
         _stockAdjustmentUseCase = stockAdjustmentUseCase;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -98,7 +103,7 @@ public class InventoryController : Controller
                 model.Reason
             );
 
-            var result = await _stockAdjustmentUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _stockAdjustmentUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {

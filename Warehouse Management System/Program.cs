@@ -36,6 +36,13 @@ internal static class Program
             System.Windows.Forms.Application.EnableVisualStyles();
             System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
 
+            using var loginScope = _host.Services.CreateScope();
+            using var loginForm = loginScope.ServiceProvider.GetRequiredService<LoginForm>();
+            if (loginForm.ShowDialog() != DialogResult.OK)
+            {
+                return;
+            }
+
             var mainForm = _host.Services.GetRequiredService<MainForm>();
             System.Windows.Forms.Application.Run(mainForm);
         }
@@ -61,8 +68,10 @@ internal static class Program
                 services.AddWmsInfrastructure(
                     context.Configuration.GetConnectionString("DefaultConnection"),
                     databaseProvider);
+                services.AddWmsDesktopIdentity();
                 services.AddWmsApplication();
 
+                services.AddTransient<LoginForm>();
                 services.AddTransient<MainForm>();
                 services.AddTransient<DashboardForm>();
                 services.AddTransient<ReceivingForm>();

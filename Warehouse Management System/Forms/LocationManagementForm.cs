@@ -3,6 +3,7 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Locations;
 using Wms.WinForms.Common;
 
@@ -10,13 +11,17 @@ namespace Wms.WinForms.Forms;
 
 public partial class LocationManagementForm : Form
 {
-    private const string CurrentUserId = "SYSTEM";
+    private readonly ICurrentUser _currentUser;
     private readonly IGetLocationsUseCase _getLocationsUseCase;
     private readonly ILogger<LocationManagementForm> _logger;
 
-    public LocationManagementForm(IGetLocationsUseCase getLocationsUseCase, ILogger<LocationManagementForm> logger)
+    public LocationManagementForm(
+        IGetLocationsUseCase getLocationsUseCase,
+        ICurrentUser currentUser,
+        ILogger<LocationManagementForm> logger)
     {
         _getLocationsUseCase = getLocationsUseCase;
+        _currentUser = currentUser;
         _logger = logger;
         InitializeComponent();
         SetupEventHandlers();
@@ -327,8 +332,13 @@ public partial class LocationManagementForm : Form
             var updateLocationUseCase = Program.ServiceProvider.GetRequiredService<IUpdateLocationUseCase>();
             var logger = Program.ServiceProvider.GetRequiredService<ILogger<LocationEditDialog>>();
 
-            var dialog = new LocationEditDialog(createLocationUseCase, updateLocationUseCase, _getLocationsUseCase,
-                logger, locationId);
+            var dialog = new LocationEditDialog(
+                createLocationUseCase,
+                updateLocationUseCase,
+                _getLocationsUseCase,
+                logger,
+                _currentUser,
+                locationId);
 
             if (dialog.ShowDialog(this) == DialogResult.OK)
             {

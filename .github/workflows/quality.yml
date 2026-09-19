@@ -69,6 +69,7 @@ jobs:
             'Wms.Domain.Tests/Wms.Domain.Tests.csproj' \
             'Wms.Application.Tests/Wms.Application.Tests.csproj' \
             'Wms.Infrastructure.Tests/Wms.Infrastructure.Tests.csproj' \
+            'Wms.ASP.Tests/Wms.ASP.Tests.csproj' \
             'Wms.Architecture.Tests/Wms.Architecture.Tests.csproj' \
             'Wms.DataMigration.Tests/Wms.DataMigration.Tests.csproj'; do
             dotnet test "$project" -c Release --no-restore --nologo \

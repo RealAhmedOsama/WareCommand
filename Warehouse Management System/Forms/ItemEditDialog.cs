@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Items;
 using Wms.WinForms.Common;
 using CreateItemDto = Wms.Application.UseCases.Items.CreateItemDto;
@@ -11,7 +12,7 @@ namespace Wms.WinForms.Forms;
 
 public partial class ItemEditDialog : Form
 {
-    private const string CurrentUserId = "SYSTEM";
+    private readonly ICurrentUser _currentUser;
     private readonly ICreateItemUseCase _createItemUseCase;
     private readonly IGetItemsUseCase _getItemsUseCase;
 
@@ -21,12 +22,13 @@ public partial class ItemEditDialog : Form
     private ItemDto? _originalItem;
 
     public ItemEditDialog(ICreateItemUseCase createItemUseCase, IUpdateItemUseCase updateItemUseCase,
-        IGetItemsUseCase getItemsUseCase, ILogger<ItemEditDialog> logger, int? itemId = null)
+        IGetItemsUseCase getItemsUseCase, ILogger<ItemEditDialog> logger, ICurrentUser currentUser, int? itemId = null)
     {
         _createItemUseCase = createItemUseCase;
         _updateItemUseCase = updateItemUseCase;
         _getItemsUseCase = getItemsUseCase;
         _logger = logger;
+        _currentUser = currentUser;
         _itemId = itemId;
 
         InitializeComponent();
@@ -159,7 +161,7 @@ public partial class ItemEditDialog : Form
                     barcodes
                 );
 
-                var result = await _updateItemUseCase.ExecuteAsync(request, CurrentUserId);
+                var result = await _updateItemUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
                 if (result.IsFailure)
                 {
                     ModernUIHelper.ShowModernError(result.Error);
@@ -179,7 +181,7 @@ public partial class ItemEditDialog : Form
                     barcodes
                 );
 
-                var result = await _createItemUseCase.ExecuteAsync(request, CurrentUserId);
+                var result = await _createItemUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
                 if (result.IsFailure)
                 {
                     ModernUIHelper.ShowModernError(result.Error);

@@ -13,9 +13,11 @@ production-readiness or deployment claim.
   PostgreSQL host starts.
 - Inventory, catalog, locations, receiving, putaway, picking, adjustments, and
   movement reporting are implemented at the domain/application level.
-- Authentication, authorization, external integrations, cycle counting,
-  replenishment, shipping, load qualification, and production operations remain
-  partial or planned.
+- Identity authentication, account management, lockout, password reset, audit
+  events, and explicit Web/WinForms user sessions are implemented locally;
+  tenant isolation, external integrations, cycle counting, replenishment,
+  shipping, load qualification, and production operations remain partial or
+  planned.
 - The authoritative implementation checkpoint is
   [`docs/implementation/EXECUTION_STATUS.md`](docs/implementation/EXECUTION_STATUS.md).
 
@@ -37,6 +39,10 @@ SQLite file and explicitly opts into the deterministic Demo seed profile:
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 dotnet run --project .\Wms.ASP\Wms.ASP.csproj
 ```
+
+The first Web run has no account unless you explicitly enable bootstrap with a
+secret password. Follow [`docs/modernization/AUTHENTICATION.md`](docs/modernization/AUTHENTICATION.md)
+to provision the first administrator; no default password is supplied.
 
 For the desktop demonstration:
 
@@ -89,6 +95,7 @@ Development, never an automatic production behavior.
 - [`TESTING.md`](TESTING.md) — repeatable local, integration, and smoke verification
 - [`DEPLOYMENT.md`](DEPLOYMENT.md) — current deployment boundary and migration gates
 - [`SECURITY.md`](SECURITY.md) — repository and runtime security expectations
+- [`docs/modernization/AUTHENTICATION.md`](docs/modernization/AUTHENTICATION.md) — account provisioning, reset, cookies, and WinForms session policy
 - [`ROADMAP.md`](ROADMAP.md) — implemented, partial, planned, and deferred work
 - [`docs/release/RELEASE_CHECKLIST.md`](docs/release/RELEASE_CHECKLIST.md) — backup, migration, rollout, monitoring, and rollback gates
 - [`docs/modernization/POSTGRESQL_LOCAL_SETUP.md`](docs/modernization/POSTGRESQL_LOCAL_SETUP.md)

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Media;
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Receiving;
 using Wms.WinForms.Common;
@@ -12,16 +13,20 @@ namespace Wms.WinForms.Forms;
 
 public partial class ReceivingForm : Form
 {
-    private const string CurrentUserId = "SYSTEM"; // TODO: Implement proper user management
+    private readonly ICurrentUser _currentUser;
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly ILogger<ReceivingForm> _logger;
     private readonly IReceiveItemUseCase _receiveItemUseCase;
 
-    public ReceivingForm(IReceiveItemUseCase receiveItemUseCase, IGetItemsUseCase getItemsUseCase,
+    public ReceivingForm(
+        IReceiveItemUseCase receiveItemUseCase,
+        IGetItemsUseCase getItemsUseCase,
+        ICurrentUser currentUser,
         ILogger<ReceivingForm> logger)
     {
         _receiveItemUseCase = receiveItemUseCase;
         _getItemsUseCase = getItemsUseCase;
+        _currentUser = currentUser;
         _logger = logger;
         InitializeComponent();
         SetupEventHandlers();
@@ -182,7 +187,7 @@ public partial class ReceivingForm : Form
                 dtpExpiryDate.Visible ? dtpExpiryDate.Value.Date : null
             );
 
-            var result = await _receiveItemUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _receiveItemUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {

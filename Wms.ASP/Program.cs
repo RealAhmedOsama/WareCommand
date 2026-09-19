@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Wms.Application.DependencyInjection;
 using Wms.ASP.Health;
+using Wms.ASP.Identity;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
 
@@ -38,6 +39,7 @@ public class Program
             connectionString,
             databaseProvider);
         builder.Services.AddWmsApplication();
+        builder.Services.AddWareCommandIdentity(builder.Configuration, builder.Environment);
         builder.Services
             .AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
@@ -46,6 +48,7 @@ public class Program
         var app = builder.Build();
 
         await InitializeDatabaseAsync(app.Services, seedProfile);
+        await InitializeIdentityAsync(app.Services);
 
         if (!app.Environment.IsDevelopment())
         {
@@ -65,6 +68,7 @@ public class Program
 
         app.UseStaticFiles();
         app.UseRouting();
+        app.UseAuthentication();
         app.UseAuthorization();
 
         app.MapHealthChecks(
@@ -213,5 +217,12 @@ public class Program
         await using var scope = services.CreateAsyncScope();
         var initializer = scope.ServiceProvider.GetRequiredService<IWmsDatabaseInitializer>();
         await initializer.InitializeAsync(seedProfile);
+    }
+
+    private static async Task InitializeIdentityAsync(IServiceProvider services)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var bootstrapper = scope.ServiceProvider.GetRequiredService<WmsIdentityBootstrapper>();
+        await bootstrapper.EnsureBootstrapAdministratorAsync();
     }
 }

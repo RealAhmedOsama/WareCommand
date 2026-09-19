@@ -14,6 +14,8 @@ dotnet build '.\Warehouse Management System.sln' -c Release --no-restore
 dotnet test '.\Warehouse Management System.sln' -c Release --no-build --no-restore --logger 'console;verbosity=minimal'
 dotnet format '.\Warehouse Management System.sln' --verify-no-changes --no-restore --severity error
 pwsh -NoProfile -File '.\scripts\verify-migrations.ps1'
+dotnet test '.\Wms.Infrastructure.Tests\Wms.Infrastructure.Tests.csproj' -c Release --no-build --no-restore
+dotnet test '.\Wms.ASP.Tests\Wms.ASP.Tests.csproj' -c Release --no-build --no-restore
 ```
 
 The PostgreSQL integration and SQLite-to-PostgreSQL migration tests are
@@ -57,8 +59,11 @@ pwsh -NoProfile -File '.\scripts\verify-baseline.ps1' -WebPort 5244
 ```
 
 The smoke script uses temporary local databases and ports. It verifies MVC
-routes and that the WinForms process reaches a live main window; it is not a
-browser acceptance suite.
+routes and that the WinForms process reaches its explicit login stage; a
+hidden smoke launch may not expose a main-window handle. It is not a browser
+acceptance suite. The focused `Wms.ASP.Tests` suite exercises
+anonymous redirects, login failure/success, cookie flags, logout, lockout,
+disabled-user session rejection, and password reset through the MVC host.
 
 ## Fresh-clone expectation
 

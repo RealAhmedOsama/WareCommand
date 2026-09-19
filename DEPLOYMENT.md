@@ -84,6 +84,23 @@ Development. Enabling `Reference` or `Demo` in a non-development environment
 is an explicit operational decision and must not be treated as a deployment
 default.
 
+## Authentication bootstrap and operations
+
+The production baseline creates no users and contains no default password.
+Provision the first administrator only during a controlled change by enabling
+`Authentication:Bootstrap` and supplying the username, email, profile fields,
+and a secret password through the platform secret manager. The password may be
+mounted through `Authentication:Bootstrap:PasswordFile`. Disable bootstrap
+after the first successful run; the bootstrapper is otherwise a no-op once any
+user exists.
+
+Set `Authentication:CookieSecure=true` for an HTTPS browser-facing endpoint,
+keep Data Protection keys on the persistent protected volume, and configure
+the SMTP secret values before relying on self-service password reset email.
+Account creation and disabling are administrator-only. The Web and desktop
+hosts both persist the real Identity user ID in movement audit data; the
+desktop client requires a fresh sign-in on every restart.
+
 ## Data migration
 
 SQLite-to-PostgreSQL migration is a separate controlled operation. Use the

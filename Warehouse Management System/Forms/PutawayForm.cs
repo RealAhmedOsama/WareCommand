@@ -3,6 +3,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Receiving;
 using Wms.WinForms.Common;
@@ -11,15 +12,20 @@ namespace Wms.WinForms.Forms;
 
 public partial class PutawayForm : Form
 {
-    private const string CurrentUserId = "SYSTEM";
+    private readonly ICurrentUser _currentUser;
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly ILogger<PutawayForm> _logger;
     private readonly IPutawayUseCase _putawayUseCase;
 
-    public PutawayForm(IPutawayUseCase putawayUseCase, IGetItemsUseCase getItemsUseCase, ILogger<PutawayForm> logger)
+    public PutawayForm(
+        IPutawayUseCase putawayUseCase,
+        IGetItemsUseCase getItemsUseCase,
+        ICurrentUser currentUser,
+        ILogger<PutawayForm> logger)
     {
         _putawayUseCase = putawayUseCase;
         _getItemsUseCase = getItemsUseCase;
+        _currentUser = currentUser;
         _logger = logger;
         InitializeComponent();
         SetupEventHandlers();
@@ -164,7 +170,7 @@ public partial class PutawayForm : Form
                 txtNotes.Text.Trim()
             );
 
-            var result = await _putawayUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _putawayUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {

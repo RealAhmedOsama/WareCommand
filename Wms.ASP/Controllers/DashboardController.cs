@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
@@ -6,6 +7,7 @@ using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
+[Authorize]
 public class DashboardController : Controller
 {
     private readonly IGetItemsUseCase _getItemsUseCase;

@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Database;
+using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
 
@@ -21,8 +23,35 @@ public static class InfrastructureServiceCollectionExtensions
     {
         services.AddPersistence(connectionString, provider);
         services.AddInventoryInfrastructure();
+        services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
+        services.AddScoped<IAccountDirectory, AccountDirectory>();
         services.AddDatabaseInitialization();
 
+        return services;
+    }
+
+    public static IServiceCollection AddWmsDesktopIdentity(this IServiceCollection services)
+    {
+        services
+            .AddIdentityCore<WmsUser>(options =>
+            {
+                options.Password.RequiredLength = 12;
+                options.Password.RequireDigit = true;
+                options.Password.RequireLowercase = true;
+                options.Password.RequireUppercase = true;
+                options.Password.RequireNonAlphanumeric = true;
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                options.User.RequireUniqueEmail = true;
+            })
+            .AddRoles<IdentityRole>()
+            .AddEntityFrameworkStores<WmsDbContext>();
+
+        services.AddSingleton<DesktopUserSession>();
+        services.AddSingleton<Wms.Application.Identity.ICurrentUser>(
+            provider => provider.GetRequiredService<DesktopUserSession>());
+        services.AddScoped<IDesktopAuthenticationService, DesktopAuthenticationService>();
         return services;
     }
 

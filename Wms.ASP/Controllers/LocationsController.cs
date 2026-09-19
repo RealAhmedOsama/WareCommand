@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Locations;
 using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
+[Authorize]
 public class LocationsController : Controller
 {
-    private const string CurrentUserId = "WEB_USER";
+    private readonly ICurrentUser _currentUser;
     private readonly ICreateLocationUseCase _createLocationUseCase;
     private readonly IGetLocationsUseCase _getLocationsUseCase;
     private readonly ILogger<LocationsController> _logger;
@@ -14,10 +17,12 @@ public class LocationsController : Controller
     public LocationsController(
         IGetLocationsUseCase getLocationsUseCase,
         ICreateLocationUseCase createLocationUseCase,
+        ICurrentUser currentUser,
         ILogger<LocationsController> logger)
     {
         _getLocationsUseCase = getLocationsUseCase;
         _createLocationUseCase = createLocationUseCase;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -86,7 +91,7 @@ public class LocationsController : Controller
                 model.Capacity
             );
 
-            var result = await _createLocationUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _createLocationUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {

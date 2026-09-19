@@ -1,0 +1,61 @@
+@model IReadOnlyList<Wms.ASP.Models.AccountUserViewModel>
+@{
+    ViewData["Title"] = "Warehouse accounts";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-1">Warehouse accounts</h1>
+        <p class="text-muted mb-0">Create staff accounts and disable access without deleting audit history.</p>
+    </div>
+    <a asp-action="CreateUser" class="btn btn-primary">Create account</a>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped align-middle">
+        <thead>
+        <tr>
+            <th>Display name</th>
+            <th>Username</th>
+            <th>Employee code</th>
+            <th>Status</th>
+            <th>Last login (UTC)</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var user in Model)
+        {
+            <tr>
+                <td>@user.DisplayName<br /><small class="text-muted">@user.Email</small></td>
+                <td>@user.UserName</td>
+                <td>@user.EmployeeCode</td>
+                <td>
+                    @if (!user.IsActive)
+                    {
+                        <span class="badge text-bg-secondary">Disabled</span>
+                    }
+                    else if (user.IsLockedOut)
+                    {
+                        <span class="badge text-bg-warning">Locked</span>
+                    }
+                    else
+                    {
+                        <span class="badge text-bg-success">Active</span>
+                    }
+                </td>
+                <td>@(user.LastLoginAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
+                <td class="text-end">
+                    <form asp-action="ToggleActive" method="post">
+                        <input type="hidden" name="id" value="@user.Id" />
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm @(user.IsActive ? "btn-outline-danger" : "btn-outline-success")">
+                            @(user.IsActive ? "Disable" : "Enable")
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

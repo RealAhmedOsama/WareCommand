@@ -23,6 +23,8 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link px-3 py-2 rounded-pill mx-1" asp-controller="Dashboard" asp-action="Index">
@@ -79,13 +81,39 @@
                         </ul>
                     </li>
                 </ul>
+                }
                 <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <span class="navbar-text d-flex align-items-center px-3 py-2 bg-white bg-opacity-10 rounded-pill">
-                            <i class="bi bi-person-circle me-2 fs-5"></i>
-                            <span class="fw-medium">WEB_USER</span>
-                        </span>
-                    </li>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link px-3 py-2" asp-controller="Account" asp-action="Manage">
+                                <i class="bi bi-person-circle me-1"></i>
+                                @(User.FindFirst("warecommand/display_name")?.Value ?? User.Identity.Name)
+                            </a>
+                        </li>
+                        @if (User.IsInRole("Administrator"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link px-3 py-2" asp-controller="Account" asp-action="Users">
+                                    <i class="bi bi-people me-1"></i>Accounts
+                                </a>
+                            </li>
+                        }
+                        <li class="nav-item">
+                            <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="nav-link btn btn-link px-3 py-2">Sign out</button>
+                            </form>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link px-3 py-2" asp-controller="Account" asp-action="Login">
+                                <i class="bi bi-box-arrow-in-right me-1"></i>Sign in
+                            </a>
+                        </li>
+                    }
                 </ul>
             </div>
         </div>

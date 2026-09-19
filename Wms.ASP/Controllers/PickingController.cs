@@ -1,20 +1,25 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Picking;
 using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
+[Authorize]
 public class PickingController : Controller
 {
-    private const string CurrentUserId = "WEB_USER";
+    private readonly ICurrentUser _currentUser;
     private readonly ILogger<PickingController> _logger;
     private readonly IPickOrderUseCase _pickOrderUseCase;
 
     public PickingController(
         IPickOrderUseCase pickOrderUseCase,
+        ICurrentUser currentUser,
         ILogger<PickingController> logger)
     {
         _pickOrderUseCase = pickOrderUseCase;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -43,7 +48,7 @@ public class PickingController : Controller
                 model.Notes
             );
 
-            var result = await _pickOrderUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _pickOrderUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {

@@ -22,6 +22,27 @@ current controls and the boundaries that remain open.
 - Review dependency and source changes before release; local build/test success
   is not a vulnerability assessment.
 
+## Authentication and account controls
+
+- ASP.NET Core Identity stores user accounts, roles, lockout state, password
+  hashes, and security stamps in the checked-in Identity migration.
+- Warehouse operations require an authenticated user. MVC and WinForms
+  adapters pass the explicit Identity user ID through `ICurrentUser`; there is
+  no `WEB_USER` or `SYSTEM` operational fallback.
+- Password policy, lockout, cookie lifetime, active-account validation, reset
+  tokens, antiforgery, and account-management authorization are configured in
+  the host. Bootstrap is disabled by default and accepts a password only from
+  an explicit secret source.
+- Authentication events are auditable in `WmsAuthenticationEvents` without
+  storing passwords, reset tokens, or sensitive claims. Protect this table as
+  operational security data.
+- Persist ASP.NET Core Data Protection keys on protected storage. Rotate the
+  bootstrap secret and SMTP credentials through the deployment secret manager,
+  never through committed settings.
+
+The implementation and operator procedure are recorded in
+[`docs/modernization/AUTHENTICATION.md`](docs/modernization/AUTHENTICATION.md).
+
 The repository `.gitignore` covers runtime SQLite files, logs, local settings,
 coverage, test results, and generated artifacts. A pre-commit or CI secret scan
 is still required for release qualification.
@@ -38,11 +59,10 @@ is still required for release qualification.
 
 ## Open security scope
 
-Authentication, authorization, tenant isolation, audit identity management,
-abuse controls, security headers, threat modeling, deep dependency scanning, and
-production secret rotation are not closed by the current local qualification.
-Treat the application as an internal development system until those gates are
-implemented and evidenced.
+Tenant isolation, abuse controls, security headers, threat modeling, deep
+dependency scanning, and production secret rotation are not closed by the
+current local qualification. Treat the application as an internal development
+system until those gates are implemented and evidenced.
 
 Report suspected vulnerabilities privately to the repository owner rather than
 publishing credentials or exploit details in a public issue.

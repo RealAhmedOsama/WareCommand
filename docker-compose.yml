@@ -50,6 +50,8 @@ services:
       DataProtection__KeyDirectory: /var/lib/warecommand/keys
       ForwardedHeaders__Enabled: "${WARECOMMAND_FORWARDED_HEADERS_ENABLED:-false}"
       HttpsRedirection__Enabled: "${WARECOMMAND_HTTPS_REDIRECTION_ENABLED:-false}"
+      Authentication__CookieSecure: "${WARECOMMAND_AUTH_COOKIE_SECURE:-false}"
+      Authentication__Bootstrap__Enabled: "${WARECOMMAND_AUTH_BOOTSTRAP_ENABLED:-false}"
       Host__ShutdownTimeoutSeconds: "${WARECOMMAND_SHUTDOWN_TIMEOUT_SECONDS:-30}"
     secrets:
       - postgres_password

@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Items;
 using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
+[Authorize]
 public class ItemsController : Controller
 {
-    private const string CurrentUserId = "WEB_USER";
+    private readonly ICurrentUser _currentUser;
     private readonly ICreateItemUseCase _createItemUseCase;
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly ILogger<ItemsController> _logger;
@@ -16,11 +19,13 @@ public class ItemsController : Controller
         IGetItemsUseCase getItemsUseCase,
         ICreateItemUseCase createItemUseCase,
         IUpdateItemUseCase updateItemUseCase,
+        ICurrentUser currentUser,
         ILogger<ItemsController> logger)
     {
         _getItemsUseCase = getItemsUseCase;
         _createItemUseCase = createItemUseCase;
         _updateItemUseCase = updateItemUseCase;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -85,7 +90,7 @@ public class ItemsController : Controller
                 barcodes
             );
 
-            var result = await _createItemUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _createItemUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {
@@ -168,7 +173,7 @@ public class ItemsController : Controller
                 barcodes
             );
 
-            var result = await _updateItemUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _updateItemUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {

@@ -2,6 +2,7 @@
 
 using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Picking;
 using Wms.WinForms.Common;
@@ -10,16 +11,20 @@ namespace Wms.WinForms.Forms;
 
 public partial class PickingForm : Form
 {
-    private const string CurrentUserId = "SYSTEM";
+    private readonly ICurrentUser _currentUser;
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly ILogger<PickingForm> _logger;
     private readonly IPickOrderUseCase _pickOrderUseCase;
 
-    public PickingForm(IPickOrderUseCase pickOrderUseCase, IGetItemsUseCase getItemsUseCase,
+    public PickingForm(
+        IPickOrderUseCase pickOrderUseCase,
+        IGetItemsUseCase getItemsUseCase,
+        ICurrentUser currentUser,
         ILogger<PickingForm> logger)
     {
         _pickOrderUseCase = pickOrderUseCase;
         _getItemsUseCase = getItemsUseCase;
+        _currentUser = currentUser;
         _logger = logger;
         InitializeComponent();
         SetupEventHandlers();
@@ -155,7 +160,7 @@ public partial class PickingForm : Form
                 txtNotes.Text.Trim()
             );
 
-            var result = await _pickOrderUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _pickOrderUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {

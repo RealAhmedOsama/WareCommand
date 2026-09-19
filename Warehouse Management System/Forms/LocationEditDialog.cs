@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Locations;
 using Wms.WinForms.Common;
 using CreateLocationDto = Wms.Application.UseCases.Locations.CreateLocationDto;
@@ -11,7 +12,7 @@ namespace Wms.WinForms.Forms;
 
 public partial class LocationEditDialog : Form
 {
-    private const string CurrentUserId = "SYSTEM";
+    private readonly ICurrentUser _currentUser;
     private readonly ICreateLocationUseCase _createLocationUseCase;
     private readonly IGetLocationsUseCase _getLocationsUseCase;
 
@@ -22,12 +23,16 @@ public partial class LocationEditDialog : Form
 
     public LocationEditDialog(ICreateLocationUseCase createLocationUseCase,
         IUpdateLocationUseCase updateLocationUseCase,
-        IGetLocationsUseCase getLocationsUseCase, ILogger<LocationEditDialog> logger, int? locationId = null)
+        IGetLocationsUseCase getLocationsUseCase,
+        ILogger<LocationEditDialog> logger,
+        ICurrentUser currentUser,
+        int? locationId = null)
     {
         _createLocationUseCase = createLocationUseCase;
         _updateLocationUseCase = updateLocationUseCase;
         _getLocationsUseCase = getLocationsUseCase;
         _logger = logger;
+        _currentUser = currentUser;
         _locationId = locationId;
 
         InitializeComponent();
@@ -201,7 +206,7 @@ public partial class LocationEditDialog : Form
                     (int)numCapacity.Value
                 );
 
-                var result = await _updateLocationUseCase.ExecuteAsync(request, CurrentUserId);
+                var result = await _updateLocationUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
                 if (result.IsFailure)
                 {
                     ModernUIHelper.ShowModernError(result.Error);
@@ -220,7 +225,7 @@ public partial class LocationEditDialog : Form
                     (int)numCapacity.Value
                 );
 
-                var result = await _createLocationUseCase.ExecuteAsync(request, CurrentUserId);
+                var result = await _createLocationUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
                 if (result.IsFailure)
                 {
                     ModernUIHelper.ShowModernError(result.Error);

@@ -1,13 +1,16 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Receiving;
 using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
+[Authorize]
 public class ReceivingController : Controller
 {
-    private const string CurrentUserId = "WEB_USER";
+    private readonly ICurrentUser _currentUser;
     private readonly ILogger<ReceivingController> _logger;
     private readonly IPutawayUseCase _putawayUseCase;
     private readonly IReceiveItemUseCase _receiveItemUseCase;
@@ -15,10 +18,12 @@ public class ReceivingController : Controller
     public ReceivingController(
         IReceiveItemUseCase receiveItemUseCase,
         IPutawayUseCase putawayUseCase,
+        ICurrentUser currentUser,
         ILogger<ReceivingController> logger)
     {
         _receiveItemUseCase = receiveItemUseCase;
         _putawayUseCase = putawayUseCase;
+        _currentUser = currentUser;
         _logger = logger;
     }
 
@@ -48,7 +53,7 @@ public class ReceivingController : Controller
                 model.Notes
             );
 
-            var result = await _receiveItemUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _receiveItemUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {
@@ -93,7 +98,7 @@ public class ReceivingController : Controller
                 model.Notes
             );
 
-            var result = await _putawayUseCase.ExecuteAsync(request, CurrentUserId);
+            var result = await _putawayUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
             if (result.IsFailure)
             {

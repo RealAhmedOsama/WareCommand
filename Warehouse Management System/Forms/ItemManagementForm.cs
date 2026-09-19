@@ -3,6 +3,7 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Items;
 using Wms.WinForms.Common;
 
@@ -10,14 +11,15 @@ namespace Wms.WinForms.Forms;
 
 public partial class ItemManagementForm : Form
 {
-    private const string CurrentUserId = "SYSTEM";
+    private readonly ICurrentUser _currentUser;
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly ILogger<ItemManagementForm> _logger;
 
-    public ItemManagementForm(IGetItemsUseCase getItemsUseCase, ILogger<ItemManagementForm> logger)
+    public ItemManagementForm(IGetItemsUseCase getItemsUseCase, ICurrentUser currentUser, ILogger<ItemManagementForm> logger)
     {
         _getItemsUseCase = getItemsUseCase;
         _logger = logger;
+        _currentUser = currentUser;
         InitializeComponent();
         SetupEventHandlers();
         SetupForm();
@@ -325,7 +327,13 @@ public partial class ItemManagementForm : Form
             var updateItemUseCase = Program.ServiceProvider.GetRequiredService<IUpdateItemUseCase>();
             var logger = Program.ServiceProvider.GetRequiredService<ILogger<ItemEditDialog>>();
 
-            var dialog = new ItemEditDialog(createItemUseCase, updateItemUseCase, _getItemsUseCase, logger, itemId);
+            var dialog = new ItemEditDialog(
+                createItemUseCase,
+                updateItemUseCase,
+                _getItemsUseCase,
+                logger,
+                _currentUser,
+                itemId);
 
             if (dialog.ShowDialog(this) == DialogResult.OK)
             {

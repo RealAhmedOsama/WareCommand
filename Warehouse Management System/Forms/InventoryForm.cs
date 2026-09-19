@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
 using Wms.WinForms.Common;
@@ -10,18 +11,19 @@ namespace Wms.WinForms.Forms;
 
 public partial class InventoryForm : Form
 {
-    private const string CurrentUserId = "SYSTEM"; // TODO: Implement proper user management
+    private readonly ICurrentUser _currentUser;
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly IGetStockUseCase _getStockUseCase;
     private readonly ILogger<InventoryForm> _logger;
     private readonly IStockAdjustmentUseCase _stockAdjustmentUseCase;
 
     public InventoryForm(IGetStockUseCase getStockUseCase, IStockAdjustmentUseCase stockAdjustmentUseCase,
-        IGetItemsUseCase getItemsUseCase, ILogger<InventoryForm> logger)
+        IGetItemsUseCase getItemsUseCase, ICurrentUser currentUser, ILogger<InventoryForm> logger)
     {
         _getStockUseCase = getStockUseCase;
         _stockAdjustmentUseCase = stockAdjustmentUseCase;
         _getItemsUseCase = getItemsUseCase;
+        _currentUser = currentUser;
         _logger = logger;
         InitializeComponent();
         SetupEventHandlers();
@@ -484,7 +486,7 @@ public partial class InventoryForm : Form
                     adjustmentForm.Reason
                 );
 
-                var result = await _stockAdjustmentUseCase.ExecuteAsync(request, CurrentUserId);
+                var result = await _stockAdjustmentUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
 
                 if (result.IsFailure)
                 {

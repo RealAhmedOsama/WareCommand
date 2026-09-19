@@ -16,6 +16,9 @@ human-readable summary; the compact local checkpoint is
 - Shared deterministic `None`, `Reference`, and `Demo` seed profiles.
 - Clean checkout defaults: runtime databases and local artifacts are not
   tracked.
+- First-party Identity authentication, admin-created warehouse accounts,
+  lockout/password reset, auditable authentication events, protected MVC
+  routes, and explicit WinForms user sessions.
 
 ## Partial or qualification-dependent
 
@@ -30,7 +33,8 @@ human-readable summary; the compact local checkpoint is
 
 ## Planned or deferred
 
-- Access control, identity, tenant isolation, and authorization.
+- Tenant isolation and authorization refinement beyond the implemented
+  account/role boundary.
 - Execution/task workflows, counting, replenishment, shipping, and external
   integrations.
 - Concurrency, performance/load, backup/restore rehearsal, security scanning,
