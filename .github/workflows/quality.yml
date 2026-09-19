@@ -1,4 +1,4 @@
-name: WareCommand quality
+name: WareCommand CI
 
 on:
   push:
@@ -7,14 +7,19 @@ on:
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-jobs:
-  build-test-and-migration-check:
-    runs-on: windows-latest
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
+jobs:
+  linux-quality:
+    name: Linux quality and coverage
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,24 +29,248 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Restore tools and packages
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.*', 'global.json', '.config/dotnet-tools.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore packages
+        run: dotnet restore 'Warehouse Management System.sln' --nologo
+
+      - name: Check NuGet vulnerabilities and deprecations
         shell: pwsh
+        run: pwsh -NoProfile -File './scripts/verify-dependencies.ps1'
+
+      - name: Build Linux-compatible production projects
+        shell: bash
         run: |
-          dotnet tool restore
-          dotnet restore "Warehouse Management System.sln" --nologo
+          set -euo pipefail
+          for project in \
+            'Wms.Domain/Wms.Domain.csproj' \
+            'Wms.Application/Wms.Application.csproj' \
+            'Wms.Infrastructure/Wms.Infrastructure.csproj' \
+            'Wms.ASP/Wms.ASP.csproj' \
+            'Wms.DataMigration/Wms.DataMigration.csproj'; do
+            dotnet build "$project" -c Release --no-restore --nologo -v:minimal
+          done
 
-      - name: Build
-        shell: pwsh
-        run: dotnet build "Warehouse Management System.sln" -c Release --no-restore --nologo -v:minimal
-
-      - name: Test
-        shell: pwsh
-        run: dotnet test "Warehouse Management System.sln" -c Release --no-build --no-restore --nologo --logger "console;verbosity=minimal"
-
-      - name: Format
-        shell: pwsh
-        run: dotnet format "Warehouse Management System.sln" --verify-no-changes --no-restore --severity error
+      - name: Run Linux-compatible tests with coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/test-results/linux
+          for project in \
+            'Wms.Domain.Tests/Wms.Domain.Tests.csproj' \
+            'Wms.Application.Tests/Wms.Application.Tests.csproj' \
+            'Wms.Infrastructure.Tests/Wms.Infrastructure.Tests.csproj' \
+            'Wms.Architecture.Tests/Wms.Architecture.Tests.csproj' \
+            'Wms.DataMigration.Tests/Wms.DataMigration.Tests.csproj'; do
+            dotnet test "$project" -c Release --no-restore --nologo \
+              --logger 'console;verbosity=minimal' \
+              --collect:'XPlat Code Coverage' \
+              --results-directory artifacts/test-results/linux
+          done
 
       - name: Verify migration model and startup gate
         shell: pwsh
-        run: pwsh -NoProfile -File ".\scripts\verify-migrations.ps1"
+        run: pwsh -NoProfile -File './scripts/verify-migrations.ps1'
+
+      - name: Publish job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Linux quality and coverage'
+            echo '- Restore is always executed; the NuGet cache is an accelerator only.'
+            echo '- Linux-compatible production projects and tests are covered here.'
+            echo '- Coverage files are uploaded from `artifacts/test-results/linux`.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Linux test and coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-test-results-${{ github.run_id }}
+          path: artifacts/test-results/linux
+          if-no-files-found: ignore
+
+  windows-quality:
+    name: Windows solution quality and coverage
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.*', 'global.json', '.config/dotnet-tools.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore packages
+        run: dotnet restore 'Warehouse Management System.sln' --nologo
+
+      - name: Build complete solution including WinForms
+        shell: pwsh
+        run: dotnet build 'Warehouse Management System.sln' -c Release --no-restore --nologo -v:minimal
+
+      - name: Run complete solution tests with coverage
+        shell: pwsh
+        run: dotnet test 'Warehouse Management System.sln' -c Release --no-build --no-restore --nologo --logger 'console;verbosity=minimal' --collect 'XPlat Code Coverage' --results-directory 'artifacts/test-results/windows'
+
+      - name: Verify formatting
+        shell: pwsh
+        run: dotnet format 'Warehouse Management System.sln' --verify-no-changes --no-restore --severity error
+
+      - name: Verify migration model and startup gate
+        shell: pwsh
+        run: pwsh -NoProfile -File './scripts/verify-migrations.ps1'
+
+      - name: Publish job summary
+        if: always()
+        shell: pwsh
+        run: |
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '## Windows solution quality and coverage'
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- Complete solution build includes the Windows-only WinForms target.'
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- Test and coverage files are uploaded from `artifacts/test-results/windows`.'
+
+      - name: Upload Windows test and coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-results-${{ github.run_id }}
+          path: artifacts/test-results/windows
+          if-no-files-found: ignore
+
+  postgres-integration:
+    name: Disposable PostgreSQL integration and migration
+    runs-on: ubuntu-latest
+    needs:
+      - linux-quality
+      - windows-quality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.*', 'global.json', '.config/dotnet-tools.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Restore tools and packages
+        run: |
+          dotnet tool restore
+          dotnet restore 'Warehouse Management System.sln' --nologo
+
+      - name: Verify PostgreSQL integration
+        shell: pwsh
+        run: pwsh -NoProfile -File './scripts/verify-postgresql.ps1' -Port 55432
+
+      - name: Verify SQLite-to-PostgreSQL migration
+        shell: pwsh
+        run: pwsh -NoProfile -File './scripts/verify-data-migration.ps1' -Port 55433
+
+      - name: Publish job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Disposable PostgreSQL integration and migration'
+            echo '- PostgreSQL 17 containers are unique per verification and removed by the scripts.'
+            echo '- Schema, startup refusal, seed/query behavior, import reconciliation, and rollback are exercised.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload integration artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-integration-failure-${{ github.run_id }}
+          path: artifacts
+          if-no-files-found: ignore
+
+  docker:
+    name: Production Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Compose configuration
+        env:
+          WARECOMMAND_POSTGRES_PASSWORD: ci-placeholder
+        run: docker compose -f docker-compose.postgres.yml config --quiet
+
+      - name: Build production image
+        run: docker build --tag warecommand-wms-ci:${{ github.sha }} --file Wms.ASP/Dockerfile .
+
+      - name: Publish job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Production Docker image'
+            echo '- Compose configuration and the production Wms.ASP image build passed.'
+            echo '- No image is pushed by this workflow.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  security:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan repository for secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish job summary
+        if: always()
+        shell: bash
+        run: echo '## Secret scan' >> "$GITHUB_STEP_SUMMARY"
+
+  dependency-review:
+    name: Pull request dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+      - name: Publish job summary
+        if: always()
+        shell: bash
+        run: echo '## Pull request dependency review' >> "$GITHUB_STEP_SUMMARY"

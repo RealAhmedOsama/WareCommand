@@ -55,3 +55,30 @@ connection and a schema that has already received the checked-in migrations.
 
 The current command results and commit checkpoints are recorded in
 [`docs/implementation/EXECUTION_STATUS.md`](docs/implementation/EXECUTION_STATUS.md).
+
+## Pull-request CI
+
+`.github/workflows/quality.yml` is the repository CI entry point. It restores
+packages on every run; the NuGet cache only accelerates that restore and cannot
+hide restore failures. The Linux job builds the production projects that do
+not target Windows, runs their tests with coverage, and verifies migrations.
+The Windows job builds the complete solution (including WinForms), runs the
+complete test suite with coverage, checks formatting, and verifies migrations.
+
+Additional jobs run disposable PostgreSQL integration and data-migration
+checks, validate the Compose file, build the production Docker image without
+pushing it, scan for secrets with Gitleaks, and review dependency changes on
+pull requests. Test and coverage artifacts are uploaded even when a quality
+job fails.
+
+The dependency gate fails on vulnerabilities and on deprecated packages that
+are not explicitly documented. The current restore graph reports the xUnit v2
+packages as legacy, so those five package names are a temporary allowlist and
+produce a warning. Any new deprecated package must fail CI; the allowlist
+should be removed when the test suite is migrated to xUnit v3.
+
+Recommended protected-branch status checks are `Linux quality and coverage`,
+`Windows solution quality and coverage`, `Disposable PostgreSQL integration
+and migration`, `Production Docker image`, and `Secret scan`. Pull requests
+should be required for `master`, with the branch up to date before merge and
+force-push deletion disabled. This workflow performs no deployment.
