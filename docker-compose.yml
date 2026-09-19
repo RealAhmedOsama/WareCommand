@@ -1,0 +1,84 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${WARECOMMAND_POSTGRES_DB:-warecommand}
+      POSTGRES_USER: ${WARECOMMAND_POSTGRES_USER:-warecommand}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    ports:
+      - "${WARECOMMAND_POSTGRES_BIND_ADDRESS:-127.0.0.1}:${WARECOMMAND_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - backend
+      - edge
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    stop_grace_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: Wms.ASP/Dockerfile
+      args:
+        WARECOMMAND_VERSION: ${WARECOMMAND_VERSION:-0.0.0-local}
+        WARECOMMAND_REVISION: ${WARECOMMAND_REVISION:-local}
+        WARECOMMAND_BUILD_DATE: ${WARECOMMAND_BUILD_DATE:-unknown}
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      AllowedHosts: ${WARECOMMAND_ALLOWED_HOSTS:-*}
+      Wms__DatabaseProvider: PostgreSql
+      Wms__SeedProfile: None
+      Wms__PostgresPasswordFile: /run/secrets/postgres_password
+      Wms__PostgresHost: postgres
+      Wms__PostgresPort: 5432
+      Wms__PostgresDatabase: ${WARECOMMAND_POSTGRES_DB:-warecommand}
+      Wms__PostgresUsername: ${WARECOMMAND_POSTGRES_USER:-warecommand}
+      DataProtection__KeyDirectory: /var/lib/warecommand/keys
+      ForwardedHeaders__Enabled: "${WARECOMMAND_FORWARDED_HEADERS_ENABLED:-false}"
+      HttpsRedirection__Enabled: "${WARECOMMAND_HTTPS_REDIRECTION_ENABLED:-false}"
+      Host__ShutdownTimeoutSeconds: "${WARECOMMAND_SHUTDOWN_TIMEOUT_SECONDS:-30}"
+    secrets:
+      - postgres_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${WARECOMMAND_WEB_BIND_ADDRESS:-127.0.0.1}:${WARECOMMAND_WEB_PORT:-8080}:8080"
+    volumes:
+      - warecommand-data:/var/lib/warecommand
+    networks:
+      - backend
+      - edge
+    healthcheck:
+      test: ["CMD", "dotnet", "/app/Wms.ASP.dll", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+networks:
+  backend:
+    internal: true
+  edge:
+
+volumes:
+  postgres-data:
+  warecommand-data:
+
+secrets:
+  postgres_password:
+    environment: WARECOMMAND_POSTGRES_PASSWORD

@@ -55,6 +55,12 @@ pwsh -NoProfile -File .\scripts\migrate-postgresql.ps1 -Apply
 dotnet run --project .\Wms.ASP\Wms.ASP.csproj
 ```
 
+For the reproducible local Web plus PostgreSQL container baseline, see
+[`DEPLOYMENT.md`](DEPLOYMENT.md) and run the explicit migration sequence there.
+The Compose stack does not apply migrations implicitly; it persists database
+and Data Protection volumes, exposes the web health endpoints, and injects the
+database password through a Compose secret.
+
 Use [`scripts/verify-baseline.ps1`](scripts/verify-baseline.ps1) for the local
 MVC and WinForms smoke path and [`scripts/verify-postgresql.ps1`](scripts/verify-postgresql.ps1)
 for disposable PostgreSQL qualification.

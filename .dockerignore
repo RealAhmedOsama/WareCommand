@@ -3,6 +3,7 @@
 **/.env
 **/.git
 **/.gitignore
+**/.env.*
 **/.project
 **/.settings
 **/.toolstarget
@@ -16,6 +17,9 @@
 **/charts
 **/docker-compose*
 **/Dockerfile*
+**/appsettings.Development.json
+**/appsettings.*.example.json
+**/*.secret.json
 **/node_modules
 **/npm-debug.log
 **/obj

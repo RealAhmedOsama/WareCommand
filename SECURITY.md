@@ -10,6 +10,13 @@ current controls and the boundaries that remain open.
   generated reports.
 - Use environment variables, the .NET user-secrets store, or the deployment
   secret manager for connection strings and credentials.
+- The container Compose baseline maps `WARECOMMAND_POSTGRES_PASSWORD` into a
+  runtime secret and the Web host reads the mounted password file; it does not
+  commit a connection string or credential. Replace the local Compose secret
+  with the platform secret manager for production.
+- Keep the PostgreSQL data and ASP.NET Core Data Protection key volumes on
+  protected persistent storage. Do not expose PostgreSQL beyond the private
+  application network unless an approved operational need requires it.
 - Keep backups and migration reports outside the repository unless they are
   sanitized test fixtures.
 - Review dependency and source changes before release; local build/test success

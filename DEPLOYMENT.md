@@ -15,6 +15,56 @@ production release. Deployment remains subject to the remaining Master Plan
 - The WinForms host is a local desktop/demo host and is not a production
   service process.
 
+## Container baseline
+
+`docker-compose.yml` is the local Web plus PostgreSQL baseline. It keeps both
+services on an internal network, binds host ports to loopback by default,
+persists PostgreSQL data in `postgres-data`, persists ASP.NET Core Data
+Protection keys in `warecommand-data`, and injects the database password as a
+Compose secret sourced from `WARECOMMAND_POSTGRES_PASSWORD`. The web container
+uses the non-root runtime user from the .NET image, exposes port 8080, has a
+real liveness/readiness health probe, and receives a 30-second graceful-stop
+window.
+
+The application refuses to start with pending PostgreSQL migrations. Apply the
+checked-in migration explicitly before starting the web service:
+
+```powershell
+$env:WARECOMMAND_POSTGRES_PASSWORD = '<local-only-secret>'
+$env:WARECOMMAND_POSTGRES_PORT = '55434'
+$env:WARECOMMAND_WEB_PORT = '58080'
+docker compose -f .\docker-compose.yml up --detach postgres
+$env:WARECOMMAND_POSTGRES_CONNECTION = 'Host=127.0.0.1;Port=55434;Database=warecommand;Username=warecommand;Password=<local-only-secret>'
+pwsh -NoProfile -File .\scripts\migrate-postgresql.ps1 -Apply
+docker compose -f .\docker-compose.yml up --detach --build web
+Invoke-WebRequest http://127.0.0.1:58080/health/live
+Invoke-WebRequest http://127.0.0.1:58080/health/ready
+```
+
+`docker compose down` stops the stack while retaining the named volumes.
+`docker compose down --volumes` is destructive and removes the local database
+and Data Protection keys. Do not use it for a production rollback.
+
+The image is HTTP-only on its internal 8080 port. In production, terminate
+HTTPS at a managed reverse proxy, forward `X-Forwarded-For` and
+`X-Forwarded-Proto`, set `ForwardedHeaders:Enabled=true`, and configure only
+the proxy addresses in `ForwardedHeaders:KnownProxies`. The proxy must enforce
+the external HTTPS policy; do not bake certificates or private keys into the
+image. If the application terminates TLS directly, provide the certificate
+through the platform secret store and configure a separate HTTPS endpoint.
+
+Keep `/var/lib/warecommand/keys` on persistent protected storage. Losing this
+directory invalidates encrypted cookies and other Data Protection payloads.
+The application logs to standard output/error so the container runtime can
+collect and retain logs. Compose uses `unless-stopped` restart behavior, but
+restart policy does not replace backups, migration review, readiness checks,
+or an operational owner.
+
+Use immutable image tags such as the commit SHA and retain the OCI version,
+revision, and build-date labels. The checked-in `.env.example` contains only
+placeholders; copy it to a local ignored `.env` or inject values through the
+deployment secret manager.
+
 ## Controlled PostgreSQL rollout
 
 1. Set `ConnectionStrings__DefaultConnection` for the web host and

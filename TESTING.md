@@ -36,6 +36,20 @@ readback. The second gate verifies representative SQLite import, identifier
 preservation, relationship reconciliation, idempotent rerun, source-hash
 preservation, and target rollback on invalid source data.
 
+## Container qualification
+
+The container baseline is intentionally migration-gated. Start only PostgreSQL,
+apply the checked-in migration with `scripts/migrate-postgresql.ps1 -Apply`,
+and then start the Web service from `DEPLOYMENT.md`. Verify both
+`/health/live` and `/health/ready`, confirm the Web container is non-root, stop
+and restart it, and confirm the named PostgreSQL and Data Protection volumes
+remain present. Stop PostgreSQL while Web is running and verify readiness
+returns `503`; restore PostgreSQL and verify readiness returns `200` again.
+
+The production Docker job also validates both Compose files and builds an
+immutable commit-tagged image. It does not start a production stack, apply a
+live migration, push an image, or deploy a service.
+
 ## Host smoke checks
 
 ```powershell

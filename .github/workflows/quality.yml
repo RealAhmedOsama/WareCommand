@@ -222,10 +222,18 @@ jobs:
       - name: Validate Compose configuration
         env:
           WARECOMMAND_POSTGRES_PASSWORD: ci-placeholder
-        run: docker compose -f docker-compose.postgres.yml config --quiet
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f docker-compose.postgres.yml config --quiet
 
       - name: Build production image
-        run: docker build --tag warecommand-wms-ci:${{ github.sha }} --file Wms.ASP/Dockerfile .
+        run: >-
+          docker build
+          --build-arg WARECOMMAND_VERSION=0.0.0-ci.${{ github.run_number }}
+          --build-arg WARECOMMAND_REVISION=${{ github.sha }}
+          --build-arg WARECOMMAND_BUILD_DATE=${{ github.run_id }}
+          --tag warecommand-wms-ci:${{ github.sha }}
+          --file Wms.ASP/Dockerfile .
 
       - name: Publish job summary
         if: always()
@@ -234,6 +242,7 @@ jobs:
           {
             echo '## Production Docker image'
             echo '- Compose configuration and the production Wms.ASP image build passed.'
+            echo '- The image is tagged by commit SHA and carries OCI version/revision metadata.'
             echo '- No image is pushed by this workflow.'
           } >> "$GITHUB_STEP_SUMMARY"
 
