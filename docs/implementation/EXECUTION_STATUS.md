@@ -8,12 +8,13 @@ claim deployment or external-provider qualification.
 | Issue | State | Acceptance evidence | Commit | Dependencies / blocker | Exact next action |
 | ---: | --- | --- | --- | --- | --- |
 | #2 | verified locally; committed | Restore passed; Debug and Release builds passed with 25 baseline warnings; 147/147 Release tests passed; MVC `/`, `/Dashboard`, `/Items`, `/Inventory` returned 200 against disposable SQLite; WinForms exposed a live main window; reproduction script passed | `f80c431` | Pre-existing untracked `Front-End/` prevents a clean working tree without destroying the supplied package | Upgrade the solution to .NET 10/C# 14 for #3 |
-| #3 | in progress | Requirements loaded; package compatibility checked against NuGet stable versions | — | Depends on #2; framework/package edits are applied and awaiting the final scoped commit | Record the verified .NET 10 commit, then start package centralization and warning gates for #4 |
-| #4–#107 | pending | Not yet evaluated as complete | — | Ordered by the master plan and prerequisite constraints | Complete #3, then centralize package versions and build-quality gates for #4 |
+| #3 | verified locally; committed | .NET 10.0.401 SDK selected; all projects target .NET 10; stable package upgrades restored; Release build and 147/147 tests passed; MVC/WinForms baseline script passed | `342f1da` | Depends on #2; no production deployment or provider qualification claimed | Centralize package versions and establish strict quality gates for #4 |
+| #4 | verified locally; committed | Central package management enabled; repository analyzer/editorconfig gates added; Release build passed with 0 warnings/0 errors; 147/147 Release tests passed; `dotnet format --verify-no-changes --severity error` passed; package graph reported no warnings/downgrades/conflicts; baseline script passed | `00d6700` | Depends on #3; performance analyzers CA1848/CA1873/CA1860 remain enabled as suggestions for targeted follow-up | Load and implement the acceptance requirements for #5 |
+| #5–#107 | pending | Not yet evaluated as complete | — | Ordered by the master plan and prerequisite constraints | Implement #5 next; preserve the phase order and authoritative issue scope |
 
 ## Phase checkpoint
 
-- Phase 0: #2 committed; #3 in progress; #4–#11 pending.
+- Phase 0: #2, #3, and #4 committed; #5–#11 pending.
 - Phase 1–9: pending implementation and qualification.
 - Nothing has been pushed, deployed, or migrated against production data.
 
