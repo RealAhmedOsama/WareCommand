@@ -10,8 +10,12 @@ namespace Wms.Infrastructure.Repositories;
 
 public class ItemRepository : Repository<Item>, IItemRepository
 {
+    private const string PostgreSqlProviderName = "Npgsql.EntityFrameworkCore.PostgreSQL";
+    private readonly WmsDbContext _context;
+
     public ItemRepository(WmsDbContext context) : base(context)
     {
+        _context = context;
     }
 
     public async Task<Item?> GetBySkuAsync(string sku, CancellationToken cancellationToken = default)
@@ -30,11 +34,23 @@ public class ItemRepository : Repository<Item>, IItemRepository
 
     public async Task<IEnumerable<Item>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default)
     {
-        var term = searchTerm.ToUpperInvariant();
-        return await DbSet
-            .Where(i => i.Sku.Contains(term) ||
-                        EF.Functions.Like(i.Name.ToUpperInvariant(), $"%{term}%") ||
-                        i.Barcodes.Any(b => b.Value.Contains(term)))
+        var pattern = $"%{searchTerm}%";
+        var query = DbSet.AsQueryable();
+
+        if (string.Equals(_context.Database.ProviderName, PostgreSqlProviderName, StringComparison.Ordinal))
+        {
+            query = query.Where(i => EF.Functions.ILike(i.Sku, pattern) ||
+                                     EF.Functions.ILike(i.Name, pattern) ||
+                                     i.Barcodes.Any(b => EF.Functions.ILike(b.Value, pattern)));
+        }
+        else
+        {
+            query = query.Where(i => EF.Functions.Like(i.Sku, pattern) ||
+                                     EF.Functions.Like(i.Name, pattern) ||
+                                     i.Barcodes.Any(b => EF.Functions.Like(b.Value, pattern)));
+        }
+
+        return await query
             .OrderBy(i => i.Sku)
             .ToListAsync(cancellationToken);
     }

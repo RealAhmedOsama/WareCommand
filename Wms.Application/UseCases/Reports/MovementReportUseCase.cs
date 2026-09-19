@@ -91,8 +91,9 @@ public class MovementReportUseCase : IMovementReportUseCase
         }
 
         // Default to last 30 days
-        var defaultFromDate = DateTime.Today.AddDays(-30);
-        var defaultToDate = DateTime.Today.AddDays(1);
+        var utcToday = DateTime.UtcNow.Date;
+        var defaultFromDate = utcToday.AddDays(-30);
+        var defaultToDate = utcToday.AddDays(1);
         return await _unitOfWork.Movements.GetByDateRangeAsync(defaultFromDate, defaultToDate, cancellationToken);
     }
 

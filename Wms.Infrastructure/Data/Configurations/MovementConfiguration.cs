@@ -33,10 +33,15 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .HasMaxLength(1000);
 
         builder.Property(e => e.Timestamp)
-            .IsRequired();
+            .IsRequired()
+            .HasColumnType("timestamp with time zone");
 
         builder.Property(e => e.CreatedAt)
-            .IsRequired();
+            .IsRequired()
+            .HasColumnType("timestamp with time zone");
+
+        builder.Property(e => e.UpdatedAt)
+            .HasColumnType("timestamp with time zone");
 
         // Value object configuration
         builder.Property(e => e.Quantity)

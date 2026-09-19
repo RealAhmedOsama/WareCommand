@@ -18,13 +18,17 @@ public class LotConfiguration : IEntityTypeConfiguration<Lot>
             .IsRequired()
             .HasMaxLength(100);
 
-        builder.Property(e => e.ExpiryDate);
-        builder.Property(e => e.ManufacturedDate);
+        builder.Property(e => e.ExpiryDate)
+            .HasColumnType("timestamp without time zone");
+        builder.Property(e => e.ManufacturedDate)
+            .HasColumnType("timestamp without time zone");
 
         builder.Property(e => e.CreatedAt)
-            .IsRequired();
+            .IsRequired()
+            .HasColumnType("timestamp with time zone");
 
-        builder.Property(e => e.UpdatedAt);
+        builder.Property(e => e.UpdatedAt)
+            .HasColumnType("timestamp with time zone");
 
         // Relationships
         builder.HasOne(e => e.Item)

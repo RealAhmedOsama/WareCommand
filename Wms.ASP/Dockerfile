@@ -13,7 +13,13 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY ["Directory.Build.props", "."]
+COPY ["Directory.Build.targets", "."]
+COPY ["Directory.Packages.props", "."]
+COPY [".editorconfig", "."]
 COPY ["Wms.ASP/Wms.ASP.csproj", "Wms.ASP/"]
+COPY ["Wms.Application/Wms.Application.csproj", "Wms.Application/"]
+COPY ["Wms.Domain/Wms.Domain.csproj", "Wms.Domain/"]
+COPY ["Wms.Infrastructure/Wms.Infrastructure.csproj", "Wms.Infrastructure/"]
 RUN dotnet restore "./Wms.ASP/Wms.ASP.csproj"
 COPY . .
 WORKDIR "/src/Wms.ASP"

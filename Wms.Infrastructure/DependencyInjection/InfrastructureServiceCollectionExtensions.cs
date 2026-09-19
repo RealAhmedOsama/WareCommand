@@ -16,9 +16,10 @@ public static class InfrastructureServiceCollectionExtensions
 {
     public static IServiceCollection AddWmsInfrastructure(
         this IServiceCollection services,
-        string? connectionString)
+        string? connectionString,
+        WmsDatabaseProvider provider = WmsDatabaseProvider.PostgreSql)
     {
-        services.AddPersistence(connectionString);
+        services.AddPersistence(connectionString, provider);
         services.AddInventoryInfrastructure();
         services.AddDatabaseInitialization();
 
@@ -27,13 +28,33 @@ public static class InfrastructureServiceCollectionExtensions
 
     private static IServiceCollection AddPersistence(
         this IServiceCollection services,
-        string? connectionString)
+        string? connectionString,
+        WmsDatabaseProvider provider)
     {
+        if (provider == WmsDatabaseProvider.PostgreSql && string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "A PostgreSQL connection string is required when Wms:DatabaseProvider is PostgreSql.");
+        }
+
         var resolvedConnectionString = string.IsNullOrWhiteSpace(connectionString)
             ? "Data Source=warehouse.db"
             : connectionString;
 
-        services.AddDbContext<WmsDbContext>(options => options.UseSqlite(resolvedConnectionString));
+        services.AddSingleton(new WmsDatabaseOptions(provider));
+        services.AddDbContext<WmsDbContext>(options =>
+        {
+            if (provider == WmsDatabaseProvider.PostgreSql)
+            {
+                options.UseNpgsql(
+                    resolvedConnectionString,
+                    npgsql => npgsql.MigrationsAssembly(typeof(WmsDbContext).Assembly.FullName));
+            }
+            else
+            {
+                options.UseSqlite(resolvedConnectionString);
+            }
+        });
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IItemRepository, ItemRepository>();
         services.AddScoped<ILocationRepository, LocationRepository>();

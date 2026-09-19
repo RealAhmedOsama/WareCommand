@@ -25,9 +25,9 @@ Core context, or construct domain entities for an operational request.
   abstractions, and invariants. It has no project reference to an outer layer.
 - `Wms.Application` owns use-case orchestration, request/response DTOs, and
   result handling. It depends on the domain and framework abstractions only.
-- `Wms.Infrastructure` owns EF Core mappings, the SQLite adapter currently used
-  for local qualification, repository implementations, stock movement
-  persistence, and demo database initialization.
+- `Wms.Infrastructure` owns EF Core mappings, the PostgreSQL production
+  adapter, the explicit SQLite local/demo adapter, repository implementations,
+  stock movement persistence, and demo database initialization.
 - `Wms.ASP` and `Wms.WinForms` translate UI input into application requests and
   render application results. Their `Program` files are composition roots only.
 
@@ -65,9 +65,10 @@ Layer registration is centralized in reusable extensions:
   Inbound, Outbound, and Reporting.
 - `AddWmsInfrastructure` groups persistence, stock movement adapters, and
   database initialization.
-- `WmsDatabaseInitializer` owns `EnsureCreated` and the existing Web/Desktop
-  demo seed profiles. The two composition roots select a profile; they do not
-  build entities or call `SaveChanges`.
+- `WmsDatabaseInitializer` applies checked-in migrations for PostgreSQL and
+  uses `EnsureCreated` only for explicit SQLite local/demo mode. It owns the
+  existing Web/Desktop seed profiles. The two composition roots select a
+  provider and profile; they do not build entities or call `SaveChanges`.
 
 Controllers and forms may perform presentation validation such as required
 fields and parseable numbers. Business invariants and state transitions remain

@@ -76,9 +76,10 @@ public class DashboardController : Controller
             }
 
             // Recent movements
+            var utcToday = DateTime.UtcNow.Date;
             var request = new MovementReportRequest(
-                DateTime.Today.AddDays(-7),
-                DateTime.Now
+                utcToday.AddDays(-7),
+                DateTime.UtcNow
             );
 
             var movementsResult = await _movementReportUseCase.ExecuteAsync(request);
@@ -94,14 +95,14 @@ public class DashboardController : Controller
                 _logger.LogWarning("Failed to load recent movements: {Error}", movementsResult.Error);
             }
 
-            model.LastRefresh = DateTime.Now;
+            model.LastRefresh = DateTime.UtcNow;
             return View(model);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error loading dashboard data");
             TempData["ErrorMessage"] = "Error loading dashboard data. Please try again.";
-            model.LastRefresh = DateTime.Now;
+            model.LastRefresh = DateTime.UtcNow;
             return View(model);
         }
     }
@@ -109,6 +110,6 @@ public class DashboardController : Controller
     [HttpGet]
     public async Task<IActionResult> RefreshData()
     {
-        return Json(new { success = true, message = "Dashboard refreshed", timestamp = DateTime.Now });
+        return Json(new { success = true, message = "Dashboard refreshed", timestamp = DateTime.UtcNow });
     }
 }

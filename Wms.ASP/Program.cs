@@ -9,9 +9,13 @@ public class Program
     public static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+        var databaseProvider = WmsDatabaseProviderParser.Parse(
+            builder.Configuration["Wms:DatabaseProvider"]);
 
         builder.Services.AddControllersWithViews();
-        builder.Services.AddWmsInfrastructure(builder.Configuration.GetConnectionString("DefaultConnection"));
+        builder.Services.AddWmsInfrastructure(
+            builder.Configuration.GetConnectionString("DefaultConnection"),
+            databaseProvider);
         builder.Services.AddWmsApplication();
 
         var app = builder.Build();

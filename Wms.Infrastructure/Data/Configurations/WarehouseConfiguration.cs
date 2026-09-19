@@ -26,9 +26,11 @@ public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
             .HasMaxLength(500);
 
         builder.Property(e => e.CreatedAt)
-            .IsRequired();
+            .IsRequired()
+            .HasColumnType("timestamp with time zone");
 
-        builder.Property(e => e.UpdatedAt);
+        builder.Property(e => e.UpdatedAt)
+            .HasColumnType("timestamp with time zone");
 
         // Relationships
         builder.HasMany(e => e.Locations)

@@ -8,6 +8,7 @@ namespace Wms.Infrastructure.Database;
 
 public sealed class WmsDatabaseInitializer(
     WmsDbContext context,
+    WmsDatabaseOptions databaseOptions,
     ILogger<WmsDatabaseInitializer> logger) : IWmsDatabaseInitializer
 {
     public async Task InitializeAsync(
@@ -16,7 +17,14 @@ public sealed class WmsDatabaseInitializer(
     {
         try
         {
-            await context.Database.EnsureCreatedAsync(cancellationToken);
+            if (databaseOptions.Provider == WmsDatabaseProvider.PostgreSql)
+            {
+                await context.Database.MigrateAsync(cancellationToken);
+            }
+            else
+            {
+                await context.Database.EnsureCreatedAsync(cancellationToken);
+            }
 
             if (profile == WmsSeedProfile.WebDemo)
             {

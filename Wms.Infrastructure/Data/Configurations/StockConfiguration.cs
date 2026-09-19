@@ -19,9 +19,11 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
             .HasMaxLength(100);
 
         builder.Property(e => e.CreatedAt)
-            .IsRequired();
+            .IsRequired()
+            .HasColumnType("timestamp with time zone");
 
-        builder.Property(e => e.UpdatedAt);
+        builder.Property(e => e.UpdatedAt)
+            .HasColumnType("timestamp with time zone");
 
         // Value object configurations
         builder.Property(e => e.QuantityAvailable)
@@ -55,7 +57,9 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
             .OnDelete(DeleteBehavior.Restrict);
 
         // Indexes
-        builder.HasIndex(e => new { e.ItemId, e.LocationId, e.LotId, e.SerialNumber }).IsUnique();
+        builder.HasIndex(e => new { e.ItemId, e.LocationId, e.LotId, e.SerialNumber })
+            .IsUnique()
+            .AreNullsDistinct(false);
         builder.HasIndex(e => e.ItemId);
         builder.HasIndex(e => e.LocationId);
         builder.HasIndex(e => e.LotId);

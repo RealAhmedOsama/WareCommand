@@ -46,12 +46,12 @@ public class Lot : Entity
 
     public bool IsExpired()
     {
-        return ExpiryDate.HasValue && ExpiryDate.Value.Date < DateTime.Today;
+        return ExpiryDate.HasValue && ExpiryDate.Value.Date < DateTime.UtcNow.Date;
     }
 
     public bool IsExpiringSoon(int warningDays = 30)
     {
         return ExpiryDate.HasValue &&
-               ExpiryDate.Value.Date <= DateTime.Today.AddDays(warningDays);
+               ExpiryDate.Value.Date <= DateTime.UtcNow.Date.AddDays(warningDays);
     }
 }

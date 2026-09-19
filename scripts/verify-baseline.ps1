@@ -37,8 +37,10 @@ try {
 
     $previousConnectionString = $env:ConnectionStrings__DefaultConnection
     $previousEnvironment = $env:ASPNETCORE_ENVIRONMENT
+    $previousDatabaseProvider = $env:Wms__DatabaseProvider
     $env:ConnectionStrings__DefaultConnection = "Data Source=$webDatabase"
     $env:ASPNETCORE_ENVIRONMENT = 'Development'
+    $env:Wms__DatabaseProvider = 'Sqlite'
 
     if (-not (Test-Path -LiteralPath $webAssembly)) {
         throw "MVC assembly not found: $webAssembly"
@@ -120,6 +122,12 @@ finally {
     }
     else {
         Remove-Item Env:ASPNETCORE_ENVIRONMENT -ErrorAction SilentlyContinue
+    }
+    if ($null -ne $previousDatabaseProvider) {
+        $env:Wms__DatabaseProvider = $previousDatabaseProvider
+    }
+    else {
+        Remove-Item Env:Wms__DatabaseProvider -ErrorAction SilentlyContinue
     }
     Pop-Location
     Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

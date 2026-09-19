@@ -6,10 +6,11 @@
 ## Decision
 
 Application and infrastructure registrations live in layer-owned extension
-methods. Database creation and the existing local demo seed data live in
-`WmsDatabaseInitializer` with an explicit Web or Desktop profile. The Web and
-WinForms programs only select the connection string, profile, and presentation
-services.
+methods. PostgreSQL database initialization applies checked-in EF migrations;
+explicit SQLite local/demo mode uses `EnsureCreated`. The existing local demo
+seed data lives in `WmsDatabaseInitializer` with an explicit Web or Desktop
+profile. The Web and WinForms programs only select the provider, connection
+string, profile, and presentation services.
 
 ## Why
 

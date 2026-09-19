@@ -30,9 +30,11 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
             .HasMaxLength(20);
 
         builder.Property(e => e.CreatedAt)
-            .IsRequired();
+            .IsRequired()
+            .HasColumnType("timestamp with time zone");
 
-        builder.Property(e => e.UpdatedAt);
+        builder.Property(e => e.UpdatedAt)
+            .HasColumnType("timestamp with time zone");
 
         // Configure barcodes as owned entities
         builder.OwnsMany(e => e.Barcodes, b =>

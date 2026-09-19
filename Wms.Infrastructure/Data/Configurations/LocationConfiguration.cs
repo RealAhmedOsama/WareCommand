@@ -23,9 +23,11 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .HasMaxLength(200);
 
         builder.Property(e => e.CreatedAt)
-            .IsRequired();
+            .IsRequired()
+            .HasColumnType("timestamp with time zone");
 
-        builder.Property(e => e.UpdatedAt);
+        builder.Property(e => e.UpdatedAt)
+            .HasColumnType("timestamp with time zone");
 
         // Self-referencing relationship for hierarchy
         builder.HasOne(e => e.ParentLocation)

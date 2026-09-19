@@ -56,8 +56,11 @@ internal static class Program
             .ConfigureAppConfiguration((_, config) => config.AddJsonFile("appsettings.json", false, true))
             .ConfigureServices((context, services) =>
             {
+                var databaseProvider = WmsDatabaseProviderParser.Parse(
+                    context.Configuration["Wms:DatabaseProvider"]);
                 services.AddWmsInfrastructure(
-                    context.Configuration.GetConnectionString("DefaultConnection"));
+                    context.Configuration.GetConnectionString("DefaultConnection"),
+                    databaseProvider);
                 services.AddWmsApplication();
 
                 services.AddTransient<MainForm>();
