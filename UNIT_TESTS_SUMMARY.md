@@ -194,4 +194,5 @@ _mockUnitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), T
 4. **Contract Tests** - API contract validation
 5. **Mutation Testing** - Test quality assessment
 
-**The WMS solution now has a comprehensive, production-ready test suite covering all critical business logic and infrastructure components!** ?
+The WMS solution has a baseline unit/infrastructure test suite. It is not a
+production-ready qualification; see `docs/modernization/BASELINE_STATUS.md`.

@@ -1,6 +1,6 @@
 ﻿# 📦 Warehouse Management System (WMS)
 
-> A modern, enterprise-grade Warehouse Management System built with .NET 8, featuring both WinForms desktop application and ASP.NET Core web interface using Clean Architecture principles.
+> An early-stage Warehouse Management System MVP built with .NET 8, featuring both WinForms desktop application and ASP.NET Core web interface using Clean Architecture principles. See `docs/modernization/BASELINE_STATUS.md` for verified status; production readiness is not claimed.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com/download)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)

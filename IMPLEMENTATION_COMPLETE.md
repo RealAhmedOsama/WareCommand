@@ -1,9 +1,12 @@
 # WMS System - Final Implementation Status
 
-## ? COMPLETE: Full-Featured Warehouse Management System
+## Historical implementation summary (not release qualification)
 
 ### ?? **Core Achievement**
-Successfully delivered a **production-ready, enterprise-grade Warehouse Management System** with complete functionality covering all essential warehouse operations.
+This document records the original MVP implementation summary. It is not evidence
+that the repository is production-ready. See
+`docs/modernization/BASELINE_STATUS.md` for the verified current state and the
+remaining modernization backlog.
 
 ---
 
@@ -181,4 +184,7 @@ Successfully delivered a **production-ready, enterprise-grade Warehouse Manageme
 4. **Integration APIs** - REST endpoints for external systems
 5. **Mobile Apps** - Xamarin/MAUI mobile scanners
 
-**?? The system is now a complete, enterprise-grade Warehouse Management System ready for production use!**
+**Current status:** the original MVP workflows build and pass the baseline tests,
+but production readiness is not established. PostgreSQL, migrations,
+authentication, authorization, concurrency, browser, security, recovery, and
+release qualification remain in the Master Plan backlog.
