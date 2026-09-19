@@ -25,7 +25,7 @@ public class Lot : Entity
             throw new ArgumentException("Expiry date cannot be before manufactured date");
     }
 
-    public string Number { get; private set; }
+    public string Number { get; private set; } = string.Empty;
     public int ItemId { get; private set; }
     public DateTime? ExpiryDate { get; private set; }
     public DateTime? ManufacturedDate { get; private set; }

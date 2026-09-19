@@ -25,10 +25,10 @@ public class BarcodeTests
     [InlineData(" ")]
     [InlineData(null)]
     [InlineData("   ")]
-    public void Constructor_WithInvalidValue_ThrowsArgumentException(string invalidValue)
+    public void Constructor_WithInvalidValue_ThrowsArgumentException(string? invalidValue)
     {
         // Act & Assert
-        var act = () => new Barcode(invalidValue);
+        var act = () => new Barcode(invalidValue!);
         act.Should().Throw<ArgumentException>()
             .WithMessage("*cannot be empty*");
     }

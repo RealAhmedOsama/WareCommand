@@ -16,7 +16,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
 
     public override async Task<IEnumerable<Stock>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
@@ -25,7 +25,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
 
     public async Task<IEnumerable<Stock>> GetByItemIdAsync(int itemId, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
@@ -36,7 +36,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
     public async Task<IEnumerable<Stock>> GetByLocationIdAsync(int locationId,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
@@ -47,7 +47,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
     public async Task<Stock?> GetByItemAndLocationAsync(int itemId, int locationId, int? lotId = null,
         string? serialNumber = null, CancellationToken cancellationToken = default)
     {
-        var query = _dbSet
+        var query = DbSet
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
@@ -69,7 +69,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
     public async Task<IEnumerable<Stock>> GetAvailableStockAsync(int itemId,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
@@ -80,7 +80,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
 
     public async Task<Quantity> GetTotalQuantityAsync(int itemId, CancellationToken cancellationToken = default)
     {
-        var total = await _dbSet
+        var total = await DbSet
             .Where(s => s.ItemId == itemId)
             .SumAsync(s => s.QuantityAvailable.Value, cancellationToken);
 

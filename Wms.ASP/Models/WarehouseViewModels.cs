@@ -107,5 +107,5 @@ public class CreateLocationViewModel
     public int WarehouseId { get; set; } = 1;
     public bool IsPickable { get; set; } = true;
     public bool IsReceivable { get; set; } = true;
-    public int Capacity { get; set; } = 0;
+    public int Capacity { get; set; }
 }

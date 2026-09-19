@@ -32,10 +32,10 @@ public class Item : Entity
         RequiresSerial = requiresSerial;
     }
 
-    public string Sku { get; }
-    public string Name { get; private set; }
+    public string Sku { get; } = string.Empty;
+    public string Name { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
-    public string UnitOfMeasure { get; private set; }
+    public string UnitOfMeasure { get; private set; } = string.Empty;
     public bool IsActive { get; private set; } = true;
     public bool RequiresLot { get; private set; }
     public bool RequiresSerial { get; private set; }

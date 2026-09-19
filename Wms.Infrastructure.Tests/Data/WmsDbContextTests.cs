@@ -24,6 +24,7 @@ public class WmsDbContextTests : IDisposable
     {
         _context.Database.EnsureDeleted();
         _context.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -216,6 +217,6 @@ public class WmsDbContextTests : IDisposable
         result.Lot.Should().NotBeNull();
         result.Location.Warehouse.Should().NotBeNull();
         result.Item.Sku.Should().Be("WIDGET-001");
-        result.Lot.Number.Should().Be("LOT-001");
+        result.Lot!.Number.Should().Be("LOT-001");
     }
 }

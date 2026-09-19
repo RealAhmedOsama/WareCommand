@@ -16,7 +16,7 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
 
     public async Task<IEnumerable<Movement>> GetByItemIdAsync(int itemId, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(m => m.Item)
             .Include(m => m.FromLocation)
             .Include(m => m.ToLocation)
@@ -29,7 +29,7 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
     public async Task<IEnumerable<Movement>> GetByLocationIdAsync(int locationId,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(m => m.Item)
             .Include(m => m.FromLocation)
             .Include(m => m.ToLocation)
@@ -39,15 +39,15 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<Movement>> GetByDateRangeAsync(DateTime from, DateTime to,
+    public async Task<IEnumerable<Movement>> GetByDateRangeAsync(DateTime from, DateTime toDate,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(m => m.Item)
             .Include(m => m.FromLocation)
             .Include(m => m.ToLocation)
             .Include(m => m.Lot)
-            .Where(m => m.Timestamp >= from && m.Timestamp <= to)
+            .Where(m => m.Timestamp >= from && m.Timestamp <= toDate)
             .OrderByDescending(m => m.Timestamp)
             .ToListAsync(cancellationToken);
     }
@@ -55,7 +55,7 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
     public async Task<IEnumerable<Movement>> GetByTypeAsync(MovementType type,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(m => m.Item)
             .Include(m => m.FromLocation)
             .Include(m => m.ToLocation)
@@ -68,7 +68,7 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
     public async Task<IEnumerable<Movement>> GetByUserIdAsync(string userId,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(m => m.Item)
             .Include(m => m.FromLocation)
             .Include(m => m.ToLocation)

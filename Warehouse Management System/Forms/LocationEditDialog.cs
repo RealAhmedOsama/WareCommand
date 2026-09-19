@@ -36,11 +36,11 @@ public partial class LocationEditDialog : Form
 
         if (IsEditMode)
         {
-            LoadLocationDataAsync();
+            _ = LoadLocationDataAsync();
         }
         else
         {
-            LoadParentLocationsAsync();
+            _ = LoadParentLocationsAsync();
         }
     }
 
@@ -86,7 +86,7 @@ public partial class LocationEditDialog : Form
         }
     }
 
-    private async void LoadLocationDataAsync()
+    private async Task LoadLocationDataAsync()
     {
         if (!_locationId.HasValue) return;
 
@@ -308,7 +308,7 @@ public partial class LocationEditDialog : Form
     }
 
     // Helper class for combo box items
-    private class LocationComboItem
+    private sealed class LocationComboItem
     {
         public LocationComboItem(int id, string fullPath)
         {

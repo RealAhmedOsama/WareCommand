@@ -25,8 +25,8 @@ public class Warehouse : Entity
         Name = name.Trim();
     }
 
-    public string Code { get; private set; }
-    public string Name { get; private set; }
+    public string Code { get; private set; } = string.Empty;
+    public string Name { get; private set; } = string.Empty;
     public string Address { get; private set; } = string.Empty;
     public bool IsActive { get; private set; } = true;
     public IReadOnlyList<Location> Locations => _locations.AsReadOnly();

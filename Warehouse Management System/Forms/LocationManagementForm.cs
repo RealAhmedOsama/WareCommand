@@ -1,5 +1,6 @@
 // Wms.WinForms/Forms/LocationManagementForm.cs
 
+using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Wms.Application.UseCases.Locations;
@@ -20,7 +21,7 @@ public partial class LocationManagementForm : Form
         InitializeComponent();
         SetupEventHandlers();
         SetupForm();
-        LoadLocationsAsync();
+        _ = LoadLocationsAsync();
     }
 
     private void SetupEventHandlers()
@@ -67,7 +68,7 @@ public partial class LocationManagementForm : Form
         if (dgvLocations.SelectedRows.Count == 0) return;
 
         var selectedRow = dgvLocations.SelectedRows[0];
-        var locationId = Convert.ToInt32(selectedRow.Cells["Id"].Value);
+        var locationId = Convert.ToInt32(selectedRow.Cells["Id"].Value, CultureInfo.CurrentCulture);
         ShowLocationDialog(locationId);
     }
 

@@ -16,13 +16,14 @@ public class ItemRepository : Repository<Item>, IItemRepository
 
     public async Task<Item?> GetBySkuAsync(string sku, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
-            .FirstOrDefaultAsync(i => i.Sku == sku.ToUpperInvariant(), cancellationToken);
+        var normalizedSku = sku.ToUpperInvariant();
+        return await DbSet
+            .FirstOrDefaultAsync(i => i.Sku == normalizedSku, cancellationToken);
     }
 
     public async Task<Item?> GetByBarcodeAsync(Barcode barcode, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Where(i => i.Barcodes.Any(b => b.Value == barcode.Value))
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -30,9 +31,9 @@ public class ItemRepository : Repository<Item>, IItemRepository
     public async Task<IEnumerable<Item>> SearchAsync(string searchTerm, CancellationToken cancellationToken = default)
     {
         var term = searchTerm.ToUpperInvariant();
-        return await _dbSet
+        return await DbSet
             .Where(i => i.Sku.Contains(term) ||
-                        i.Name.ToUpper().Contains(term) ||
+                        EF.Functions.Like(i.Name.ToUpperInvariant(), $"%{term}%") ||
                         i.Barcodes.Any(b => b.Value.Contains(term)))
             .OrderBy(i => i.Sku)
             .ToListAsync(cancellationToken);
@@ -40,20 +41,21 @@ public class ItemRepository : Repository<Item>, IItemRepository
 
     public async Task<bool> SkuExistsAsync(string sku, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
-            .AnyAsync(i => i.Sku == sku.ToUpperInvariant(), cancellationToken);
+        var normalizedSku = sku.ToUpperInvariant();
+        return await DbSet
+            .AnyAsync(i => i.Sku == normalizedSku, cancellationToken);
     }
 
     public override async Task<IEnumerable<Item>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .OrderBy(i => i.Sku)
             .ToListAsync(cancellationToken);
     }
 
     public async Task<IEnumerable<Item>> GetActiveItemsAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Where(i => i.IsActive)
             .OrderBy(i => i.Sku)
             .ToListAsync(cancellationToken);

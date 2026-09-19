@@ -98,7 +98,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         }
     }
 
-    private Task<Lot> GetOrCreateLotAsync(int itemId, string lotNumber,
+    private static Task<Lot> GetOrCreateLotAsync(int itemId, string lotNumber,
         DateTime? expiryDate, DateTime? manufacturedDate, CancellationToken cancellationToken)
     {
         // For now, create a simple lot lookup - in full implementation this would be a proper repository method

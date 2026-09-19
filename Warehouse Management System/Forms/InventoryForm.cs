@@ -26,7 +26,7 @@ public partial class InventoryForm : Form
         InitializeComponent();
         SetupEventHandlers();
         SetupForm();
-        LoadStockDataAsync();
+        _ = LoadStockDataAsync();
     }
 
     private void SetupEventHandlers()

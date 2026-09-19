@@ -1,6 +1,7 @@
 // Wms.WinForms/Forms/ReportsForm.cs
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Wms.Application.UseCases.Reports;
@@ -301,7 +302,10 @@ public partial class ReportsForm : Form
 
     private void ExportToCsv(string fileName)
     {
-        var reportData = (IEnumerable<MovementReportDto>)dgvMovements.DataSource;
+        if (dgvMovements.DataSource is not IEnumerable<MovementReportDto> reportData)
+        {
+            return;
+        }
 
         var csv = new StringBuilder();
         csv.AppendLine(
@@ -310,6 +314,7 @@ public partial class ReportsForm : Form
         foreach (var row in reportData)
         {
             csv.AppendLine(
+                CultureInfo.InvariantCulture,
                 $"{row.Id},{row.Type},{row.ItemSku},\"{row.ItemName}\",{row.FromLocationCode},{row.ToLocationCode},{row.Quantity},{row.LotNumber},{row.SerialNumber},{row.UserId},{row.ReferenceNumber},\"{row.Notes}\",{row.Timestamp:yyyy-MM-dd HH:mm:ss}");
         }
 

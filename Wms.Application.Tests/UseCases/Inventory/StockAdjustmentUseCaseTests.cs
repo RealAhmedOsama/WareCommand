@@ -128,14 +128,14 @@ public class StockAdjustmentUseCaseTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData(null)]
-    public async Task ExecuteAsync_WithInvalidReason_ReturnsFailure(string invalidReason)
+    public async Task ExecuteAsync_WithInvalidReason_ReturnsFailure(string? invalidReason)
     {
         // Arrange
         var request = new StockAdjustmentDto(
             "WIDGET-001",
             "Z001",
             15.0m,
-            invalidReason
+            invalidReason!
         );
 
         var item = new Item("WIDGET-001", "Widget A", "EA");
@@ -175,7 +175,7 @@ public class StockAdjustmentUseCaseTests
         _mockStockMovementService.Setup(x => x.AdjustAsync(
                 It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Quantity>(), It.IsAny<string>(),
                 It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Stock movement error"));
+            .ThrowsAsync(new InvalidOperationException("Stock movement error"));
 
         // Act
         var result = await _useCase.ExecuteAsync(request, "USER1");

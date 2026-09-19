@@ -140,7 +140,7 @@ public class GetStockUseCaseTests
     {
         // Arrange
         _mockStockRepository.Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Database error"));
+            .ThrowsAsync(new InvalidOperationException("Database error"));
 
         // Act
         var result = await _useCase.GetAllStockAsync();

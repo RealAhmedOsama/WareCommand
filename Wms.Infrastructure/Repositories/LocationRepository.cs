@@ -15,16 +15,17 @@ public class LocationRepository : Repository<Location>, ILocationRepository
 
     public async Task<Location?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        var normalizedCode = code.ToUpperInvariant();
+        return await DbSet
             .Include(l => l.Warehouse)
             .Include(l => l.ParentLocation)
-            .FirstOrDefaultAsync(l => l.Code == code.ToUpperInvariant(), cancellationToken);
+            .FirstOrDefaultAsync(l => l.Code == normalizedCode, cancellationToken);
     }
 
     public async Task<IEnumerable<Location>> GetByWarehouseIdAsync(int warehouseId,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(l => l.ParentLocation)
             .Where(l => l.WarehouseId == warehouseId)
             .OrderBy(l => l.Code)
@@ -34,7 +35,7 @@ public class LocationRepository : Repository<Location>, ILocationRepository
     public async Task<IEnumerable<Location>> GetChildLocationsAsync(int parentLocationId,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(l => l.Warehouse)
             .Include(l => l.ParentLocation)
             .Where(l => l.ParentLocationId == parentLocationId)
@@ -44,7 +45,7 @@ public class LocationRepository : Repository<Location>, ILocationRepository
     public async Task<IEnumerable<Location>> SearchAsync(string searchTerm,
         CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(l => l.Warehouse)
             .Include(l => l.ParentLocation)
             .Where(l => l.Code.Contains(searchTerm) ||
@@ -56,7 +57,7 @@ public class LocationRepository : Repository<Location>, ILocationRepository
 
     public async Task<IEnumerable<Location>> GetReceivableLocationsAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(l => l.Warehouse)
             .Where(l => l.IsReceivable && l.IsActive)
             .OrderBy(l => l.Code)
@@ -65,7 +66,7 @@ public class LocationRepository : Repository<Location>, ILocationRepository
 
     public async Task<IEnumerable<Location>> GetPickableLocationsAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbSet
+        return await DbSet
             .Include(l => l.Warehouse)
             .Where(l => l.IsPickable && l.IsActive)
             .OrderBy(l => l.Code)
@@ -74,7 +75,8 @@ public class LocationRepository : Repository<Location>, ILocationRepository
 
     public async Task<bool> CodeExistsAsync(string code, CancellationToken cancellationToken = default)
     {
-        return await _dbSet
-            .AnyAsync(l => l.Code == code.ToUpperInvariant(), cancellationToken);
+        var normalizedCode = code.ToUpperInvariant();
+        return await DbSet
+            .AnyAsync(l => l.Code == normalizedCode, cancellationToken);
     }
 }

@@ -1,0 +1,8 @@
+<Project>
+  <!-- xUnit test names use the Given_When_Then convention; keep this naming
+       rule scoped to test projects rather than weakening production analysis. -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+</Project>

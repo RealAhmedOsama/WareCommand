@@ -1,5 +1,6 @@
 // Wms.WinForms/Forms/PutawayForm.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
 using Wms.Application.UseCases.Items;
@@ -159,7 +160,7 @@ public partial class PutawayForm : Form
                 ExtractSkuFromLabel(),
                 txtFromLocation.Text.Trim(),
                 txtToLocation.Text.Trim(),
-                decimal.Parse(txtQuantity.Text),
+                decimal.Parse(txtQuantity.Text, CultureInfo.CurrentCulture),
                 txtNotes.Text.Trim()
             );
 
@@ -255,7 +256,7 @@ public partial class PutawayForm : Form
     {
         // Extract SKU from "SKU: WIDGET-001\nName: ..." format
         var lines = lblItemInfo.Text.Split('\n');
-        if (lines.Length > 0 && lines[0].StartsWith("SKU: "))
+        if (lines.Length > 0 && lines[0].StartsWith("SKU: ", StringComparison.Ordinal))
         {
             return lines[0].Substring(5);
         }

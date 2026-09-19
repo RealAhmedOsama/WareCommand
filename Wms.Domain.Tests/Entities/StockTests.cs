@@ -186,14 +186,14 @@ public class StockTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData(null)]
-    public void AdjustQuantity_WithInvalidReason_ThrowsArgumentException(string invalidReason)
+    public void AdjustQuantity_WithInvalidReason_ThrowsArgumentException(string? invalidReason)
     {
         // Arrange
         var stock = new Stock(1, 1, new Quantity(10.0m));
         var newQuantity = new Quantity(15.0m);
 
         // Act & Assert
-        var act = () => stock.AdjustQuantity(newQuantity, invalidReason);
+        var act = () => stock.AdjustQuantity(newQuantity, invalidReason!);
         act.Should().Throw<ArgumentException>();
     }
 

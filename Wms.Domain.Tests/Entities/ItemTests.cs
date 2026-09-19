@@ -54,10 +54,10 @@ public class ItemTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData(null)]
-    public void Constructor_WithInvalidSku_ThrowsArgumentException(string invalidSku)
+    public void Constructor_WithInvalidSku_ThrowsArgumentException(string? invalidSku)
     {
         // Arrange & Act & Assert
-        var act = () => new Item(invalidSku, "Valid Name", "EA");
+        var act = () => new Item(invalidSku!, "Valid Name", "EA");
         act.Should().Throw<ArgumentException>();
     }
 
@@ -65,10 +65,10 @@ public class ItemTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData(null)]
-    public void Constructor_WithInvalidName_ThrowsArgumentException(string invalidName)
+    public void Constructor_WithInvalidName_ThrowsArgumentException(string? invalidName)
     {
         // Arrange & Act & Assert
-        var act = () => new Item("VALID-SKU", invalidName, "EA");
+        var act = () => new Item("VALID-SKU", invalidName!, "EA");
         act.Should().Throw<ArgumentException>();
     }
 

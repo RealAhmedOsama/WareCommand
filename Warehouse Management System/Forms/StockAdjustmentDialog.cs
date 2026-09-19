@@ -1,5 +1,6 @@
 // Wms.WinForms/Forms/StockAdjustmentDialog.cs
 
+using System.Globalization;
 using Wms.WinForms.Common;
 
 namespace Wms.WinForms.Forms;
@@ -15,7 +16,10 @@ public partial class StockAdjustmentDialog : Form
     {
         _itemSku = itemSku;
         _locationCode = locationCode;
-        decimal.TryParse(currentQuantity, out _currentQuantity);
+        if (!decimal.TryParse(currentQuantity, NumberStyles.Number, CultureInfo.CurrentCulture, out _currentQuantity))
+        {
+            _currentQuantity = 0m;
+        }
 
         InitializeComponent();
         SetupEventHandlers();
@@ -46,7 +50,7 @@ public partial class StockAdjustmentDialog : Form
 
         // Populate initial values
         lblItemInfo.Text = $"Item: {_itemSku}\nLocation: {_locationCode}\nCurrent Quantity: {_currentQuantity:N2}";
-        txtNewQuantity.Text = _currentQuantity.ToString("N2");
+        txtNewQuantity.Text = _currentQuantity.ToString("N2", CultureInfo.CurrentCulture);
 
         txtNewQuantity.Focus();
         txtNewQuantity.SelectAll();
@@ -79,7 +83,7 @@ public partial class StockAdjustmentDialog : Form
     {
         if (!ValidateInput()) return;
 
-        NewQuantity = decimal.Parse(txtNewQuantity.Text);
+        NewQuantity = decimal.Parse(txtNewQuantity.Text, CultureInfo.CurrentCulture);
         Reason = txtReason.Text.Trim();
 
         DialogResult = DialogResult.OK;

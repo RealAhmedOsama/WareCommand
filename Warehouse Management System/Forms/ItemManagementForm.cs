@@ -1,5 +1,6 @@
 // Wms.WinForms/Forms/ItemManagementForm.cs
 
+using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Wms.Application.UseCases.Items;
@@ -20,7 +21,7 @@ public partial class ItemManagementForm : Form
         InitializeComponent();
         SetupEventHandlers();
         SetupForm();
-        LoadItemsAsync();
+        _ = LoadItemsAsync();
     }
 
     private void SetupEventHandlers()
@@ -67,7 +68,7 @@ public partial class ItemManagementForm : Form
         if (dgvItems.SelectedRows.Count == 0) return;
 
         var selectedRow = dgvItems.SelectedRows[0];
-        var itemId = Convert.ToInt32(selectedRow.Cells["Id"].Value);
+        var itemId = Convert.ToInt32(selectedRow.Cells["Id"].Value, CultureInfo.CurrentCulture);
         ShowItemDialog(itemId);
     }
 

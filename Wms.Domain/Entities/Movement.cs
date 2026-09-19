@@ -38,8 +38,8 @@ public class Movement : Entity
     public int? ToLocationId { get; private set; }
     public int? LotId { get; private set; }
     public string? SerialNumber { get; private set; }
-    public Quantity Quantity { get; private set; }
-    public string UserId { get; private set; }
+    public Quantity Quantity { get; private set; } = Quantity.Zero;
+    public string UserId { get; private set; } = string.Empty;
     public string? ReferenceNumber { get; private set; }
     public string? Notes { get; private set; }
     public DateTime Timestamp { get; private set; } = DateTime.UtcNow;

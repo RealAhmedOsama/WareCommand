@@ -26,8 +26,8 @@ public class Stock : Entity
     public int LocationId { get; private set; }
     public int? LotId { get; private set; }
     public string? SerialNumber { get; private set; }
-    public Quantity QuantityAvailable { get; private set; }
-    public Quantity QuantityReserved { get; private set; }
+    public Quantity QuantityAvailable { get; private set; } = Quantity.Zero;
+    public Quantity QuantityReserved { get; private set; } = Quantity.Zero;
 
     // Navigation properties
     public Item Item { get; private set; } = null!;

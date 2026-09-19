@@ -1,10 +1,11 @@
 // Wms.Domain/ValueObjects/Quantity.cs
 
+using System.Globalization;
 using Wms.Domain.Common;
 
 namespace Wms.Domain.ValueObjects;
 
-public class Quantity : ValueObject, IComparable<Quantity>
+public class Quantity : ValueObject, IComparable<Quantity>, IEquatable<Quantity>
 {
     public static readonly Quantity Zero = new(0);
 
@@ -24,6 +25,21 @@ public class Quantity : ValueObject, IComparable<Quantity>
         return Value.CompareTo(other.Value);
     }
 
+    public bool Equals(Quantity? other)
+    {
+        return other is not null && Value == other.Value;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is Quantity other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return Value.GetHashCode();
+    }
+
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return Value;
@@ -31,7 +47,7 @@ public class Quantity : ValueObject, IComparable<Quantity>
 
     public override string ToString()
     {
-        return Value.ToString("0.##");
+        return Value.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
     public static implicit operator decimal(Quantity quantity)
@@ -62,6 +78,17 @@ public class Quantity : ValueObject, IComparable<Quantity>
         if (right < 0)
             throw new ArgumentException("Multiplier cannot be negative", nameof(right));
         return new Quantity(left.Value * right);
+    }
+
+    public static bool operator ==(Quantity? left, Quantity? right)
+    {
+        if (left is null) return right is null;
+        return left.Equals(right);
+    }
+
+    public static bool operator !=(Quantity? left, Quantity? right)
+    {
+        return !(left == right);
     }
 
     public static bool operator >(Quantity left, Quantity right)

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +36,8 @@ internal static class Program
     {
         // Configure Serilog
         Log.Logger = new LoggerConfiguration()
-            .WriteTo.File("logs/wms-.txt", rollingInterval: RollingInterval.Day)
+             .WriteTo.File("logs/wms-.txt", formatProvider: CultureInfo.InvariantCulture,
+                 rollingInterval: RollingInterval.Day)
             .CreateLogger();
 
         try

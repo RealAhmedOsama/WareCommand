@@ -210,7 +210,7 @@ public class ReceiveItemUseCaseTests
         );
 
         _mockItemRepository.Setup(x => x.GetBySkuAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Database error"));
+            .ThrowsAsync(new InvalidOperationException("Database error"));
 
         // Act
         var result = await _useCase.ExecuteAsync(request, "USER1");

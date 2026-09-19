@@ -27,8 +27,8 @@ public class Location : Entity
         ParentLocationId = parentLocationId;
     }
 
-    public string Code { get; }
-    public string Name { get; private set; }
+    public string Code { get; } = string.Empty;
+    public string Name { get; private set; } = string.Empty;
     public int WarehouseId { get; private set; }
     public int? ParentLocationId { get; private set; }
     public bool IsPickable { get; private set; } = true;

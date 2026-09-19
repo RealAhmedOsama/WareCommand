@@ -1,5 +1,6 @@
 // Wms.WinForms/Forms/DashboardForm.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
@@ -76,7 +77,7 @@ public partial class DashboardForm : Form
             {
                 var totalItems = itemsResult.Value.Count();
                 var activeItems = itemsResult.Value.Count(i => i.IsActive);
-                lblTotalItems.Text = totalItems.ToString("N0");
+                lblTotalItems.Text = totalItems.ToString("N0", CultureInfo.CurrentCulture);
                 lblActiveItems.Text = $"{activeItems:N0} Active";
             }
 
@@ -85,9 +86,9 @@ public partial class DashboardForm : Form
             if (stockResult.IsSuccess)
             {
                 var summary = stockResult.Value.ToList();
-                lblTotalSKUs.Text = summary.Count.ToString("N0");
+                lblTotalSKUs.Text = summary.Count.ToString("N0", CultureInfo.CurrentCulture);
                 var totalValue = summary.Sum(s => s.TotalQuantity);
-                lblTotalStockValue.Text = totalValue.ToString("N0");
+                lblTotalStockValue.Text = totalValue.ToString("N0", CultureInfo.CurrentCulture);
             }
 
             // Stock Locations
@@ -95,7 +96,7 @@ public partial class DashboardForm : Form
             if (allStockResult.IsSuccess)
             {
                 var locations = allStockResult.Value.Select(s => s.LocationId).Distinct().Count();
-                lblStockLocations.Text = locations.ToString("N0");
+                lblStockLocations.Text = locations.ToString("N0", CultureInfo.CurrentCulture);
             }
         }
         catch (Exception ex)
@@ -147,7 +148,7 @@ public partial class DashboardForm : Form
                 dgvLowStock.DataSource = lowStockItems;
                 ConfigureLowStockGrid();
 
-                lblLowStockCount.Text = lowStockItems.Count.ToString();
+                lblLowStockCount.Text = lowStockItems.Count.ToString(CultureInfo.CurrentCulture);
 
                 if (lowStockItems.Count > 0)
                 {

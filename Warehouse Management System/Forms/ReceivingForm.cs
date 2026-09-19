@@ -1,5 +1,6 @@
 // Wms.WinForms/Forms/ReceivingForm.cs
 
+using System.Globalization;
 using System.Media;
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
@@ -173,7 +174,7 @@ public partial class ReceivingForm : Form
             var request = new ReceiveItemDto(
                 ExtractSkuFromLabel(),
                 txtLocationCode.Text.Trim(),
-                decimal.Parse(txtQuantity.Text),
+                decimal.Parse(txtQuantity.Text, CultureInfo.CurrentCulture),
                 string.IsNullOrWhiteSpace(txtLotNumber.Text) ? null : txtLotNumber.Text.Trim(),
                 null,
                 txtReferenceNumber.Text.Trim(),
@@ -269,7 +270,7 @@ public partial class ReceivingForm : Form
     {
         // Extract SKU from "SKU: WIDGET-001\nName: ..." format
         var lines = lblItemInfo.Text.Split('\n');
-        if (lines.Length > 0 && lines[0].StartsWith("SKU: "))
+        if (lines.Length > 0 && lines[0].StartsWith("SKU: ", StringComparison.Ordinal))
         {
             return lines[0].Substring(5);
         }
@@ -300,7 +301,7 @@ public partial class ReceivingForm : Form
         btnClear.Enabled = !isBusy;
     }
 
-    private void PlaySuccessSound()
+    private static void PlaySuccessSound()
     {
         try
         {
@@ -312,7 +313,7 @@ public partial class ReceivingForm : Form
         }
     }
 
-    private void PlayErrorSound()
+    private static void PlayErrorSound()
     {
         try
         {

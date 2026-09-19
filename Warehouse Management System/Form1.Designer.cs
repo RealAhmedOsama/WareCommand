@@ -1,4 +1,4 @@
-﻿namespace Warehouse_Management_System
+﻿namespace Wms.WinForms
 {
     partial class Form1
     {

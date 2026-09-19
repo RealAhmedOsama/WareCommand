@@ -47,10 +47,10 @@ public class LocationTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData(null)]
-    public void Constructor_WithInvalidCode_ThrowsArgumentException(string invalidCode)
+    public void Constructor_WithInvalidCode_ThrowsArgumentException(string? invalidCode)
     {
         // Act & Assert
-        var act = () => new Location(invalidCode, "Valid Name", 1);
+        var act = () => new Location(invalidCode!, "Valid Name", 1);
         act.Should().Throw<ArgumentException>();
     }
 
@@ -58,10 +58,10 @@ public class LocationTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData(null)]
-    public void Constructor_WithInvalidName_ThrowsArgumentException(string invalidName)
+    public void Constructor_WithInvalidName_ThrowsArgumentException(string? invalidName)
     {
         // Act & Assert
-        var act = () => new Location("VALID-CODE", invalidName, 1);
+        var act = () => new Location("VALID-CODE", invalidName!, 1);
         act.Should().Throw<ArgumentException>();
     }
 

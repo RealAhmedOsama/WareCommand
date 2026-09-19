@@ -1,5 +1,6 @@
 // Wms.WinForms/Forms/PickingForm.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Picking;
@@ -147,7 +148,7 @@ public partial class PickingForm : Form
             var request = new PickItemDto(
                 ExtractSkuFromLabel(),
                 txtFromLocation.Text.Trim(),
-                decimal.Parse(txtQuantity.Text),
+                decimal.Parse(txtQuantity.Text, CultureInfo.CurrentCulture),
                 txtOrderNumber.Text.Trim(),
                 null, // LotNumber
                 null, // SerialNumber
@@ -232,7 +233,7 @@ public partial class PickingForm : Form
     {
         // Extract SKU from "SKU: WIDGET-001\nName: ..." format
         var lines = lblItemInfo.Text.Split('\n');
-        if (lines.Length > 0 && lines[0].StartsWith("SKU: "))
+        if (lines.Length > 0 && lines[0].StartsWith("SKU: ", StringComparison.Ordinal))
         {
             return lines[0].Substring(5);
         }
