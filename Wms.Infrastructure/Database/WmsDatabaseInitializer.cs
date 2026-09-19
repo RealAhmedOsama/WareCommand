@@ -19,7 +19,15 @@ public sealed class WmsDatabaseInitializer(
         {
             if (databaseOptions.Provider == WmsDatabaseProvider.PostgreSql)
             {
-                await context.Database.MigrateAsync(cancellationToken);
+                var pendingMigrations = (await context.Database
+                        .GetPendingMigrationsAsync(cancellationToken))
+                    .ToArray();
+                if (pendingMigrations.Length > 0)
+                {
+                    throw new InvalidOperationException(
+                        "The PostgreSQL schema is not current. Apply checked-in EF migrations before starting WareCommand. " +
+                        $"Pending migrations: {string.Join(", ", pendingMigrations)}.");
+                }
             }
             else
             {

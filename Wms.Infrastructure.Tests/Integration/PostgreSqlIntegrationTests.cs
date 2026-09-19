@@ -25,6 +25,12 @@ public sealed class PostgreSqlIntegrationTests
             context,
             new WmsDatabaseOptions(WmsDatabaseProvider.PostgreSql),
             NullLogger<WmsDatabaseInitializer>.Instance);
+
+        var pendingSchemaException = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => initializer.InitializeAsync(WmsSeedProfile.WebDemo));
+        Assert.Contains("not current", pendingSchemaException.Message, StringComparison.OrdinalIgnoreCase);
+
+        await context.Database.MigrateAsync();
         await initializer.InitializeAsync(WmsSeedProfile.WebDemo);
 
         Assert.Equal(3, await context.Items.CountAsync());

@@ -21,6 +21,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wms.Architecture.Tests", "W
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wms.ASP", "Wms.ASP\Wms.ASP.csproj", "{299A51AF-0BFB-4B22-8B43-F63665A6272F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wms.DataMigration", "Wms.DataMigration\Wms.DataMigration.csproj", "{3204449F-B63C-4CDD-B7C5-9A0C60E9944F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wms.DataMigration.Tests", "Wms.DataMigration.Tests\Wms.DataMigration.Tests.csproj", "{10E90701-0085-4FCC-93E9-7256517AFC80}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -63,6 +67,14 @@ Global
 		{299A51AF-0BFB-4B22-8B43-F63665A6272F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{299A51AF-0BFB-4B22-8B43-F63665A6272F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{299A51AF-0BFB-4B22-8B43-F63665A6272F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3204449F-B63C-4CDD-B7C5-9A0C60E9944F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3204449F-B63C-4CDD-B7C5-9A0C60E9944F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3204449F-B63C-4CDD-B7C5-9A0C60E9944F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3204449F-B63C-4CDD-B7C5-9A0C60E9944F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10E90701-0085-4FCC-93E9-7256517AFC80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10E90701-0085-4FCC-93E9-7256517AFC80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10E90701-0085-4FCC-93E9-7256517AFC80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10E90701-0085-4FCC-93E9-7256517AFC80}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

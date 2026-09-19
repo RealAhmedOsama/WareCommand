@@ -57,6 +57,16 @@ dotnet ef migrations add <MigrationName> `
   --context WmsDbContext
 ```
 
-PostgreSQL initialization applies checked-in EF migrations. SQLite demo mode
-uses `EnsureCreated` against its explicit local file because it is not the
+Apply checked-in PostgreSQL migrations explicitly before starting a host:
+
+$env:WARECOMMAND_POSTGRES_CONNECTION = 'Host=localhost;Port=5432;Database=warecommand;Username=warecommand;Password=<local-password>'
+dotnet tool restore
+pwsh -NoProfile -File .\scripts\migrate-postgresql.ps1 -Apply
+
+PostgreSQL startup refuses to run against a schema with pending migrations;
+it does not silently alter production schema. SQLite demo mode uses
+EnsureCreated against its explicit local file because it is not the
 production persistence path.
+
+For the controlled SQLite-to-PostgreSQL data import lifecycle, see
+docs/modernization/SQLITE_TO_POSTGRESQL_MIGRATION.md.

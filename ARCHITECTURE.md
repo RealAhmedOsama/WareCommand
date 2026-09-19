@@ -65,10 +65,11 @@ Layer registration is centralized in reusable extensions:
   Inbound, Outbound, and Reporting.
 - `AddWmsInfrastructure` groups persistence, stock movement adapters, and
   database initialization.
-- `WmsDatabaseInitializer` applies checked-in migrations for PostgreSQL and
-  uses `EnsureCreated` only for explicit SQLite local/demo mode. It owns the
-  existing Web/Desktop seed profiles. The two composition roots select a
-  provider and profile; they do not build entities or call `SaveChanges`.
+- `WmsDatabaseInitializer` verifies that PostgreSQL has all checked-in
+  migrations and uses `EnsureCreated` only for explicit SQLite local/demo
+  mode. It owns the existing Web/Desktop seed profiles. The two composition
+  roots select a provider and profile; they do not build entities or call
+  `SaveChanges`.
 
 Controllers and forms may perform presentation validation such as required
 fields and parseable numbers. Business invariants and state transitions remain

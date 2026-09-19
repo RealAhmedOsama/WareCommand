@@ -11,11 +11,13 @@ public sealed class ArchitectureTests
             ["Wms.Domain"] = [],
             ["Wms.Application"] = ["Wms.Domain"],
             ["Wms.Infrastructure"] = ["Wms.Application"],
+            ["Wms.DataMigration"] = ["Wms.Infrastructure"],
             ["Wms.ASP"] = ["Wms.Application", "Wms.Infrastructure"],
             ["Wms.WinForms"] = ["Wms.Application", "Wms.Infrastructure"],
             ["Wms.Domain.Tests"] = ["Wms.Domain"],
             ["Wms.Application.Tests"] = ["Wms.Application", "Wms.Domain"],
             ["Wms.Infrastructure.Tests"] = ["Wms.Infrastructure", "Wms.Application", "Wms.Domain"],
+            ["Wms.DataMigration.Tests"] = ["Wms.DataMigration", "Wms.Infrastructure", "Wms.Domain"],
             ["Wms.Architecture.Tests"] = []
         };
 
