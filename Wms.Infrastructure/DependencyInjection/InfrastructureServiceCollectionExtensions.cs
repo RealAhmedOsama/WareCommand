@@ -72,6 +72,7 @@ public static class InfrastructureServiceCollectionExtensions
 
     private static IServiceCollection AddDatabaseInitialization(this IServiceCollection services)
     {
+        services.AddScoped<IWmsSeedService, WmsSeedService>();
         services.AddScoped<IWmsDatabaseInitializer, WmsDatabaseInitializer>();
         return services;
     }

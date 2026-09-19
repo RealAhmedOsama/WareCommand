@@ -81,6 +81,11 @@ internal static class Program
     {
         await using var scope = _host!.Services.CreateAsyncScope();
         var initializer = scope.ServiceProvider.GetRequiredService<IWmsDatabaseInitializer>();
-        await initializer.InitializeAsync(WmsSeedProfile.DesktopDemo);
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        var seedProfile = WmsSeedProfileResolver.Resolve(
+            configuration["Wms:SeedProfile"],
+            environment.IsDevelopment());
+        await initializer.InitializeAsync(seedProfile);
     }
 }

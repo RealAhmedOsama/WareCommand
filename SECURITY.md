@@ -1,0 +1,41 @@
+# WareCommand security guidance
+
+This repository is not a security certification. The document records the
+current controls and the boundaries that remain open.
+
+## Repository rules
+
+- Do not commit passwords, tokens, certificates, production connection
+  strings, user-secrets files, local `.env` files, runtime databases, logs, or
+  generated reports.
+- Use environment variables, the .NET user-secrets store, or the deployment
+  secret manager for connection strings and credentials.
+- Keep backups and migration reports outside the repository unless they are
+  sanitized test fixtures.
+- Review dependency and source changes before release; local build/test success
+  is not a vulnerability assessment.
+
+The repository `.gitignore` covers runtime SQLite files, logs, local settings,
+coverage, test results, and generated artifacts. A pre-commit or CI secret scan
+is still required for release qualification.
+
+## Database and migration controls
+
+- PostgreSQL schema changes are explicit and use checked-in EF migrations.
+- Application startup refuses pending PostgreSQL migrations.
+- The data importer opens SQLite read-only, creates a source backup before
+  apply, parameterizes target values, writes within one serializable
+  transaction, and reconciles counts, quantities, movements, and relationships.
+- Never pass an unreviewed production connection string to a local verification
+  script.
+
+## Open security scope
+
+Authentication, authorization, tenant isolation, audit identity management,
+abuse controls, security headers, threat modeling, deep dependency scanning, and
+production secret rotation are not closed by the current local qualification.
+Treat the application as an internal development system until those gates are
+implemented and evidenced.
+
+Report suspected vulnerabilities privately to the repository owner rather than
+publishing credentials or exploit details in a public issue.

@@ -24,17 +24,18 @@ public sealed class PostgreSqlIntegrationTests
         var initializer = new WmsDatabaseInitializer(
             context,
             new WmsDatabaseOptions(WmsDatabaseProvider.PostgreSql),
+            new WmsSeedService(context),
             NullLogger<WmsDatabaseInitializer>.Instance);
 
         var pendingSchemaException = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => initializer.InitializeAsync(WmsSeedProfile.WebDemo));
+            () => initializer.InitializeAsync(WmsSeedProfile.Demo));
         Assert.Contains("not current", pendingSchemaException.Message, StringComparison.OrdinalIgnoreCase);
 
         await context.Database.MigrateAsync();
-        await initializer.InitializeAsync(WmsSeedProfile.WebDemo);
+        await initializer.InitializeAsync(WmsSeedProfile.Demo);
 
-        Assert.Equal(3, await context.Items.CountAsync());
-        Assert.Equal(3, await context.Locations.CountAsync());
+        Assert.Equal(6, await context.Items.CountAsync());
+        Assert.Equal(6, await context.Locations.CountAsync());
 
         var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
         var warehouse = new Warehouse($"PG-{token}", "PostgreSQL Test Warehouse");

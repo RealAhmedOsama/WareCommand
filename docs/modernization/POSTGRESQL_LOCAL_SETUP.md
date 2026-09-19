@@ -10,6 +10,7 @@ when selecting it:
 ```powershell
 $env:Wms__DatabaseProvider = 'Sqlite'
 $env:ConnectionStrings__DefaultConnection = 'Data Source=warehouse-development.db'
+$env:Wms__SeedProfile = 'Demo'
 dotnet run --project .\Wms.ASP\Wms.ASP.csproj
 ```
 
@@ -19,6 +20,7 @@ or a local, untracked configuration source:
 ```powershell
 $env:Wms__DatabaseProvider = 'PostgreSql'
 $env:ConnectionStrings__DefaultConnection = 'Host=localhost;Port=5432;Database=warecommand;Username=warecommand;Password=<local-password>'
+$env:Wms__SeedProfile = 'None'
 dotnet run --project .\Wms.ASP\Wms.ASP.csproj
 ```
 
@@ -59,9 +61,11 @@ dotnet ef migrations add <MigrationName> `
 
 Apply checked-in PostgreSQL migrations explicitly before starting a host:
 
+```powershell
 $env:WARECOMMAND_POSTGRES_CONNECTION = 'Host=localhost;Port=5432;Database=warecommand;Username=warecommand;Password=<local-password>'
 dotnet tool restore
 pwsh -NoProfile -File .\scripts\migrate-postgresql.ps1 -Apply
+```
 
 PostgreSQL startup refuses to run against a schema with pending migrations;
 it does not silently alter production schema. SQLite demo mode uses
@@ -69,4 +73,4 @@ EnsureCreated against its explicit local file because it is not the
 production persistence path.
 
 For the controlled SQLite-to-PostgreSQL data import lifecycle, see
-docs/modernization/SQLITE_TO_POSTGRESQL_MIGRATION.md.
+[`docs/modernization/SQLITE_TO_POSTGRESQL_MIGRATION.md`](SQLITE_TO_POSTGRESQL_MIGRATION.md).

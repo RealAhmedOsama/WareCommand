@@ -63,6 +63,23 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# WareCommand runtime databases and local state
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+**/logs/
+*.secret.json
+secrets.json
+.env
+.env.*
+!.env.example
+TestResults/
+coverage/
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 

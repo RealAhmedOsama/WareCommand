@@ -11,6 +11,9 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
         var databaseProvider = WmsDatabaseProviderParser.Parse(
             builder.Configuration["Wms:DatabaseProvider"]);
+        var seedProfile = WmsSeedProfileResolver.Resolve(
+            builder.Configuration["Wms:SeedProfile"],
+            builder.Environment.IsDevelopment());
 
         builder.Services.AddControllersWithViews();
         builder.Services.AddWmsInfrastructure(
@@ -20,7 +23,7 @@ public class Program
 
         var app = builder.Build();
 
-        await InitializeDatabaseAsync(app.Services);
+        await InitializeDatabaseAsync(app.Services, seedProfile);
 
         if (!app.Environment.IsDevelopment())
         {
@@ -40,10 +43,12 @@ public class Program
         app.Run();
     }
 
-    private static async Task InitializeDatabaseAsync(IServiceProvider services)
+    private static async Task InitializeDatabaseAsync(
+        IServiceProvider services,
+        WmsSeedProfile seedProfile)
     {
         await using var scope = services.CreateAsyncScope();
         var initializer = scope.ServiceProvider.GetRequiredService<IWmsDatabaseInitializer>();
-        await initializer.InitializeAsync(WmsSeedProfile.WebDemo);
+        await initializer.InitializeAsync(seedProfile);
     }
 }

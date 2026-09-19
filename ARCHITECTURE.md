@@ -27,7 +27,8 @@ Core context, or construct domain entities for an operational request.
   result handling. It depends on the domain and framework abstractions only.
 - `Wms.Infrastructure` owns EF Core mappings, the PostgreSQL production
   adapter, the explicit SQLite local/demo adapter, repository implementations,
-  stock movement persistence, and demo database initialization.
+  stock movement persistence, database initialization, and the shared
+  deterministic seed service.
 - `Wms.ASP` and `Wms.WinForms` translate UI input into application requests and
   render application results. Their `Program` files are composition roots only.
 
@@ -67,9 +68,15 @@ Layer registration is centralized in reusable extensions:
   database initialization.
 - `WmsDatabaseInitializer` verifies that PostgreSQL has all checked-in
   migrations and uses `EnsureCreated` only for explicit SQLite local/demo
-  mode. It owns the existing Web/Desktop seed profiles. The two composition
-  roots select a provider and profile; they do not build entities or call
-  `SaveChanges`.
+  mode. `WmsSeedService` owns the shared `None`, `Reference`, and `Demo`
+  definitions and performs idempotent identifier-based seeding. The two
+  composition roots select a provider and profile; they do not build entities
+  or call `SaveChanges`.
+
+Seed profile resolution is environment-aware: Development defaults to `Demo`,
+while other environments default to `None`. `Reference` and `Demo` outside
+Development require an explicit `Wms:SeedProfile` setting, so production does
+not create sample catalog or stock rows implicitly.
 
 Controllers and forms may perform presentation validation such as required
 fields and parseable numbers. Business invariants and state transitions remain
