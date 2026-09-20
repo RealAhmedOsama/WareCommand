@@ -361,7 +361,7 @@ public sealed class ReceiptService : IReceiptService
             input.SourceType,
             input.SourceReference ?? input.ReferenceNumber,
             input.ReferenceNumber,
-            sessionReference: null,
+            input.SessionReference,
             input.Notes,
             userId);
         var status = await _context.InventoryStatuses.AsNoTracking().FirstOrDefaultAsync(
@@ -641,6 +641,22 @@ public sealed class ReceiptService : IReceiptService
                         userId,
                         reason,
                         cancellationToken);
+                    var demandReversal = await ReverseDemandReferencesAsync(
+                        receipt,
+                        line,
+                        link.BaseQuantity,
+                        _clock.UtcNow.UtcDateTime,
+                        cancellationToken);
+                    if (demandReversal.IsFailure)
+                    {
+                        if (transaction is not null)
+                        {
+                            await transaction.RollbackAsync(CancellationToken.None);
+                        }
+
+                        return demandReversal.ToFailure<ReceiptDto>();
+                    }
+
                     line.ReversePhysicalReceipt(
                         link.BaseQuantity,
                         link.AcceptedBaseQuantity,
@@ -699,6 +715,72 @@ public sealed class ReceiptService : IReceiptService
                 await transaction.DisposeAsync();
             }
         }
+    }
+
+    private async Task<Result> ReverseDemandReferencesAsync(
+        Receipt receipt,
+        ReceiptLine line,
+        decimal baseQuantity,
+        DateTime reversedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (line.PurchaseOrderId.HasValue && line.PurchaseOrderLineId.HasValue)
+        {
+            var purchaseOrder = await _context.PurchaseOrders
+                .Include(order => order.Lines)
+                .SingleOrDefaultAsync(
+                    order => order.Id == line.PurchaseOrderId.Value && order.WarehouseId == receipt.WarehouseId,
+                    cancellationToken);
+            if (purchaseOrder is null)
+            {
+                return Result.Failure(WmsErrors.NotFound(
+                    "purchase_order.not_found",
+                    "The purchase order for the receipt reversal was not found."));
+            }
+
+            try
+            {
+                purchaseOrder.ReverseReceipt(line.PurchaseOrderLineId.Value, baseQuantity);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Result.Failure(WmsErrors.BusinessRule(
+                    "purchase_order.reversal_invalid",
+                    exception.Message));
+            }
+        }
+
+        if (line.AdvanceShippingNoticeId.HasValue && line.AdvanceShippingNoticeLineId.HasValue)
+        {
+            var notice = await _context.AdvanceShippingNotices
+                .Include(candidate => candidate.Lines)
+                .SingleOrDefaultAsync(
+                    candidate => candidate.Id == line.AdvanceShippingNoticeId.Value &&
+                                 candidate.WarehouseId == receipt.WarehouseId,
+                    cancellationToken);
+            if (notice is null)
+            {
+                return Result.Failure(WmsErrors.NotFound(
+                    "asn.not_found",
+                    "The ASN for the receipt reversal was not found."));
+            }
+
+            try
+            {
+                notice.ReverseReceipt(
+                    line.AdvanceShippingNoticeLineId.Value,
+                    baseQuantity,
+                    reversedAtUtc);
+            }
+            catch (InvalidOperationException exception)
+            {
+                return Result.Failure(WmsErrors.BusinessRule(
+                    "asn.reversal_invalid",
+                    exception.Message));
+            }
+        }
+
+        return Result.Success();
     }
 
     public async Task<Result<ReceiptCorrectionDto>> CorrectAsync(

@@ -281,6 +281,32 @@
   <data name="Receiving.Submit" xml:space="preserve"><value>Receive (F1)</value></data>
   <data name="Receiving.Help" xml:space="preserve"><value>Scan an item or enter its SKU, then enter the quantity and receiving location.</value></data>
   <data name="Receiving.Completed" xml:space="preserve"><value>Item received successfully! Movement ID: {0}</value></data>
+  <data name="Receiving.SessionTitle" xml:space="preserve"><value>Scanner receiving session</value></data>
+  <data name="Receiving.SessionHelp" xml:space="preserve"><value>Start a durable session, then scan or type each item. The operation ID makes retries safe after a disconnected scan.</value></data>
+  <data name="Receiving.WarehouseId" xml:space="preserve"><value>Warehouse ID</value></data>
+  <data name="Receiving.LocationId" xml:space="preserve"><value>Receiving location ID</value></data>
+  <data name="Receiving.Source" xml:space="preserve"><value>Demand source</value></data>
+  <data name="Receiving.PurchaseOrder" xml:space="preserve"><value>Purchase order</value></data>
+  <data name="Receiving.Asn" xml:space="preserve"><value>ASN</value></data>
+  <data name="Receiving.DockArrival" xml:space="preserve"><value>Dock arrival</value></data>
+  <data name="Receiving.ExternalReference" xml:space="preserve"><value>External reference</value></data>
+  <data name="Receiving.BlindReceipt" xml:space="preserve"><value>Blind receipt</value></data>
+  <data name="Receiving.SessionReference" xml:space="preserve"><value>Session reference</value></data>
+  <data name="Receiving.SupervisorReason" xml:space="preserve"><value>Supervisor reason (when required)</value></data>
+  <data name="Receiving.StartSession" xml:space="preserve"><value>Start session</value></data>
+  <data name="Receiving.ScanSession" xml:space="preserve"><value>Scan item or label</value></data>
+  <data name="Receiving.ScanOperationId" xml:space="preserve"><value>Operation ID</value></data>
+  <data name="Receiving.SessionQuantity" xml:space="preserve"><value>Scan quantity</value></data>
+  <data name="Receiving.PauseSession" xml:space="preserve"><value>Pause</value></data>
+  <data name="Receiving.ResumeSession" xml:space="preserve"><value>Resume</value></data>
+  <data name="Receiving.CompleteSession" xml:space="preserve"><value>Complete</value></data>
+  <data name="Receiving.PendingScans" xml:space="preserve"><value>Queued scans</value></data>
+  <data name="Receiving.Expected" xml:space="preserve"><value>Expected</value></data>
+  <data name="Receiving.Received" xml:space="preserve"><value>Received</value></data>
+  <data name="Receiving.Remaining" xml:space="preserve"><value>Remaining</value></data>
+  <data name="Receiving.NoSession" xml:space="preserve"><value>Start a session before scanning.</value></data>
+  <data name="Receiving.ScanQueued" xml:space="preserve"><value>Connection unavailable. The scan is queued for retry.</value></data>
+  <data name="Receiving.SessionLoaded" xml:space="preserve"><value>Session {0} loaded</value></data>
   <data name="Putaway.Title" xml:space="preserve"><value>Putaway Operations</value></data>
   <data name="Putaway.CardTitle" xml:space="preserve"><value>Move Inventory to Storage</value></data>
   <data name="Putaway.Source" xml:space="preserve"><value>Source location</value></data>

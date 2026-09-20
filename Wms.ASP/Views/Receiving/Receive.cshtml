@@ -1,6 +1,9 @@
 @model ReceivingViewModel
+@using Wms.Application.Context
+@inject IWarehouseContext WarehouseContext
 @{
     ViewData["Title"] = T["Receiving.Title"];
+    var selectedWarehouseId = WarehouseContext.WarehouseId ?? 0;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -9,6 +12,113 @@
         @T["Receiving.Title"]
     </h2>
 </div>
+
+<section class="card border-0 shadow mb-4" id="receiving-session-panel"
+         data-no-session="@T["Receiving.NoSession"]"
+         data-scan-queued="@T["Receiving.ScanQueued"]"
+         data-session-loaded="@T["Receiving.SessionLoaded"]">
+    <div class="card-header bg-primary bg-opacity-10 border-bottom text-primary">
+        <h5 class="card-title mb-1">
+            <i class="bi bi-upc-scan me-2"></i>@T["Receiving.SessionTitle"]
+        </h5>
+        <p class="mb-0 small text-body-secondary">@T["Receiving.SessionHelp"]</p>
+    </div>
+    <div class="card-body">
+        @Html.AntiForgeryToken()
+        <div class="row g-3 align-items-end" id="receiving-session-start-fields">
+            <div class="col-6 col-lg-2">
+                <label for="receiving-session-warehouse" class="form-label">@T["Receiving.WarehouseId"]</label>
+                <input id="receiving-session-warehouse" class="form-control wms-number" type="number" min="1" value="@selectedWarehouseId" />
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="receiving-session-location" class="form-label">@T["Receiving.LocationId"]</label>
+                <input id="receiving-session-location" class="form-control wms-number" type="number" min="1" required />
+            </div>
+            <div class="col-12 col-lg-3">
+                <label for="receiving-session-source" class="form-label">@T["Receiving.Source"]</label>
+                <select id="receiving-session-source" class="form-select">
+                    <option value="1">@T["Receiving.PurchaseOrder"]</option>
+                    <option value="2">@T["Receiving.Asn"]</option>
+                    <option value="3">@T["Receiving.DockArrival"]</option>
+                    <option value="4">@T["Receiving.ExternalReference"]</option>
+                    <option value="5">@T["Receiving.BlindReceipt"]</option>
+                </select>
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="receiving-session-po" class="form-label">@T["Receiving.PurchaseOrder"] ID</label>
+                <input id="receiving-session-po" class="form-control wms-number" type="number" min="1" />
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="receiving-session-asn" class="form-label">@T["Receiving.Asn"] ID</label>
+                <input id="receiving-session-asn" class="form-control wms-number" type="number" min="1" />
+            </div>
+            <div class="col-6 col-lg-2">
+                <label for="receiving-session-dock" class="form-label">@T["Receiving.DockArrival"] ID</label>
+                <input id="receiving-session-dock" class="form-control wms-number" type="number" min="1" />
+            </div>
+            <div class="col-6 col-lg-3">
+                <label for="receiving-session-reference" class="form-label">@T["Receiving.SessionReference"]</label>
+                <input id="receiving-session-reference" class="form-control wms-identifier" maxlength="100" />
+            </div>
+            <div class="col-12 col-lg-4">
+                <label for="receiving-session-external" class="form-label">@T["Receiving.ExternalReference"]</label>
+                <input id="receiving-session-external" class="form-control wms-identifier" maxlength="100" />
+            </div>
+            <div class="col-12 col-lg-5">
+                <label for="receiving-session-reason" class="form-label">@T["Receiving.SupervisorReason"]</label>
+                <input id="receiving-session-reason" class="form-control" maxlength="1000" />
+            </div>
+            <div class="col-12 col-lg-2">
+                <button type="button" class="btn btn-primary btn-lg w-100" id="receiving-session-start">
+                    <i class="bi bi-play-circle me-1"></i>@T["Receiving.StartSession"]
+                </button>
+            </div>
+        </div>
+
+        <div id="receiving-session-active" class="d-none">
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                <span class="badge text-bg-primary" id="receiving-session-status"></span>
+                <span class="text-body-secondary" id="receiving-session-reference-value"></span>
+                <span class="ms-auto small text-body-secondary" id="receiving-session-queue-status"></span>
+            </div>
+            <div class="row g-3 align-items-end">
+                <div class="col-12 col-lg-7">
+                    <label for="receiving-session-scan" class="form-label">@T["Receiving.ScanSession"]</label>
+                    <input id="receiving-session-scan" class="form-control form-control-lg wms-barcode" autocomplete="off" autofocus />
+                </div>
+                <div class="col-6 col-lg-2">
+                    <label for="receiving-session-quantity" class="form-label">@T["Receiving.SessionQuantity"]</label>
+                    <input id="receiving-session-quantity" class="form-control form-control-lg wms-number" type="number" min="0.000000000001" step="any" value="1" />
+                </div>
+                <div class="col-6 col-lg-3">
+                    <button type="button" class="btn btn-success btn-lg w-100" id="receiving-session-scan-button">
+                        <i class="bi bi-upc-scan me-1"></i>@T["Receiving.ScanSession"]
+                    </button>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <button type="button" class="btn btn-outline-secondary" id="receiving-session-pause">@T["Receiving.PauseSession"]</button>
+                <button type="button" class="btn btn-outline-secondary d-none" id="receiving-session-resume">@T["Receiving.ResumeSession"]</button>
+                <button type="button" class="btn btn-outline-success" id="receiving-session-complete">@T["Receiving.CompleteSession"]</button>
+                <button type="button" class="btn btn-outline-warning" id="receiving-session-retry"></button>
+            </div>
+            <div class="alert d-none mt-3 mb-0" id="receiving-session-message" role="status" aria-live="polite"></div>
+            <div class="table-responsive mt-3">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th>@T["Field.ItemSku"]</th>
+                        <th>@T["Receiving.Expected"]</th>
+                        <th>@T["Receiving.Received"]</th>
+                        <th>@T["Receiving.Remaining"]</th>
+                    </tr>
+                    </thead>
+                    <tbody id="receiving-session-lines"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
 
 <div class="row justify-content-center">
     <div class="col-lg-8">
@@ -156,6 +266,192 @@
 @section Scripts {
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
     <script nonce="@Context.Items[SecurityHeadersMiddleware.ContentSecurityPolicyNonceItem]">
+        (() => {
+            const panel = document.getElementById('receiving-session-panel');
+            if (!panel) return;
+
+            const activeKey = 'warecommand.receiving.active';
+            const csrfToken = panel.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            const warehouse = document.getElementById('receiving-session-warehouse');
+            const location = document.getElementById('receiving-session-location');
+            const source = document.getElementById('receiving-session-source');
+            const po = document.getElementById('receiving-session-po');
+            const asn = document.getElementById('receiving-session-asn');
+            const dock = document.getElementById('receiving-session-dock');
+            const external = document.getElementById('receiving-session-external');
+            const reference = document.getElementById('receiving-session-reference');
+            const reason = document.getElementById('receiving-session-reason');
+            const startFields = document.getElementById('receiving-session-start-fields');
+            const active = document.getElementById('receiving-session-active');
+            const status = document.getElementById('receiving-session-status');
+            const referenceValue = document.getElementById('receiving-session-reference-value');
+            const scan = document.getElementById('receiving-session-scan');
+            const quantity = document.getElementById('receiving-session-quantity');
+            const message = document.getElementById('receiving-session-message');
+            const queueStatus = document.getElementById('receiving-session-queue-status');
+            const retry = document.getElementById('receiving-session-retry');
+            let session = null;
+            let queue = [];
+            let busy = false;
+
+            const operationId = () => (window.crypto?.randomUUID?.() || `op-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+            const getQueueKey = () => session ? `warecommand.receiving.queue.${session.id}` : null;
+            const saveQueue = () => {
+                const key = getQueueKey();
+                if (key) localStorage.setItem(key, JSON.stringify(queue));
+                queueStatus.textContent = queue.length ? `${@Html.Raw(Json.Serialize(T["Receiving.PendingScans"].Value))}: ${queue.length}` : '';
+                retry.classList.toggle('d-none', queue.length === 0);
+                retry.textContent = @Html.Raw(Json.Serialize(T["Receiving.PendingScans"].Value));
+            };
+            const showMessage = (text, kind = 'info') => {
+                message.textContent = text || '';
+                message.className = text ? `alert alert-${kind} mt-3 mb-0` : 'alert d-none mt-3 mb-0';
+            };
+            const api = async (url, options = {}) => {
+                const headers = { 'Accept': 'application/json', ...(options.headers || {}) };
+                if (options.body) {
+                    headers['Content-Type'] = 'application/json';
+                    if (csrfToken) headers['RequestVerificationToken'] = csrfToken;
+                }
+                let response;
+                try {
+                    response = await fetch(url, { ...options, headers });
+                } catch (error) {
+                    error.retryable = true;
+                    throw error;
+                }
+                const body = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    const error = new Error(body.detail || body.title || `HTTP ${response.status}`);
+                    error.retryable = body.retryable === true || response.status >= 500 || response.status === 429;
+                    throw error;
+                }
+                return body;
+            };
+            const render = value => {
+                session = value;
+                localStorage.setItem(activeKey, String(session.id));
+                startFields.classList.add('d-none');
+                active.classList.remove('d-none');
+                status.textContent = String(session.status || '').replace(/([a-z])([A-Z])/g, '$1 $2');
+                referenceValue.textContent = session.sessionReference || '';
+                const paused = String(session.status).toLowerCase() === 'paused';
+                document.getElementById('receiving-session-pause').classList.toggle('d-none', !session.canScan);
+                document.getElementById('receiving-session-resume').classList.toggle('d-none', !paused);
+                scan.disabled = !session.canScan;
+                quantity.disabled = !session.canScan;
+                document.getElementById('receiving-session-scan-button').disabled = !session.canScan;
+                const lines = document.getElementById('receiving-session-lines');
+                lines.replaceChildren();
+                (session.lines || []).forEach(line => {
+                    const row = document.createElement('tr');
+                    [line.itemSku, line.expectedBaseQuantity ?? '—', line.receivedBaseQuantity, line.remainingBaseQuantity ?? '—']
+                        .forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); });
+                    lines.appendChild(row);
+                });
+                saveQueue();
+                if (session.canScan) scan.focus();
+            };
+            const loadSession = async id => {
+                try {
+                    render(await api(`/api/receiving/sessions/${encodeURIComponent(id)}`));
+                    const key = getQueueKey();
+                    queue = key ? JSON.parse(localStorage.getItem(key) || '[]') : [];
+                    saveQueue();
+                    await flushQueue();
+                } catch (error) {
+                    localStorage.removeItem(activeKey);
+                    showMessage(error.message, 'danger');
+                }
+            };
+            const flushQueue = async () => {
+                if (!session || busy || !queue.length) return;
+                busy = true;
+                try {
+                    while (queue.length) {
+                        const pending = queue[0];
+                        const result = await api(`/api/receiving/sessions/${session.id}/scans`, { method: 'POST', body: JSON.stringify(pending) });
+                        queue.shift();
+                        render(result);
+                    }
+                    showMessage('', 'info');
+                } catch (error) {
+                    showMessage(error.message, error.retryable ? 'warning' : 'danger');
+                } finally {
+                    busy = false;
+                    saveQueue();
+                }
+            };
+            const startSession = async () => {
+                const warehouseId = Number(warehouse.value);
+                const receivingLocationId = Number(location.value);
+                if (!warehouseId || !receivingLocationId) {
+                    showMessage(@Html.Raw(Json.Serialize(T["Receiving.LocationId"].Value)), 'danger');
+                    return;
+                }
+                const sourceType = Number(source.value);
+                const payload = {
+                    warehouseId,
+                    receivingLocationId,
+                    sourceType,
+                    purchaseOrderId: po.value ? Number(po.value) : null,
+                    advanceShippingNoticeId: asn.value ? Number(asn.value) : null,
+                    dockLocationId: dock.value ? Number(dock.value) : null,
+                    externalReference: external.value || null,
+                    sessionReference: reference.value || `RCV-${operationId()}`,
+                    supervisorOverride: sourceType === 5 || Boolean(reason.value.trim()),
+                    supervisorOverrideReason: reason.value || null
+                };
+                try {
+                    render(await api('/api/receiving/sessions', { method: 'POST', body: JSON.stringify(payload) }));
+                    showMessage(panel.dataset.sessionLoaded.replace('{0}', session.sessionReference), 'success');
+                } catch (error) {
+                    showMessage(error.message, 'danger');
+                }
+            };
+            const submitScan = async () => {
+                if (!session) { showMessage(panel.dataset.noSession, 'warning'); return; }
+                const raw = scan.value.trim();
+                const enteredQuantity = Number(quantity.value);
+                if (!raw || !enteredQuantity || enteredQuantity <= 0) return;
+                const payload = { clientOperationId: operationId(), rawScanValue: raw, quantity: enteredQuantity };
+                scan.value = '';
+                try {
+                    render(await api(`/api/receiving/sessions/${session.id}/scans`, { method: 'POST', body: JSON.stringify(payload) }));
+                    showMessage('', 'info');
+                } catch (error) {
+                    if (error.retryable) {
+                        queue.push(payload);
+                        saveQueue();
+                        showMessage(panel.dataset.scanQueued, 'warning');
+                    } else {
+                        showMessage(error.message, 'danger');
+                    }
+                    scan.focus();
+                }
+            };
+            const lifecycle = async (action, payload = {}) => {
+                if (!session) return;
+                try {
+                    render(await api(`/api/receiving/sessions/${session.id}/${action}`, { method: 'POST', body: JSON.stringify(payload) }));
+                } catch (error) { showMessage(error.message, 'danger'); }
+            };
+
+            document.getElementById('receiving-session-start').addEventListener('click', startSession);
+            document.getElementById('receiving-session-scan-button').addEventListener('click', submitScan);
+            document.getElementById('receiving-session-pause').addEventListener('click', () => lifecycle('pause'));
+            document.getElementById('receiving-session-resume').addEventListener('click', () => lifecycle('resume'));
+            document.getElementById('receiving-session-complete').addEventListener('click', () => lifecycle('complete', { allowPartial: false }));
+            retry.addEventListener('click', flushQueue);
+            scan.addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); submitScan(); } });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'F1') { event.preventDefault(); submitScan(); }
+                if (event.key === 'F2') { event.preventDefault(); scan.value = ''; scan.focus(); }
+            });
+            const savedSession = localStorage.getItem(activeKey);
+            if (savedSession) loadSession(savedSession);
+        })();
+
         function clearForm() {
             $('form')[0].reset();
             $('#ItemSku').focus();

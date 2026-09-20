@@ -78,7 +78,7 @@ public sealed class SerialNumbersController(
                     ExpiryDate: request.ExpiryDate,
                     ManufacturedDate: request.ManufacturedDate),
                 currentUser.RequireUserId(),
-                cancellationToken);
+                cancellationToken: cancellationToken);
             if (result.IsSuccess)
             {
                 accepted.Add(serialNumber);

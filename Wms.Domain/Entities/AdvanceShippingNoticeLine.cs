@@ -151,6 +151,18 @@ public sealed class AdvanceShippingNoticeLine : Entity
         SetUpdatedAt();
     }
 
+    public void ReverseReceipt(decimal baseQuantity)
+    {
+        if (baseQuantity <= 0m || baseQuantity > ReceivedBaseQuantity)
+        {
+            throw new InvalidOperationException("The ASN receipt reversal exceeds line history.");
+        }
+
+        ReceivedBaseQuantity -= baseQuantity;
+        Revision++;
+        SetUpdatedAt();
+    }
+
     public void Close()
     {
         if (IsClosed)
@@ -164,6 +176,18 @@ public sealed class AdvanceShippingNoticeLine : Entity
         }
 
         IsClosed = true;
+        Revision++;
+        SetUpdatedAt();
+    }
+
+    public void Reopen()
+    {
+        if (!IsClosed)
+        {
+            return;
+        }
+
+        IsClosed = false;
         Revision++;
         SetUpdatedAt();
     }

@@ -249,6 +249,38 @@ public sealed class AdvanceShippingNotice : Entity
         SetUpdatedAt(receivedAtUtc);
     }
 
+    public void ReverseReceipt(int lineId, decimal baseQuantity, DateTime reversedAtUtc)
+    {
+        if (Status is AdvanceShippingNoticeStatus.Draft or
+            AdvanceShippingNoticeStatus.Submitted or
+            AdvanceShippingNoticeStatus.Expected or
+            AdvanceShippingNoticeStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"An ASN in {Status} cannot reverse receipt quantity.");
+        }
+
+        if (Status == AdvanceShippingNoticeStatus.Completed)
+        {
+            foreach (var closedLine in _lines)
+            {
+                closedLine.Reopen();
+            }
+        }
+
+        var line = _lines.SingleOrDefault(candidate => candidate.Id == lineId);
+        if (line is null)
+        {
+            throw new InvalidOperationException("The ASN line was not found.");
+        }
+
+        line.ReverseReceipt(baseQuantity);
+        Status = HasReceiptHistory
+            ? AdvanceShippingNoticeStatus.Receiving
+            : AdvanceShippingNoticeStatus.Arrived;
+        Revision++;
+        SetUpdatedAt(reversedAtUtc);
+    }
+
     public void MarkException()
     {
         if (Status is not (AdvanceShippingNoticeStatus.Arrived or AdvanceShippingNoticeStatus.Receiving))

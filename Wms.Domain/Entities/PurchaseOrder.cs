@@ -168,6 +168,37 @@ public sealed class PurchaseOrder : Entity
         SetUpdatedAt();
     }
 
+    public void ReverseReceipt(int lineId, decimal baseQuantity)
+    {
+        if (Status is PurchaseOrderStatus.Draft or PurchaseOrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException($"A purchase order in {Status} cannot reverse receipt quantity.");
+        }
+
+        if (Status == PurchaseOrderStatus.Closed)
+        {
+            foreach (var closedLine in _lines)
+            {
+                closedLine.Reopen();
+            }
+        }
+
+        var line = _lines.SingleOrDefault(candidate => candidate.Id == lineId);
+        if (line is null)
+        {
+            throw new InvalidOperationException("The purchase-order line was not found.");
+        }
+
+        line.ReverseReceipt(baseQuantity);
+        Status = _lines.All(candidate => candidate.IsFullyReceived)
+            ? PurchaseOrderStatus.Received
+            : HasReceiptHistory
+                ? PurchaseOrderStatus.PartiallyReceived
+                : PurchaseOrderStatus.Confirmed;
+        Revision++;
+        SetUpdatedAt();
+    }
+
     public void Close(string userId, DateTime closedAtUtc)
     {
         EnsureUser(userId);

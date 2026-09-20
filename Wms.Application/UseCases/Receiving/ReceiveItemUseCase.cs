@@ -23,6 +23,7 @@ namespace Wms.Application.UseCases.Receiving;
 public interface IReceiveItemUseCase
 {
     Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
+        string? idempotencyKey = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -67,6 +68,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
+        string? idempotencyKey = null,
         CancellationToken cancellationToken = default)
     {
         var lotTransactionStarted = false;
@@ -339,19 +341,21 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             }
 
             InventoryCommandIdempotencyLease? idempotencyLease = null;
+            var effectiveIdempotencyKey = idempotencyKey ?? _requestContext?.IdempotencyKey;
+            var requestContext = _requestContext;
             if (_idempotencyService is not null &&
-                !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
+                !string.IsNullOrWhiteSpace(effectiveIdempotencyKey))
             {
                 var idempotencyResult = await _idempotencyService.BeginAsync(
                     new InventoryCommandIdempotencyRequest(
                         "inventory.receipt",
-                        _requestContext.IdempotencyKey!,
+                        effectiveIdempotencyKey!,
                         InventoryCommandIdempotencyScope.For(
-                            _requestContext,
+                            requestContext,
                             userId,
                             location.WarehouseId),
                         InventoryCommandRequestHasher.Compute("inventory.receipt", request),
-                        _requestContext.CorrelationId,
+                        requestContext?.CorrelationId ?? WmsExecutionIdentifiers.NewCorrelationId(),
                         userId,
                         location.WarehouseId),
                     cancellationToken);
@@ -395,7 +399,8 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                         purchaseOrderReceiptPlan,
                         advanceShippingNoticeReceiptPlan,
                         request.ReferenceNumber,
-                        request.Notes),
+                        request.Notes,
+                        SessionReference: request.SessionReference),
                     userId,
                     cancellationToken);
                 if (receiptResult.IsFailure)

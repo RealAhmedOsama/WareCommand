@@ -67,7 +67,7 @@ public class ReceivingController : Controller
         var result = await _receiveItemUseCase.ExecuteAsync(
             request,
             _currentUser.RequireUserId(),
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         if (result.IsFailure)
         {

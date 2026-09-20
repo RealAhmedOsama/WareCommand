@@ -18,7 +18,8 @@ public record ReceiveItemDto(
     int? PurchaseOrderId = null,
     int? PurchaseOrderLineId = null,
     int? AdvanceShippingNoticeId = null,
-    int? AdvanceShippingNoticeLineId = null
+    int? AdvanceShippingNoticeLineId = null,
+    string? SessionReference = null
 );
 
 public record PutawayDto(

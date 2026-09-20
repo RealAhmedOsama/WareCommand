@@ -53,6 +53,13 @@ public static class WmsAuditActions
     public const string ReceiptCorrected = "inbound.receipt.corrected";
     public const string ReceiptException = "inbound.receipt.exception";
     public const string ReceiptLinkAdded = "inbound.receipt.link_added";
+    public const string ReceivingSessionStarted = "inbound.receiving_session.started";
+    public const string ReceivingSessionPaused = "inbound.receiving_session.paused";
+    public const string ReceivingSessionResumed = "inbound.receiving_session.resumed";
+    public const string ReceivingSessionCompleted = "inbound.receiving_session.completed";
+    public const string ReceivingSessionCancelled = "inbound.receiving_session.cancelled";
+    public const string ReceivingScanCompleted = "inbound.receiving_scan.completed";
+    public const string ReceivingScanCorrected = "inbound.receiving_scan.corrected";
     public const string UnitOfMeasureCreated = "master.uom.created";
     public const string UnitOfMeasureUpdated = "master.uom.updated";
     public const string UnitOfMeasureActivated = "master.uom.activated";
@@ -151,6 +158,13 @@ public static class WmsAuditActions
         ReceiptCorrected,
         ReceiptException,
         ReceiptLinkAdded,
+        ReceivingSessionStarted,
+        ReceivingSessionPaused,
+        ReceivingSessionResumed,
+        ReceivingSessionCompleted,
+        ReceivingSessionCancelled,
+        ReceivingScanCompleted,
+        ReceivingScanCorrected,
         UnitOfMeasureCreated,
         UnitOfMeasureUpdated,
         UnitOfMeasureActivated,
@@ -218,6 +232,8 @@ public static class WmsAuditEntityTypes
     public const string ReceiptLine = "ReceiptLine";
     public const string ReceiptLineMovement = "ReceiptLineMovement";
     public const string ReceiptLineLink = "ReceiptLineLink";
+    public const string ReceivingSession = "ReceivingSession";
+    public const string ReceivingSessionScan = "ReceivingSessionScan";
     public const string UnitOfMeasure = "UnitOfMeasure";
     public const string Location = "Location";
     public const string Warehouse = "Warehouse";

@@ -42,6 +42,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ReceiptLine> ReceiptLines => Set<ReceiptLine>();
     public DbSet<ReceiptLineMovement> ReceiptLineMovements => Set<ReceiptLineMovement>();
     public DbSet<ReceiptLineLink> ReceiptLineLinks => Set<ReceiptLineLink>();
+    public DbSet<ReceivingSession> ReceivingSessions => Set<ReceivingSession>();
+    public DbSet<ReceivingSessionLine> ReceivingSessionLines => Set<ReceivingSessionLine>();
+    public DbSet<ReceivingSessionScan> ReceivingSessionScans => Set<ReceivingSessionScan>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -106,6 +109,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ReceiptLineConfiguration());
         builder.ApplyConfiguration(new ReceiptLineMovementConfiguration());
         builder.ApplyConfiguration(new ReceiptLineLinkConfiguration());
+        builder.ApplyConfiguration(new ReceivingSessionConfiguration());
+        builder.ApplyConfiguration(new ReceivingSessionLineConfiguration());
+        builder.ApplyConfiguration(new ReceivingSessionScanConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());
         builder.ApplyConfiguration(new WarehouseConfiguration());

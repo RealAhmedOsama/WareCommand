@@ -47,6 +47,7 @@ public static class WmsPermissions
     public const string InventoryRead = "inventory.read";
     public const string InventoryAdjust = "inventory.adjust";
     public const string ReceivingExecute = "receiving.execute";
+    public const string ReceivingOverride = "receiving.override";
     public const string PutawayExecute = "putaway.execute";
     public const string PickingExecute = "picking.execute";
     public const string PackingExecute = "packing.execute";
@@ -77,6 +78,7 @@ public static class WmsPermissions
         InventoryRead,
         InventoryAdjust,
         ReceivingExecute,
+        ReceivingOverride,
         PutawayExecute,
         PickingExecute,
         PackingExecute,
@@ -109,6 +111,7 @@ public static class WmsPermissions
             [InventoryRead] = "View inventory and availability",
             [InventoryAdjust] = "Adjust inventory quantities",
             [ReceivingExecute] = "Execute receiving",
+            [ReceivingOverride] = "Authorize receiving supervisor overrides",
             [PutawayExecute] = "Execute putaway",
             [PickingExecute] = "Execute picking",
             [PackingExecute] = "Execute packing",
@@ -150,6 +153,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.InventoryRead,
                 WmsPermissions.InventoryAdjust,
                 WmsPermissions.ReceivingExecute,
+                WmsPermissions.ReceivingOverride,
                 WmsPermissions.PutawayExecute,
                 WmsPermissions.PickingExecute,
                 WmsPermissions.PackingExecute,

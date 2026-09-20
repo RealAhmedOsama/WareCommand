@@ -94,6 +94,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
         services.AddScoped<IAdvanceShippingNoticeService, AdvanceShippingNoticeService>();
         services.AddScoped<IReceiptService, ReceiptService>();
+        services.AddScoped<IReceivingExecutionService, ReceivingExecutionService>();
         services.AddScoped<IIdentificationRegistry, IdentificationRegistry>();
         services.AddScoped<IIdentificationService, IdentificationService>();
         services.AddScoped<ILotService, LotService>();

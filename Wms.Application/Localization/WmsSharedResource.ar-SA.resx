@@ -281,6 +281,32 @@
   <data name="Receiving.Submit" xml:space="preserve"><value>استلام (F1)</value></data>
   <data name="Receiving.Help" xml:space="preserve"><value>امسح الصنف أو أدخل رمزه، ثم أدخل الكمية وموقع الاستلام.</value></data>
   <data name="Receiving.Completed" xml:space="preserve"><value>تم استلام الصنف بنجاح! رقم الحركة: {0}</value></data>
+  <data name="Receiving.SessionTitle" xml:space="preserve"><value>جلسة الاستلام بالماسح</value></data>
+  <data name="Receiving.SessionHelp" xml:space="preserve"><value>ابدأ جلسة محفوظة، ثم امسح أو اكتب كل صنف. يضمن رقم العملية أمان إعادة المحاولة بعد انقطاع الاتصال.</value></data>
+  <data name="Receiving.WarehouseId" xml:space="preserve"><value>معرّف المستودع</value></data>
+  <data name="Receiving.LocationId" xml:space="preserve"><value>معرّف موقع الاستلام</value></data>
+  <data name="Receiving.Source" xml:space="preserve"><value>مصدر الطلب</value></data>
+  <data name="Receiving.PurchaseOrder" xml:space="preserve"><value>أمر الشراء</value></data>
+  <data name="Receiving.Asn" xml:space="preserve"><value>إشعار الشحن المسبق</value></data>
+  <data name="Receiving.DockArrival" xml:space="preserve"><value>وصول إلى الرصيف</value></data>
+  <data name="Receiving.ExternalReference" xml:space="preserve"><value>مرجع خارجي</value></data>
+  <data name="Receiving.BlindReceipt" xml:space="preserve"><value>استلام أعمى</value></data>
+  <data name="Receiving.SessionReference" xml:space="preserve"><value>مرجع الجلسة</value></data>
+  <data name="Receiving.SupervisorReason" xml:space="preserve"><value>سبب المشرف (عند الحاجة)</value></data>
+  <data name="Receiving.StartSession" xml:space="preserve"><value>بدء الجلسة</value></data>
+  <data name="Receiving.ScanSession" xml:space="preserve"><value>امسح الصنف أو الملصق</value></data>
+  <data name="Receiving.ScanOperationId" xml:space="preserve"><value>معرّف العملية</value></data>
+  <data name="Receiving.SessionQuantity" xml:space="preserve"><value>كمية المسح</value></data>
+  <data name="Receiving.PauseSession" xml:space="preserve"><value>إيقاف مؤقت</value></data>
+  <data name="Receiving.ResumeSession" xml:space="preserve"><value>استئناف</value></data>
+  <data name="Receiving.CompleteSession" xml:space="preserve"><value>إتمام</value></data>
+  <data name="Receiving.PendingScans" xml:space="preserve"><value>المسحات المنتظرة</value></data>
+  <data name="Receiving.Expected" xml:space="preserve"><value>المتوقع</value></data>
+  <data name="Receiving.Received" xml:space="preserve"><value>المستلم</value></data>
+  <data name="Receiving.Remaining" xml:space="preserve"><value>المتبقي</value></data>
+  <data name="Receiving.NoSession" xml:space="preserve"><value>ابدأ جلسة قبل المسح.</value></data>
+  <data name="Receiving.ScanQueued" xml:space="preserve"><value>الاتصال غير متاح. تم وضع المسحة في قائمة إعادة المحاولة.</value></data>
+  <data name="Receiving.SessionLoaded" xml:space="preserve"><value>تم تحميل الجلسة {0}</value></data>
   <data name="Putaway.Title" xml:space="preserve"><value>عمليات الإيداع</value></data>
   <data name="Putaway.CardTitle" xml:space="preserve"><value>نقل المخزون إلى التخزين</value></data>
   <data name="Putaway.Source" xml:space="preserve"><value>الموقع المصدر</value></data>

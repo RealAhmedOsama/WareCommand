@@ -188,7 +188,8 @@ public sealed record ReceiptReceivingInput(
     decimal? AcceptedBaseQuantity = null,
     decimal? RejectedBaseQuantity = null,
     decimal? DamagedBaseQuantity = null,
-    decimal? QuarantinedBaseQuantity = null);
+    decimal? QuarantinedBaseQuantity = null,
+    string? SessionReference = null);
 
 public sealed record ReceiptReceivingPlan(
     int ReceiptId,

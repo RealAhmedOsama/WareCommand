@@ -118,6 +118,18 @@ public sealed class PurchaseOrderLine : Entity
         SetUpdatedAt();
     }
 
+    public void ReverseReceipt(decimal baseQuantity)
+    {
+        if (baseQuantity <= 0m || baseQuantity > ReceivedBaseQuantity)
+        {
+            throw new InvalidOperationException("The purchase-order receipt reversal exceeds line history.");
+        }
+
+        ReceivedBaseQuantity -= baseQuantity;
+        Revision++;
+        SetUpdatedAt();
+    }
+
     public void Close()
     {
         if (IsClosed)
