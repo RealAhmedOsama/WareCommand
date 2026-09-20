@@ -51,6 +51,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<WmsReportGenerationJob>();
         services.AddScoped<WmsIntegrationRetryJob>();
         services.AddScoped<WmsCleanupJob>();
+        services.AddScoped<WmsDatabaseBackupJob>();
         services.AddScoped<WmsCycleCountGenerationJob>();
         services.AddScoped<WmsReplenishmentGenerationJob>();
         services.AddSingleton<WmsSettingsCache>();

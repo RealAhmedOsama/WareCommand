@@ -44,10 +44,13 @@ an operator decision and an explicit re-enqueue, not an automatic data edit.
 ## Low disk or backup failure
 
 Confirm which volume is low and whether the backup destination is reachable.
-Follow the deployment backup/restore procedure and preserve evidence before
-cleanup. A backup failure is not resolved until a restore rehearsal or provider
-acknowledgement proves the backup is usable. The current host emits no backup
-success claim; the future backup adapter must call the shared failure metric.
+Follow the [backup procedure](../modernization/BACKUPS.md) and the
+[disaster-recovery runbook](BACKUP_DISASTER_RECOVERY.md); preserve evidence
+before cleanup. The backup job writes a status file, emits
+`warecommand.backups.failures` on failure, and makes `/health/ready` unhealthy
+until a recent verified artifact exists. A backup failure is not resolved until
+verification and, where recovery is involved, a restore rehearsal prove the
+artifact is usable.
 
 ## Local verification
 

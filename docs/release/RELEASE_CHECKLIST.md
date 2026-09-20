@@ -28,7 +28,8 @@ revision, environment, decision, and rollback boundary.
 ## 3. Backup and migration
 
 - [ ] Target database backup completed; owner, timestamp, location, and restore
-      result are recorded outside the repository.
+      result are recorded outside the repository; follow
+      [`docs/modernization/BACKUPS.md`](../modernization/BACKUPS.md).
 - [ ] The exact checked-in migration script was reviewed against the target.
 - [ ] Migration compatibility with the previous application version is proven.
 - [ ] Data reconciliation, row/quantity totals, and relationship checks pass.
@@ -54,7 +55,8 @@ revision, environment, decision, and rollback boundary.
 - [ ] Previous application image/tag is available.
 - [ ] Application rollback procedure is tested or explicitly bounded.
 - [ ] Database rollback is a rehearsed restore or a documented forward-fix;
-      destructive reverse migrations are not assumed safe.
+      destructive reverse migrations are not assumed safe; use
+      [`docs/operations/BACKUP_DISASTER_RECOVERY.md`](../operations/BACKUP_DISASTER_RECOVERY.md).
 - [ ] Stop/rollback criteria and health/readiness thresholds are explicit.
 - [ ] Post-release smoke and monitoring review are scheduled.
 

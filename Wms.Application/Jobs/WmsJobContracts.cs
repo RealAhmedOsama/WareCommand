@@ -28,6 +28,7 @@ public static class WmsJobNames
     public const string ReportGeneration = "wms.report-generation";
     public const string IntegrationRetries = "wms.integration-retries";
     public const string Cleanup = "wms.cleanup";
+    public const string DatabaseBackup = "wms.database-backup";
     public const string CycleCountGeneration = "wms.cycle-count-generation";
     public const string ReplenishmentGeneration = "wms.replenishment-generation";
 }
@@ -79,6 +80,13 @@ public static class WmsJobCatalog
             TimeSpan.FromDays(1),
             TimeSpan.FromMinutes(10),
             "Prune retained job execution and notification records."),
+        new(
+            WmsJobNames.DatabaseBackup,
+            WmsJobQueues.Maintenance,
+            "0 1 * * *",
+            TimeSpan.FromDays(1),
+            TimeSpan.FromMinutes(30),
+            "Create, verify, and replicate the scheduled encrypted PostgreSQL backup."),
         new(
             WmsJobNames.CycleCountGeneration,
             WmsJobQueues.Maintenance,

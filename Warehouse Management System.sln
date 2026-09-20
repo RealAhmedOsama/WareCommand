@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wms.DataMigration.Tests", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wms.ASP.Tests", "Wms.ASP.Tests\Wms.ASP.Tests.csproj", "{3514A2B3-56B2-4B76-A621-01D357A622D5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wms.Backup", "Wms.Backup\Wms.Backup.csproj", "{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -181,6 +183,18 @@ Global
 		{3514A2B3-56B2-4B76-A621-01D357A622D5}.Release|x64.Build.0 = Release|Any CPU
 		{3514A2B3-56B2-4B76-A621-01D357A622D5}.Release|x86.ActiveCfg = Release|Any CPU
 		{3514A2B3-56B2-4B76-A621-01D357A622D5}.Release|x86.Build.0 = Release|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Debug|x64.Build.0 = Debug|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Debug|x86.Build.0 = Debug|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Release|x64.ActiveCfg = Release|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Release|x64.Build.0 = Release|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Release|x86.ActiveCfg = Release|Any CPU
+		{D91CF3E1-B7A8-483F-B1D2-5495DD88D027}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

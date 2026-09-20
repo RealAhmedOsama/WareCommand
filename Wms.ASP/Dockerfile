@@ -7,6 +7,17 @@ ARG APP_UID=1654
 WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
+USER root
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes ca-certificates curl gnupg \
+    && install --directory --mode=0755 /etc/apt/keyrings \
+    && curl --fail --silent --show-error --location https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        | gpg --dearmor --output /etc/apt/keyrings/postgresql.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+        > /etc/apt/sources.list.d/postgresql.list \
+    && apt-get update \
+    && apt-get install --no-install-recommends --yes postgresql-client-17 \
+    && rm -rf /var/lib/apt/lists/*
 
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
 ARG BUILD_CONFIGURATION=Release

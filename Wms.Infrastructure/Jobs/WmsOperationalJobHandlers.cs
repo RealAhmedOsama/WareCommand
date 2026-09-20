@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Backups;
 using Wms.Application.Context;
 using Wms.Application.Jobs;
 using Wms.Application.Settings;
@@ -13,6 +14,7 @@ public sealed class WmsJobHandlerCatalog(
     WmsReportGenerationJob reportGenerationJob,
     WmsIntegrationRetryJob integrationRetryJob,
     WmsCleanupJob cleanupJob,
+    WmsDatabaseBackupJob databaseBackupJob,
     WmsCycleCountGenerationJob cycleCountGenerationJob,
     WmsReplenishmentGenerationJob replenishmentGenerationJob)
 {
@@ -24,6 +26,7 @@ public sealed class WmsJobHandlerCatalog(
             reportGenerationJob,
             integrationRetryJob,
             cleanupJob,
+            databaseBackupJob,
             cycleCountGenerationJob,
             replenishmentGenerationJob
         }.ToDictionary(handler => handler.JobName, StringComparer.Ordinal);
@@ -231,6 +234,35 @@ public sealed class WmsCleanupJob(
             cancellationToken);
         logger.LogInformation("Background-job cleanup pruned {RecordCount} records", removed);
         return new WmsJobExecutionResult(removed, removed, $"Pruned {removed} records.");
+    }
+}
+
+public sealed class WmsDatabaseBackupJob(
+    IWmsBackupService backupService,
+    WmsBackupOptions options,
+    ILogger<WmsDatabaseBackupJob> logger) : IWmsJobHandler
+{
+    public string JobName => WmsJobNames.DatabaseBackup;
+
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
+        WmsJobContext context,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (!options.Enabled)
+        {
+            return new WmsJobExecutionResult(Summary: "Automated backups are disabled for this host.");
+        }
+
+        var artifact = await backupService.CreateAsync(
+            Environment.GetEnvironmentVariable("WARECOMMAND_BUILD_REVISION"),
+            cancellationToken);
+        logger.LogInformation(
+            "Database backup created at {ArtifactPath} with {SizeBytes} bytes",
+            artifact.ArtifactPath,
+            artifact.SizeBytes);
+        return new WmsJobExecutionResult(
+            Summary: $"Created and replicated backup {Path.GetFileName(artifact.ArtifactPath)}.");
     }
 }
 

@@ -21,6 +21,7 @@ Readiness checks are:
 - PostgreSQL reachability and pending-migration detection;
 - configured application storage and volume free space;
 - durable-job runner/storage state when `Wms:Jobs:Enabled=true`;
+- backup freshness and post-create verification when `Wms:Backups:Enabled=true`;
 - production Data Protection, database, bootstrap, seed, and telemetry configuration;
 - completion of database and Identity startup initialization.
 
@@ -61,11 +62,11 @@ The bounded custom instruments are:
 | `warecommand.jobs.failures` | bounded `job_kind` | Repeated job-failure alerting |
 | `warecommand.jobs.backlog` | none | Queue/backlog alerting from Hangfire monitoring |
 | `warecommand.storage.free` | none | Low-disk alerting |
-| `warecommand.backups.failures` | bounded `backup_kind` | Backup adapter signal when a backup runner exists |
+| `warecommand.backups.failures` | bounded `backup_kind` | Failed PostgreSQL backup or replication |
 
-Pack, ship, external, and backup measurements remain extension contracts until
-their owning issues add those workflows. The durable-job failure and backlog
-measurements are active when the runner is enabled; integration retry,
+Pack, ship, and external measurements remain extension contracts until their
+owning issues add those workflows. The durable-job and backup measurements are
+active when their respective features are enabled; integration retry,
 cycle-count, and replenishment handlers remain explicit no-op adapters until
 their owning domain issues provide pending-work models.
 
@@ -104,7 +105,7 @@ an operational ticket when sustained:
 | Repeated job failures | `warecommand.jobs.failures` | Five failures in 5 minutes, or runner health is unhealthy |
 | Queue backlog | `warecommand.jobs.backlog` | Above the runner-specific ceiling for 10 minutes |
 | Low disk | `warecommand.storage.free` or readiness storage result | Below the configured `Wms:Health:MinimumFreeBytes` |
-| Backup failure | `warecommand.backups.failures` | Any failure from the future backup adapter |
+| Backup failure | `warecommand.backups.failures` or `/health/ready` backup result | Any failure, missing offsite copy, or artifact older than `Wms:Backups:MaximumAgeHours` |
 
 Each alert should link to the [observability runbook](../operations/OBSERVABILITY_RUNBOOK.md),
 the [deployment guide](../../DEPLOYMENT.md), and the [logging procedure](LOGGING.md).

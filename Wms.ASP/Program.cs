@@ -12,6 +12,7 @@ using Serilog;
 using Wms.Application.DependencyInjection;
 using Wms.Application.Localization;
 using Wms.Application.Telemetry;
+using Wms.ASP.Backups;
 using Wms.ASP.Errors;
 using Wms.ASP.Health;
 using Wms.ASP.Identity;
@@ -85,6 +86,11 @@ public class Program
             builder.Services.AddWmsInfrastructure(
                 connectionString,
                 databaseProvider);
+            builder.Services.AddWmsBackups(
+                builder.Configuration,
+                builder.Environment,
+                databaseProvider,
+                connectionString);
             builder.Services.AddWmsJobs(
                 builder.Configuration,
                 databaseProvider,
@@ -106,6 +112,9 @@ public class Program
                 .AddCheck<WmsStorageHealthCheck>("storage", tags: ["ready"])
                 .AddCheck<WmsBackgroundJobStorageHealthCheck>(
                     "background-job-storage",
+                    tags: ["ready"])
+                .AddCheck<WmsBackupHealthCheck>(
+                    "backup",
                     tags: ["ready"])
                 .AddCheck<WmsCriticalConfigurationHealthCheck>(
                     "critical-configuration",

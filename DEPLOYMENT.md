@@ -80,7 +80,9 @@ deployment secret manager.
 
 1. Set `ConnectionStrings__DefaultConnection` for the web host and
    `WARECOMMAND_POSTGRES_CONNECTION` for the migration tooling.
-2. Back up the target database using the approved operational procedure.
+2. Back up the target database using [`scripts/backup-postgresql.ps1`](scripts/backup-postgresql.ps1)
+   and the [backup procedure](docs/modernization/BACKUPS.md); record the
+   artifact checksum and restore/verification result before continuing.
 3. Review or apply the checked-in migration script with
    `scripts/migrate-postgresql.ps1`; use `-Apply` only in the approved
    environment and change window.
@@ -123,5 +125,6 @@ fresh or explicitly approved target. See
 
 The migration tool rolls back its target transaction when validation fails and
 does not modify the SQLite source. Production database backup, restore,
-maintenance-window, and application rollback procedures still need an
-environment-specific owner and rehearsal before release.
+maintenance-window, and application rollback procedures are defined in the
+[disaster-recovery runbook](docs/operations/BACKUP_DISASTER_RECOVERY.md) and
+still need an environment-specific owner and rehearsal before release.

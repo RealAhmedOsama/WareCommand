@@ -100,6 +100,8 @@ Development, never an automatic production behavior.
 - [`docs/modernization/AUTHORIZATION.md`](docs/modernization/AUTHORIZATION.md) — permission matrix, warehouse scope, and access-management rules
 - [`ROADMAP.md`](ROADMAP.md) — implemented, partial, planned, and deferred work
 - [`docs/release/RELEASE_CHECKLIST.md`](docs/release/RELEASE_CHECKLIST.md) — backup, migration, rollout, monitoring, and rollback gates
+- [`docs/modernization/BACKUPS.md`](docs/modernization/BACKUPS.md) — encrypted PostgreSQL backup, restore, retention, and RPO/RTO policy
+- [`docs/operations/BACKUP_DISASTER_RECOVERY.md`](docs/operations/BACKUP_DISASTER_RECOVERY.md) — incident and restore-rehearsal runbook
 - [`docs/modernization/POSTGRESQL_LOCAL_SETUP.md`](docs/modernization/POSTGRESQL_LOCAL_SETUP.md)
 - [`docs/modernization/SQLITE_TO_POSTGRESQL_MIGRATION.md`](docs/modernization/SQLITE_TO_POSTGRESQL_MIGRATION.md)
 - [`docs/modernization/BASELINE_STATUS.md`](docs/modernization/BASELINE_STATUS.md) — original baseline evidence
