@@ -71,3 +71,31 @@ public interface IInventoryCommandIdempotencyRepository
         DateTimeOffset beforeUtc,
         CancellationToken cancellationToken = default);
 }
+
+public interface IInventoryReservationRepository
+{
+    Task<InventoryReservation?> GetByIdAsync(
+        int id,
+        CancellationToken cancellationToken = default);
+
+    Task<InventoryReservation?> GetByDemandAsync(
+        string demandKey,
+        int warehouseId,
+        CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<InventoryReservation>> GetExpiredAsync(
+        DateTime nowUtc,
+        CancellationToken cancellationToken = default);
+
+    Task<InventoryReservation> AddAsync(
+        InventoryReservation reservation,
+        CancellationToken cancellationToken = default);
+
+    Task<InventoryReservationAllocation> AddAllocationAsync(
+        InventoryReservationAllocation allocation,
+        CancellationToken cancellationToken = default);
+
+    Task<InventoryReservationEvent> AddEventAsync(
+        InventoryReservationEvent reservationEvent,
+        CancellationToken cancellationToken = default);
+}

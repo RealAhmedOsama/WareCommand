@@ -47,6 +47,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<InventoryBalance> InventoryBalances => Set<InventoryBalance>();
     public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
     public DbSet<InventoryCommandIdempotency> InventoryCommandIdempotencies => Set<InventoryCommandIdempotency>();
+    public DbSet<InventoryReservation> InventoryReservations => Set<InventoryReservation>();
+    public DbSet<InventoryReservationAllocation> InventoryReservationAllocations =>
+        Set<InventoryReservationAllocation>();
+    public DbSet<InventoryReservationEvent> InventoryReservationEvents =>
+        Set<InventoryReservationEvent>();
     public DbSet<WmsIdentifier> WmsIdentifiers => Set<WmsIdentifier>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
@@ -89,6 +94,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new InventoryBalanceConfiguration());
         builder.ApplyConfiguration(new InventoryTransactionConfiguration());
         builder.ApplyConfiguration(new InventoryCommandIdempotencyConfiguration());
+        builder.ApplyConfiguration(new InventoryReservationConfiguration());
+        builder.ApplyConfiguration(new InventoryReservationAllocationConfiguration());
+        builder.ApplyConfiguration(new InventoryReservationEventConfiguration());
         builder.ApplyConfiguration(new WmsIdentifierConfiguration());
 
         builder.Entity<WmsUser>(entity =>
@@ -391,6 +399,13 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         {
             throw new InvalidOperationException(
                 "Inventory transactions are immutable and cannot be updated or deleted.");
+        }
+
+        if (ChangeTracker.Entries<InventoryReservationEvent>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException(
+                "Inventory reservation events are immutable and cannot be updated or deleted.");
         }
     }
 }

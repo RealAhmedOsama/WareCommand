@@ -165,6 +165,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryBalanceRepository, InventoryBalanceRepository>();
         services.AddScoped<IInventoryTransactionRepository, InventoryTransactionRepository>();
         services.AddScoped<IInventoryCommandIdempotencyRepository, InventoryCommandIdempotencyRepository>();
+        services.AddScoped<IInventoryReservationRepository, InventoryReservationRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IMovementRepository, MovementRepository>();
 
@@ -175,6 +176,7 @@ public static class InfrastructureServiceCollectionExtensions
     {
         services.AddScoped<IStockMovementService, StockMovementService>();
         services.AddScoped<IInventoryLedgerService, InventoryLedgerService>();
+        services.AddScoped<IInventoryReservationService, InventoryReservationService>();
         services.AddScoped<IInventoryCommandIdempotencyService, InventoryCommandIdempotencyService>();
         return services;
     }

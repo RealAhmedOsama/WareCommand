@@ -13,6 +13,7 @@ public interface IUnitOfWork : IDisposable
     IInventoryBalanceRepository InventoryBalances { get; }
     IInventoryTransactionRepository InventoryTransactions { get; }
     IInventoryCommandIdempotencyRepository InventoryCommandIdempotencies { get; }
+    IInventoryReservationRepository InventoryReservations { get; }
     IStockRepository Stock { get; }
     IMovementRepository Movements { get; }
 
