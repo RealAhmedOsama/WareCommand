@@ -15,7 +15,9 @@ internal static class PostgreSqlTargetWriter
         "SerialNumbers",
         "SerialNumberMigrationConflicts",
         "Stock",
-        "Movements"
+        "Movements",
+        "InventoryBalances",
+        "InventoryTransactions"
     ];
 
     public static async Task WriteAsync(
@@ -329,6 +331,76 @@ internal static class PostgreSqlTargetWriter
             """,
             cancellationToken);
 
+        // The EF cutover migration runs before this importer and therefore
+        // cannot see legacy Stock rows that are imported later. Seed the
+        // same immutable opening snapshot here, idempotently, so a fresh
+        // SQLite-to-PostgreSQL target reconciles immediately after import.
+        await ExecuteAsync(
+            connection,
+            transaction,
+            """
+            INSERT INTO "InventoryBalances"
+            (
+                "WarehouseId", "LocationId", "ItemId", "LotId",
+                "SerialNumberId", "SerialNumber", "LicensePlateId",
+                "InventoryStatusId", "BaseUnitOfMeasure", "OnHandQuantity",
+                "ReservedQuantity", "Revision", "CreatedAt", "UpdatedAt"
+            )
+            SELECT
+                l."WarehouseId", s."LocationId", s."ItemId", s."LotId",
+                s."SerialNumberId", s."SerialNumber", s."LicensePlateId",
+                s."InventoryStatusId", i."UnitOfMeasure", s."QuantityAvailable",
+                s."QuantityReserved", 0, s."CreatedAt", s."UpdatedAt"
+            FROM "Stock" s
+            INNER JOIN "Locations" l ON l."Id" = s."LocationId"
+            INNER JOIN "Items" i ON i."Id" = s."ItemId"
+            ON CONFLICT DO NOTHING;
+            """,
+            cancellationToken);
+
+        await ExecuteAsync(
+            connection,
+            transaction,
+            """
+            INSERT INTO "InventoryTransactions"
+            (
+                "WarehouseId", "LocationId", "ItemId", "LotId",
+                "SerialNumberId", "SerialNumber", "LicensePlateId",
+                "InventoryStatusId", "BaseUnitOfMeasure", "Type",
+                "QuantityDelta", "QuantityBefore", "QuantityAfter",
+                "ReservedQuantityDelta", "ReservedQuantityBefore",
+                "ReservedQuantityAfter", "ReferenceType", "ReferenceId",
+                "ReferenceLine", "Reason", "ActorUserId", "OccurredAtUtc",
+                "CorrelationId", "IdempotencyKey", "TransactionGroupId",
+                "EntrySequence", "MovementId", "ReversalOfTransactionId",
+                "CreatedAt", "UpdatedAt"
+            )
+            SELECT
+                l."WarehouseId", s."LocationId", s."ItemId", s."LotId",
+                s."SerialNumberId", s."SerialNumber", s."LicensePlateId",
+                s."InventoryStatusId", i."UnitOfMeasure", 1,
+                s."QuantityAvailable", 0, s."QuantityAvailable",
+                s."QuantityReserved", 0, s."QuantityReserved",
+                'Stock', CAST(s."Id" AS text), NULL,
+                'Legacy stock balance carried into the inventory ledger',
+                'system.migration', s."CreatedAt",
+                ('legacy:stock:' || CAST(s."Id" AS text)),
+                ('legacy:stock:' || CAST(s."Id" AS text)),
+                ('legacy:stock:' || CAST(s."Id" AS text)), 1, NULL, NULL,
+                s."CreatedAt", NULL
+            FROM "Stock" s
+            INNER JOIN "Locations" l ON l."Id" = s."LocationId"
+            INNER JOIN "Items" i ON i."Id" = s."ItemId"
+            WHERE NOT EXISTS
+            (
+                SELECT 1
+                FROM "InventoryTransactions" existing
+                WHERE existing."IdempotencyKey" = ('legacy:stock:' || CAST(s."Id" AS text))
+                  AND existing."EntrySequence" = 1
+            );
+            """,
+            cancellationToken);
+
         foreach (var table in IdentityTables)
         {
             await ExecuteAsync(
@@ -345,7 +417,7 @@ internal static class PostgreSqlTargetWriter
         CancellationToken cancellationToken)
     {
         var rowCounts = new Dictionary<string, long>(StringComparer.Ordinal);
-        foreach (var table in new[] { "Items", "ItemBarcodes", "Warehouses", "Locations", "Lots", "SerialNumbers", "SerialNumberMigrationConflicts", "Stock", "Movements" })
+        foreach (var table in new[] { "Items", "ItemBarcodes", "Warehouses", "Locations", "Lots", "SerialNumbers", "SerialNumberMigrationConflicts", "Stock", "Movements", "InventoryBalances", "InventoryTransactions" })
         {
             rowCounts[table] = await ReadInt64Async(
                 connection,
@@ -374,7 +446,38 @@ internal static class PostgreSqlTargetWriter
             ["orphan serial numbers"] = "SELECT COUNT(*) FROM \"SerialNumbers\" s LEFT JOIN \"Items\" i ON i.\"Id\" = s.\"ItemId\" LEFT JOIN \"Locations\" l ON l.\"Id\" = s.\"CurrentLocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = s.\"LotId\" WHERE i.\"Id\" IS NULL OR (s.\"CurrentLocationId\" IS NOT NULL AND l.\"Id\" IS NULL) OR (s.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL);",
             ["orphan serial conflicts"] = "SELECT COUNT(*) FROM \"SerialNumberMigrationConflicts\" c LEFT JOIN \"Items\" i ON i.\"Id\" = c.\"ItemId\" WHERE i.\"Id\" IS NULL;",
             ["orphan stock"] = "SELECT COUNT(*) FROM \"Stock\" s LEFT JOIN \"Items\" i ON i.\"Id\" = s.\"ItemId\" LEFT JOIN \"Locations\" l ON l.\"Id\" = s.\"LocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = s.\"LotId\" LEFT JOIN \"SerialNumbers\" sn ON sn.\"Id\" = s.\"SerialNumberId\" WHERE i.\"Id\" IS NULL OR l.\"Id\" IS NULL OR (s.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL) OR (s.\"SerialNumberId\" IS NOT NULL AND sn.\"Id\" IS NULL);",
-            ["orphan movements"] = "SELECT COUNT(*) FROM \"Movements\" m LEFT JOIN \"Items\" i ON i.\"Id\" = m.\"ItemId\" LEFT JOIN \"Locations\" f ON f.\"Id\" = m.\"FromLocationId\" LEFT JOIN \"Locations\" t ON t.\"Id\" = m.\"ToLocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = m.\"LotId\" LEFT JOIN \"SerialNumbers\" sn ON sn.\"Id\" = m.\"SerialNumberId\" WHERE i.\"Id\" IS NULL OR (m.\"FromLocationId\" IS NOT NULL AND f.\"Id\" IS NULL) OR (m.\"ToLocationId\" IS NOT NULL AND t.\"Id\" IS NULL) OR (m.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL) OR (m.\"SerialNumberId\" IS NOT NULL AND sn.\"Id\" IS NULL);"
+            ["orphan movements"] = "SELECT COUNT(*) FROM \"Movements\" m LEFT JOIN \"Items\" i ON i.\"Id\" = m.\"ItemId\" LEFT JOIN \"Locations\" f ON f.\"Id\" = m.\"FromLocationId\" LEFT JOIN \"Locations\" t ON t.\"Id\" = m.\"ToLocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = m.\"LotId\" LEFT JOIN \"SerialNumbers\" sn ON sn.\"Id\" = m.\"SerialNumberId\" WHERE i.\"Id\" IS NULL OR (m.\"FromLocationId\" IS NOT NULL AND f.\"Id\" IS NULL) OR (m.\"ToLocationId\" IS NOT NULL AND t.\"Id\" IS NULL) OR (m.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL) OR (m.\"SerialNumberId\" IS NOT NULL AND sn.\"Id\" IS NULL);",
+            ["stock without inventory balance"] = """
+                SELECT COUNT(*)
+                FROM "Stock" s
+                INNER JOIN "Locations" l ON l."Id" = s."LocationId"
+                INNER JOIN "Items" i ON i."Id" = s."ItemId"
+                WHERE NOT EXISTS
+                (
+                    SELECT 1
+                    FROM "InventoryBalances" b
+                    WHERE b."WarehouseId" = l."WarehouseId"
+                      AND b."LocationId" = s."LocationId"
+                      AND b."ItemId" = s."ItemId"
+                      AND b."LotId" IS NOT DISTINCT FROM s."LotId"
+                      AND b."SerialNumberId" IS NOT DISTINCT FROM s."SerialNumberId"
+                      AND b."SerialNumber" IS NOT DISTINCT FROM s."SerialNumber"
+                      AND b."LicensePlateId" IS NOT DISTINCT FROM s."LicensePlateId"
+                      AND b."InventoryStatusId" = s."InventoryStatusId"
+                      AND b."BaseUnitOfMeasure" = i."UnitOfMeasure"
+                );
+                """,
+            ["stock without legacy opening ledger row"] = """
+                SELECT COUNT(*)
+                FROM "Stock" s
+                WHERE NOT EXISTS
+                (
+                    SELECT 1
+                    FROM "InventoryTransactions" t
+                    WHERE t."IdempotencyKey" = ('legacy:stock:' || CAST(s."Id" AS text))
+                      AND t."EntrySequence" = 1
+                );
+                """
         };
 
         var errors = new List<string>();

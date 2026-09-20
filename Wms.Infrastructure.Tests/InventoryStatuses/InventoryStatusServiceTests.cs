@@ -6,9 +6,11 @@ using Wms.Application.Identity;
 using Wms.Application.InventoryStatuses;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Auditing;
+using Wms.Infrastructure.Inventory;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.InventoryStatuses;
 
@@ -39,11 +41,17 @@ public sealed class InventoryStatusServiceTests : IDisposable
         access.Setup(service => service.GetScopeAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WarehouseAccessScope(true, new HashSet<int>()));
         _unitOfWork = new UnitOfWork(_context, access.Object);
+        var ledgerService = new InventoryLedgerService(
+            _unitOfWork,
+            _context,
+            access.Object,
+            new SystemClock());
         _service = new InventoryStatusService(
             _unitOfWork,
             _auditWriter.Object,
             new SystemClock(),
-            NullLogger<InventoryStatusService>.Instance);
+            NullLogger<InventoryStatusService>.Instance,
+            ledgerService);
 
         _warehouse = new Warehouse("TEST", "Test Warehouse");
         _item = new Item("STATUS-001", "Status Item", "EA");

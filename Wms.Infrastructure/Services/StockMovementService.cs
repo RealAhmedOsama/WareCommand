@@ -10,6 +10,7 @@ using Wms.Application.SerialNumbers;
 using Wms.Application.Telemetry;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -27,6 +28,7 @@ public class StockMovementService : IStockMovementService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISerialNumberService? _serialNumberService;
     private readonly IInventoryStatusService? _inventoryStatusService;
+    private readonly IInventoryLedgerService? _inventoryLedgerService;
 
     public StockMovementService(
         IUnitOfWork unitOfWork,
@@ -36,7 +38,8 @@ public class StockMovementService : IStockMovementService
         IWmsOperationContextAccessor operationContextAccessor,
         IClock clock,
         ISerialNumberService? serialNumberService = null,
-        IInventoryStatusService? inventoryStatusService = null)
+        IInventoryStatusService? inventoryStatusService = null,
+        IInventoryLedgerService? inventoryLedgerService = null)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -46,6 +49,7 @@ public class StockMovementService : IStockMovementService
         _clock = clock;
         _serialNumberService = serialNumberService;
         _inventoryStatusService = inventoryStatusService;
+        _inventoryLedgerService = inventoryLedgerService;
     }
 
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
@@ -141,6 +145,40 @@ public class StockMovementService : IStockMovementService
                     item.QualityInspectionRequired,
                     _clock.UtcNow.UtcDateTime);
                 await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
+            }
+
+            if (_inventoryLedgerService is not null)
+            {
+                var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
+                    ?? throw new InvalidOperationException($"Item {itemId} was not found.");
+                var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+                await _inventoryLedgerService.RecordAsync(
+                    new[]
+                    {
+                        new InventoryLedgerEntryRequest(
+                            InventoryTransactionType.Receipt,
+                            new InventoryBalanceKey(
+                                location!.WarehouseId,
+                                locationId,
+                                itemId,
+                                lotId,
+                                serial?.Id,
+                                serial?.Number ?? serialNumber,
+                                null,
+                                inboundStatusId,
+                                item.UnitOfMeasure),
+                            quantity.Value,
+                            ActorUserId: userId,
+                            ReferenceType: "Movement",
+                            ReferenceId: referenceNumber,
+                            Reason: notes,
+                            OccurredAtUtc: movement.Timestamp,
+                            CorrelationId: _requestContext.CorrelationId,
+                            IdempotencyKey: $"{transactionGroupId}:1",
+                            TransactionGroupId: transactionGroupId,
+                            MovementId: movement.Id > 0 ? movement.Id : null)
+                    },
+                    cancellationToken);
             }
 
             await _auditWriter.RecordAsync(
@@ -316,6 +354,66 @@ public class StockMovementService : IStockMovementService
                 await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
             }
 
+            if (_inventoryLedgerService is not null)
+            {
+                var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
+                    ?? throw new InvalidOperationException($"Item {itemId} was not found.");
+                var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+                var sourceKey = new InventoryBalanceKey(
+                    fromLocation!.WarehouseId,
+                    fromLocationId,
+                    itemId,
+                    lotId,
+                    serial?.Id,
+                    serial?.Number ?? serialNumber,
+                    sourceStock.LicensePlateId,
+                    sourceStock.InventoryStatusId,
+                    item.UnitOfMeasure);
+                var destinationKey = new InventoryBalanceKey(
+                    toLocation!.WarehouseId,
+                    toLocationId,
+                    itemId,
+                    lotId,
+                    serial?.Id,
+                    serial?.Number ?? serialNumber,
+                    destinationStock?.LicensePlateId,
+                    destinationStatusId,
+                    item.UnitOfMeasure);
+                await _inventoryLedgerService.RecordAsync(
+                    new[]
+                    {
+                        new InventoryLedgerEntryRequest(
+                            InventoryTransactionType.Putaway,
+                            sourceKey,
+                            -quantity.Value,
+                            ActorUserId: userId,
+                            ReferenceType: "Movement",
+                            ReferenceId: referenceNumber,
+                            Reason: notes,
+                            OccurredAtUtc: movement.Timestamp,
+                            CorrelationId: _requestContext.CorrelationId,
+                            IdempotencyKey: $"{transactionGroupId}:1",
+                            TransactionGroupId: transactionGroupId,
+                            EntrySequence: 1,
+                            MovementId: movement.Id > 0 ? movement.Id : null),
+                        new InventoryLedgerEntryRequest(
+                            InventoryTransactionType.Putaway,
+                            destinationKey,
+                            quantity.Value,
+                            ActorUserId: userId,
+                            ReferenceType: "Movement",
+                            ReferenceId: referenceNumber,
+                            Reason: notes,
+                            OccurredAtUtc: movement.Timestamp,
+                            CorrelationId: _requestContext.CorrelationId,
+                            IdempotencyKey: $"{transactionGroupId}:2",
+                            TransactionGroupId: transactionGroupId,
+                            EntrySequence: 2,
+                            MovementId: movement.Id > 0 ? movement.Id : null)
+                    },
+                    cancellationToken);
+            }
+
             await _auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.PutawayCompleted,
@@ -435,6 +533,40 @@ public class StockMovementService : IStockMovementService
             {
                 serial.RecordPick(_clock.UtcNow.UtcDateTime);
                 await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
+            }
+
+            if (_inventoryLedgerService is not null)
+            {
+                var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
+                    ?? throw new InvalidOperationException($"Item {itemId} was not found.");
+                var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+                await _inventoryLedgerService.RecordAsync(
+                    new[]
+                    {
+                        new InventoryLedgerEntryRequest(
+                            InventoryTransactionType.Pick,
+                            new InventoryBalanceKey(
+                                location!.WarehouseId,
+                                fromLocationId,
+                                itemId,
+                                lotId,
+                                serial?.Id,
+                                serial?.Number ?? serialNumber,
+                                sourceStock.LicensePlateId,
+                                sourceStock.InventoryStatusId,
+                                item.UnitOfMeasure),
+                            -quantity.Value,
+                            ActorUserId: userId,
+                            ReferenceType: "Movement",
+                            ReferenceId: referenceNumber,
+                            Reason: notes,
+                            OccurredAtUtc: movement.Timestamp,
+                            CorrelationId: _requestContext.CorrelationId,
+                            IdempotencyKey: $"{transactionGroupId}:1",
+                            TransactionGroupId: transactionGroupId,
+                            MovementId: movement.Id > 0 ? movement.Id : null)
+                    },
+                    cancellationToken);
             }
 
             await _auditWriter.RecordAsync(
@@ -603,6 +735,41 @@ public class StockMovementService : IStockMovementService
                 }
 
                 await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
+            }
+
+            if (_inventoryLedgerService is not null)
+            {
+                var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
+                    ?? throw new InvalidOperationException($"Item {itemId} was not found.");
+                var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+                var quantityBeforeForLedger = quantityBefore ?? 0m;
+                await _inventoryLedgerService.RecordAsync(
+                    new[]
+                    {
+                        new InventoryLedgerEntryRequest(
+                            InventoryTransactionType.Adjustment,
+                            new InventoryBalanceKey(
+                                location!.WarehouseId,
+                                locationId,
+                                itemId,
+                                lotId,
+                                serial?.Id,
+                                serial?.Number ?? serialNumber,
+                                stock?.LicensePlateId,
+                                adjustmentStatusId,
+                                item.UnitOfMeasure),
+                            newQuantity.Value - quantityBeforeForLedger,
+                            ActorUserId: userId,
+                            ReferenceType: "Movement",
+                            ReferenceId: $"{itemId}:{locationId}",
+                            Reason: reason,
+                            OccurredAtUtc: movement.Timestamp,
+                            CorrelationId: _requestContext.CorrelationId,
+                            IdempotencyKey: $"{transactionGroupId}:1",
+                            TransactionGroupId: transactionGroupId,
+                            MovementId: movement.Id > 0 ? movement.Id : null)
+                    },
+                    cancellationToken);
             }
 
             await _auditWriter.RecordAsync(

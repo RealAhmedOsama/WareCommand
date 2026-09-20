@@ -10,6 +10,8 @@ public interface IUnitOfWork : IDisposable
     ISerialNumberRepository SerialNumbers { get; }
     IInventoryStatusRepository InventoryStatuses { get; }
     ILicensePlateRepository LicensePlates { get; }
+    IInventoryBalanceRepository InventoryBalances { get; }
+    IInventoryTransactionRepository InventoryTransactions { get; }
     IStockRepository Stock { get; }
     IMovementRepository Movements { get; }
 

@@ -198,7 +198,10 @@ public sealed class MigrationRunner
         DataMigrationSummary target)
     {
         var errors = new List<string>();
-        foreach (var table in source.RowCounts.Keys.Union(target.RowCounts.Keys, StringComparer.Ordinal))
+        // InventoryBalances and InventoryTransactions are target-side derived
+        // projections seeded from Stock; they do not exist in the legacy
+        // SQLite source snapshot and are validated by relationship checks.
+        foreach (var table in source.RowCounts.Keys)
         {
             source.RowCounts.TryGetValue(table, out var sourceCount);
             target.RowCounts.TryGetValue(table, out var targetCount);

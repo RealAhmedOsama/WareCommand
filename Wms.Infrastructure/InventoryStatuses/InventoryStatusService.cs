@@ -7,7 +7,9 @@ using Wms.Application.Context;
 using Wms.Application.InventoryStatuses;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.Repositories;
+using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Infrastructure.InventoryStatuses;
@@ -16,7 +18,8 @@ public sealed class InventoryStatusService(
     IUnitOfWork unitOfWork,
     IAuditWriter auditWriter,
     IClock clock,
-    ILogger<InventoryStatusService> logger) : IInventoryStatusService
+    ILogger<InventoryStatusService> logger,
+    IInventoryLedgerService? inventoryLedgerService = null) : IInventoryStatusService
 {
     public async Task<Result<IReadOnlyList<InventoryStatusDto>>> GetStatusesAsync(
         int? warehouseId,
@@ -523,6 +526,7 @@ public sealed class InventoryStatusService(
                 candidate.ItemId == source.ItemId &&
                 candidate.LotId == source.LotId &&
                 candidate.InventoryStatusId == targetStatus.Id &&
+                candidate.LicensePlateId == source.LicensePlateId &&
                 HasSameSerialIdentity(candidate, source));
 
             await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -542,7 +546,8 @@ public sealed class InventoryStatusService(
                     source.LotId,
                     source.SerialNumber,
                     source.SerialNumberId,
-                    targetStatus.Id);
+                    targetStatus.Id,
+                    source.LicensePlateId);
                 await unitOfWork.Stock.AddAsync(destination, cancellationToken);
             }
             else
@@ -566,7 +571,8 @@ public sealed class InventoryStatusService(
                 normalizedReference,
                 reason,
                 timestamp,
-                source.SerialNumberId);
+                source.SerialNumberId,
+                source.LicensePlateId);
             var inboundMovement = Movement.CreateStatusChange(
                 source.ItemId,
                 source.LocationId,
@@ -580,9 +586,72 @@ public sealed class InventoryStatusService(
                 normalizedReference,
                 reason,
                 timestamp,
-                source.SerialNumberId);
+                source.SerialNumberId,
+                source.LicensePlateId);
             await unitOfWork.Movements.AddAsync(outboundMovement, cancellationToken);
             await unitOfWork.Movements.AddAsync(inboundMovement, cancellationToken);
+
+            if (inventoryLedgerService is not null)
+            {
+                var item = source.Item ?? await unitOfWork.Items.GetByIdAsync(
+                    source.ItemId,
+                    cancellationToken) ?? throw new InvalidOperationException(
+                    $"Item {source.ItemId} was not found.");
+                var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+                var sourceKey = new InventoryBalanceKey(
+                    source.Location.WarehouseId,
+                    source.LocationId,
+                    source.ItemId,
+                    source.LotId,
+                    source.SerialNumberId,
+                    source.SerialNumber,
+                    source.LicensePlateId,
+                    sourceStatus.Id,
+                    item.UnitOfMeasure);
+                var destinationKey = new InventoryBalanceKey(
+                    source.Location.WarehouseId,
+                    source.LocationId,
+                    source.ItemId,
+                    source.LotId,
+                    source.SerialNumberId,
+                    source.SerialNumber,
+                    source.LicensePlateId,
+                    targetStatus.Id,
+                    item.UnitOfMeasure);
+                await inventoryLedgerService.RecordAsync(
+                    new[]
+                    {
+                        new InventoryLedgerEntryRequest(
+                            InventoryTransactionType.StatusChange,
+                            sourceKey,
+                            -quantity,
+                            ActorUserId: userId,
+                            ReferenceType: "Movement",
+                            ReferenceId: normalizedReference,
+                            Reason: reason,
+                            OccurredAtUtc: timestamp,
+                            CorrelationId: transactionGroupId,
+                            IdempotencyKey: $"{transactionGroupId}:1",
+                            TransactionGroupId: transactionGroupId,
+                            EntrySequence: 1,
+                            MovementId: outboundMovement.Id > 0 ? outboundMovement.Id : null),
+                        new InventoryLedgerEntryRequest(
+                            InventoryTransactionType.StatusChange,
+                            destinationKey,
+                            quantity,
+                            ActorUserId: userId,
+                            ReferenceType: "Movement",
+                            ReferenceId: normalizedReference,
+                            Reason: reason,
+                            OccurredAtUtc: timestamp,
+                            CorrelationId: transactionGroupId,
+                            IdempotencyKey: $"{transactionGroupId}:2",
+                            TransactionGroupId: transactionGroupId,
+                            EntrySequence: 2,
+                            MovementId: inboundMovement.Id > 0 ? inboundMovement.Id : null)
+                    },
+                    cancellationToken);
+            }
             await auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.InventoryStatusChanged,

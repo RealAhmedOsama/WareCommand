@@ -23,6 +23,7 @@ using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Identification;
+using Wms.Infrastructure.Inventory;
 using Wms.Infrastructure.InventoryStatuses;
 using Wms.Infrastructure.LicensePlates;
 using Wms.Infrastructure.Items;
@@ -160,6 +161,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ISerialNumberRepository, SerialNumberRepository>();
         services.AddScoped<IInventoryStatusRepository, InventoryStatusRepository>();
         services.AddScoped<ILicensePlateRepository, LicensePlateRepository>();
+        services.AddScoped<IInventoryBalanceRepository, InventoryBalanceRepository>();
+        services.AddScoped<IInventoryTransactionRepository, InventoryTransactionRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IMovementRepository, MovementRepository>();
 
@@ -169,6 +172,7 @@ public static class InfrastructureServiceCollectionExtensions
     private static IServiceCollection AddInventoryInfrastructure(this IServiceCollection services)
     {
         services.AddScoped<IStockMovementService, StockMovementService>();
+        services.AddScoped<IInventoryLedgerService, InventoryLedgerService>();
         return services;
     }
 

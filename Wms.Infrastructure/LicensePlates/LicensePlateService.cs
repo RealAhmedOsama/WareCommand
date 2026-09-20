@@ -9,7 +9,9 @@ using Wms.Application.LicensePlates;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Identification;
+using Wms.Domain.Inventory;
 using Wms.Domain.Repositories;
+using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Infrastructure.LicensePlates;
@@ -21,19 +23,22 @@ public sealed class LicensePlateService : ILicensePlateService
     private readonly IIdentificationRegistry? _identificationRegistry;
     private readonly ILogger<LicensePlateService> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IInventoryLedgerService? _inventoryLedgerService;
 
     public LicensePlateService(
         IUnitOfWork unitOfWork,
         IAuditWriter auditWriter,
         IClock clock,
         ILogger<LicensePlateService> logger,
-        IIdentificationRegistry? identificationRegistry = null)
+        IIdentificationRegistry? identificationRegistry = null,
+        IInventoryLedgerService? inventoryLedgerService = null)
     {
         _unitOfWork = unitOfWork;
         _auditWriter = auditWriter;
         _clock = clock;
         _logger = logger;
         _identificationRegistry = identificationRegistry;
+        _inventoryLedgerService = inventoryLedgerService;
     }
 
     public Task<Result<IReadOnlyList<LicensePlateDto>>> SearchAsync(
@@ -291,6 +296,65 @@ public sealed class LicensePlateService : ILicensePlateService
                             current.Id,
                             current.Id);
                         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+                        if (_inventoryLedgerService is not null)
+                        {
+                            var item = stock.Item ?? await _unitOfWork.Items.GetByIdAsync(
+                                stock.ItemId,
+                                cancellationToken) ?? throw new InvalidOperationException(
+                                $"Item {stock.ItemId} was not found.");
+                            var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+                            await _inventoryLedgerService.RecordAsync(
+                                new[]
+                                {
+                                    new InventoryLedgerEntryRequest(
+                                        InventoryTransactionType.Transfer,
+                                        new InventoryBalanceKey(
+                                            current.WarehouseId,
+                                            oldLocationId,
+                                            stock.ItemId,
+                                            stock.LotId,
+                                            stock.SerialNumberId,
+                                            stock.SerialNumber,
+                                            current.Id,
+                                            stock.InventoryStatusId,
+                                            item.UnitOfMeasure),
+                                        -stock.QuantityAvailable.Value,
+                                        ActorUserId: userId,
+                                        ReferenceType: "Movement",
+                                        ReferenceId: referenceNumber,
+                                        Reason: "license plate move",
+                                        OccurredAtUtc: movement.Timestamp,
+                                        CorrelationId: transactionGroupId,
+                                        IdempotencyKey: $"{transactionGroupId}:1",
+                                        TransactionGroupId: transactionGroupId,
+                                        EntrySequence: 1,
+                                        MovementId: movement.Id > 0 ? movement.Id : null),
+                                    new InventoryLedgerEntryRequest(
+                                        InventoryTransactionType.Transfer,
+                                        new InventoryBalanceKey(
+                                            current.WarehouseId,
+                                            targetLocation.Id,
+                                            stock.ItemId,
+                                            stock.LotId,
+                                            stock.SerialNumberId,
+                                            stock.SerialNumber,
+                                            current.Id,
+                                            stock.InventoryStatusId,
+                                            item.UnitOfMeasure),
+                                        stock.QuantityAvailable.Value,
+                                        ActorUserId: userId,
+                                        ReferenceType: "Movement",
+                                        ReferenceId: referenceNumber,
+                                        Reason: "license plate move",
+                                        OccurredAtUtc: movement.Timestamp,
+                                        CorrelationId: transactionGroupId,
+                                        IdempotencyKey: $"{transactionGroupId}:2",
+                                        TransactionGroupId: transactionGroupId,
+                                        EntrySequence: 2,
+                                        MovementId: movement.Id > 0 ? movement.Id : null)
+                                },
+                                cancellationToken);
+                        }
                         if (stock.SerialNumberId.HasValue)
                         {
                             var serial = await _unitOfWork.SerialNumbers.GetByIdAsync(
@@ -535,6 +599,41 @@ public sealed class LicensePlateService : ILicensePlateService
                             stock.InventoryStatusId,
                             current.Id);
                         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+                        if (_inventoryLedgerService is not null)
+                        {
+                            var item = stock.Item ?? await _unitOfWork.Items.GetByIdAsync(
+                                stock.ItemId,
+                                cancellationToken) ?? throw new InvalidOperationException(
+                                $"Item {stock.ItemId} was not found.");
+                            var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+                            await _inventoryLedgerService.RecordAsync(
+                                new[]
+                                {
+                                    new InventoryLedgerEntryRequest(
+                                        InventoryTransactionType.Ship,
+                                        new InventoryBalanceKey(
+                                            current.WarehouseId,
+                                            stock.LocationId,
+                                            stock.ItemId,
+                                            stock.LotId,
+                                            stock.SerialNumberId,
+                                            stock.SerialNumber,
+                                            current.Id,
+                                            stock.InventoryStatusId,
+                                            item.UnitOfMeasure),
+                                        -stock.QuantityAvailable.Value,
+                                        ActorUserId: userId,
+                                        ReferenceType: "Movement",
+                                        ReferenceId: referenceNumber,
+                                        Reason: "license plate shipment",
+                                        OccurredAtUtc: movement.Timestamp,
+                                        CorrelationId: transactionGroupId,
+                                        IdempotencyKey: $"{transactionGroupId}:1",
+                                        TransactionGroupId: transactionGroupId,
+                                        MovementId: movement.Id > 0 ? movement.Id : null)
+                                },
+                                cancellationToken);
+                        }
                         await _unitOfWork.Stock.DeleteAsync(stock, cancellationToken);
                         if (stock.SerialNumberId.HasValue)
                         {
@@ -645,6 +744,41 @@ public sealed class LicensePlateService : ILicensePlateService
                             content.InventoryStatusId,
                             current.Id);
                         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+                        if (_inventoryLedgerService is not null)
+                        {
+                            var item = content.Item ?? await _unitOfWork.Items.GetByIdAsync(
+                                content.ItemId,
+                                cancellationToken) ?? throw new InvalidOperationException(
+                                $"Item {content.ItemId} was not found.");
+                            var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+                            await _inventoryLedgerService.RecordAsync(
+                                new[]
+                                {
+                                    new InventoryLedgerEntryRequest(
+                                        InventoryTransactionType.Return,
+                                        new InventoryBalanceKey(
+                                            current.WarehouseId,
+                                            targetLocation.Id,
+                                            content.ItemId,
+                                            content.LotId,
+                                            content.SerialNumberId,
+                                            content.SerialNumber?.Number,
+                                            current.Id,
+                                            content.InventoryStatusId,
+                                            item.UnitOfMeasure),
+                                        content.Quantity.Value,
+                                        ActorUserId: userId,
+                                        ReferenceType: "Movement",
+                                        ReferenceId: referenceNumber,
+                                        Reason: "license plate return",
+                                        OccurredAtUtc: movement.Timestamp,
+                                        CorrelationId: transactionGroupId,
+                                        IdempotencyKey: $"{transactionGroupId}:1",
+                                        TransactionGroupId: transactionGroupId,
+                                        MovementId: movement.Id > 0 ? movement.Id : null)
+                                },
+                                cancellationToken);
+                        }
                         if (content.SerialNumberId.HasValue)
                         {
                             var serial = await _unitOfWork.SerialNumbers.GetByIdAsync(
@@ -1011,6 +1145,37 @@ public sealed class LicensePlateService : ILicensePlateService
             input.InventoryStatusId,
             plate.Id);
         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+        if (_inventoryLedgerService is not null)
+        {
+            var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+            await _inventoryLedgerService.RecordAsync(
+                new[]
+                {
+                    new InventoryLedgerEntryRequest(
+                        InventoryTransactionType.Receipt,
+                        new InventoryBalanceKey(
+                            plate.WarehouseId,
+                            plate.CurrentLocationId.Value,
+                            input.ItemId,
+                            input.LotId,
+                            input.SerialNumberId,
+                            validation.Serial?.Number,
+                            plate.Id,
+                            input.InventoryStatusId,
+                            validation.Item.UnitOfMeasure),
+                        quantity.Value,
+                        ActorUserId: userId,
+                        ReferenceType: "Movement",
+                        ReferenceId: referenceNumber,
+                        Reason: "license plate content receipt",
+                        OccurredAtUtc: movement.Timestamp,
+                        CorrelationId: transactionGroupId,
+                        IdempotencyKey: $"{transactionGroupId}:1",
+                        TransactionGroupId: transactionGroupId,
+                        MovementId: movement.Id > 0 ? movement.Id : null)
+                },
+                cancellationToken);
+        }
         await UpdateSerialLocationAsync(validation.Serial, plate, input.LotId, referenceNumber, cancellationToken);
         await AddHistoryAsync(
             plate,
@@ -1161,6 +1326,63 @@ public sealed class LicensePlateService : ILicensePlateService
             source.Id,
             target.Id);
         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+        if (_inventoryLedgerService is not null)
+        {
+            var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+            var sourceKey = new InventoryBalanceKey(
+                source.WarehouseId,
+                source.CurrentLocationId.Value,
+                input.ItemId,
+                input.LotId,
+                input.SerialNumberId,
+                validation.Serial?.Number,
+                source.Id,
+                sourceStock.InventoryStatusId,
+                validation.Item.UnitOfMeasure);
+            var targetKey = new InventoryBalanceKey(
+                target.WarehouseId,
+                target.CurrentLocationId.Value,
+                input.ItemId,
+                input.LotId,
+                input.SerialNumberId,
+                validation.Serial?.Number,
+                target.Id,
+                input.InventoryStatusId,
+                validation.Item.UnitOfMeasure);
+            await _inventoryLedgerService.RecordAsync(
+                new[]
+                {
+                    new InventoryLedgerEntryRequest(
+                        InventoryTransactionType.Transfer,
+                        sourceKey,
+                        -quantity.Value,
+                        ActorUserId: userId,
+                        ReferenceType: "Movement",
+                        ReferenceId: referenceNumber,
+                        Reason: "license plate content move",
+                        OccurredAtUtc: movement.Timestamp,
+                        CorrelationId: transactionGroupId,
+                        IdempotencyKey: $"{transactionGroupId}:1",
+                        TransactionGroupId: transactionGroupId,
+                        EntrySequence: 1,
+                        MovementId: movement.Id > 0 ? movement.Id : null),
+                    new InventoryLedgerEntryRequest(
+                        InventoryTransactionType.Transfer,
+                        targetKey,
+                        quantity.Value,
+                        ActorUserId: userId,
+                        ReferenceType: "Movement",
+                        ReferenceId: referenceNumber,
+                        Reason: "license plate content move",
+                        OccurredAtUtc: movement.Timestamp,
+                        CorrelationId: transactionGroupId,
+                        IdempotencyKey: $"{transactionGroupId}:2",
+                        TransactionGroupId: transactionGroupId,
+                        EntrySequence: 2,
+                        MovementId: movement.Id > 0 ? movement.Id : null)
+                },
+                cancellationToken);
+        }
         if (validation.Serial is not null)
         {
             validation.Serial.MoveTo(

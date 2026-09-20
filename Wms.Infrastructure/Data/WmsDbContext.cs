@@ -43,6 +43,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<LicensePlateNumberSequence> LicensePlateNumberSequences => Set<LicensePlateNumberSequence>();
     public DbSet<Stock> Stock => Set<Stock>();
     public DbSet<Movement> Movements => Set<Movement>();
+    public DbSet<InventoryBalance> InventoryBalances => Set<InventoryBalance>();
+    public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
     public DbSet<WmsIdentifier> WmsIdentifiers => Set<WmsIdentifier>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
@@ -82,6 +84,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new LicensePlateNumberSequenceConfiguration());
         builder.ApplyConfiguration(new StockConfiguration());
         builder.ApplyConfiguration(new MovementConfiguration());
+        builder.ApplyConfiguration(new InventoryBalanceConfiguration());
+        builder.ApplyConfiguration(new InventoryTransactionConfiguration());
         builder.ApplyConfiguration(new WmsIdentifierConfiguration());
 
         builder.Entity<WmsUser>(entity =>
@@ -334,6 +338,13 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
                 entry.State is EntityState.Modified or EntityState.Deleted))
         {
             throw new InvalidOperationException("Audit entries are immutable and cannot be updated or deleted.");
+        }
+
+        if (ChangeTracker.Entries<InventoryTransaction>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException(
+                "Inventory transactions are immutable and cannot be updated or deleted.");
         }
     }
 }
