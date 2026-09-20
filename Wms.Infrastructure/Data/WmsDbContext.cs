@@ -11,6 +11,7 @@ using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Jobs;
 using Wms.Infrastructure.Settings;
+using Wms.Domain.Services;
 
 namespace Wms.Infrastructure.Data;
 
@@ -262,31 +263,74 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     {
         EnsureAuditEntriesAreAppendOnly();
         EnsureDomainTimestamps();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        try
+        {
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw CreateConcurrencyConflict(exception);
+        }
     }
 
     public override int SaveChanges()
     {
         EnsureAuditEntriesAreAppendOnly();
         EnsureDomainTimestamps();
-        return base.SaveChanges();
+        try
+        {
+            return base.SaveChanges();
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw CreateConcurrencyConflict(exception);
+        }
     }
 
-    public override Task<int> SaveChangesAsync(
+    public override async Task<int> SaveChangesAsync(
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
         EnsureAuditEntriesAreAppendOnly();
         EnsureDomainTimestamps();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw CreateConcurrencyConflict(exception);
+        }
     }
 
-    public override Task<int> SaveChangesAsync(
+    public override async Task<int> SaveChangesAsync(
         CancellationToken cancellationToken = default)
     {
         EnsureAuditEntriesAreAppendOnly();
         EnsureDomainTimestamps();
-        return base.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw CreateConcurrencyConflict(exception);
+        }
+    }
+
+    private static ConcurrencyConflictException CreateConcurrencyConflict(
+        DbUpdateConcurrencyException exception)
+    {
+        var entry = exception.Entries.Count == 0 ? null : exception.Entries[0];
+        var resourceType = entry?.Metadata.ClrType.Name ?? "record";
+        var resourceId = entry is null
+            ? "unknown"
+            : string.Join(
+                ",",
+                entry.Properties
+                    .Where(property => property.Metadata.IsPrimaryKey())
+                    .Select(property => $"{property.Metadata.Name}={property.CurrentValue}"));
+        return new ConcurrencyConflictException(resourceType, resourceId, exception);
     }
 
     private void EnsureDomainTimestamps()

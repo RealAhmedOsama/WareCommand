@@ -39,6 +39,9 @@ public sealed class LicensePlateConfiguration : IEntityTypeConfiguration<License
         builder.Property(plate => plate.UpdatedAt)
             .HasColumnType("timestamp with time zone")
             .IsConcurrencyToken();
+        builder.Property(plate => plate.Revision)
+            .IsRequired()
+            .IsConcurrencyToken();
 
         builder.HasOne(plate => plate.Warehouse)
             .WithMany()

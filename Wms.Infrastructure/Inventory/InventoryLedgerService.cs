@@ -50,10 +50,30 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
         var operationCorrelationId = WmsExecutionIdentifiers.NewCorrelationId();
         var recorded = new List<InventoryTransaction>(entries.Count);
         var seenKeys = new HashSet<(string Key, int Sequence)>(StringTupleComparer.Instance);
-
         foreach (var request in entries)
         {
             ArgumentNullException.ThrowIfNull(request.Key);
+        }
+
+        // Every multi-dimension mutation takes balance locks in the same
+        // canonical order. This prevents inverse moves from deadlocking each
+        // other when they are committed concurrently.
+        var orderedEntries = entries
+            .Select((request, index) => (request, index))
+            .OrderBy(value => value.request.Key.WarehouseId)
+            .ThenBy(value => value.request.Key.LocationId)
+            .ThenBy(value => value.request.Key.ItemId)
+            .ThenBy(value => value.request.Key.LotId ?? 0)
+            .ThenBy(value => value.request.Key.SerialNumberId ?? 0)
+            .ThenBy(value => value.request.Key.SerialNumber ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(value => value.request.Key.LicensePlateId ?? 0)
+            .ThenBy(value => value.request.Key.InventoryStatusId)
+            .ThenBy(value => value.request.Key.BaseUnitOfMeasure, StringComparer.Ordinal)
+            .ThenBy(value => value.index)
+            .Select(value => value.request);
+
+        foreach (var request in orderedEntries)
+        {
             EnsureWarehouseScope(scope, request.Key.WarehouseId);
             await EnsureDimensionExistsAsync(request.Key, cancellationToken);
 

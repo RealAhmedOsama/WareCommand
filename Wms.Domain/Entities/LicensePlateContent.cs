@@ -44,6 +44,7 @@ public sealed class LicensePlateContent : Entity
     public int InventoryStatusId { get; private set; }
     public int? ItemPackagingId { get; private set; }
     public Quantity Quantity { get; private set; } = Quantity.Zero;
+    public long Revision { get; private set; }
 
     public LicensePlate LicensePlate { get; private set; } = null!;
     public Item Item { get; private set; } = null!;
@@ -57,7 +58,7 @@ public sealed class LicensePlateContent : Entity
         ValidateQuantity(quantity, SerialNumberId);
         Quantity = new Quantity(Quantity.Value + quantity.Value);
         ValidateQuantity(Quantity, SerialNumberId);
-        SetUpdatedAt();
+        Touch();
     }
 
     public void RemoveQuantity(Quantity quantity)
@@ -75,13 +76,19 @@ public sealed class LicensePlateContent : Entity
         }
 
         Quantity = new Quantity(remaining);
-        SetUpdatedAt();
+        Touch();
     }
 
     public void SetQuantity(Quantity quantity)
     {
         ValidateQuantity(quantity, SerialNumberId);
         Quantity = quantity;
+        Touch();
+    }
+
+    private void Touch()
+    {
+        Revision++;
         SetUpdatedAt();
     }
 

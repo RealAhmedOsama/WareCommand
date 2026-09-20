@@ -186,8 +186,8 @@ internal static class PostgreSqlTargetWriter
                 connection,
                 transaction,
                 """
-                INSERT INTO "SerialNumbers" ("Number", "ItemId", "LotId", "CurrentWarehouseId", "CurrentLocationId", "Status", "StatusReason", "HasMigrationConflict", "ConflictReason", "LastMovedAt", "CreatedAt")
-                VALUES (@Number, @ItemId, @LotId, @CurrentWarehouseId, @CurrentLocationId, @Status, @StatusReason, @HasMigrationConflict, @ConflictReason, @LastMovedAt, @CreatedAt)
+                INSERT INTO "SerialNumbers" ("Number", "ItemId", "LotId", "CurrentWarehouseId", "CurrentLocationId", "Status", "StatusReason", "HasMigrationConflict", "ConflictReason", "LastMovedAt", "Revision", "CreatedAt")
+                VALUES (@Number, @ItemId, @LotId, @CurrentWarehouseId, @CurrentLocationId, @Status, @StatusReason, @HasMigrationConflict, @ConflictReason, @LastMovedAt, @Revision, @CreatedAt)
                 ON CONFLICT ("ItemId", "Number") DO UPDATE SET
                     "LotId" = EXCLUDED."LotId",
                     "CurrentWarehouseId" = EXCLUDED."CurrentWarehouseId",
@@ -197,6 +197,7 @@ internal static class PostgreSqlTargetWriter
                     "HasMigrationConflict" = EXCLUDED."HasMigrationConflict",
                     "ConflictReason" = EXCLUDED."ConflictReason",
                     "LastMovedAt" = EXCLUDED."LastMovedAt",
+                    "Revision" = EXCLUDED."Revision",
                     "CreatedAt" = EXCLUDED."CreatedAt";
                 """,
                 cancellationToken,
@@ -210,6 +211,7 @@ internal static class PostgreSqlTargetWriter
                 ("HasMigrationConflict", row.HasMigrationConflict),
                 ("ConflictReason", row.ConflictReason),
                 ("LastMovedAt", row.LastMovedAt),
+                ("Revision", 0L),
                 ("CreatedAt", row.CreatedAt));
         }
 

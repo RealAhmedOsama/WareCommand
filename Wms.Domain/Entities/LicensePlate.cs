@@ -64,6 +64,7 @@ public sealed class LicensePlate : Entity
     public decimal? HeightCm { get; private set; }
     public string? SourceReference { get; private set; }
     public string? Notes { get; private set; }
+    public long Revision { get; private set; }
 
     public Warehouse Warehouse { get; private set; } = null!;
     public Location? CurrentLocation { get; private set; }
@@ -90,7 +91,7 @@ public sealed class LicensePlate : Entity
         }
 
         ParentLicensePlateId = parentLicensePlateId;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void MoveTo(int warehouseId, int locationId)
@@ -104,7 +105,7 @@ public sealed class LicensePlate : Entity
         }
 
         CurrentLocationId = locationId;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void Close()
@@ -115,7 +116,7 @@ public sealed class LicensePlate : Entity
         }
 
         Status = LicensePlateStatus.Closed;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void Reopen()
@@ -127,7 +128,7 @@ public sealed class LicensePlate : Entity
 
         Status = LicensePlateStatus.Open;
         IsActive = true;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void Ship()
@@ -141,7 +142,7 @@ public sealed class LicensePlate : Entity
         IsActive = false;
         CurrentLocationId = null;
         ParentLicensePlateId = null;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void ReturnTo(int warehouseId, int locationId)
@@ -162,7 +163,7 @@ public sealed class LicensePlate : Entity
         IsActive = true;
         CurrentLocationId = locationId;
         ParentLicensePlateId = null;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void Void()
@@ -176,7 +177,7 @@ public sealed class LicensePlate : Entity
         IsActive = false;
         CurrentLocationId = null;
         ParentLicensePlateId = null;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void UpdateDetails(
@@ -201,7 +202,7 @@ public sealed class LicensePlate : Entity
         HeightCm = ValidateNonNegative(heightCm, nameof(heightCm));
         SourceReference = NormalizeOptional(sourceReference, 100);
         Notes = NormalizeOptional(notes, 1_000);
-        SetUpdatedAt();
+        Touch();
     }
 
     private void EnsureMutable()
@@ -210,6 +211,12 @@ public sealed class LicensePlate : Entity
         {
             throw new InvalidOperationException($"License plate '{Number}' is {Status} and cannot be mutated.");
         }
+    }
+
+    private void Touch()
+    {
+        Revision++;
+        SetUpdatedAt();
     }
 
     private static string NormalizeNumber(string value, bool isSscc)

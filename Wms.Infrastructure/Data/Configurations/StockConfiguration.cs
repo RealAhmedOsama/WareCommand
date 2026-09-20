@@ -32,6 +32,9 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
         builder.Property(e => e.UpdatedAt)
             .HasColumnType("timestamp with time zone")
             .IsConcurrencyToken();
+        builder.Property(e => e.Revision)
+            .IsRequired()
+            .IsConcurrencyToken();
 
         // Value object configurations
         builder.Property(e => e.QuantityAvailable)

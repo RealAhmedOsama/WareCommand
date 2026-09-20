@@ -24,6 +24,9 @@ public sealed class LicensePlateContentConfiguration : IEntityTypeConfiguration<
         builder.Property(content => content.UpdatedAt)
             .HasColumnType("timestamp with time zone")
             .IsConcurrencyToken();
+        builder.Property(content => content.Revision)
+            .IsRequired()
+            .IsConcurrencyToken();
 
         builder.HasOne(content => content.LicensePlate)
             .WithMany(plate => plate.Contents)

@@ -50,6 +50,9 @@ balance equals the sum of its ledger deltas and reports missing or mismatched
 dimensions. This cutover is local qualification only: the migration has not
 been applied to production data.
 
+Concurrency tokens, canonical multi-dimension lock ordering, and typed retry
+conflicts are documented in `docs/modernization/INVENTORY_CONCURRENCY.md`.
+
 Focused evidence is in
 `Wms.Domain.Tests/Entities/InventoryBalanceTests.cs`,
 `Wms.Domain.Tests/Entities/InventoryTransactionTests.cs`, and

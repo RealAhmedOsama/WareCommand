@@ -43,6 +43,7 @@ public class Stock : Entity
     public string? SerialNumber { get; private set; }
     public Quantity QuantityAvailable { get; private set; } = Quantity.Zero;
     public Quantity QuantityReserved { get; private set; } = Quantity.Zero;
+    public long Revision { get; private set; }
 
     // Navigation properties
     public Item Item { get; private set; } = null!;
@@ -57,7 +58,7 @@ public class Stock : Entity
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(inventoryStatusId);
 
         InventoryStatusId = inventoryStatusId;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void SetLicensePlate(int? licensePlateId)
@@ -68,14 +69,14 @@ public class Stock : Entity
         }
 
         LicensePlateId = licensePlateId;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void SetLocation(int locationId)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(locationId);
         LocationId = locationId;
-        SetUpdatedAt();
+        Touch();
     }
 
     public void AddQuantity(Quantity quantity)
@@ -84,7 +85,7 @@ public class Stock : Entity
             throw new ArgumentException("Quantity must be positive", nameof(quantity));
 
         QuantityAvailable = new Quantity(QuantityAvailable.Value + quantity.Value);
-        SetUpdatedAt();
+        Touch();
     }
 
     public void RemoveQuantity(Quantity quantity)
@@ -97,7 +98,7 @@ public class Stock : Entity
             throw new InvalidOperationException("Cannot remove more quantity than available");
 
         QuantityAvailable = new Quantity(newQuantity);
-        SetUpdatedAt();
+        Touch();
     }
 
     public void ReserveQuantity(Quantity quantity)
@@ -110,7 +111,7 @@ public class Stock : Entity
             throw new InvalidOperationException("Cannot reserve more quantity than available");
 
         QuantityReserved = new Quantity(QuantityReserved.Value + quantity.Value);
-        SetUpdatedAt();
+        Touch();
     }
 
     public void ReleaseReservation(Quantity quantity)
@@ -123,7 +124,7 @@ public class Stock : Entity
             throw new InvalidOperationException("Cannot release more than reserved");
 
         QuantityReserved = new Quantity(newReserved);
-        SetUpdatedAt();
+        Touch();
     }
 
     public Quantity GetAvailableQuantity()
@@ -137,6 +138,12 @@ public class Stock : Entity
             throw new ArgumentException("Reason is required for quantity adjustment", nameof(reason));
 
         QuantityAvailable = newQuantity;
+        Touch();
+    }
+
+    private void Touch()
+    {
+        Revision++;
         SetUpdatedAt();
     }
 }

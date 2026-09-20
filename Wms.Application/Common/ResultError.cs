@@ -42,6 +42,11 @@ public static class WmsErrors
                 return Conflict(locationConstraint.Code, locationConstraint.Message);
             }
 
+            if (current is ConcurrencyConflictException concurrencyConflict)
+            {
+                return Concurrency(concurrencyConflict.Code, concurrencyConflict.Message);
+            }
+
             var exceptionType = current.GetType();
             if (exceptionType.Name == "DbUpdateConcurrencyException")
             {

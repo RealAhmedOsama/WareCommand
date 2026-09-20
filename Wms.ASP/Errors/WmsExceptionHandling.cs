@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Wms.Application.Common;
 using Wms.Application.Context;
+using Wms.Domain.Services;
 
 namespace Wms.ASP.Errors;
 
@@ -67,6 +68,12 @@ public static class WmsExceptionMapper
             "authorization.forbidden",
             "Access denied",
             "You do not have permission to perform this operation."),
+        ConcurrencyConflictException concurrencyConflict => new(
+            StatusCodes.Status409Conflict,
+            concurrencyConflict.Code,
+            "Concurrency conflict",
+            concurrencyConflict.Message,
+            IsRetryable: true),
         DbUpdateConcurrencyException => new(
             StatusCodes.Status409Conflict,
             "data.concurrency_conflict",

@@ -36,6 +36,9 @@ public sealed class SerialNumberConfiguration : IEntityTypeConfiguration<SerialN
             .HasColumnType("timestamp with time zone");
         builder.Property(serial => serial.UpdatedAt)
             .HasColumnType("timestamp with time zone");
+        builder.Property(serial => serial.Revision)
+            .IsRequired()
+            .IsConcurrencyToken();
 
         builder.HasOne(serial => serial.Item)
             .WithMany()

@@ -123,16 +123,16 @@ public sealed class SerialNumberRepository(WmsDbContext context)
         if (providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
         {
             await _context.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT INTO "SerialNumbers" ("Number", "ItemId", "LotId", "Status", "HasMigrationConflict", "CreatedAt")
-                VALUES ({normalized}, {itemId}, {lotId}, {(int)SerialStatus.Available}, {false}, {normalizedCreatedAt})
+                INSERT INTO "SerialNumbers" ("Number", "ItemId", "LotId", "Status", "HasMigrationConflict", "Revision", "CreatedAt")
+                VALUES ({normalized}, {itemId}, {lotId}, {(int)SerialStatus.Available}, {false}, {0L}, {normalizedCreatedAt})
                 ON CONFLICT ("ItemId", "Number") DO NOTHING;
                 """, cancellationToken);
         }
         else if (providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
         {
             await _context.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT OR IGNORE INTO "SerialNumbers" ("Number", "ItemId", "LotId", "Status", "HasMigrationConflict", "CreatedAt")
-                VALUES ({normalized}, {itemId}, {lotId}, {(int)SerialStatus.Available}, {false}, {normalizedCreatedAt});
+                INSERT OR IGNORE INTO "SerialNumbers" ("Number", "ItemId", "LotId", "Status", "HasMigrationConflict", "Revision", "CreatedAt")
+                VALUES ({normalized}, {itemId}, {lotId}, {(int)SerialStatus.Available}, {false}, {0L}, {normalizedCreatedAt});
                 """, cancellationToken);
         }
         else

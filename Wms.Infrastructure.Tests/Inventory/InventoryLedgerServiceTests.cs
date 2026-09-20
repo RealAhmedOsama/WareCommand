@@ -8,6 +8,7 @@ using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
+using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Inventory;
 using Wms.Infrastructure.Repositories;
@@ -199,6 +200,40 @@ public sealed class InventoryLedgerServiceTests : IDisposable
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*immutable*");
+    }
+
+    [Fact]
+    public async Task StaleBalanceWriterGetsTypedRecoverableConcurrencyConflict()
+    {
+        await _service.RecordAsync(
+            new[]
+            {
+                new InventoryLedgerEntryRequest(
+                    InventoryTransactionType.Receipt,
+                    CreateKey(_sourceLocation, InventoryStatusSystemIds.Available),
+                    5m,
+                    ActorUserId: "user-1",
+                    IdempotencyKey: "concurrency-seed",
+                    TransactionGroupId: "concurrency-seed-group")
+            });
+        await _context.SaveChangesAsync();
+
+        await using var competingContext = new WmsDbContext(
+            new DbContextOptionsBuilder<WmsDbContext>()
+                .UseSqlite(_connection)
+                .Options);
+        var firstBalance = await _context.InventoryBalances.SingleAsync();
+        var competingBalance = await competingContext.InventoryBalances.SingleAsync();
+        firstBalance.Apply(1m, 0m, allowNegativeStock: false);
+        competingBalance.Apply(1m, 0m, allowNegativeStock: false);
+
+        await _context.SaveChangesAsync();
+        var act = () => competingContext.SaveChangesAsync();
+
+        var exception = await act.Should().ThrowAsync<ConcurrencyConflictException>();
+        exception.Which.ResourceType.Should().Be(nameof(InventoryBalance));
+        exception.Which.ResourceId.Should().Contain("Id=");
+        exception.Which.Message.Should().NotContain("Id=");
     }
 
     [Fact]

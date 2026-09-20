@@ -31,6 +31,7 @@ public class SerialNumber : Entity
     public bool HasMigrationConflict { get; private set; }
     public string? ConflictReason { get; private set; }
     public DateTime? LastMovedAt { get; private set; }
+    public long Revision { get; private set; }
 
     public Item Item { get; private set; } = null!;
     public Lot? Lot { get; private set; }
@@ -69,7 +70,7 @@ public class SerialNumber : Entity
         Status = quarantine ? SerialStatus.Quarantine : SerialStatus.Available;
         StatusReason = quarantine ? "quality inspection required" : null;
         LastMovedAt = NormalizeUtcValue(timestampUtc);
-        SetUpdatedAt(timestampUtc);
+        Touch(timestampUtc);
     }
 
     public void MoveTo(
@@ -85,7 +86,7 @@ public class SerialNumber : Entity
         CurrentLicensePlateId = licensePlateId;
         CurrentLicensePlate = NormalizeOptional(licensePlate, 100);
         LastMovedAt = NormalizeUtcValue(timestampUtc);
-        SetUpdatedAt(timestampUtc);
+        Touch(timestampUtc);
     }
 
     public void RecordPick(DateTime timestampUtc)
@@ -96,7 +97,7 @@ public class SerialNumber : Entity
         CurrentLicensePlateId = null;
         CurrentLicensePlate = null;
         LastMovedAt = NormalizeUtcValue(timestampUtc);
-        SetUpdatedAt(timestampUtc);
+        Touch(timestampUtc);
     }
 
     public void RecordShipment(string? referenceNumber, DateTime timestampUtc)
@@ -108,7 +109,7 @@ public class SerialNumber : Entity
         CurrentLicensePlate = null;
         ShipmentReference = NormalizeOptional(referenceNumber, 100);
         LastMovedAt = NormalizeUtcValue(timestampUtc);
-        SetUpdatedAt(timestampUtc);
+        Touch(timestampUtc);
     }
 
     public void RecordCorrection(string reason, DateTime timestampUtc)
@@ -119,7 +120,7 @@ public class SerialNumber : Entity
         CurrentLicensePlateId = null;
         CurrentLicensePlate = null;
         LastMovedAt = NormalizeUtc(timestampUtc);
-        SetUpdatedAt(timestampUtc);
+        Touch(timestampUtc);
     }
 
     public void SetStatus(SerialStatus status, string reason, DateTime? timestampUtc = null)
@@ -153,11 +154,11 @@ public class SerialNumber : Entity
         if (timestampUtc.HasValue)
         {
             LastMovedAt = NormalizeUtcValue(timestampUtc.Value);
-            SetUpdatedAt(timestampUtc.Value);
+            Touch(timestampUtc.Value);
         }
         else
         {
-            SetUpdatedAt();
+            Touch();
         }
     }
 
@@ -187,7 +188,7 @@ public class SerialNumber : Entity
         ConflictReason = NormalizeOptional(reason, 1_000);
         Status = SerialStatus.Corrected;
         StatusReason = "migration conflict";
-        SetUpdatedAt();
+        Touch();
     }
 
     public static string NormalizeNumber(string number)
@@ -212,6 +213,19 @@ public class SerialNumber : Entity
         {
             throw new InvalidOperationException(
                 $"Serial '{Number}' cannot be moved while it is {Status}.");
+        }
+    }
+
+    private void Touch(DateTime? timestampUtc = null)
+    {
+        Revision++;
+        if (timestampUtc.HasValue)
+        {
+            SetUpdatedAt(timestampUtc.Value);
+        }
+        else
+        {
+            SetUpdatedAt();
         }
     }
 
