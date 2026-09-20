@@ -1,6 +1,7 @@
 @model InventoryViewModel
 @{
     ViewData["Title"] = "Inventory Management";
+    var canAdjustInventory = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.InventoryAdjust)).Succeeded;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -154,14 +155,17 @@ else
                                     </span>
                                 </td>
                                 <td class="text-center">
-                                    <a asp-action="Adjust"
-                                       asp-route-itemSku="@item.ItemSku"
-                                       asp-route-locationCode="@item.LocationCode"
-                                       asp-route-currentQuantity="@item.QuantityAvailable"
-                                       class="btn btn-sm btn-outline-warning"
-                                       title="Adjust Stock">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </a>
+                                    @if (canAdjustInventory)
+                                    {
+                                        <a asp-action="Adjust"
+                                           asp-route-itemSku="@item.ItemSku"
+                                           asp-route-locationCode="@item.LocationCode"
+                                           asp-route-currentQuantity="@item.QuantityAvailable"
+                                           class="btn btn-sm btn-outline-warning"
+                                           title="Adjust Stock">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </a>
+                                    }
                                 </td>
                             </tr>
                         }

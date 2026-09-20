@@ -6,7 +6,7 @@ using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
-[Authorize]
+[Authorize(Policy = WmsPermissions.ItemsRead)]
 public class ItemsController : Controller
 {
     private readonly ICurrentUser _currentUser;
@@ -60,12 +60,14 @@ public class ItemsController : Controller
     }
 
     [HttpGet]
+    [Authorize(Policy = WmsPermissions.ItemsManage)]
     public IActionResult Create()
     {
         return View(new CreateItemViewModel());
     }
 
     [HttpPost]
+    [Authorize(Policy = WmsPermissions.ItemsManage)]
     public async Task<IActionResult> Create(CreateItemViewModel model)
     {
         if (!ModelState.IsValid)
@@ -110,6 +112,7 @@ public class ItemsController : Controller
     }
 
     [HttpGet]
+    [Authorize(Policy = WmsPermissions.ItemsManage)]
     public async Task<IActionResult> Edit(int id)
     {
         try
@@ -152,6 +155,7 @@ public class ItemsController : Controller
     }
 
     [HttpPost]
+    [Authorize(Policy = WmsPermissions.ItemsManage)]
     public async Task<IActionResult> Edit(EditItemViewModel model)
     {
         if (!ModelState.IsValid)

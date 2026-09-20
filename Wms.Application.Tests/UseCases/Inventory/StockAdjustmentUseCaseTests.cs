@@ -1,6 +1,7 @@
 // Wms.Application.Tests/UseCases/Inventory/StockAdjustmentUseCaseTests.cs
 
 using Microsoft.Extensions.Logging;
+using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Inventory;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
@@ -30,7 +31,8 @@ public class StockAdjustmentUseCaseTests
         _mockUnitOfWork.Setup(x => x.Locations).Returns(_mockLocationRepository.Object);
 
         _useCase = new StockAdjustmentUseCase(_mockUnitOfWork.Object, _mockStockMovementService.Object,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            new AllowAllWarehouseAccessService());
     }
 
     [Fact]

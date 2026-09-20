@@ -1,6 +1,7 @@
 // Wms.Application.Tests/UseCases/Items/GetItemsUseCaseTests.cs
 
 using Microsoft.Extensions.Logging;
+using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Items;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
@@ -23,7 +24,10 @@ public class GetItemsUseCaseTests
 
         _mockUnitOfWork.Setup(x => x.Items).Returns(_mockItemRepository.Object);
 
-        _useCase = new GetItemsUseCase(_mockUnitOfWork.Object, _mockLogger.Object);
+        _useCase = new GetItemsUseCase(
+            _mockUnitOfWork.Object,
+            _mockLogger.Object,
+            new AllowAllWarehouseAccessService());
     }
 
     [Fact]

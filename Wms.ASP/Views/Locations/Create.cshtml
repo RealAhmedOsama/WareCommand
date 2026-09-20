@@ -57,7 +57,11 @@
                                     <i class="bi bi-building"></i>
                                 </span>
                                 <select asp-for="WarehouseId" class="form-select">
-                                    <option value="1">Main Warehouse</option>
+                                    <option value="">Select a warehouse</option>
+                                    @foreach (var warehouse in Model.Warehouses)
+                                    {
+                                        <option value="@warehouse.Id">@warehouse.Code — @warehouse.Name</option>
+                                    }
                                 </select>
                             </div>
                             <span asp-validation-for="WarehouseId" class="text-danger"></span>

@@ -1,6 +1,7 @@
 // Wms.Infrastructure/Repositories/UnitOfWork.cs
 
 using Microsoft.EntityFrameworkCore.Storage;
+using Wms.Application.Identity;
 using Wms.Domain.Repositories;
 using Wms.Infrastructure.Data;
 
@@ -11,13 +12,13 @@ public class UnitOfWork : IUnitOfWork
     private readonly WmsDbContext _context;
     private IDbContextTransaction? _transaction;
 
-    public UnitOfWork(WmsDbContext context)
+    public UnitOfWork(WmsDbContext context, IWarehouseAccessService warehouseAccessService)
     {
         _context = context;
         Items = new ItemRepository(context);
-        Locations = new LocationRepository(context);
-        Stock = new StockRepository(context);
-        Movements = new MovementRepository(context);
+        Locations = new LocationRepository(context, warehouseAccessService);
+        Stock = new StockRepository(context, warehouseAccessService);
+        Movements = new MovementRepository(context, warehouseAccessService);
     }
 
     public IItemRepository Items { get; }

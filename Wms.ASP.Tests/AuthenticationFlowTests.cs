@@ -142,7 +142,7 @@ public sealed class AuthenticationFlowTests(WareCommandWebApplicationFactory fac
         HandleCookies = true
     });
 
-    private static async Task<HttpResponseMessage> PostLoginAsync(
+    internal static async Task<HttpResponseMessage> PostLoginAsync(
         HttpClient client,
         string userName,
         string password,

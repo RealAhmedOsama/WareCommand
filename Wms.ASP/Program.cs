@@ -10,6 +10,7 @@ using Wms.ASP.Health;
 using Wms.ASP.Identity;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
+using Wms.Infrastructure.Identity;
 
 namespace Wms.ASP;
 
@@ -222,6 +223,10 @@ public class Program
     private static async Task InitializeIdentityAsync(IServiceProvider services)
     {
         await using var scope = services.CreateAsyncScope();
+        var authorizationBootstrapper = scope.ServiceProvider
+            .GetRequiredService<WmsAuthorizationBootstrapper>();
+        await authorizationBootstrapper.EnsureRolesAndPermissionsAsync();
+
         var bootstrapper = scope.ServiceProvider.GetRequiredService<WmsIdentityBootstrapper>();
         await bootstrapper.EnsureBootstrapAdministratorAsync();
     }

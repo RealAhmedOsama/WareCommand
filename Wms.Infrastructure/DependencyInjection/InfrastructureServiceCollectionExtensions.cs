@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Wms.Application.Identity;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
@@ -25,6 +26,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddInventoryInfrastructure();
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
         services.AddScoped<IAccountDirectory, AccountDirectory>();
+        services.AddScoped<IWarehouseAccessService, WarehouseAccessService>();
+        services.AddScoped<IUserAccessDirectory, UserAccessDirectory>();
+        services.AddScoped<WmsAuthorizationBootstrapper>();
         services.AddDatabaseInitialization();
 
         return services;

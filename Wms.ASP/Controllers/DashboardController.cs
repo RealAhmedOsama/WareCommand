@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Reports;
@@ -7,7 +8,7 @@ using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
-[Authorize]
+[Authorize(Policy = WmsPermissions.DashboardView)]
 public class DashboardController : Controller
 {
     private readonly IGetItemsUseCase _getItemsUseCase;

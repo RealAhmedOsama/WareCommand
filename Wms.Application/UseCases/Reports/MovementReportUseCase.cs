@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
+using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
@@ -43,11 +44,16 @@ public class MovementReportUseCase : IMovementReportUseCase
 {
     private readonly ILogger<MovementReportUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public MovementReportUseCase(IUnitOfWork unitOfWork, ILogger<MovementReportUseCase> logger)
+    public MovementReportUseCase(
+        IUnitOfWork unitOfWork,
+        ILogger<MovementReportUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<IEnumerable<MovementReportDto>>> ExecuteAsync(MovementReportRequest request,
@@ -55,6 +61,14 @@ public class MovementReportUseCase : IMovementReportUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.ReportsRead,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<IEnumerable<MovementReportDto>>(authorization.Error);
+            }
+
             var movements = await GetFilteredMovementsAsync(request, cancellationToken);
             var reportData = movements.Select(MapToDto);
 

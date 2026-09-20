@@ -1,6 +1,7 @@
 @model LocationManagementViewModel
 @{
     ViewData["Title"] = "Location Management";
+    var canManageLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsManage)).Succeeded;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -8,10 +9,13 @@
         <i class="bi bi-geo-alt me-2 text-primary"></i>
         Location Management
     </h2>
-    <a asp-action="Create" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i>
-        Add New Location
-    </a>
+    @if (canManageLocations)
+    {
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>
+            Add New Location
+        </a>
+    }
 </div>
 
 <!-- Search Bar -->
@@ -155,10 +159,13 @@
                 else
                 {
                     <p>Get started by adding your first location</p>
-                    <a asp-action="Create" class="btn btn-primary mt-2">
-                        <i class="bi bi-plus-circle me-1"></i>
-                        Add New Location
-                    </a>
+                    @if (canManageLocations)
+                    {
+                        <a asp-action="Create" class="btn btn-primary mt-2">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            Add New Location
+                        </a>
+                    }
                 }
             </div>
         }

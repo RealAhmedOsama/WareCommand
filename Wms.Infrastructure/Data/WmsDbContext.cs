@@ -24,6 +24,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
 
+    public DbSet<WmsUserWarehouseAssignment> UserWarehouseAssignments => Set<WmsUserWarehouseAssignment>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -42,6 +44,26 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
             entity.Property(user => user.Locale).HasMaxLength(20).IsRequired();
             entity.Property(user => user.TimeZone).HasMaxLength(100).IsRequired();
             entity.HasIndex(user => user.EmployeeCode).IsUnique();
+        });
+
+        builder.Entity<WmsUserWarehouseAssignment>(entity =>
+        {
+            entity.ToTable("WmsUserWarehouseAssignments");
+            entity.HasKey(assignment => new { assignment.UserId, assignment.WarehouseId });
+            entity.Property(assignment => assignment.UserId).HasMaxLength(450).IsRequired();
+            entity.Property(assignment => assignment.AssignedAtUtc)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired();
+            entity.HasIndex(assignment => assignment.WarehouseId);
+            entity.HasIndex(assignment => new { assignment.UserId, assignment.IsDefault });
+            entity.HasOne(assignment => assignment.User)
+                .WithMany()
+                .HasForeignKey(assignment => assignment.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(assignment => assignment.Warehouse)
+                .WithMany()
+                .HasForeignKey(assignment => assignment.WarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<WmsAuthenticationEvent>(entity =>

@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
@@ -21,13 +22,18 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     private readonly ILogger<ReceiveItemUseCase> _logger;
     private readonly IStockMovementService _stockMovementService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public ReceiveItemUseCase(IUnitOfWork unitOfWork, IStockMovementService stockMovementService,
-        ILogger<ReceiveItemUseCase> logger)
+    public ReceiveItemUseCase(
+        IUnitOfWork unitOfWork,
+        IStockMovementService stockMovementService,
+        ILogger<ReceiveItemUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
@@ -35,6 +41,14 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.ReceivingExecute,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ReceiptResultDto>(authorization.Error);
+            }
+
             // Validate item exists
             var item = await _unitOfWork.Items.GetBySkuAsync(request.ItemSku, cancellationToken);
             if (item == null)
@@ -47,6 +61,15 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             var location = await _unitOfWork.Locations.GetByCodeAsync(request.LocationCode, cancellationToken);
             if (location == null)
                 return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' not found");
+
+            authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.ReceivingExecute,
+                location.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ReceiptResultDto>(authorization.Error);
+            }
 
             if (!location.IsReceivable)
                 return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' is not receivable");

@@ -2,14 +2,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Identity;
 using Wms.Infrastructure.Identity;
 
 namespace Wms.ASP.Identity;
 
 public static class WmsRoles
 {
-    public const string Administrator = "Administrator";
-    public const string WarehouseStaff = "WarehouseStaff";
+    public const string Administrator = WmsRoleNames.Administrator;
+    public const string WarehouseStaff = WmsRoleNames.WarehouseStaff;
 }
 
 public sealed class WmsIdentityBootstrapper(

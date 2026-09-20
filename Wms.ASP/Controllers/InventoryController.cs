@@ -6,7 +6,7 @@ using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
-[Authorize]
+[Authorize(Policy = WmsPermissions.InventoryRead)]
 public class InventoryController : Controller
 {
     private readonly ICurrentUser _currentUser;
@@ -74,6 +74,7 @@ public class InventoryController : Controller
     }
 
     [HttpGet]
+    [Authorize(Policy = WmsPermissions.InventoryAdjust)]
     public IActionResult Adjust(string itemSku, string locationCode, decimal currentQuantity)
     {
         var model = new StockAdjustmentViewModel
@@ -87,6 +88,7 @@ public class InventoryController : Controller
     }
 
     [HttpPost]
+    [Authorize(Policy = WmsPermissions.InventoryAdjust)]
     public async Task<IActionResult> Adjust(StockAdjustmentViewModel model)
     {
         if (!ModelState.IsValid)

@@ -1,4 +1,6 @@
+using System.ComponentModel.DataAnnotations;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Application.UseCases.Reports;
 
 namespace Wms.ASP.Models;
@@ -104,8 +106,10 @@ public class CreateLocationViewModel
 {
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public int WarehouseId { get; set; } = 1;
+    [Range(1, int.MaxValue)]
+    public int WarehouseId { get; set; }
     public bool IsPickable { get; set; } = true;
     public bool IsReceivable { get; set; } = true;
     public int Capacity { get; set; }
+    public IReadOnlyList<WmsWarehouseOption> Warehouses { get; set; } = [];
 }

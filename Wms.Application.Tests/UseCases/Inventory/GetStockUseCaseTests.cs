@@ -2,6 +2,7 @@
 
 using System.Reflection;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Inventory;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
@@ -24,7 +25,10 @@ public class GetStockUseCaseTests
 
         _mockUnitOfWork.Setup(x => x.Stock).Returns(_mockStockRepository.Object);
 
-        _useCase = new GetStockUseCase(_mockUnitOfWork.Object, _mockLogger.Object);
+        _useCase = new GetStockUseCase(
+            _mockUnitOfWork.Object,
+            _mockLogger.Object,
+            new AllowAllWarehouseAccessService());
     }
 
     [Fact]

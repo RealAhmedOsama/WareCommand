@@ -1,6 +1,7 @@
 // Wms.Infrastructure.Tests/Services/StockMovementServiceTests.cs
 
 using Microsoft.Extensions.Logging;
+using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
@@ -28,7 +29,11 @@ public class StockMovementServiceTests : IDisposable
         _context.Database.EnsureCreated();
 
         var mockLogger = new Mock<ILogger<StockMovementService>>();
-        var unitOfWork = new UnitOfWork(_context);
+        var warehouseAccessService = new Mock<IWarehouseAccessService>();
+        warehouseAccessService
+            .Setup(service => service.GetScopeAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WarehouseAccessScope(true, new HashSet<int>()));
+        var unitOfWork = new UnitOfWork(_context, warehouseAccessService.Object);
         _service = new StockMovementService(unitOfWork, mockLogger.Object);
 
         // Setup test data

@@ -6,7 +6,7 @@ using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
-[Authorize]
+[Authorize(Policy = WmsPermissions.PickingExecute)]
 public class PickingController : Controller
 {
     private readonly ICurrentUser _currentUser;

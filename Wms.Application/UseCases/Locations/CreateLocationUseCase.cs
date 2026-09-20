@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 
@@ -48,11 +49,16 @@ public class CreateLocationUseCase : ICreateLocationUseCase
 {
     private readonly ILogger<CreateLocationUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public CreateLocationUseCase(IUnitOfWork unitOfWork, ILogger<CreateLocationUseCase> logger)
+    public CreateLocationUseCase(
+        IUnitOfWork unitOfWork,
+        ILogger<CreateLocationUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<LocationDto>> ExecuteAsync(CreateLocationDto request, string userId,
@@ -60,6 +66,15 @@ public class CreateLocationUseCase : ICreateLocationUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.LocationsManage,
+                request.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<LocationDto>(authorization.Error);
+            }
+
             // Check if code already exists
             var existingLocation = await _unitOfWork.Locations.GetByCodeAsync(request.Code, cancellationToken);
             if (existingLocation != null)
@@ -72,6 +87,11 @@ public class CreateLocationUseCase : ICreateLocationUseCase
                     await _unitOfWork.Locations.GetByIdAsync(request.ParentLocationId.Value, cancellationToken);
                 if (parentLocation == null)
                     return Result.Failure<LocationDto>($"Parent location with ID {request.ParentLocationId} not found");
+
+                if (parentLocation.WarehouseId != request.WarehouseId)
+                {
+                    return Result.Failure<LocationDto>("A parent location must belong to the selected warehouse.");
+                }
             }
 
             // Create new location
@@ -124,11 +144,16 @@ public class UpdateLocationUseCase : IUpdateLocationUseCase
 {
     private readonly ILogger<UpdateLocationUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public UpdateLocationUseCase(IUnitOfWork unitOfWork, ILogger<UpdateLocationUseCase> logger)
+    public UpdateLocationUseCase(
+        IUnitOfWork unitOfWork,
+        ILogger<UpdateLocationUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<LocationDto>> ExecuteAsync(UpdateLocationDto request, string userId,
@@ -139,6 +164,15 @@ public class UpdateLocationUseCase : IUpdateLocationUseCase
             var location = await _unitOfWork.Locations.GetByIdAsync(request.Id, cancellationToken);
             if (location == null)
                 return Result.Failure<LocationDto>($"Location with ID {request.Id} not found");
+
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.LocationsManage,
+                location.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<LocationDto>(authorization.Error);
+            }
 
             // Update location details
             location.UpdateDetails(request.Name);
@@ -185,11 +219,16 @@ public class DeleteLocationUseCase : IDeleteLocationUseCase
 {
     private readonly ILogger<DeleteLocationUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public DeleteLocationUseCase(IUnitOfWork unitOfWork, ILogger<DeleteLocationUseCase> logger)
+    public DeleteLocationUseCase(
+        IUnitOfWork unitOfWork,
+        ILogger<DeleteLocationUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result> ExecuteAsync(int locationId, string userId,
@@ -200,6 +239,15 @@ public class DeleteLocationUseCase : IDeleteLocationUseCase
             var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
             if (location == null)
                 return Result.Failure($"Location with ID {locationId} not found");
+
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.LocationsManage,
+                location.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return authorization;
+            }
 
             // Check if location has stock before deleting
             var stockItems = await _unitOfWork.Stock.GetByLocationIdAsync(locationId, cancellationToken);

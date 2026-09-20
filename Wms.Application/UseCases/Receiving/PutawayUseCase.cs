@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -20,13 +21,18 @@ public class PutawayUseCase : IPutawayUseCase
     private readonly ILogger<PutawayUseCase> _logger;
     private readonly IStockMovementService _stockMovementService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public PutawayUseCase(IUnitOfWork unitOfWork, IStockMovementService stockMovementService,
-        ILogger<PutawayUseCase> logger)
+    public PutawayUseCase(
+        IUnitOfWork unitOfWork,
+        IStockMovementService stockMovementService,
+        ILogger<PutawayUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(PutawayDto request, string userId,
@@ -34,6 +40,14 @@ public class PutawayUseCase : IPutawayUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.PutawayExecute,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ReceiptResultDto>(authorization.Error);
+            }
+
             // Validate item exists
             var item = await _unitOfWork.Items.GetBySkuAsync(request.ItemSku, cancellationToken);
             if (item == null)
@@ -44,10 +58,34 @@ public class PutawayUseCase : IPutawayUseCase
             if (fromLocation == null)
                 return Result.Failure<ReceiptResultDto>($"From location '{request.FromLocationCode}' not found");
 
+            authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.PutawayExecute,
+                fromLocation.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ReceiptResultDto>(authorization.Error);
+            }
+
             // Validate to location
             var toLocation = await _unitOfWork.Locations.GetByCodeAsync(request.ToLocationCode, cancellationToken);
             if (toLocation == null)
                 return Result.Failure<ReceiptResultDto>($"To location '{request.ToLocationCode}' not found");
+
+            if (toLocation.WarehouseId != fromLocation.WarehouseId)
+            {
+                return Result.Failure<ReceiptResultDto>(
+                    "Putaway source and destination must belong to the same warehouse.");
+            }
+
+            authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.PutawayExecute,
+                toLocation.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ReceiptResultDto>(authorization.Error);
+            }
 
             if (!toLocation.IsReceivable)
                 return Result.Failure<ReceiptResultDto>($"Location '{request.ToLocationCode}' is not receivable");

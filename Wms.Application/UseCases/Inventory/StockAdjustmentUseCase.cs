@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -29,13 +30,18 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
     private readonly ILogger<StockAdjustmentUseCase> _logger;
     private readonly IStockMovementService _stockMovementService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public StockAdjustmentUseCase(IUnitOfWork unitOfWork, IStockMovementService stockMovementService,
-        ILogger<StockAdjustmentUseCase> logger)
+    public StockAdjustmentUseCase(
+        IUnitOfWork unitOfWork,
+        IStockMovementService stockMovementService,
+        ILogger<StockAdjustmentUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(StockAdjustmentDto request, string userId,
@@ -43,6 +49,14 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryAdjust,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ReceiptResultDto>(authorization.Error);
+            }
+
             // Validate item exists
             var item = await _unitOfWork.Items.GetBySkuAsync(request.ItemSku, cancellationToken);
             if (item == null)
@@ -52,6 +66,15 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
             var location = await _unitOfWork.Locations.GetByCodeAsync(request.LocationCode, cancellationToken);
             if (location == null)
                 return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' not found");
+
+            authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryAdjust,
+                location.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ReceiptResultDto>(authorization.Error);
+            }
 
             if (!location.IsActive)
                 return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' is inactive");

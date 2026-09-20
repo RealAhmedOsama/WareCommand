@@ -42,6 +42,9 @@ current controls and the boundaries that remain open.
 
 The implementation and operator procedure are recorded in
 [`docs/modernization/AUTHENTICATION.md`](docs/modernization/AUTHENTICATION.md).
+Permission policies, role defaults, warehouse assignments, and the access
+management boundary are recorded in
+[`docs/modernization/AUTHORIZATION.md`](docs/modernization/AUTHORIZATION.md).
 
 The repository `.gitignore` covers runtime SQLite files, logs, local settings,
 coverage, test results, and generated artifacts. A pre-commit or CI secret scan

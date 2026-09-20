@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 
@@ -23,17 +24,30 @@ public class GetStockUseCase : IGetStockUseCase
 {
     private readonly ILogger<GetStockUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public GetStockUseCase(IUnitOfWork unitOfWork, ILogger<GetStockUseCase> logger)
+    public GetStockUseCase(
+        IUnitOfWork unitOfWork,
+        ILogger<GetStockUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<IEnumerable<StockDto>>> GetAllStockAsync(CancellationToken cancellationToken = default)
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryRead,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<IEnumerable<StockDto>>(authorization.Error);
+            }
+
             var stockItems = await _unitOfWork.Stock.GetAllAsync(cancellationToken);
             var stockDtos = stockItems.Select(MapToDto);
             return Result.Success(stockDtos);
@@ -50,6 +64,14 @@ public class GetStockUseCase : IGetStockUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryRead,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<IEnumerable<StockDto>>(authorization.Error);
+            }
+
             var stockItems = await _unitOfWork.Stock.GetByItemIdAsync(itemId, cancellationToken);
             var stockDtos = stockItems.Select(MapToDto);
             return Result.Success(stockDtos);
@@ -66,6 +88,14 @@ public class GetStockUseCase : IGetStockUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryRead,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<IEnumerable<StockDto>>(authorization.Error);
+            }
+
             var stockItems = await _unitOfWork.Stock.GetByLocationIdAsync(locationId, cancellationToken);
             var stockDtos = stockItems.Select(MapToDto);
             return Result.Success(stockDtos);
@@ -82,6 +112,14 @@ public class GetStockUseCase : IGetStockUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryRead,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<IEnumerable<StockSummaryDto>>(authorization.Error);
+            }
+
             var stockItems = await _unitOfWork.Stock.GetAllAsync(cancellationToken);
 
             var summaries = stockItems

@@ -1,0 +1,119 @@
+@model Wms.ASP.Models.ManageAccessViewModel
+@{
+    ViewData["Title"] = "Manage access";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h3 mb-1">Manage access</h1>
+        <p class="text-muted mb-0">@Model.UserName</p>
+    </div>
+    <a asp-action="Users" class="btn btn-outline-secondary">Back to accounts</a>
+</div>
+
+<form asp-action="Access" method="post">
+    @Html.AntiForgeryToken()
+    <input asp-for="UserId" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <section class="card h-100 shadow-sm">
+                <div class="card-header">Roles</div>
+                <div class="card-body">
+                    @foreach (var role in Model.AvailableRoles)
+                    {
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="RoleNames"
+                                   value="@role.Name" id="role-@role.Name"
+                                   @(role.IsSelected ? "checked" : null) />
+                            <label class="form-check-label" for="role-@role.Name">@role.Name</label>
+                        </div>
+                    }
+                    <div class="form-text">Roles provide the default permission matrix.</div>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-8">
+            <section class="card h-100 shadow-sm">
+                <div class="card-header">Direct permission grants</div>
+                <div class="card-body">
+                    <div class="row row-cols-1 row-cols-md-2 g-2">
+                        @foreach (var permission in Model.AvailablePermissions)
+                        {
+                            <div class="col">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="PermissionNames"
+                                           value="@permission.Name" id="permission-@permission.Name"
+                                           @(permission.IsDirectGrant ? "checked" : null) />
+                                    <label class="form-check-label" for="permission-@permission.Name">
+                                        @permission.Description
+                                    </label>
+                                    @if (permission.IsGrantedByRole)
+                                    {
+                                        <small class="d-block text-muted">Granted by selected role</small>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="form-text mt-3">Direct grants are additive; role permissions remain authoritative.</div>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-12">
+            <section class="card shadow-sm">
+                <div class="card-header">Warehouse assignments</div>
+                <div class="card-body">
+                    @if (Model.AvailableWarehouses.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No active warehouses are available.</p>
+                    }
+                    else
+                    {
+                        <div class="row row-cols-1 row-cols-md-3 g-3">
+                            @foreach (var warehouse in Model.AvailableWarehouses)
+                            {
+                                <div class="col">
+                                    <div class="form-check">
+                                        <input class="form-check-input warehouse-checkbox" type="checkbox"
+                                               name="WarehouseIds" value="@warehouse.Id"
+                                               id="warehouse-@warehouse.Id"
+                                               @(warehouse.IsSelected ? "checked" : null) />
+                                        <label class="form-check-label" for="warehouse-@warehouse.Id">
+                                            <strong>@warehouse.Code</strong> — @warehouse.Name
+                                        </label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        <div class="mt-3">
+                            <label for="DefaultWarehouseId" class="form-label">Default warehouse (optional)</label>
+                            <select asp-for="DefaultWarehouseId" class="form-select">
+                                <option value="">No default warehouse</option>
+                                @foreach (var warehouse in Model.AvailableWarehouses)
+                                {
+                                    <option value="@warehouse.Id" selected="@(warehouse.IsDefault ? "selected" : null)">
+                                        @warehouse.Code — @warehouse.Name
+                                    </option>
+                                }
+                            </select>
+                            <div class="form-text">The default is a preference; every operation still checks assignment server-side.</div>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">Save access assignments</button>
+        <a asp-action="Users" class="btn btn-link">Cancel</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 using Wms.Domain.ValueObjects;
@@ -50,11 +51,16 @@ public class CreateItemUseCase : ICreateItemUseCase
 {
     private readonly ILogger<CreateItemUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public CreateItemUseCase(IUnitOfWork unitOfWork, ILogger<CreateItemUseCase> logger)
+    public CreateItemUseCase(
+        IUnitOfWork unitOfWork,
+        ILogger<CreateItemUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<ItemDto>> ExecuteAsync(CreateItemDto request, string userId,
@@ -62,6 +68,14 @@ public class CreateItemUseCase : ICreateItemUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.ItemsManage,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ItemDto>(authorization.Error);
+            }
+
             // Check if SKU already exists
             var existingItem = await _unitOfWork.Items.GetBySkuAsync(request.Sku, cancellationToken);
             if (existingItem != null)
@@ -131,11 +145,16 @@ public class UpdateItemUseCase : IUpdateItemUseCase
 {
     private readonly ILogger<UpdateItemUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public UpdateItemUseCase(IUnitOfWork unitOfWork, ILogger<UpdateItemUseCase> logger)
+    public UpdateItemUseCase(
+        IUnitOfWork unitOfWork,
+        ILogger<UpdateItemUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result<ItemDto>> ExecuteAsync(UpdateItemDto request, string userId,
@@ -143,6 +162,14 @@ public class UpdateItemUseCase : IUpdateItemUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.ItemsManage,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return Result.Failure<ItemDto>(authorization.Error);
+            }
+
             var item = await _unitOfWork.Items.GetByIdAsync(request.Id, cancellationToken);
             if (item == null)
                 return Result.Failure<ItemDto>($"Item with ID {request.Id} not found");
@@ -209,11 +236,16 @@ public class DeleteItemUseCase : IDeleteItemUseCase
 {
     private readonly ILogger<DeleteItemUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IWarehouseAccessService _warehouseAccessService;
 
-    public DeleteItemUseCase(IUnitOfWork unitOfWork, ILogger<DeleteItemUseCase> logger)
+    public DeleteItemUseCase(
+        IUnitOfWork unitOfWork,
+        ILogger<DeleteItemUseCase> logger,
+        IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _warehouseAccessService = warehouseAccessService;
     }
 
     public async Task<Result> ExecuteAsync(int itemId, string userId,
@@ -221,6 +253,14 @@ public class DeleteItemUseCase : IDeleteItemUseCase
     {
         try
         {
+            var authorization = await _warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.ItemsManage,
+                cancellationToken: cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return authorization;
+            }
+
             var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken);
             if (item == null)
                 return Result.Failure($"Item with ID {itemId} not found");

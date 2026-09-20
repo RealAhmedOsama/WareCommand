@@ -46,6 +46,7 @@
                 </td>
                 <td>@(user.LastLoginAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
                 <td class="text-end">
+                    <a asp-action="Access" asp-route-id="@user.Id" class="btn btn-sm btn-outline-primary">Manage access</a>
                     <form asp-action="ToggleActive" method="post">
                         <input type="hidden" name="id" value="@user.Id" />
                         @Html.AntiForgeryToken()

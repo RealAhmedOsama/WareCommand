@@ -116,3 +116,42 @@ public sealed class AccountUserViewModel
     public bool IsLockedOut { get; init; }
     public DateTimeOffset? LastLoginAtUtc { get; init; }
 }
+
+public sealed class ManageAccessViewModel
+{
+    [Required]
+    public string UserId { get; set; } = string.Empty;
+
+    public string UserName { get; set; } = string.Empty;
+
+    public List<string> RoleNames { get; set; } = [];
+
+    public List<string> PermissionNames { get; set; } = [];
+
+    public List<int> WarehouseIds { get; set; } = [];
+
+    public int? DefaultWarehouseId { get; set; }
+
+    public IReadOnlyList<AccessRoleOptionViewModel> AvailableRoles { get; set; } = [];
+
+    public IReadOnlyList<AccessPermissionOptionViewModel> AvailablePermissions { get; set; } = [];
+
+    public IReadOnlyList<AccessWarehouseOptionViewModel> AvailableWarehouses { get; set; } = [];
+}
+
+public sealed record AccessRoleOptionViewModel(
+    string Name,
+    bool IsSelected);
+
+public sealed record AccessPermissionOptionViewModel(
+    string Name,
+    string Description,
+    bool IsDirectGrant,
+    bool IsGrantedByRole);
+
+public sealed record AccessWarehouseOptionViewModel(
+    int Id,
+    string Code,
+    string Name,
+    bool IsSelected,
+    bool IsDefault);

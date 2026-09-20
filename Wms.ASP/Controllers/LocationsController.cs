@@ -6,23 +6,26 @@ using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
 
-[Authorize]
+[Authorize(Policy = WmsPermissions.LocationsRead)]
 public class LocationsController : Controller
 {
     private readonly ICurrentUser _currentUser;
     private readonly ICreateLocationUseCase _createLocationUseCase;
     private readonly IGetLocationsUseCase _getLocationsUseCase;
+    private readonly IWarehouseAccessService _warehouseAccessService;
     private readonly ILogger<LocationsController> _logger;
 
     public LocationsController(
         IGetLocationsUseCase getLocationsUseCase,
         ICreateLocationUseCase createLocationUseCase,
         ICurrentUser currentUser,
+        IWarehouseAccessService warehouseAccessService,
         ILogger<LocationsController> logger)
     {
         _getLocationsUseCase = getLocationsUseCase;
         _createLocationUseCase = createLocationUseCase;
         _currentUser = currentUser;
+        _warehouseAccessService = warehouseAccessService;
         _logger = logger;
     }
 
@@ -66,16 +69,21 @@ public class LocationsController : Controller
     }
 
     [HttpGet]
-    public IActionResult Create()
+    [Authorize(Policy = WmsPermissions.LocationsManage)]
+    public async Task<IActionResult> Create()
     {
-        return View(new CreateLocationViewModel());
+        var model = new CreateLocationViewModel();
+        await PopulateWarehouseOptionsAsync(model);
+        return View(model);
     }
 
     [HttpPost]
+    [Authorize(Policy = WmsPermissions.LocationsManage)]
     public async Task<IActionResult> Create(CreateLocationViewModel model)
     {
         if (!ModelState.IsValid)
         {
+            await PopulateWarehouseOptionsAsync(model);
             return View(model);
         }
 
@@ -96,6 +104,7 @@ public class LocationsController : Controller
             if (result.IsFailure)
             {
                 TempData["ErrorMessage"] = result.Error;
+                await PopulateWarehouseOptionsAsync(model);
                 return View(model);
             }
 
@@ -106,7 +115,14 @@ public class LocationsController : Controller
         {
             _logger.LogError(ex, "Error creating location");
             TempData["ErrorMessage"] = "Error creating location. Please try again.";
+            await PopulateWarehouseOptionsAsync(model);
             return View(model);
         }
+    }
+
+    private async Task PopulateWarehouseOptionsAsync(CreateLocationViewModel model)
+    {
+        model.Warehouses = await _warehouseAccessService.GetAccessibleWarehousesAsync(
+            WmsPermissions.LocationsManage);
     }
 }

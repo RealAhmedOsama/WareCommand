@@ -6,6 +6,7 @@ using Serilog;
 using Wms.Application.DependencyInjection;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
+using Wms.Infrastructure.Identity;
 using Wms.WinForms.Forms;
 
 namespace Wms.WinForms;
@@ -96,5 +97,9 @@ internal static class Program
             configuration["Wms:SeedProfile"],
             environment.IsDevelopment());
         await initializer.InitializeAsync(seedProfile);
+
+        var authorizationBootstrapper = scope.ServiceProvider
+            .GetRequiredService<WmsAuthorizationBootstrapper>();
+        await authorizationBootstrapper.EnsureRolesAndPermissionsAsync();
     }
 }

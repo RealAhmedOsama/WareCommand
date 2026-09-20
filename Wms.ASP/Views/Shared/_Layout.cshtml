@@ -1,4 +1,15 @@
 ﻿<!DOCTYPE html>
+@{
+    var canDashboard = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.DashboardView)).Succeeded;
+    var canReceive = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ReceivingExecute)).Succeeded;
+    var canPutaway = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PutawayExecute)).Succeeded;
+    var canPick = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PickingExecute)).Succeeded;
+    var canInventory = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.InventoryRead)).Succeeded;
+    var canItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsRead)).Succeeded;
+    var canLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsRead)).Succeeded;
+    var canAccess = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AccessManage)).Succeeded;
+}
+@* Authorization checks are evaluated before rendering navigation. *@
 <html lang="en">
 <head>
     <meta charset="utf-8"/>
@@ -26,60 +37,87 @@
                 @if (User.Identity?.IsAuthenticated == true)
                 {
                 <ul class="navbar-nav me-auto">
+                    @if (canDashboard)
+                    {
                     <li class="nav-item">
                         <a class="nav-link px-3 py-2 rounded-pill mx-1" asp-controller="Dashboard" asp-action="Index">
                             <i class="bi bi-speedometer2 me-1"></i>Dashboard
                         </a>
                     </li>
+                    }
+                    @if (canReceive || canPutaway || canPick)
+                    {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded-pill mx-1" href="#" id="operationsDropdown" role="button"
                            data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-arrow-repeat me-1"></i>Operations
                         </a>
                         <ul class="dropdown-menu shadow border-0 mt-2">
+                            @if (canReceive)
+                            {
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="Receiving" asp-action="Receive">
                                     <i class="bi bi-box-arrow-in-down me-2 text-success"></i>Receiving
                                 </a>
                             </li>
+                            }
+                            @if (canPutaway)
+                            {
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="Receiving" asp-action="Putaway">
                                     <i class="bi bi-box-arrow-right me-2 text-info"></i>Putaway
                                 </a>
                             </li>
+                            }
+                            @if (canPick)
+                            {
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="Picking" asp-action="Index">
                                     <i class="bi bi-box-arrow-up me-2 text-primary"></i>Picking
                                 </a>
                             </li>
+                            }
                         </ul>
                     </li>
+                    }
+                    @if (canInventory)
+                    {
                     <li class="nav-item">
                         <a class="nav-link px-3 py-2 rounded-pill mx-1" asp-controller="Inventory" asp-action="Index">
                             <i class="bi bi-stack me-1"></i>Inventory
                         </a>
                     </li>
+                    }
+                    @if (canItems || canLocations)
+                    {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded-pill mx-1" href="#" id="managementDropdown" role="button"
                            data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-gear me-1"></i>Management
                         </a>
                         <ul class="dropdown-menu shadow border-0 mt-2">
+                            @if (canItems)
+                            {
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="Items" asp-action="Index">
                                     <i class="bi bi-box me-2 text-warning"></i>Items
                                 </a>
                             </li>
+                            }
+                            @if (canLocations)
+                            {
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="Locations" asp-action="Index">
                                     <i class="bi bi-geo-alt me-2 text-danger"></i>Locations
                                 </a>
                             </li>
+                            }
                         </ul>
                     </li>
+                    }
                 </ul>
                 }
                 <ul class="navbar-nav">
@@ -91,7 +129,7 @@
                                 @(User.FindFirst("warecommand/display_name")?.Value ?? User.Identity.Name)
                             </a>
                         </li>
-                        @if (User.IsInRole("Administrator"))
+                        @if (canAccess)
                         {
                             <li class="nav-item">
                                 <a class="nav-link px-3 py-2" asp-controller="Account" asp-action="Users">

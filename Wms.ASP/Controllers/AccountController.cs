@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Wms.Application.Identity;
 using Wms.ASP.Identity;
 using Wms.ASP.Models;
 using Wms.Infrastructure.Identity;
@@ -12,6 +13,8 @@ public sealed class AccountController(
     SignInManager<WmsUser> signInManager,
     RoleManager<IdentityRole> roleManager,
     IAccountDirectory accountDirectory,
+    IUserAccessDirectory userAccessDirectory,
+    ICurrentUser currentUser,
     IAuthenticationAuditService auditService,
     IAccountNotificationSender notificationSender,
     ILogger<AccountController> logger) : Controller
@@ -279,6 +282,7 @@ public sealed class AccountController(
     }
 
     [Authorize(Roles = WmsRoles.Administrator)]
+    [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpGet]
     public async Task<IActionResult> Users()
     {
@@ -299,11 +303,11 @@ public sealed class AccountController(
         return View(users);
     }
 
-    [Authorize(Roles = WmsRoles.Administrator)]
+    [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpGet]
     public IActionResult CreateUser() => View(new CreateUserViewModel());
 
-    [Authorize(Roles = WmsRoles.Administrator)]
+    [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateUser(CreateUserViewModel model)
@@ -347,7 +351,7 @@ public sealed class AccountController(
         return RedirectToAction(nameof(Users));
     }
 
-    [Authorize(Roles = WmsRoles.Administrator)]
+    [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ToggleActive(string id)
@@ -386,6 +390,51 @@ public sealed class AccountController(
         return RedirectToAction(nameof(Users));
     }
 
+    [Authorize(Policy = WmsPermissions.AccessManage)]
+    [HttpGet]
+    public async Task<IActionResult> Access(string id)
+    {
+        var profile = await userAccessDirectory.GetProfileAsync(id);
+        return profile is null
+            ? NotFound()
+            : View(ToManageAccessViewModel(profile));
+    }
+
+    [Authorize(Policy = WmsPermissions.AccessManage)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Access(ManageAccessViewModel model)
+    {
+        var profile = await userAccessDirectory.GetProfileAsync(model.UserId);
+        if (profile is null)
+        {
+            return NotFound();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            ApplyAccessOptions(model, profile);
+            return View(model);
+        }
+
+        var result = await userAccessDirectory.UpdateAsync(
+            currentUser.RequireUserId(),
+            model.UserId,
+            model.RoleNames,
+            model.PermissionNames,
+            model.WarehouseIds,
+            model.DefaultWarehouseId);
+        if (result.IsFailure)
+        {
+            ModelState.AddModelError(string.Empty, result.Error);
+            ApplyAccessOptions(model, profile);
+            return View(model);
+        }
+
+        TempData["SuccessMessage"] = $"Access assignments for '{profile.UserName}' were updated.";
+        return RedirectToAction(nameof(Users));
+    }
+
     private async Task EnsureRoleAsync(string roleName)
     {
         if (await roleManager.RoleExistsAsync(roleName))
@@ -399,6 +448,61 @@ public sealed class AccountController(
             throw new InvalidOperationException(
                 $"Could not create the '{roleName}' role: {string.Join("; ", result.Errors.Select(error => error.Description))}");
         }
+    }
+
+    private static ManageAccessViewModel ToManageAccessViewModel(WmsUserAccessProfile profile)
+    {
+        var model = new ManageAccessViewModel
+        {
+            UserId = profile.UserId,
+            UserName = profile.UserName,
+            RoleNames = profile.Roles
+                .Where(role => role.IsSelected)
+                .Select(role => role.Name)
+                .ToList(),
+            PermissionNames = profile.Permissions
+                .Where(permission => permission.IsDirectGrant)
+                .Select(permission => permission.Name)
+                .ToList(),
+            WarehouseIds = profile.Warehouses
+                .Where(warehouse => warehouse.IsSelected)
+                .Select(warehouse => warehouse.Id)
+                .ToList(),
+            DefaultWarehouseId = profile.Warehouses
+                .Where(warehouse => warehouse.IsDefault)
+                .Select(warehouse => (int?)warehouse.Id)
+                .FirstOrDefault()
+        };
+
+        ApplyAccessOptions(model, profile);
+        return model;
+    }
+
+    private static void ApplyAccessOptions(
+        ManageAccessViewModel model,
+        WmsUserAccessProfile profile)
+    {
+        model.UserName = profile.UserName;
+        model.AvailableRoles = profile.Roles
+            .Select(role => new AccessRoleOptionViewModel(
+                role.Name,
+                model.RoleNames.Contains(role.Name, StringComparer.Ordinal)))
+            .ToList();
+        model.AvailablePermissions = profile.Permissions
+            .Select(permission => new AccessPermissionOptionViewModel(
+                permission.Name,
+                permission.Description,
+                model.PermissionNames.Contains(permission.Name, StringComparer.Ordinal),
+                permission.IsGrantedByRole))
+            .ToList();
+        model.AvailableWarehouses = profile.Warehouses
+            .Select(warehouse => new AccessWarehouseOptionViewModel(
+                warehouse.Id,
+                warehouse.Code,
+                warehouse.Name,
+                model.WarehouseIds.Contains(warehouse.Id),
+                model.DefaultWarehouseId == warehouse.Id))
+            .ToList();
     }
 
     private async Task AuditAsync(

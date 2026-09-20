@@ -28,12 +28,14 @@ public class ReceivingController : Controller
     }
 
     [HttpGet]
+    [Authorize(Policy = WmsPermissions.ReceivingExecute)]
     public IActionResult Receive()
     {
         return View(new ReceivingViewModel());
     }
 
     [HttpPost]
+    [Authorize(Policy = WmsPermissions.ReceivingExecute)]
     public async Task<IActionResult> Receive(ReceivingViewModel model)
     {
         if (!ModelState.IsValid)
@@ -73,12 +75,14 @@ public class ReceivingController : Controller
     }
 
     [HttpGet]
+    [Authorize(Policy = WmsPermissions.PutawayExecute)]
     public IActionResult Putaway()
     {
         return View(new PutawayViewModel());
     }
 
     [HttpPost]
+    [Authorize(Policy = WmsPermissions.PutawayExecute)]
     public async Task<IActionResult> Putaway(PutawayViewModel model)
     {
         if (!ModelState.IsValid)

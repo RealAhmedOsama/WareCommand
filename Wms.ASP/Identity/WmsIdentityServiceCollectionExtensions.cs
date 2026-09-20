@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,20 @@ public static class WmsIdentityServiceCollectionExtensions
     {
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, HttpCurrentUser>();
+        services.AddScoped<IAuthorizationHandler, WmsPermissionAuthorizationHandler>();
+        services.AddAuthorization(options =>
+        {
+            foreach (var permission in WmsPermissions.Catalog)
+            {
+                options.AddPolicy(
+                    permission,
+                    policy =>
+                    {
+                        policy.RequireAuthenticatedUser();
+                        policy.AddRequirements(new WmsPermissionRequirement(permission));
+                    });
+            }
+        });
 
         services
             .AddIdentity<WmsUser, IdentityRole>(options =>
@@ -40,6 +55,11 @@ public static class WmsIdentityServiceCollectionExtensions
             })
             .AddEntityFrameworkStores<Wms.Infrastructure.Data.WmsDbContext>()
             .AddDefaultTokenProviders();
+
+        services.Configure<SecurityStampValidatorOptions>(options =>
+        {
+            options.ValidationInterval = TimeSpan.Zero;
+        });
 
         services.AddScoped<
             IUserClaimsPrincipalFactory<WmsUser>,

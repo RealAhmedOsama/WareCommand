@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
+using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Receiving;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
@@ -30,7 +31,11 @@ public class ReceiveItemUseCaseTests
         _mockUnitOfWork.Setup(x => x.Items).Returns(_mockItemRepository.Object);
         _mockUnitOfWork.Setup(x => x.Locations).Returns(_mockLocationRepository.Object);
 
-        _useCase = new ReceiveItemUseCase(_mockUnitOfWork.Object, _mockStockMovementService.Object, _mockLogger.Object);
+        _useCase = new ReceiveItemUseCase(
+            _mockUnitOfWork.Object,
+            _mockStockMovementService.Object,
+            _mockLogger.Object,
+            new AllowAllWarehouseAccessService());
     }
 
     [Fact]

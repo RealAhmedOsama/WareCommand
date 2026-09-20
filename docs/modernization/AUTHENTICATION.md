@@ -12,7 +12,7 @@ claim.
   locale, time zone, active state, lockout state, and last-login timestamp.
 - Warehouse administrators create staff accounts. There is no public
   self-registration route.
-- Roles currently include `Administrator` and `WarehouseStaff`.
+- Roles and warehouse-scoped permissions are documented in [`AUTHORIZATION.md`](AUTHORIZATION.md).
 - Authentication events are recorded in `WmsAuthenticationEvents`. Events do
   not contain passwords, reset tokens, or sensitive claims.
 
