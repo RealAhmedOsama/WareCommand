@@ -870,4 +870,81 @@
   <data name="PurchaseOrders.PasteCsv" xml:space="preserve"><value>Paste CSV</value></data>
   <data name="PurchaseOrders.Imported" xml:space="preserve"><value>Imported {0} purchase orders; {1} rows had errors.</value></data>
   <data name="PurchaseOrders.ImportRequired" xml:space="preserve"><value>Provide a CSV file or paste CSV content.</value></data>
+  <data name="Nav.AdvanceShippingNotices" xml:space="preserve"><value>Advance shipping notices</value></data>
+  <data name="AdvanceShippingNotices.Title" xml:space="preserve"><value>Advance shipping notices</value></data>
+  <data name="AdvanceShippingNotices.Subtitle" xml:space="preserve"><value>Plan expected inbound loads, check in arrivals, and reconcile receipts.</value></data>
+  <data name="AdvanceShippingNotices.Create" xml:space="preserve"><value>Create advance shipping notice</value></data>
+  <data name="AdvanceShippingNotices.Edit" xml:space="preserve"><value>Edit advance shipping notice</value></data>
+  <data name="AdvanceShippingNotices.Details" xml:space="preserve"><value>Advance shipping notice details</value></data>
+  <data name="AdvanceShippingNotices.Add" xml:space="preserve"><value>Add ASN</value></data>
+  <data name="AdvanceShippingNotices.Import" xml:space="preserve"><value>Import ASNs</value></data>
+  <data name="AdvanceShippingNotices.Export" xml:space="preserve"><value>Export CSV</value></data>
+  <data name="AdvanceShippingNotices.Search" xml:space="preserve"><value>Search</value></data>
+  <data name="AdvanceShippingNotices.SearchPlaceholder" xml:space="preserve"><value>Number, supplier, carrier, or reference</value></data>
+  <data name="AdvanceShippingNotices.Warehouse" xml:space="preserve"><value>Warehouse</value></data>
+  <data name="AdvanceShippingNotices.Supplier" xml:space="preserve"><value>Supplier</value></data>
+  <data name="AdvanceShippingNotices.SupplierId" xml:space="preserve"><value>Supplier ID</value></data>
+  <data name="AdvanceShippingNotices.IncludeCancelled" xml:space="preserve"><value>Include cancelled</value></data>
+  <data name="AdvanceShippingNotices.List" xml:space="preserve"><value>ASN list</value></data>
+  <data name="AdvanceShippingNotices.Total" xml:space="preserve"><value>total</value></data>
+  <data name="AdvanceShippingNotices.None" xml:space="preserve"><value>No ASNs match the current filters.</value></data>
+  <data name="AdvanceShippingNotices.PageOf" xml:space="preserve"><value>Page {0} of {1}</value></data>
+  <data name="AdvanceShippingNotices.Number" xml:space="preserve"><value>Number</value></data>
+  <data name="AdvanceShippingNotices.ExpectedArrival" xml:space="preserve"><value>Expected arrival</value></data>
+  <data name="AdvanceShippingNotices.ExpectedFrom" xml:space="preserve"><value>Expected arrival from (UTC)</value></data>
+  <data name="AdvanceShippingNotices.ExpectedTo" xml:space="preserve"><value>Expected arrival to (UTC)</value></data>
+  <data name="AdvanceShippingNotices.Carrier" xml:space="preserve"><value>Carrier</value></data>
+  <data name="AdvanceShippingNotices.Vehicle" xml:space="preserve"><value>Vehicle</value></data>
+  <data name="AdvanceShippingNotices.Trailer" xml:space="preserve"><value>Trailer</value></data>
+  <data name="AdvanceShippingNotices.Container" xml:space="preserve"><value>Container</value></data>
+  <data name="AdvanceShippingNotices.Tracking" xml:space="preserve"><value>Tracking reference</value></data>
+  <data name="AdvanceShippingNotices.ExternalReference" xml:space="preserve"><value>External reference</value></data>
+  <data name="AdvanceShippingNotices.Source" xml:space="preserve"><value>Source type</value></data>
+  <data name="AdvanceShippingNotices.SourceReference" xml:space="preserve"><value>Source reference</value></data>
+  <data name="AdvanceShippingNotices.SourcePayload" xml:space="preserve"><value>Source payload (secrets are removed)</value></data>
+  <data name="AdvanceShippingNotices.Dock" xml:space="preserve"><value>Dock</value></data>
+  <data name="AdvanceShippingNotices.DockId" xml:space="preserve"><value>Dock location ID</value></data>
+  <data name="AdvanceShippingNotices.Notes" xml:space="preserve"><value>Notes</value></data>
+  <data name="AdvanceShippingNotices.Profile" xml:space="preserve"><value>Load profile</value></data>
+  <data name="AdvanceShippingNotices.Actions" xml:space="preserve"><value>Lifecycle actions</value></data>
+  <data name="AdvanceShippingNotices.Lines" xml:space="preserve"><value>Expected lines</value></data>
+  <data name="AdvanceShippingNotices.LinesHelp" xml:space="preserve"><value>One line per row: ITEM_SKU|QUANTITY|UOM|PACKAGING|PO_ID|PO_LINE_ID|OVER_TOLERANCE|UNDER_TOLERANCE|LOT|EXPIRY|SERIAL|LPN|IS_SSCC|NOTES</value></data>
+  <data name="AdvanceShippingNotices.LineRows" xml:space="preserve"><value>Line rows</value></data>
+  <data name="AdvanceShippingNotices.ExpectedQuantity" xml:space="preserve"><value>Expected</value></data>
+  <data name="AdvanceShippingNotices.Received" xml:space="preserve"><value>Received</value></data>
+  <data name="AdvanceShippingNotices.Remaining" xml:space="preserve"><value>Remaining</value></data>
+  <data name="AdvanceShippingNotices.PreAdvice" xml:space="preserve"><value>Pre-advice</value></data>
+  <data name="AdvanceShippingNotices.Discrepancies" xml:space="preserve"><value>Discrepancies</value></data>
+  <data name="AdvanceShippingNotices.NoDiscrepancies" xml:space="preserve"><value>No discrepancies recorded.</value></data>
+  <data name="AdvanceShippingNotices.DiscrepancyDetails" xml:space="preserve"><value>Details</value></data>
+  <data name="AdvanceShippingNotices.RecordedAt" xml:space="preserve"><value>Recorded at</value></data>
+  <data name="AdvanceShippingNotices.AllowMultiplePurchaseOrders" xml:space="preserve"><value>Allow lines from multiple purchase orders</value></data>
+  <data name="AdvanceShippingNotices.FormHelp" xml:space="preserve"><value>Drafts can be edited until submission. ASN receipt creates no stock until the receiving transaction confirms physical stock.</value></data>
+  <data name="AdvanceShippingNotices.Status.Draft" xml:space="preserve"><value>Draft</value></data>
+  <data name="AdvanceShippingNotices.Status.Submitted" xml:space="preserve"><value>Submitted</value></data>
+  <data name="AdvanceShippingNotices.Status.Expected" xml:space="preserve"><value>Expected</value></data>
+  <data name="AdvanceShippingNotices.Status.Arrived" xml:space="preserve"><value>Arrived</value></data>
+  <data name="AdvanceShippingNotices.Status.Receiving" xml:space="preserve"><value>Receiving</value></data>
+  <data name="AdvanceShippingNotices.Status.Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="AdvanceShippingNotices.Status.Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="AdvanceShippingNotices.Status.Exception" xml:space="preserve"><value>Exception</value></data>
+  <data name="AdvanceShippingNotices.Submit" xml:space="preserve"><value>Submit</value></data>
+  <data name="AdvanceShippingNotices.MarkExpected" xml:space="preserve"><value>Mark expected</value></data>
+  <data name="AdvanceShippingNotices.Arrive" xml:space="preserve"><value>Check in arrival</value></data>
+  <data name="AdvanceShippingNotices.MarkException" xml:space="preserve"><value>Mark exception</value></data>
+  <data name="AdvanceShippingNotices.Complete" xml:space="preserve"><value>Complete</value></data>
+  <data name="AdvanceShippingNotices.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="AdvanceShippingNotices.Created" xml:space="preserve"><value>ASN '{0}' was created.</value></data>
+  <data name="AdvanceShippingNotices.Updated" xml:space="preserve"><value>ASN '{0}' was updated.</value></data>
+  <data name="AdvanceShippingNotices.Submitted" xml:space="preserve"><value>ASN '{0}' was submitted.</value></data>
+  <data name="AdvanceShippingNotices.Expected" xml:space="preserve"><value>ASN '{0}' was marked expected.</value></data>
+  <data name="AdvanceShippingNotices.Arrived" xml:space="preserve"><value>ASN '{0}' was checked in.</value></data>
+  <data name="AdvanceShippingNotices.Exception" xml:space="preserve"><value>ASN '{0}' was marked as an exception.</value></data>
+  <data name="AdvanceShippingNotices.Completed" xml:space="preserve"><value>ASN '{0}' was completed.</value></data>
+  <data name="AdvanceShippingNotices.Cancelled" xml:space="preserve"><value>ASN '{0}' was cancelled.</value></data>
+  <data name="AdvanceShippingNotices.ImportHelp" xml:space="preserve"><value>CSV uses the documented API header and one ASN line per row.</value></data>
+  <data name="AdvanceShippingNotices.ImportFile" xml:space="preserve"><value>CSV file</value></data>
+  <data name="AdvanceShippingNotices.PasteCsv" xml:space="preserve"><value>Paste CSV</value></data>
+  <data name="AdvanceShippingNotices.Imported" xml:space="preserve"><value>Imported {0} ASNs; {1} rows had errors.</value></data>
+  <data name="AdvanceShippingNotices.ImportRequired" xml:space="preserve"><value>Provide a CSV file or paste CSV content.</value></data>
 </root>

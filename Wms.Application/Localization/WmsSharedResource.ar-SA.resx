@@ -870,4 +870,81 @@
   <data name="PurchaseOrders.PasteCsv" xml:space="preserve"><value>لصق CSV</value></data>
   <data name="PurchaseOrders.Imported" xml:space="preserve"><value>تم استيراد {0} أمر شراء؛ توجد أخطاء في {1} صف.</value></data>
   <data name="PurchaseOrders.ImportRequired" xml:space="preserve"><value>قدم ملف CSV أو الصق محتوى CSV.</value></data>
+  <data name="Nav.AdvanceShippingNotices" xml:space="preserve"><value>إشعارات الشحن المسبق</value></data>
+  <data name="AdvanceShippingNotices.Title" xml:space="preserve"><value>إشعارات الشحن المسبق</value></data>
+  <data name="AdvanceShippingNotices.Subtitle" xml:space="preserve"><value>خطط للشحنات الواردة، وسجل الوصول، وطابق الاستلام.</value></data>
+  <data name="AdvanceShippingNotices.Create" xml:space="preserve"><value>إنشاء إشعار شحن مسبق</value></data>
+  <data name="AdvanceShippingNotices.Edit" xml:space="preserve"><value>تعديل إشعار الشحن المسبق</value></data>
+  <data name="AdvanceShippingNotices.Details" xml:space="preserve"><value>تفاصيل إشعار الشحن المسبق</value></data>
+  <data name="AdvanceShippingNotices.Add" xml:space="preserve"><value>إضافة إشعار</value></data>
+  <data name="AdvanceShippingNotices.Import" xml:space="preserve"><value>استيراد الإشعارات</value></data>
+  <data name="AdvanceShippingNotices.Export" xml:space="preserve"><value>تصدير CSV</value></data>
+  <data name="AdvanceShippingNotices.Search" xml:space="preserve"><value>بحث</value></data>
+  <data name="AdvanceShippingNotices.SearchPlaceholder" xml:space="preserve"><value>الرقم أو المورد أو الناقل أو المرجع</value></data>
+  <data name="AdvanceShippingNotices.Warehouse" xml:space="preserve"><value>المستودع</value></data>
+  <data name="AdvanceShippingNotices.Supplier" xml:space="preserve"><value>المورد</value></data>
+  <data name="AdvanceShippingNotices.SupplierId" xml:space="preserve"><value>معرف المورد</value></data>
+  <data name="AdvanceShippingNotices.IncludeCancelled" xml:space="preserve"><value>تضمين الملغاة</value></data>
+  <data name="AdvanceShippingNotices.List" xml:space="preserve"><value>قائمة الإشعارات</value></data>
+  <data name="AdvanceShippingNotices.Total" xml:space="preserve"><value>إجمالي</value></data>
+  <data name="AdvanceShippingNotices.None" xml:space="preserve"><value>لا توجد إشعارات تطابق المرشحات الحالية.</value></data>
+  <data name="AdvanceShippingNotices.PageOf" xml:space="preserve"><value>صفحة {0} من {1}</value></data>
+  <data name="AdvanceShippingNotices.Number" xml:space="preserve"><value>الرقم</value></data>
+  <data name="AdvanceShippingNotices.ExpectedArrival" xml:space="preserve"><value>الوصول المتوقع</value></data>
+  <data name="AdvanceShippingNotices.ExpectedFrom" xml:space="preserve"><value>بداية الوصول المتوقع (UTC)</value></data>
+  <data name="AdvanceShippingNotices.ExpectedTo" xml:space="preserve"><value>نهاية الوصول المتوقع (UTC)</value></data>
+  <data name="AdvanceShippingNotices.Carrier" xml:space="preserve"><value>الناقل</value></data>
+  <data name="AdvanceShippingNotices.Vehicle" xml:space="preserve"><value>المركبة</value></data>
+  <data name="AdvanceShippingNotices.Trailer" xml:space="preserve"><value>المقطورة</value></data>
+  <data name="AdvanceShippingNotices.Container" xml:space="preserve"><value>الحاوية</value></data>
+  <data name="AdvanceShippingNotices.Tracking" xml:space="preserve"><value>مرجع التتبع</value></data>
+  <data name="AdvanceShippingNotices.ExternalReference" xml:space="preserve"><value>المرجع الخارجي</value></data>
+  <data name="AdvanceShippingNotices.Source" xml:space="preserve"><value>نوع المصدر</value></data>
+  <data name="AdvanceShippingNotices.SourceReference" xml:space="preserve"><value>مرجع المصدر</value></data>
+  <data name="AdvanceShippingNotices.SourcePayload" xml:space="preserve"><value>حمولة المصدر (تتم إزالة الأسرار)</value></data>
+  <data name="AdvanceShippingNotices.Dock" xml:space="preserve"><value>الرصيف</value></data>
+  <data name="AdvanceShippingNotices.DockId" xml:space="preserve"><value>معرف موقع الرصيف</value></data>
+  <data name="AdvanceShippingNotices.Notes" xml:space="preserve"><value>ملاحظات</value></data>
+  <data name="AdvanceShippingNotices.Profile" xml:space="preserve"><value>بيانات الشحنة</value></data>
+  <data name="AdvanceShippingNotices.Actions" xml:space="preserve"><value>إجراءات الحالة</value></data>
+  <data name="AdvanceShippingNotices.Lines" xml:space="preserve"><value>السطور المتوقعة</value></data>
+  <data name="AdvanceShippingNotices.LinesHelp" xml:space="preserve"><value>سطر لكل صنف: ITEM_SKU|QUANTITY|UOM|PACKAGING|PO_ID|PO_LINE_ID|OVER_TOLERANCE|UNDER_TOLERANCE|LOT|EXPIRY|SERIAL|LPN|IS_SSCC|NOTES</value></data>
+  <data name="AdvanceShippingNotices.LineRows" xml:space="preserve"><value>سطور الإشعار</value></data>
+  <data name="AdvanceShippingNotices.ExpectedQuantity" xml:space="preserve"><value>المتوقع</value></data>
+  <data name="AdvanceShippingNotices.Received" xml:space="preserve"><value>المستلم</value></data>
+  <data name="AdvanceShippingNotices.Remaining" xml:space="preserve"><value>المتبقي</value></data>
+  <data name="AdvanceShippingNotices.PreAdvice" xml:space="preserve"><value>بيانات مسبقة</value></data>
+  <data name="AdvanceShippingNotices.Discrepancies" xml:space="preserve"><value>الفروقات</value></data>
+  <data name="AdvanceShippingNotices.NoDiscrepancies" xml:space="preserve"><value>لم يتم تسجيل فروقات.</value></data>
+  <data name="AdvanceShippingNotices.DiscrepancyDetails" xml:space="preserve"><value>التفاصيل</value></data>
+  <data name="AdvanceShippingNotices.RecordedAt" xml:space="preserve"><value>وقت التسجيل</value></data>
+  <data name="AdvanceShippingNotices.AllowMultiplePurchaseOrders" xml:space="preserve"><value>السماح بسطور من عدة أوامر شراء</value></data>
+  <data name="AdvanceShippingNotices.FormHelp" xml:space="preserve"><value>يمكن تعديل المسودة حتى الإرسال. لا ينشئ استلام الإشعار مخزوناً قبل تأكيد عملية الاستلام الفعلية.</value></data>
+  <data name="AdvanceShippingNotices.Status.Draft" xml:space="preserve"><value>مسودة</value></data>
+  <data name="AdvanceShippingNotices.Status.Submitted" xml:space="preserve"><value>مرسل</value></data>
+  <data name="AdvanceShippingNotices.Status.Expected" xml:space="preserve"><value>متوقع</value></data>
+  <data name="AdvanceShippingNotices.Status.Arrived" xml:space="preserve"><value>وصل</value></data>
+  <data name="AdvanceShippingNotices.Status.Receiving" xml:space="preserve"><value>قيد الاستلام</value></data>
+  <data name="AdvanceShippingNotices.Status.Completed" xml:space="preserve"><value>مكتمل</value></data>
+  <data name="AdvanceShippingNotices.Status.Cancelled" xml:space="preserve"><value>ملغى</value></data>
+  <data name="AdvanceShippingNotices.Status.Exception" xml:space="preserve"><value>استثناء</value></data>
+  <data name="AdvanceShippingNotices.Submit" xml:space="preserve"><value>إرسال</value></data>
+  <data name="AdvanceShippingNotices.MarkExpected" xml:space="preserve"><value>تحديد كمتوقع</value></data>
+  <data name="AdvanceShippingNotices.Arrive" xml:space="preserve"><value>تسجيل الوصول</value></data>
+  <data name="AdvanceShippingNotices.MarkException" xml:space="preserve"><value>تحديد كاستثناء</value></data>
+  <data name="AdvanceShippingNotices.Complete" xml:space="preserve"><value>إكمال</value></data>
+  <data name="AdvanceShippingNotices.Cancel" xml:space="preserve"><value>إلغاء</value></data>
+  <data name="AdvanceShippingNotices.Created" xml:space="preserve"><value>تم إنشاء الإشعار '{0}'.</value></data>
+  <data name="AdvanceShippingNotices.Updated" xml:space="preserve"><value>تم تحديث الإشعار '{0}'.</value></data>
+  <data name="AdvanceShippingNotices.Submitted" xml:space="preserve"><value>تم إرسال الإشعار '{0}'.</value></data>
+  <data name="AdvanceShippingNotices.Expected" xml:space="preserve"><value>تم تحديد الإشعار '{0}' كمتوقع.</value></data>
+  <data name="AdvanceShippingNotices.Arrived" xml:space="preserve"><value>تم تسجيل وصول الإشعار '{0}'.</value></data>
+  <data name="AdvanceShippingNotices.Exception" xml:space="preserve"><value>تم تحديد الإشعار '{0}' كاستثناء.</value></data>
+  <data name="AdvanceShippingNotices.Completed" xml:space="preserve"><value>تم إكمال الإشعار '{0}'.</value></data>
+  <data name="AdvanceShippingNotices.Cancelled" xml:space="preserve"><value>تم إلغاء الإشعار '{0}'.</value></data>
+  <data name="AdvanceShippingNotices.ImportHelp" xml:space="preserve"><value>يستخدم CSV عنوان API الموثق وسطر إشعار واحداً لكل صف.</value></data>
+  <data name="AdvanceShippingNotices.ImportFile" xml:space="preserve"><value>ملف CSV</value></data>
+  <data name="AdvanceShippingNotices.PasteCsv" xml:space="preserve"><value>لصق CSV</value></data>
+  <data name="AdvanceShippingNotices.Imported" xml:space="preserve"><value>تم استيراد {0} إشعار؛ توجد أخطاء في {1} صف.</value></data>
+  <data name="AdvanceShippingNotices.ImportRequired" xml:space="preserve"><value>قدم ملف CSV أو الصق محتوى CSV.</value></data>
 </root>

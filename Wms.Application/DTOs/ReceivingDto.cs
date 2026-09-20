@@ -16,7 +16,9 @@ public record ReceiveItemDto(
     string? PackagingCode = null,
     int? LicensePlateId = null,
     int? PurchaseOrderId = null,
-    int? PurchaseOrderLineId = null
+    int? PurchaseOrderLineId = null,
+    int? AdvanceShippingNoticeId = null,
+    int? AdvanceShippingNoticeLineId = null
 );
 
 public record PutawayDto(

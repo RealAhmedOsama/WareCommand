@@ -36,6 +36,8 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.Property(e => e.ToLicensePlateId);
         builder.Property(e => e.PurchaseOrderId);
         builder.Property(e => e.PurchaseOrderLineId);
+        builder.Property(e => e.AdvanceShippingNoticeId);
+        builder.Property(e => e.AdvanceShippingNoticeLineId);
 
         builder.Property(e => e.AdjustmentBeforeQuantity)
             .HasColumnType("decimal(28,12)");
@@ -190,6 +192,14 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .WithMany()
             .HasForeignKey(e => e.PurchaseOrderLineId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.AdvanceShippingNotice)
+            .WithMany()
+            .HasForeignKey(e => e.AdvanceShippingNoticeId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.AdvanceShippingNoticeLine)
+            .WithMany()
+            .HasForeignKey(e => e.AdvanceShippingNoticeLineId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Indexes
         builder.HasIndex(e => e.ItemId);
@@ -207,6 +217,8 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.HasIndex(e => e.ToLicensePlateId);
         builder.HasIndex(e => e.PurchaseOrderId);
         builder.HasIndex(e => e.PurchaseOrderLineId);
+        builder.HasIndex(e => e.AdvanceShippingNoticeId);
+        builder.HasIndex(e => e.AdvanceShippingNoticeLineId);
         builder.HasIndex(e => new { e.FromInventoryStatusId, e.ToInventoryStatusId });
     }
 }

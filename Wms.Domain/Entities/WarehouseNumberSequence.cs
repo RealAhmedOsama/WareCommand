@@ -18,6 +18,7 @@ public sealed class WarehouseNumberSequence : Entity
     public int WarehouseId { get; private set; }
     public long NextReceiptNumber { get; private set; } = 1;
     public long NextOrderNumber { get; private set; } = 1;
+    public long NextAdvanceShippingNoticeNumber { get; private set; } = 1;
     public long NextWorkNumber { get; private set; } = 1;
     public long NextShipmentNumber { get; private set; } = 1;
     public long NextTransferNumber { get; private set; } = 1;
@@ -60,6 +61,20 @@ public sealed class WarehouseNumberSequence : Entity
         }
 
         NextOrderNumber++;
+        Revision++;
+        SetUpdatedAt();
+        return allocated;
+    }
+
+    public long AllocateAdvanceShippingNoticeNumber()
+    {
+        var allocated = NextAdvanceShippingNoticeNumber;
+        if (allocated < 1 || allocated == long.MaxValue)
+        {
+            throw new InvalidOperationException("The warehouse ASN number sequence is exhausted.");
+        }
+
+        NextAdvanceShippingNoticeNumber++;
         Revision++;
         SetUpdatedAt();
         return allocated;

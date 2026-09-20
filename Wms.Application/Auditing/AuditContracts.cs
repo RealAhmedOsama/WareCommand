@@ -32,6 +32,18 @@ public static class WmsAuditActions
     public const string PurchaseOrderReopened = "inbound.purchase_order.reopened";
     public const string PurchaseOrderReceiptAllocated = "inbound.purchase_order.receipt_allocated";
     public const string PurchaseOrderBulkImported = "inbound.purchase_order.bulk_imported";
+    public const string AdvanceShippingNoticeCreated = "inbound.asn.created";
+    public const string AdvanceShippingNoticeUpdated = "inbound.asn.updated";
+    public const string AdvanceShippingNoticeSubmitted = "inbound.asn.submitted";
+    public const string AdvanceShippingNoticeExpected = "inbound.asn.expected";
+    public const string AdvanceShippingNoticeDockAssigned = "inbound.asn.dock_assigned";
+    public const string AdvanceShippingNoticeArrived = "inbound.asn.arrived";
+    public const string AdvanceShippingNoticeException = "inbound.asn.exception";
+    public const string AdvanceShippingNoticeCompleted = "inbound.asn.completed";
+    public const string AdvanceShippingNoticeCancelled = "inbound.asn.cancelled";
+    public const string AdvanceShippingNoticeReceiptAllocated = "inbound.asn.receipt_allocated";
+    public const string AdvanceShippingNoticeDiscrepancyRecorded = "inbound.asn.discrepancy_recorded";
+    public const string AdvanceShippingNoticeBulkImported = "inbound.asn.bulk_imported";
     public const string UnitOfMeasureCreated = "master.uom.created";
     public const string UnitOfMeasureUpdated = "master.uom.updated";
     public const string UnitOfMeasureActivated = "master.uom.activated";
@@ -109,6 +121,18 @@ public static class WmsAuditActions
         PurchaseOrderReopened,
         PurchaseOrderReceiptAllocated,
         PurchaseOrderBulkImported,
+        AdvanceShippingNoticeCreated,
+        AdvanceShippingNoticeUpdated,
+        AdvanceShippingNoticeSubmitted,
+        AdvanceShippingNoticeExpected,
+        AdvanceShippingNoticeDockAssigned,
+        AdvanceShippingNoticeArrived,
+        AdvanceShippingNoticeException,
+        AdvanceShippingNoticeCompleted,
+        AdvanceShippingNoticeCancelled,
+        AdvanceShippingNoticeReceiptAllocated,
+        AdvanceShippingNoticeDiscrepancyRecorded,
+        AdvanceShippingNoticeBulkImported,
         UnitOfMeasureCreated,
         UnitOfMeasureUpdated,
         UnitOfMeasureActivated,
@@ -168,6 +192,10 @@ public static class WmsAuditEntityTypes
     public const string PurchaseOrder = "PurchaseOrder";
     public const string PurchaseOrderLine = "PurchaseOrderLine";
     public const string PurchaseOrderReceiptAllocation = "PurchaseOrderReceiptAllocation";
+    public const string AdvanceShippingNotice = "AdvanceShippingNotice";
+    public const string AdvanceShippingNoticeLine = "AdvanceShippingNoticeLine";
+    public const string AdvanceShippingNoticeReceiptAllocation = "AdvanceShippingNoticeReceiptAllocation";
+    public const string AdvanceShippingNoticeDiscrepancy = "AdvanceShippingNoticeDiscrepancy";
     public const string UnitOfMeasure = "UnitOfMeasure";
     public const string Location = "Location";
     public const string Warehouse = "Warehouse";

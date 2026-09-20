@@ -1,0 +1,4 @@
+@model AdvanceShippingNoticeFormViewModel
+@{ ViewData["Title"] = T["AdvanceShippingNotices.Edit"]; }
+<div class="mb-4"><h2><i class="bi bi-pencil-square me-2 text-primary"></i>@T["AdvanceShippingNotices.Edit"]</h2><p class="text-muted">@T["AdvanceShippingNotices.FormHelp"]</p></div>
+<form asp-action="Edit" method="post"><input asp-for="Id" type="hidden" /><partial name="_Form" model="Model" /></form>

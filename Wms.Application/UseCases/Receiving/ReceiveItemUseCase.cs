@@ -7,6 +7,7 @@ using Wms.Application.Context;
 using Wms.Application.DTOs;
 using Wms.Application.Idempotency;
 using Wms.Application.Identity;
+using Wms.Application.Inbound;
 using Wms.Application.Logging;
 using Wms.Application.Lots;
 using Wms.Application.Purchasing;
@@ -35,6 +36,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     private readonly IInventoryCommandIdempotencyService? _idempotencyService;
     private readonly IRequestContext? _requestContext;
     private readonly IPurchaseOrderService? _purchaseOrderService;
+    private readonly IAdvanceShippingNoticeService? _advanceShippingNoticeService;
 
     public ReceiveItemUseCase(
         IUnitOfWork unitOfWork,
@@ -45,7 +47,8 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         ILotService? lotService = null,
         IInventoryCommandIdempotencyService? idempotencyService = null,
         IRequestContext? requestContext = null,
-        IPurchaseOrderService? purchaseOrderService = null)
+        IPurchaseOrderService? purchaseOrderService = null,
+        IAdvanceShippingNoticeService? advanceShippingNoticeService = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
@@ -56,6 +59,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         _idempotencyService = idempotencyService;
         _requestContext = requestContext;
         _purchaseOrderService = purchaseOrderService;
+        _advanceShippingNoticeService = advanceShippingNoticeService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
@@ -203,7 +207,78 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
 
             var quantity = quantityResult.Value;
             PurchaseOrderReceiptPlan? purchaseOrderReceiptPlan = null;
-            if (request.PurchaseOrderId.HasValue || request.PurchaseOrderLineId.HasValue)
+            AdvanceShippingNoticeReceiptPlan? advanceShippingNoticeReceiptPlan = null;
+            var hasPurchaseOrderReference = request.PurchaseOrderId.HasValue || request.PurchaseOrderLineId.HasValue;
+            var hasAdvanceShippingNoticeReference =
+                request.AdvanceShippingNoticeId.HasValue || request.AdvanceShippingNoticeLineId.HasValue;
+            if (hasPurchaseOrderReference && hasAdvanceShippingNoticeReference)
+            {
+                if (lotTransactionStarted)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                }
+
+                return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
+                    "receiving.reference_ambiguous",
+                    "Receive against either a purchase-order line or an ASN line, not both. The purchase order is derived from an ASN line."));
+            }
+
+            if (hasAdvanceShippingNoticeReference)
+            {
+                if (!request.AdvanceShippingNoticeId.HasValue || !request.AdvanceShippingNoticeLineId.HasValue)
+                {
+                    if (lotTransactionStarted)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                        lotTransactionStarted = false;
+                    }
+
+                    return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
+                        "asn.reference_incomplete",
+                        "Both ASN ID and ASN line ID are required when receiving against an advance shipping notice."));
+                }
+
+                if (_advanceShippingNoticeService is null)
+                {
+                    if (lotTransactionStarted)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                        lotTransactionStarted = false;
+                    }
+
+                    return Result.Failure<ReceiptResultDto>(WmsErrors.Dependency(
+                        "asn.service_unavailable",
+                        "ASN receiving is not available.",
+                        isRetryable: false));
+                }
+
+                var receiptPlanResult = await _advanceShippingNoticeService.ValidateReceiptAsync(
+                    request.AdvanceShippingNoticeId.Value,
+                    request.AdvanceShippingNoticeLineId.Value,
+                    item.Id,
+                    location.WarehouseId,
+                    quantity.Value,
+                    request.LotNumber,
+                    request.ExpiryDate,
+                    request.SerialNumber,
+                    request.LicensePlateId,
+                    cancellationToken);
+                if (receiptPlanResult.IsFailure)
+                {
+                    if (lotTransactionStarted)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                        lotTransactionStarted = false;
+                    }
+
+                    return receiptPlanResult.ToFailure<ReceiptResultDto>();
+                }
+
+                advanceShippingNoticeReceiptPlan = receiptPlanResult.Value;
+            }
+
+            if (hasPurchaseOrderReference)
             {
                 if (!request.PurchaseOrderId.HasValue || !request.PurchaseOrderLineId.HasValue)
                 {
@@ -300,7 +375,21 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 cancellationToken: cancellationToken,
                 licensePlateId: request.LicensePlateId);
 
-            if (purchaseOrderReceiptPlan is not null)
+            if (advanceShippingNoticeReceiptPlan is not null)
+            {
+                var allocationResult = await _advanceShippingNoticeService!.RecordReceiptAsync(
+                    advanceShippingNoticeReceiptPlan,
+                    movement,
+                    userId,
+                    cancellationToken);
+                if (allocationResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                    return allocationResult.ToFailure<ReceiptResultDto>();
+                }
+            }
+            else if (purchaseOrderReceiptPlan is not null)
             {
                 var allocationResult = await _purchaseOrderService!.RecordReceiptAsync(
                     purchaseOrderReceiptPlan,

@@ -264,6 +264,12 @@ public class ReceivingViewModel
     [Range(1, int.MaxValue)]
     public int? PurchaseOrderLineId { get; set; }
 
+    [Range(1, int.MaxValue)]
+    public int? AdvanceShippingNoticeId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? AdvanceShippingNoticeLineId { get; set; }
+
     [DataType(DataType.Date)]
     public DateTime? ManufacturedDate { get; set; }
 

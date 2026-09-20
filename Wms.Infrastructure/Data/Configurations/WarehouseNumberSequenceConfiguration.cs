@@ -14,6 +14,7 @@ public sealed class WarehouseNumberSequenceConfiguration : IEntityTypeConfigurat
 
         builder.Property(sequence => sequence.NextReceiptNumber).IsRequired();
         builder.Property(sequence => sequence.NextOrderNumber).IsRequired();
+        builder.Property(sequence => sequence.NextAdvanceShippingNoticeNumber).IsRequired();
         builder.Property(sequence => sequence.NextWorkNumber).IsRequired();
         builder.Property(sequence => sequence.NextShipmentNumber).IsRequired();
         builder.Property(sequence => sequence.NextTransferNumber).IsRequired();

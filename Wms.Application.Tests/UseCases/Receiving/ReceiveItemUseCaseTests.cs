@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Inbound;
 using Wms.Application.Lots;
 using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Receiving;
@@ -316,5 +317,95 @@ public class ReceiveItemUseCaseTests
             It.IsAny<int?>(), // Should have lot ID
             It.IsAny<string?>(), request.ReferenceNumber, request.Notes,
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithAsnReferenceValidatesAndAllocatesTheSameReceiptMovement()
+    {
+        var request = new ReceiveItemDto(
+            "WIDGET-001",
+            "RECEIVE",
+            10m,
+            ReferenceNumber: "ASN-RECEIPT",
+            AdvanceShippingNoticeId: 41,
+            AdvanceShippingNoticeLineId: 42);
+        var item = new Item("WIDGET-001", "Widget A", "EA");
+        var location = new Location("RECEIVE", "Receiving Dock", 7);
+        var movement = Movement.CreateReceipt(item.Id, location.Id, new Quantity(10m), "USER1");
+        var receiptPlan = new AdvanceShippingNoticeReceiptPlan(
+            41,
+            42,
+            "ASN-ASN-WH-000041",
+            item.Id,
+            location.WarehouseId,
+            10m,
+            null,
+            null,
+            null,
+            null,
+            null);
+        var asnService = new Mock<IAdvanceShippingNoticeService>();
+
+        _mockItemRepository.Setup(x => x.GetBySkuAsync(request.ItemSku, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+        _mockLocationRepository.Setup(x => x.GetByCodeAsync(request.LocationCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(location);
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _mockStockMovementService.Setup(x => x.ReceiveAsync(
+                It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Quantity>(), It.IsAny<string>(),
+                It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(movement);
+        asnService.Setup(x => x.ValidateReceiptAsync(
+                41,
+                42,
+                item.Id,
+                location.WarehouseId,
+                10m,
+                null,
+                null,
+                null,
+                null,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(receiptPlan));
+        asnService.Setup(x => x.RecordReceiptAsync(
+                receiptPlan,
+                movement,
+                "USER1",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+
+        var useCase = new ReceiveItemUseCase(
+            _mockUnitOfWork.Object,
+            _mockStockMovementService.Object,
+            _mockLogger.Object,
+            new AllowAllWarehouseAccessService(),
+            advanceShippingNoticeService: asnService.Object);
+
+        var result = await useCase.ExecuteAsync(request, "USER1");
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        asnService.Verify(x => x.ValidateReceiptAsync(
+            41,
+            42,
+            item.Id,
+            location.WarehouseId,
+            10m,
+            null,
+            null,
+            null,
+            null,
+            It.IsAny<CancellationToken>()), Times.Once);
+        asnService.Verify(x => x.RecordReceiptAsync(
+            receiptPlan,
+            movement,
+            "USER1",
+            It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }

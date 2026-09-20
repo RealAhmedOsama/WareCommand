@@ -132,6 +132,8 @@ public class Movement : Entity
     public DateTime Timestamp { get; private set; } = DateTime.UnixEpoch;
     public int? PurchaseOrderId { get; private set; }
     public int? PurchaseOrderLineId { get; private set; }
+    public int? AdvanceShippingNoticeId { get; private set; }
+    public int? AdvanceShippingNoticeLineId { get; private set; }
 
     // Navigation properties
     public Item Item { get; private set; } = null!;
@@ -147,6 +149,8 @@ public class Movement : Entity
     public LicensePlate? ToLicensePlate { get; private set; }
     public PurchaseOrder? PurchaseOrder { get; private set; }
     public PurchaseOrderLine? PurchaseOrderLine { get; private set; }
+    public AdvanceShippingNotice? AdvanceShippingNotice { get; private set; }
+    public AdvanceShippingNoticeLine? AdvanceShippingNoticeLine { get; private set; }
 
     public void LinkPurchaseOrder(int purchaseOrderId, int purchaseOrderLineId)
     {
@@ -165,6 +169,30 @@ public class Movement : Entity
 
         PurchaseOrderId = purchaseOrderId;
         PurchaseOrderLineId = purchaseOrderLineId;
+    }
+
+    public void LinkAdvanceShippingNotice(int advanceShippingNoticeId, int advanceShippingNoticeLineId)
+    {
+        if (Type != MovementType.Receipt)
+        {
+            throw new InvalidOperationException("Only receipt movements can link to an ASN.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(advanceShippingNoticeId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(advanceShippingNoticeLineId);
+        if (AdvanceShippingNoticeId.HasValue || AdvanceShippingNoticeLineId.HasValue)
+        {
+            if (AdvanceShippingNoticeId == advanceShippingNoticeId &&
+                AdvanceShippingNoticeLineId == advanceShippingNoticeLineId)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException("The receipt movement is already linked to another ASN.");
+        }
+
+        AdvanceShippingNoticeId = advanceShippingNoticeId;
+        AdvanceShippingNoticeLineId = advanceShippingNoticeLineId;
     }
 
     public static Movement CreateReceipt(int itemId, int locationId, Quantity quantity, string userId,

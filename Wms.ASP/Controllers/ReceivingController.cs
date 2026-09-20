@@ -36,7 +36,7 @@ public class ReceivingController : Controller
     [ValidateAntiForgeryToken]
     [Authorize(Policy = WmsPermissions.ReceivingExecute)]
     public async Task<IActionResult> Receive(
-        [Bind("ItemSku,LocationCode,Quantity,UnitOfMeasure,PackagingCode,LotNumber,LicensePlateId,ManufacturedDate,ExpiryDate,SerialNumber,ReferenceNumber,Notes,PurchaseOrderId,PurchaseOrderLineId")]
+        [Bind("ItemSku,LocationCode,Quantity,UnitOfMeasure,PackagingCode,LotNumber,LicensePlateId,ManufacturedDate,ExpiryDate,SerialNumber,ReferenceNumber,Notes,PurchaseOrderId,PurchaseOrderLineId,AdvanceShippingNoticeId,AdvanceShippingNoticeLineId")]
         ReceivingViewModel model,
         CancellationToken cancellationToken = default)
     {
@@ -59,7 +59,9 @@ public class ReceivingController : Controller
             PackagingCode: model.PackagingCode,
             LicensePlateId: model.LicensePlateId,
             PurchaseOrderId: model.PurchaseOrderId,
-            PurchaseOrderLineId: model.PurchaseOrderLineId
+            PurchaseOrderLineId: model.PurchaseOrderLineId,
+            AdvanceShippingNoticeId: model.AdvanceShippingNoticeId,
+            AdvanceShippingNoticeLineId: model.AdvanceShippingNoticeLineId
         );
 
         var result = await _receiveItemUseCase.ExecuteAsync(
