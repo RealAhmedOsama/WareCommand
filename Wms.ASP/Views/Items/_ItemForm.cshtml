@@ -1,0 +1,181 @@
+@model ItemFormViewModel
+@{
+    var isEdit = Model.Id > 0;
+    var action = isEdit ? "Edit" : "Create";
+}
+
+<div class="card border-0 shadow">
+    <div class="card-header bg-primary bg-opacity-10 border-bottom">
+        <h5 class="card-title mb-0 text-primary"><i class="bi bi-box me-2"></i>@T["Items.Information"]</h5>
+    </div>
+    <div class="card-body">
+        <form asp-controller="Items" asp-action="@action" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <input asp-for="Id" type="hidden" />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Sku" class="form-label">@T["Field.ItemSku"] <span class="text-danger">*</span></label>
+                    <input asp-for="Sku" class="form-control wms-identifier" readonly="@isEdit" />
+                    <span asp-validation-for="Sku" class="text-danger"></span>
+                    <div class="form-text">@(isEdit ? T["Items.SkuImmutable"] : T["Items.UniqueIdentifier"])</div>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Name" class="form-label">@T["Field.Name"] <span class="text-danger">*</span></label>
+                    <input asp-for="Name" class="form-control" />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="LocalizedName" class="form-label">@T["Items.LocalizedName"]</label>
+                    <input asp-for="LocalizedName" class="form-control" dir="auto" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Category" class="form-label">@T["Field.Category"]</label>
+                    <input asp-for="Category" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Brand" class="form-label">@T["Field.Brand"]</label>
+                    <input asp-for="Brand" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Type" class="form-label">@T["Field.Type"]</label>
+                    <select asp-for="Type" class="form-select">
+                        @foreach (var value in Enum.GetValues<ItemType>())
+                        {
+                            <option value="@value">@T[$"Items.Type.{value}"]</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="LifecycleStatus" class="form-label">@T["Field.Status"]</label>
+                    <select asp-for="LifecycleStatus" class="form-select">
+                        @foreach (var value in Enum.GetValues<ItemLifecycleStatus>())
+                        {
+                            <option value="@value">@T[$"Items.Status.{value}"]</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ImageReference" class="form-label">@T["Items.ImageReference"]</label>
+                    <input asp-for="ImageReference" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="DocumentReference" class="form-label">@T["Items.DocumentReference"]</label>
+                    <input asp-for="DocumentReference" class="form-control" />
+                </div>
+                <div class="col-12">
+                    <label asp-for="Description" class="form-label">@T["Field.Description"]</label>
+                    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="col-12">
+                    <label asp-for="LocalizedDescription" class="form-label">@T["Items.LocalizedDescription"]</label>
+                    <textarea asp-for="LocalizedDescription" class="form-control" rows="3" dir="auto"></textarea>
+                </div>
+
+                <div class="col-12"><hr /><h6 class="text-muted">@T["Items.UnitsSection"]</h6></div>
+                <div class="col-md-4">
+                    <label asp-for="BaseUnit" class="form-label">@T["Items.BaseUnit"] <span class="text-danger">*</span></label>
+                    <input asp-for="BaseUnit" class="form-control wms-identifier" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="PurchaseUnit" class="form-label">@T["Items.PurchaseUnit"]</label>
+                    <input asp-for="PurchaseUnit" class="form-control wms-identifier" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="SalesUnit" class="form-label">@T["Items.SalesUnit"]</label>
+                    <input asp-for="SalesUnit" class="form-control wms-identifier" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="NetWeightKg" class="form-label">@T["Items.NetWeightKg"]</label>
+                    <input asp-for="NetWeightKg" class="form-control" type="number" step="any" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="LengthCm" class="form-label">@T["Items.LengthCm"]</label>
+                    <input asp-for="LengthCm" class="form-control" type="number" step="any" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="WidthCm" class="form-label">@T["Items.WidthCm"]</label>
+                    <input asp-for="WidthCm" class="form-control" type="number" step="any" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="HeightCm" class="form-label">@T["Items.HeightCm"]</label>
+                    <input asp-for="HeightCm" class="form-control" type="number" step="any" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="VolumeCubicMeters" class="form-label">@T["Items.VolumeCubicMeters"]</label>
+                    <input asp-for="VolumeCubicMeters" class="form-control" type="number" step="any" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="StandardCost" class="form-label">@T["Items.StandardCost"]</label>
+                    <input asp-for="StandardCost" class="form-control" type="number" step="any" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="SalesPrice" class="form-label">@T["Items.SalesPrice"]</label>
+                    <input asp-for="SalesPrice" class="form-control" type="number" step="any" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="CountryOfOrigin" class="form-label">@T["Items.CountryOfOrigin"]</label>
+                    <input asp-for="CountryOfOrigin" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="CustomsCode" class="form-label">@T["Items.CustomsCode"]</label>
+                    <input asp-for="CustomsCode" class="form-control" />
+                </div>
+
+                <div class="col-12"><hr /><h6 class="text-muted">@T["Items.TrackingRequirements"]</h6></div>
+                <div class="col-md-4"><div class="form-check form-switch"><input asp-for="RequiresLot" class="form-check-input" /><label asp-for="RequiresLot" class="form-check-label">@T["Items.RequiresLot"]</label></div></div>
+                <div class="col-md-4"><div class="form-check form-switch"><input asp-for="RequiresSerial" class="form-check-input" /><label asp-for="RequiresSerial" class="form-check-label">@T["Items.RequiresSerial"]</label></div></div>
+                <div class="col-md-4"><div class="form-check form-switch"><input asp-for="RequiresExpiry" class="form-check-input" /><label asp-for="RequiresExpiry" class="form-check-label">@T["Items.RequiresExpiry"]</label></div></div>
+                <div class="col-md-3">
+                    <label asp-for="ShelfLifeDays" class="form-label">@T["Items.ShelfLifeDays"]</label>
+                    <input asp-for="ShelfLifeDays" class="form-control" type="number" />
+                </div>
+                <div class="col-md-3"><div class="form-check form-switch mt-4"><input asp-for="UseFefo" class="form-check-input" /><label asp-for="UseFefo" class="form-check-label">@T["Items.UseFefo"]</label></div></div>
+                <div class="col-md-3"><div class="form-check form-switch mt-4"><input asp-for="QualityInspectionRequired" class="form-check-input" /><label asp-for="QualityInspectionRequired" class="form-check-label">@T["Items.QualityInspectionRequired"]</label></div></div>
+                <div class="col-md-3"><div class="form-check form-switch mt-4"><input asp-for="IsHazardous" class="form-check-input" /><label asp-for="IsHazardous" class="form-check-label">@T["Items.IsHazardous"]</label></div></div>
+                <div class="col-md-4"><div class="form-check form-switch"><input asp-for="TemperatureControlled" class="form-check-input" /><label asp-for="TemperatureControlled" class="form-check-label">@T["Items.TemperatureControlled"]</label></div></div>
+                <div class="col-md-4"><div class="form-check form-switch"><input asp-for="SpecialHandlingRequired" class="form-check-input" /><label asp-for="SpecialHandlingRequired" class="form-check-label">@T["Items.SpecialHandlingRequired"]</label></div></div>
+                <div class="col-md-2"><label asp-for="MinimumTemperatureCelsius" class="form-label">@T["Items.MinimumTemperature"]</label><input asp-for="MinimumTemperatureCelsius" class="form-control" type="number" step="any" /></div>
+                <div class="col-md-2"><label asp-for="MaximumTemperatureCelsius" class="form-label">@T["Items.MaximumTemperature"]</label><input asp-for="MaximumTemperatureCelsius" class="form-control" type="number" step="any" /></div>
+
+                <div class="col-12"><hr /><h6 class="text-muted">@T["Items.StorageSection"]</h6></div>
+                <div class="col-md-4"><label asp-for="StorageProfile" class="form-label">@T["Items.StorageProfile"]</label><input asp-for="StorageProfile" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="PutawayProfile" class="form-label">@T["Items.PutawayProfile"]</label><input asp-for="PutawayProfile" class="form-control" /></div>
+                <div class="col-md-4"><label asp-for="DefaultSupplierCode" class="form-label">@T["Items.DefaultSupplierCode"]</label><input asp-for="DefaultSupplierCode" class="form-control" /></div>
+
+                <div class="col-12"><hr /><h6 class="text-muted">@T["Items.PlanningSection"]</h6></div>
+                <div class="col-md-4">
+                    <label asp-for="ReorderPolicy" class="form-label">@T["Items.ReorderPolicy"]</label>
+                    <select asp-for="ReorderPolicy" class="form-select">
+                        @foreach (var value in Enum.GetValues<ItemReorderPolicy>())
+                        {
+                            <option value="@value">@T[$"Items.Reorder.{value}"]</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2"><label asp-for="MinimumStock" class="form-label">@T["Items.MinimumStock"]</label><input asp-for="MinimumStock" class="form-control" type="number" step="any" /></div>
+                <div class="col-md-2"><label asp-for="MaximumStock" class="form-label">@T["Items.MaximumStock"]</label><input asp-for="MaximumStock" class="form-control" type="number" step="any" /></div>
+                <div class="col-md-2"><label asp-for="SafetyStock" class="form-label">@T["Items.SafetyStock"]</label><input asp-for="SafetyStock" class="form-control" type="number" step="any" /></div>
+                <div class="col-md-2"><label asp-for="LeadTimeDays" class="form-label">@T["Items.LeadTimeDays"]</label><input asp-for="LeadTimeDays" class="form-control" type="number" /></div>
+
+                <div class="col-12"><hr /><h6 class="text-muted">@T["Items.IdentifiersSection"]</h6></div>
+                <div class="col-md-6">
+                    <label asp-for="BarcodesText" class="form-label">@T["Items.Barcodes"]</label>
+                    <textarea asp-for="BarcodesText" class="form-control wms-identifier" rows="4"></textarea>
+                    <div class="form-text">@T["Items.BarcodeHelp"]</div>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="PackagingsText" class="form-label">@T["Items.Packagings"]</label>
+                    <textarea asp-for="PackagingsText" class="form-control wms-identifier" rows="4"></textarea>
+                    <div class="form-text">@T["Items.PackagingHelp"]</div>
+                </div>
+
+                <div class="col-12 pt-3 d-flex gap-2 justify-content-end">
+                    <a asp-action="@(isEdit ? "Details" : "Index")" asp-route-id="@(isEdit ? Model.Id : null)" class="btn btn-outline-secondary">@T["Common.Cancel"]</a>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle me-1"></i>@(isEdit ? T["Items.Update"] : T["Common.Create"])</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

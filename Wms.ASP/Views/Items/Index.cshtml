@@ -1,85 +1,115 @@
-@model ItemManagementViewModel
+@model ItemListViewModel
 @{
     ViewData["Title"] = T["Items.Title"];
     var canManageItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsManage)).Succeeded;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0">
-        <i class="bi bi-box me-2 text-primary"></i>
-        @T["Items.Title"]
-    </h2>
+    <h2 class="mb-0"><i class="bi bi-box me-2 text-primary"></i>@T["Items.Title"]</h2>
     @if (canManageItems)
     {
-        <a asp-action="Create" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i>
-            @T["Items.Add"]
-        </a>
+        <div class="d-flex gap-2">
+            <a asp-action="Import" class="btn btn-outline-primary"><i class="bi bi-upload me-1"></i>@T["Items.Import"]</a>
+            <a asp-action="Export"
+               asp-route-searchTerm="@Model.SearchTerm"
+               asp-route-type="@Model.Type"
+               asp-route-lifecycleStatus="@Model.LifecycleStatus"
+               asp-route-category="@Model.Category"
+               asp-route-includeInactive="@Model.IncludeInactive"
+               class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>@T["Items.Export"]</a>
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>@T["Items.Add"]</a>
+        </div>
     }
 </div>
 
-<!-- Search Bar -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end">
-            <div class="col-md-6">
+            <div class="col-lg-4">
                 <label for="searchTerm" class="form-label">@T["Items.Search"]</label>
-                <div class="input-group">
-                    <span class="input-group-text">
-                        <i class="bi bi-search"></i>
-                    </span>
-                    <input type="text" class="form-control" id="searchTerm" name="searchTerm"
-                           value="@Model.SearchTerm" placeholder="@T["Items.SearchPlaceholder"]">
-                </div>
+                <input type="text" class="form-control" id="searchTerm" name="searchTerm" value="@Model.SearchTerm" placeholder="@T["Items.SearchPlaceholder"]" />
             </div>
-            <div class="col-md-6">
-                <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search me-1"></i>
-                        @T["Common.Search"]
-                    </button>
-                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
-                        <i class="bi bi-x-circle me-1"></i>
-                        @T["Common.Clear"]
-                    </a>
+            <div class="col-md-3 col-lg-2">
+                <label for="type" class="form-label">@T["Field.Type"]</label>
+                <select id="type" name="type" class="form-select">
+                    <option value="">@T["Common.All"]</option>
+                    @foreach (var value in Enum.GetValues<ItemType>())
+                    {
+                        <option value="@value" selected="@(Model.Type == value)">@T[$"Items.Type.{value}"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="lifecycleStatus" class="form-label">@T["Field.Status"]</label>
+                <select id="lifecycleStatus" name="lifecycleStatus" class="form-select">
+                    <option value="">@T["Common.All"]</option>
+                    @foreach (var value in Enum.GetValues<ItemLifecycleStatus>())
+                    {
+                        <option value="@value" selected="@(Model.LifecycleStatus == value)">@T[$"Items.Status.{value}"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="sortBy" class="form-label">@T["Items.SortBy"]</label>
+                <select id="sortBy" name="sortBy" class="form-select">
+                    @foreach (var value in Enum.GetValues<ItemSortField>())
+                    {
+                        <option value="@value" selected="@(Model.SortBy == value)">@T[$"Items.Sort.{value}"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label for="pageSize" class="form-label">@T["Items.PageSize"]</label>
+                <select id="pageSize" name="pageSize" class="form-select">
+                    @foreach (var value in new[] { 25, 50, 100, 200 })
+                    {
+                        <option value="@value" selected="@(Model.PageSize == value)">@value</option>
+                    }
+                </select>
+            </div>
+            <div class="col-12 d-flex flex-wrap gap-3 align-items-center">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="includeInactive" name="includeInactive" value="true" checked="@Model.IncludeInactive" />
+                    <label class="form-check-label" for="includeInactive">@T["Items.IncludeInactive"]</label>
                 </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="descending" name="descending" value="true" checked="@Model.Descending" />
+                    <label class="form-check-label" for="descending">@T["Items.Descending"]</label>
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>@T["Common.Search"]</button>
+                <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-x-circle me-1"></i>@T["Common.Clear"]</a>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Items Table -->
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white border-bottom">
-        <h5 class="card-title mb-0">
-            <i class="bi bi-list-ul me-2 text-primary"></i>
-            @T["Items.List"] (@Model.Items.Count)
-        </h5>
+    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>@T["Items.List"]</h5>
+        <span class="text-muted">@Model.TotalCount @T["Common.Total"]</span>
     </div>
     <div class="card-body p-0">
         @if (Model.Items.Any())
         {
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                     <tr>
                         <th>@T["Field.ItemSku"]</th>
                         <th>@T["Field.Name"]</th>
-                        <th>@T["Field.Description"]</th>
+                        <th>@T["Field.Category"]</th>
+                        <th>@T["Field.Type"]</th>
                         <th>@T["Field.UnitOfMeasure"]</th>
-                        <th class="text-center">@T["Items.LotTracking"]</th>
-                        <th class="text-center">@T["Items.SerialTracking"]</th>
-                        <th class="text-center">@T["Field.Status"]</th>
-                        <th class="text-center">@T["Common.Actions"]</th>
+                        <th>@T["Field.Status"]</th>
+                        <th>@T["Items.Controls"]</th>
+                        <th class="text-end">@T["Common.Actions"]</th>
                     </tr>
                     </thead>
                     <tbody>
                     @foreach (var item in Model.Items)
                     {
-                        <tr class="@(item.IsActive ? "" : "table-secondary")">
-                            <td class="fw-medium">
-                                <code class="wms-identifier">@item.Sku</code>
-                            </td>
+                        <tr class="@(item.IsActive ? string.Empty : "table-secondary")">
+                            <td><a asp-action="Details" asp-route-id="@item.Id" class="wms-identifier"><code>@item.Sku</code></a></td>
                             <td>
                                 <div class="fw-medium">@item.Name</div>
                                 @if (item.Barcodes.Any())
@@ -87,55 +117,34 @@
                                     <small class="text-muted wms-identifier">@T["Items.BarcodeList", string.Join(", ", item.Barcodes.Take(2))]</small>
                                 }
                             </td>
+                            <td>@(string.IsNullOrWhiteSpace(item.Category) ? T["Common.NotSet"] : item.Category)</td>
+                            <td>@T[$"Items.Type.{item.Type}"]</td>
+                            <td><span class="badge bg-info">@item.UnitOfMeasure</span></td>
+                            <td><span class="badge @(item.IsActive ? "bg-success" : "bg-secondary")">@T[$"Items.Status.{item.LifecycleStatus}"]</span></td>
                             <td>
-                                <span class="text-muted">@(string.IsNullOrEmpty(item.Description) ? T["Items.NoDescription"] : item.Description)</span>
+                                <span title="@T["Items.RequiresLot"]">@(item.RequiresLot ? "L" : "-")</span>
+                                <span title="@T["Items.RequiresSerial"]">@(item.RequiresSerial ? "S" : "-")</span>
+                                <span title="@T["Items.RequiresExpiry"]">@(item.RequiresExpiry ? "E" : "-")</span>
                             </td>
-                            <td>
-                                <span class="badge bg-info">@item.UnitOfMeasure</span>
-                            </td>
-                            <td class="text-center">
-                                @if (item.RequiresLot)
-                                {
-                                    <i class="bi bi-check-circle text-success" title="@T["Items.RequiresLot"]"></i>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-x-circle text-muted" title="@T["Items.LotTracking"]"></i>
-                                }
-                            </td>
-                            <td class="text-center">
-                                @if (item.RequiresSerial)
-                                {
-                                    <i class="bi bi-check-circle text-success" title="@T["Items.RequiresSerial"]"></i>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-x-circle text-muted" title="@T["Items.SerialTracking"]"></i>
-                                }
-                            </td>
-                            <td class="text-center">
-                                @if (item.IsActive)
-                                {
-                                    <span class="badge bg-success">@T["Common.Active"]</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">@T["Common.Inactive"]</span>
-                                }
-                            </td>
-                            <td class="text-center">
+                            <td class="text-end">
                                 <div class="btn-group btn-group-sm" role="group">
+                                    <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-outline-info" title="@T["Common.View"]"><i class="bi bi-eye"></i></a>
                                     @if (canManageItems)
                                     {
-                                        <a asp-action="Edit" asp-route-id="@item.Id"
-                                           class="btn btn-outline-primary" title="@T["Items.Edit"]">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-outline-primary" title="@T["Items.Edit"]"><i class="bi bi-pencil"></i></a>
+                                        <a asp-action="Duplicate" asp-route-id="@item.Id" class="btn btn-outline-secondary" title="@T["Items.Duplicate"]"><i class="bi bi-copy"></i></a>
+                                        <form asp-action="SetActive" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.Id" />
+                                            <input type="hidden" name="active" value="@(item.IsActive ? "false" : "true")" />
+                                            <button type="submit" class="btn @(item.IsActive ? "btn-outline-warning" : "btn-outline-success")" title="@(item.IsActive ? T["Items.Deactivate"] : T["Items.Activate"])"><i class="bi @(item.IsActive ? "bi-pause-circle" : "bi-play-circle")"></i></button>
+                                        </form>
+                                        <form asp-action="Delete" method="post" class="d-inline">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.Id" />
+                                            <button type="submit" class="btn btn-outline-danger" title="@T["Common.Delete"]"><i class="bi bi-trash"></i></button>
+                                        </form>
                                     }
-                                    <a asp-controller="Inventory" asp-action="Index" asp-route-searchTerm="@item.Sku"
-                                       class="btn btn-outline-info" title="@T["Items.ViewStock"]">
-                                        <i class="bi bi-stack"></i>
-                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -149,22 +158,27 @@
             <div class="text-center py-5 text-muted">
                 <i class="bi bi-inbox fs-1 mb-3"></i>
                 <p class="mb-0">@T["Items.NoItems"]</p>
-                @if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
+                @if (canManageItems)
                 {
-                    <p>@T["Locations.NoSearchResults"]</p>
-                }
-                else
-                {
-                    <p>@T["Common.GetStarted"]</p>
-                    @if (canManageItems)
-                    {
-                        <a asp-action="Create" class="btn btn-primary mt-2">
-                            <i class="bi bi-plus-circle me-1"></i>
-                            @T["Items.Add"]
-                        </a>
-                    }
+                    <a asp-action="Create" class="btn btn-primary mt-2"><i class="bi bi-plus-circle me-1"></i>@T["Items.Add"]</a>
                 }
             </div>
         }
     </div>
+    @if (Model.TotalPages > 1)
+    {
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+            <span class="text-muted">@T["Items.PageOf", Model.Page, Model.TotalPages]</span>
+            <div class="btn-group">
+                @if (Model.Page > 1)
+                {
+                    <a class="btn btn-outline-secondary" asp-action="Index" asp-route-searchTerm="@Model.SearchTerm" asp-route-type="@Model.Type" asp-route-lifecycleStatus="@Model.LifecycleStatus" asp-route-category="@Model.Category" asp-route-includeInactive="@Model.IncludeInactive" asp-route-sortBy="@Model.SortBy" asp-route-descending="@Model.Descending" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">@T["Common.Previous"]</a>
+                }
+                @if (Model.Page < Model.TotalPages)
+                {
+                    <a class="btn btn-outline-secondary" asp-action="Index" asp-route-searchTerm="@Model.SearchTerm" asp-route-type="@Model.Type" asp-route-lifecycleStatus="@Model.LifecycleStatus" asp-route-category="@Model.Category" asp-route-includeInactive="@Model.IncludeInactive" asp-route-sortBy="@Model.SortBy" asp-route-descending="@Model.Descending" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">@T["Common.Next"]</a>
+                }
+            </div>
+        </div>
+    }
 </div>

@@ -41,6 +41,9 @@
   <data name="Common.Unlimited" xml:space="preserve"><value>غير محدود</value></data>
   <data name="Common.SelectWarehouse" xml:space="preserve"><value>اختر مستودعاً</value></data>
   <data name="Common.None" xml:space="preserve"><value>لا يوجد</value></data>
+  <data name="Common.Yes" xml:space="preserve"><value>نعم</value></data>
+  <data name="Common.No" xml:space="preserve"><value>لا</value></data>
+  <data name="Common.Or" xml:space="preserve"><value>أو</value></data>
   <data name="Common.Current" xml:space="preserve"><value>الحالي</value></data>
   <data name="Common.New" xml:space="preserve"><value>الجديد</value></data>
   <data name="Common.Adjustment" xml:space="preserve"><value>التسوية</value></data>
@@ -125,6 +128,8 @@
   <data name="Field.Receivable" xml:space="preserve"><value>قابل للاستلام</value></data>
   <data name="Field.Status" xml:space="preserve"><value>الحالة</value></data>
   <data name="Field.Type" xml:space="preserve"><value>النوع</value></data>
+  <data name="Field.Category" xml:space="preserve"><value>الفئة</value></data>
+  <data name="Field.Brand" xml:space="preserve"><value>العلامة التجارية</value></data>
   <data name="Items.Title" xml:space="preserve"><value>إدارة الأصناف</value></data>
   <data name="Items.Search" xml:space="preserve"><value>بحث في الأصناف</value></data>
   <data name="Items.SearchPlaceholder" xml:space="preserve"><value>ابحث بالرمز أو الاسم أو الوصف</value></data>
@@ -164,6 +169,93 @@
   <data name="Items.Box" xml:space="preserve"><value>صندوق</value></data>
   <data name="Items.Case" xml:space="preserve"><value>كرتونة</value></data>
   <data name="Items.Pallet" xml:space="preserve"><value>منصة</value></data>
+  <data name="Items.Import" xml:space="preserve"><value>استيراد الأصناف</value></data>
+  <data name="Items.Export" xml:space="preserve"><value>تصدير الأصناف</value></data>
+  <data name="Items.Details" xml:space="preserve"><value>تفاصيل الصنف</value></data>
+  <data name="Items.Duplicate" xml:space="preserve"><value>نسخ الصنف</value></data>
+  <data name="Items.DuplicateSource" xml:space="preserve"><value>الصنف المصدر</value></data>
+  <data name="Items.CopyPackagings" xml:space="preserve"><value>نسخ تعريفات التعبئة</value></data>
+  <data name="Items.Activate" xml:space="preserve"><value>تفعيل</value></data>
+  <data name="Items.Deactivate" xml:space="preserve"><value>إيقاف التفعيل</value></data>
+  <data name="Items.Activated" xml:space="preserve"><value>تم تفعيل الصنف بنجاح.</value></data>
+  <data name="Items.Deactivated" xml:space="preserve"><value>تم إيقاف تفعيل الصنف بنجاح.</value></data>
+  <data name="Items.Deleted" xml:space="preserve"><value>تم حذف الصنف بنجاح.</value></data>
+  <data name="Items.Duplicated" xml:space="preserve"><value>تم نسخ الصنف '{0}' بنجاح.</value></data>
+  <data name="Items.Imported" xml:space="preserve"><value>تم استيراد {0} صنف بنجاح.</value></data>
+  <data name="Items.ImportRequired" xml:space="preserve"><value>اختر ملف CSV أو الصق محتوى CSV.</value></data>
+  <data name="Items.ImportInstructions" xml:space="preserve"><value>استيراد بيانات الأصناف</value></data>
+  <data name="Items.ImportHelp" xml:space="preserve"><value>استخدم العناوين التالية. الاستيراد ذري، ويقبل حتى 1000 صف، ولا يستبدل رمز صنف موجود.</value></data>
+  <data name="Items.ImportFile" xml:space="preserve"><value>ملف CSV</value></data>
+  <data name="Items.PasteCsv" xml:space="preserve"><value>أو الصق CSV</value></data>
+  <data name="Items.IncludeInactive" xml:space="preserve"><value>إظهار الأصناف غير النشطة والمتوقفة</value></data>
+  <data name="Items.Descending" xml:space="preserve"><value>ترتيب تنازلي</value></data>
+  <data name="Items.SortBy" xml:space="preserve"><value>ترتيب حسب</value></data>
+  <data name="Items.PageSize" xml:space="preserve"><value>حجم الصفحة</value></data>
+  <data name="Items.PageOf" xml:space="preserve"><value>صفحة {0} من {1}</value></data>
+  <data name="Items.Controls" xml:space="preserve"><value>الضوابط</value></data>
+  <data name="Items.LocalizedName" xml:space="preserve"><value>الاسم المحلي</value></data>
+  <data name="Items.LocalizedDescription" xml:space="preserve"><value>الوصف المحلي</value></data>
+  <data name="Items.ImageReference" xml:space="preserve"><value>مرجع الصورة</value></data>
+  <data name="Items.DocumentReference" xml:space="preserve"><value>مرجع المستند</value></data>
+  <data name="Items.CommercialSection" xml:space="preserve"><value>البيانات التجارية</value></data>
+  <data name="Items.UnitsSection" xml:space="preserve"><value>الوحدات والأبعاد والأسعار</value></data>
+  <data name="Items.BaseUnit" xml:space="preserve"><value>الوحدة الأساسية</value></data>
+  <data name="Items.PurchaseUnit" xml:space="preserve"><value>وحدة الشراء</value></data>
+  <data name="Items.SalesUnit" xml:space="preserve"><value>وحدة البيع</value></data>
+  <data name="Items.NetWeightKg" xml:space="preserve"><value>الوزن الصافي (كجم)</value></data>
+  <data name="Items.LengthCm" xml:space="preserve"><value>الطول (سم)</value></data>
+  <data name="Items.WidthCm" xml:space="preserve"><value>العرض (سم)</value></data>
+  <data name="Items.HeightCm" xml:space="preserve"><value>الارتفاع (سم)</value></data>
+  <data name="Items.Dimensions" xml:space="preserve"><value>الأبعاد (سم)</value></data>
+  <data name="Items.VolumeCubicMeters" xml:space="preserve"><value>الحجم (م³)</value></data>
+  <data name="Items.StandardCost" xml:space="preserve"><value>التكلفة القياسية</value></data>
+  <data name="Items.SalesPrice" xml:space="preserve"><value>سعر البيع</value></data>
+  <data name="Items.CountryOfOrigin" xml:space="preserve"><value>بلد المنشأ</value></data>
+  <data name="Items.CustomsCode" xml:space="preserve"><value>الرمز الجمركي</value></data>
+  <data name="Items.RequiresExpiry" xml:space="preserve"><value>يتطلب تواريخ انتهاء</value></data>
+  <data name="Items.ShelfLifeDays" xml:space="preserve"><value>مدة الصلاحية (أيام)</value></data>
+  <data name="Items.UseFefo" xml:space="preserve"><value>استخدام FEFO</value></data>
+  <data name="Items.QualityInspectionRequired" xml:space="preserve"><value>يتطلب فحص الجودة</value></data>
+  <data name="Items.IsHazardous" xml:space="preserve"><value>مادة خطرة</value></data>
+  <data name="Items.TemperatureControlled" xml:space="preserve"><value>يتطلب التحكم في الحرارة</value></data>
+  <data name="Items.SpecialHandlingRequired" xml:space="preserve"><value>يتطلب مناولة خاصة</value></data>
+  <data name="Items.MinimumTemperature" xml:space="preserve"><value>الحد الأدنى °م</value></data>
+  <data name="Items.MaximumTemperature" xml:space="preserve"><value>الحد الأقصى °م</value></data>
+  <data name="Items.TemperatureRange" xml:space="preserve"><value>نطاق الحرارة</value></data>
+  <data name="Items.StorageSection" xml:space="preserve"><value>التخزين وإعادة التوريد</value></data>
+  <data name="Items.StorageProfile" xml:space="preserve"><value>ملف التخزين</value></data>
+  <data name="Items.PutawayProfile" xml:space="preserve"><value>ملف الإيداع</value></data>
+  <data name="Items.DefaultSupplierCode" xml:space="preserve"><value>رمز المورد الافتراضي</value></data>
+  <data name="Items.PlanningSection" xml:space="preserve"><value>تخطيط إعادة الطلب</value></data>
+  <data name="Items.ReorderPolicy" xml:space="preserve"><value>سياسة إعادة الطلب</value></data>
+  <data name="Items.MinimumStock" xml:space="preserve"><value>الحد الأدنى للمخزون</value></data>
+  <data name="Items.MaximumStock" xml:space="preserve"><value>الحد الأقصى للمخزون</value></data>
+  <data name="Items.SafetyStock" xml:space="preserve"><value>مخزون الأمان</value></data>
+  <data name="Items.LeadTimeDays" xml:space="preserve"><value>مدة التوريد (أيام)</value></data>
+  <data name="Items.IdentifiersSection" xml:space="preserve"><value>المعرّفات والتعبئة</value></data>
+  <data name="Items.Barcodes" xml:space="preserve"><value>الباركود</value></data>
+  <data name="Items.BarcodeHelp" xml:space="preserve"><value>أدخل باركوداً واحداً في كل سطر. القيم فريدة على مستوى النظام.</value></data>
+  <data name="Items.Packagings" xml:space="preserve"><value>تعريفات التعبئة</value></data>
+  <data name="Items.PackagingHelp" xml:space="preserve"><value>سطر لكل تعريف: CODE|UNIT|UNITS_PER_PACKAGE|BARCODE|WEIGHT_KG|LENGTH_CM|WIDTH_CM|HEIGHT_CM|DEFAULT</value></data>
+  <data name="Items.PackagingCode" xml:space="preserve"><value>رمز التعبئة</value></data>
+  <data name="Items.UnitsPerPackage" xml:space="preserve"><value>الوحدات لكل عبوة</value></data>
+  <data name="Items.Default" xml:space="preserve"><value>افتراضي</value></data>
+  <data name="Items.NoPackagings" xml:space="preserve"><value>لا توجد تعريفات تعبئة.</value></data>
+  <data name="Items.Type.Stock" xml:space="preserve"><value>مخزون</value></data>
+  <data name="Items.Type.RawMaterial" xml:space="preserve"><value>مادة خام</value></data>
+  <data name="Items.Type.FinishedGood" xml:space="preserve"><value>منتج تام</value></data>
+  <data name="Items.Type.Consumable" xml:space="preserve"><value>مستهلك</value></data>
+  <data name="Items.Type.Kit" xml:space="preserve"><value>عدة</value></data>
+  <data name="Items.Type.Asset" xml:space="preserve"><value>أصل</value></data>
+  <data name="Items.Type.Service" xml:space="preserve"><value>خدمة</value></data>
+  <data name="Items.Status.Draft" xml:space="preserve"><value>مسودة</value></data>
+  <data name="Items.Status.Active" xml:space="preserve"><value>نشط</value></data>
+  <data name="Items.Status.Inactive" xml:space="preserve"><value>غير نشط</value></data>
+  <data name="Items.Status.Discontinued" xml:space="preserve"><value>متوقف</value></data>
+  <data name="Items.Reorder.None" xml:space="preserve"><value>بدون</value></data>
+  <data name="Items.Reorder.ReorderPoint" xml:space="preserve"><value>نقطة إعادة الطلب</value></data>
+  <data name="Items.Reorder.MinMax" xml:space="preserve"><value>حد أدنى / أقصى</value></data>
+  <data name="Items.Reorder.FixedQuantity" xml:space="preserve"><value>كمية ثابتة</value></data>
   <data name="Inventory.Title" xml:space="preserve"><value>إدارة المخزون</value></data>
   <data name="Inventory.Search" xml:space="preserve"><value>بحث في المخزون</value></data>
   <data name="Inventory.SearchPlaceholder" xml:space="preserve"><value>ابحث بالرمز أو الاسم أو الموقع</value></data>

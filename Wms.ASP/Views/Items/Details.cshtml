@@ -1,0 +1,127 @@
+@model Wms.Application.DTOs.ItemDto
+@{
+    ViewData["Title"] = T["Items.Details"];
+    var canManageItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsManage)).Succeeded;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-box me-2 text-primary"></i>@Model.Name</h2>
+        <code class="wms-identifier">@Model.Sku</code>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Index" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>@T["Common.Back"]</a>
+        @if (canManageItems)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil me-1"></i>@T["Items.Edit"]</a>
+        }
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Items.CommercialSection"]</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">@T["Field.Name"]</dt><dd class="col-sm-8">@Model.Name</dd>
+                    <dt class="col-sm-4">@T["Items.LocalizedName"]</dt><dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.LocalizedName) ? T["Common.NotSet"] : Model.LocalizedName)</dd>
+                    <dt class="col-sm-4">@T["Field.Description"]</dt><dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.Description) ? T["Common.NotSet"] : Model.Description)</dd>
+                    <dt class="col-sm-4">@T["Field.Category"]</dt><dd class="col-sm-8">@(Model.Category ?? T["Common.NotSet"])</dd>
+                    <dt class="col-sm-4">@T["Field.Brand"]</dt><dd class="col-sm-8">@(Model.Brand ?? T["Common.NotSet"])</dd>
+                    <dt class="col-sm-4">@T["Field.Type"]</dt><dd class="col-sm-8">@T[$"Items.Type.{Model.Type}"]</dd>
+                    <dt class="col-sm-4">@T["Field.Status"]</dt><dd class="col-sm-8"><span class="badge @(Model.IsActive ? "bg-success" : "bg-secondary")">@T[$"Items.Status.{Model.LifecycleStatus}"]</span></dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Items.UnitsSection"]</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">@T["Items.BaseUnit"]</dt><dd class="col-sm-8">@Model.UnitOfMeasure</dd>
+                    <dt class="col-sm-4">@T["Items.PurchaseUnit"]</dt><dd class="col-sm-8">@Model.PurchaseUnit</dd>
+                    <dt class="col-sm-4">@T["Items.SalesUnit"]</dt><dd class="col-sm-8">@Model.SalesUnit</dd>
+                    <dt class="col-sm-4">@T["Items.NetWeightKg"]</dt><dd class="col-sm-8">@(Model.NetWeightKg?.ToString() ?? T["Common.NotSet"])</dd>
+                    <dt class="col-sm-4">@T["Items.Dimensions"]</dt><dd class="col-sm-8">@(Model.LengthCm.HasValue ? $"{Model.LengthCm} × {Model.WidthCm} × {Model.HeightCm} cm" : T["Common.NotSet"])</dd>
+                    <dt class="col-sm-4">@T["Items.VolumeCubicMeters"]</dt><dd class="col-sm-8">@(Model.VolumeCubicMeters?.ToString() ?? T["Common.NotSet"])</dd>
+                    <dt class="col-sm-4">@T["Items.StandardCost"]</dt><dd class="col-sm-8">@(Model.StandardCost?.ToString() ?? T["Common.NotSet"])</dd>
+                    <dt class="col-sm-4">@T["Items.SalesPrice"]</dt><dd class="col-sm-8">@(Model.SalesPrice?.ToString() ?? T["Common.NotSet"])</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Items.TrackingRequirements"]</h5></div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-4"><span class="badge @(Model.RequiresLot ? "bg-success" : "bg-light text-dark")">@T["Items.RequiresLot"]</span></div>
+                    <div class="col-md-4"><span class="badge @(Model.RequiresSerial ? "bg-success" : "bg-light text-dark")">@T["Items.RequiresSerial"]</span></div>
+                    <div class="col-md-4"><span class="badge @(Model.RequiresExpiry ? "bg-success" : "bg-light text-dark")">@T["Items.RequiresExpiry"]</span></div>
+                    <div class="col-md-4"><span class="badge @(Model.UseFefo ? "bg-success" : "bg-light text-dark")">@T["Items.UseFefo"]</span></div>
+                    <div class="col-md-4"><span class="badge @(Model.QualityInspectionRequired ? "bg-success" : "bg-light text-dark")">@T["Items.QualityInspectionRequired"]</span></div>
+                    <div class="col-md-4"><span class="badge @(Model.IsHazardous ? "bg-warning text-dark" : "bg-light text-dark")">@T["Items.IsHazardous"]</span></div>
+                </div>
+                <dl class="row mt-3 mb-0">
+                    <dt class="col-sm-4">@T["Items.ShelfLifeDays"]</dt><dd class="col-sm-8">@Model.ShelfLifeDays</dd>
+                    <dt class="col-sm-4">@T["Items.TemperatureRange"]</dt><dd class="col-sm-8">@(Model.MinimumTemperatureCelsius.HasValue || Model.MaximumTemperatureCelsius.HasValue ? $"{Model.MinimumTemperatureCelsius} – {Model.MaximumTemperatureCelsius} °C" : T["Common.NotSet"])</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Items.Packagings"]</h5></div>
+            <div class="card-body p-0">
+                @if (Model.Packagings.Any())
+                {
+                    <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>@T["Items.PackagingCode"]</th><th>@T["Field.UnitOfMeasure"]</th><th>@T["Items.UnitsPerPackage"]</th><th>@T["Field.Barcode"]</th><th>@T["Items.Default"]</th></tr></thead><tbody>
+                    @foreach (var packaging in Model.Packagings)
+                    {
+                        <tr><td>@packaging.Code</td><td>@packaging.UnitOfMeasure</td><td>@packaging.UnitsPerPackage</td><td class="wms-identifier">@(packaging.Barcode ?? T["Common.NotSet"])</td><td>@(packaging.IsDefault ? T["Common.Yes"] : T["Common.No"])</td></tr>
+                    }
+                    </tbody></table></div>
+                }
+                else
+                {
+                    <p class="text-muted p-3 mb-0">@T["Items.NoPackagings"]</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Items.IdentifiersSection"]</h5></div>
+            <div class="card-body">
+                <h6>@T["Items.Barcodes"]</h6>
+                @if (Model.Barcodes.Any())
+                {
+                    <ul class="list-group list-group-flush mb-3">@foreach (var barcode in Model.Barcodes) { <li class="list-group-item px-0 wms-identifier">@barcode</li> }</ul>
+                }
+                else { <p class="text-muted">@T["Common.NotSet"]</p> }
+                <a asp-controller="Inventory" asp-action="Index" asp-route-searchTerm="@Model.Sku" class="btn btn-outline-info w-100"><i class="bi bi-stack me-1"></i>@T["Items.ViewStockLevels"]</a>
+            </div>
+        </div>
+
+        @if (canManageItems)
+        {
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white"><h5 class="mb-0">@T["Common.Actions"]</h5></div>
+                <div class="card-body d-grid gap-2">
+                    <a asp-action="Duplicate" asp-route-id="@Model.Id" class="btn btn-outline-secondary"><i class="bi bi-copy me-1"></i>@T["Items.Duplicate"]</a>
+                    <form asp-action="SetActive" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <input type="hidden" name="active" value="@(Model.IsActive ? "false" : "true")" />
+                        <button type="submit" class="btn @(Model.IsActive ? "btn-outline-warning" : "btn-outline-success") w-100">@(Model.IsActive ? T["Items.Deactivate"] : T["Items.Activate"])</button>
+                    </form>
+                    <form asp-action="Delete" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="btn btn-outline-danger w-100">@T["Common.Delete"]</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+</div>

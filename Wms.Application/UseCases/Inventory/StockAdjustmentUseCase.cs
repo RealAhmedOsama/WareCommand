@@ -65,6 +65,11 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                     "item.not_found",
                     $"Item with SKU '{request.ItemSku}' was not found."));
 
+            if (!item.IsActive)
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "item.inactive",
+                    $"Item '{request.ItemSku}' is inactive."));
+
             // Validate location exists
             var location = await _unitOfWork.Locations.GetByCodeAsync(request.LocationCode, cancellationToken);
             if (location == null)

@@ -11,7 +11,11 @@ public static class WmsAuditActions
 
     public const string ItemCreated = "master.item.created";
     public const string ItemUpdated = "master.item.updated";
+    public const string ItemActivated = "master.item.activated";
     public const string ItemDeactivated = "master.item.deactivated";
+    public const string ItemDeleted = "master.item.deleted";
+    public const string ItemDuplicated = "master.item.duplicated";
+    public const string ItemBulkImported = "master.item.bulk_imported";
     public const string LocationCreated = "master.location.created";
     public const string LocationUpdated = "master.location.updated";
     public const string LocationActivated = "master.location.activated";
@@ -45,7 +49,11 @@ public static class WmsAuditActions
         AccessChanged,
         ItemCreated,
         ItemUpdated,
+        ItemActivated,
         ItemDeactivated,
+        ItemDeleted,
+        ItemDuplicated,
+        ItemBulkImported,
         LocationCreated,
         LocationUpdated,
         LocationActivated,
