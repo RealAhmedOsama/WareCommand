@@ -31,6 +31,10 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.Property(e => e.InventoryStatusId)
             .IsRequired();
 
+        builder.Property(e => e.LicensePlateId);
+        builder.Property(e => e.FromLicensePlateId);
+        builder.Property(e => e.ToLicensePlateId);
+
         builder.Property(e => e.FromInventoryStatusId);
         builder.Property(e => e.ToInventoryStatusId);
         builder.Property(e => e.StatusChangeLeg)
@@ -157,6 +161,19 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .HasForeignKey(e => e.ToInventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.LicensePlate)
+            .WithMany()
+            .HasForeignKey(e => e.LicensePlateId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.FromLicensePlate)
+            .WithMany()
+            .HasForeignKey(e => e.FromLicensePlateId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.ToLicensePlate)
+            .WithMany()
+            .HasForeignKey(e => e.ToLicensePlateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Indexes
         builder.HasIndex(e => e.ItemId);
         builder.HasIndex(e => e.FromLocationId);
@@ -168,6 +185,9 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.HasIndex(e => e.PackagingCode);
         builder.HasIndex(e => e.SerialNumberId);
         builder.HasIndex(e => e.InventoryStatusId);
+        builder.HasIndex(e => e.LicensePlateId);
+        builder.HasIndex(e => e.FromLicensePlateId);
+        builder.HasIndex(e => e.ToLicensePlateId);
         builder.HasIndex(e => new { e.FromInventoryStatusId, e.ToInventoryStatusId });
     }
 }

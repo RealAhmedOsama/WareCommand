@@ -21,7 +21,10 @@ public class Movement : Entity
         int inventoryStatusId = InventoryStatusSystemIds.Available,
         int? fromInventoryStatusId = null,
         int? toInventoryStatusId = null,
-        InventoryStatusMovementLeg? statusChangeLeg = null)
+        InventoryStatusMovementLeg? statusChangeLeg = null,
+        int? licensePlateId = null,
+        int? fromLicensePlateId = null,
+        int? toLicensePlateId = null)
     {
         if (string.IsNullOrWhiteSpace(userId))
             throw new ArgumentException("User ID is required", nameof(userId));
@@ -37,6 +40,9 @@ public class Movement : Entity
         FromInventoryStatusId = fromInventoryStatusId;
         ToInventoryStatusId = toInventoryStatusId;
         StatusChangeLeg = statusChangeLeg;
+        LicensePlateId = licensePlateId;
+        FromLicensePlateId = fromLicensePlateId;
+        ToLicensePlateId = toLicensePlateId;
         Quantity = quantity;
         UserId = userId.Trim();
         ReferenceNumber = referenceNumber?.Trim();
@@ -83,6 +89,9 @@ public class Movement : Entity
     public int? FromInventoryStatusId { get; private set; }
     public int? ToInventoryStatusId { get; private set; }
     public InventoryStatusMovementLeg? StatusChangeLeg { get; private set; }
+    public int? LicensePlateId { get; private set; }
+    public int? FromLicensePlateId { get; private set; }
+    public int? ToLicensePlateId { get; private set; }
     public string? SerialNumber { get; private set; }
     public Quantity Quantity { get; private set; } = Quantity.Zero;
     public decimal EnteredQuantity { get; private set; }
@@ -122,54 +131,95 @@ public class Movement : Entity
     public InventoryStatus? InventoryStatus { get; private set; }
     public InventoryStatus? FromInventoryStatus { get; private set; }
     public InventoryStatus? ToInventoryStatus { get; private set; }
+    public LicensePlate? LicensePlate { get; private set; }
+    public LicensePlate? FromLicensePlate { get; private set; }
+    public LicensePlate? ToLicensePlate { get; private set; }
 
     public static Movement CreateReceipt(int itemId, int locationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
         DateTime? timestampUtc = null,
         int? serialNumberId = null,
-        int inventoryStatusId = InventoryStatusSystemIds.Available)
+        int inventoryStatusId = InventoryStatusSystemIds.Available,
+        int? toLicensePlateId = null)
     {
         return new Movement(MovementType.Receipt, itemId, quantity, userId,
             toLocationId: locationId, lotId: lotId, serialNumber: serialNumber,
             referenceNumber: referenceNumber, notes: notes, timestampUtc: timestampUtc,
             serialNumberId: serialNumberId,
-            inventoryStatusId: inventoryStatusId);
+            inventoryStatusId: inventoryStatusId,
+            licensePlateId: toLicensePlateId,
+            toLicensePlateId: toLicensePlateId);
     }
 
     public static Movement CreatePutaway(int itemId, int fromLocationId, int toLocationId,
         Quantity quantity, string userId, int? lotId = null, string? serialNumber = null,
         string? referenceNumber = null, string? notes = null, DateTime? timestampUtc = null,
         int? serialNumberId = null,
-        int inventoryStatusId = InventoryStatusSystemIds.Available)
+        int inventoryStatusId = InventoryStatusSystemIds.Available,
+        int? fromLicensePlateId = null,
+        int? toLicensePlateId = null)
     {
         return new Movement(MovementType.Putaway, itemId, quantity, userId,
-            fromLocationId, toLocationId, lotId,
-            serialNumber,
-            referenceNumber,
-            notes,
-            timestampUtc,
-            serialNumberId,
-            inventoryStatusId);
+            fromLocationId: fromLocationId,
+            toLocationId: toLocationId,
+            lotId: lotId,
+            serialNumber: serialNumber,
+            referenceNumber: referenceNumber,
+            notes: notes,
+            timestampUtc: timestampUtc,
+            serialNumberId: serialNumberId,
+            inventoryStatusId: inventoryStatusId,
+            licensePlateId: toLicensePlateId ?? fromLicensePlateId,
+            fromLicensePlateId: fromLicensePlateId,
+            toLicensePlateId: toLicensePlateId);
     }
 
     public static Movement CreatePick(int itemId, int fromLocationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
         DateTime? timestampUtc = null,
         int? serialNumberId = null,
-        int inventoryStatusId = InventoryStatusSystemIds.Available)
+        int inventoryStatusId = InventoryStatusSystemIds.Available,
+        int? fromLicensePlateId = null)
     {
         return new Movement(MovementType.Pick, itemId, quantity, userId,
             fromLocationId, lotId: lotId, serialNumber: serialNumber,
             referenceNumber: referenceNumber, notes: notes, timestampUtc: timestampUtc,
             serialNumberId: serialNumberId,
-            inventoryStatusId: inventoryStatusId);
+            inventoryStatusId: inventoryStatusId,
+            licensePlateId: fromLicensePlateId,
+            fromLicensePlateId: fromLicensePlateId);
+    }
+
+    public static Movement CreateShip(int itemId, int fromLocationId, Quantity quantity, string userId,
+        int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
+        DateTime? timestampUtc = null,
+        int? serialNumberId = null,
+        int inventoryStatusId = InventoryStatusSystemIds.Available,
+        int? fromLicensePlateId = null)
+    {
+        return new Movement(
+            MovementType.Ship,
+            itemId,
+            quantity,
+            userId,
+            fromLocationId: fromLocationId,
+            lotId: lotId,
+            serialNumber: serialNumber,
+            referenceNumber: referenceNumber,
+            notes: notes,
+            timestampUtc: timestampUtc,
+            serialNumberId: serialNumberId,
+            inventoryStatusId: inventoryStatusId,
+            licensePlateId: fromLicensePlateId,
+            fromLicensePlateId: fromLicensePlateId);
     }
 
     public static Movement CreateAdjustment(int itemId, int locationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
         DateTime? timestampUtc = null,
         int? serialNumberId = null,
-        int inventoryStatusId = InventoryStatusSystemIds.Available)
+        int inventoryStatusId = InventoryStatusSystemIds.Available,
+        int? licensePlateId = null)
     {
         return new Movement(MovementType.Adjustment, itemId, quantity, userId,
             toLocationId: locationId, lotId: lotId, serialNumber: serialNumber,
@@ -177,7 +227,44 @@ public class Movement : Entity
             notes: notes,
             timestampUtc: timestampUtc,
             serialNumberId: serialNumberId,
-            inventoryStatusId: inventoryStatusId);
+            inventoryStatusId: inventoryStatusId,
+            licensePlateId: licensePlateId,
+            toLicensePlateId: licensePlateId);
+    }
+
+    public static Movement CreateTransfer(
+        int itemId,
+        int fromLocationId,
+        int toLocationId,
+        Quantity quantity,
+        string userId,
+        int? lotId = null,
+        string? serialNumber = null,
+        string? referenceNumber = null,
+        string? notes = null,
+        DateTime? timestampUtc = null,
+        int? serialNumberId = null,
+        int inventoryStatusId = InventoryStatusSystemIds.Available,
+        int? fromLicensePlateId = null,
+        int? toLicensePlateId = null)
+    {
+        return new Movement(
+            MovementType.Transfer,
+            itemId,
+            quantity,
+            userId,
+            fromLocationId: fromLocationId,
+            toLocationId: toLocationId,
+            lotId: lotId,
+            serialNumber: serialNumber,
+            referenceNumber: referenceNumber,
+            notes: notes,
+            timestampUtc: timestampUtc,
+            serialNumberId: serialNumberId,
+            inventoryStatusId: inventoryStatusId,
+            licensePlateId: toLicensePlateId ?? fromLicensePlateId,
+            fromLicensePlateId: fromLicensePlateId,
+            toLicensePlateId: toLicensePlateId);
     }
 
     public static Movement CreateStatusChange(
@@ -193,7 +280,8 @@ public class Movement : Entity
         string? referenceNumber = null,
         string? notes = null,
         DateTime? timestampUtc = null,
-        int? serialNumberId = null)
+        int? serialNumberId = null,
+        int? licensePlateId = null)
     {
         var inventoryStatusId = leg == InventoryStatusMovementLeg.Outbound
             ? fromInventoryStatusId
@@ -216,6 +304,7 @@ public class Movement : Entity
             inventoryStatusId: inventoryStatusId,
             fromInventoryStatusId: fromInventoryStatusId,
             toInventoryStatusId: toInventoryStatusId,
-            statusChangeLeg: leg);
+            statusChangeLeg: leg,
+            licensePlateId: licensePlateId);
     }
 }

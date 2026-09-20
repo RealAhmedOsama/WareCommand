@@ -117,6 +117,37 @@ public sealed class IdentificationServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task Resolver_MapsDedicatedLicensePlateToWarehouseScopedEntity()
+    {
+        var warehouse = new Warehouse("SCAN-LPN", "License Plate Scan Warehouse");
+        _context.Warehouses.Add(warehouse);
+        await _context.SaveChangesAsync();
+        var location = new Location("LPN-BIN", "LPN bin", warehouse.Id);
+        _context.Locations.Add(location);
+        await _context.SaveChangesAsync();
+        var plate = new LicensePlate("LPN-SCAN-1", LicensePlateType.Pallet, warehouse.Id, location.Id);
+        _context.LicensePlates.Add(plate);
+        await _context.SaveChangesAsync();
+
+        var registered = await _registry.RegisterAsync(new IdentificationRegistrationRequest(
+            plate.Number,
+            IdentificationKind.LicensePlate,
+            IdentifierOwnerKeys.LicensePlate(plate.Number),
+            BarcodeSymbology.Code128));
+        registered.IsSuccess.Should().BeTrue(registered.Error);
+        await _context.SaveChangesAsync();
+
+        var result = await _service.ResolveAsync(
+            new IdentificationLookupRequest(plate.Number, warehouse.Id));
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        result.Value.Kind.Should().Be(IdentificationKind.LicensePlate);
+        result.Value.EntityId.Should().Be(plate.Id);
+        result.Value.WarehouseId.Should().Be(warehouse.Id);
+        result.Value.LicensePlate.Should().Be(plate.Number);
+    }
+
+    [Fact]
     public async Task Resolver_FallsBackToLegacyItemBarcodeDuringMigrationWindow()
     {
         var item = new Item("LEGACY-001", "Legacy", "EA");

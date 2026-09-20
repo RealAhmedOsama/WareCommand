@@ -31,6 +31,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Lot)
             .Include(stock => stock.Serial)
             .Include(stock => stock.InventoryStatus)
+            .Include(stock => stock.LicensePlate)
             .AsQueryable();
         query = ApplyScope(query, scope);
         return await query.FirstOrDefaultAsync(stock => stock.Id == id, cancellationToken);
@@ -45,6 +46,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Lot)
             .Include(s => s.Serial)
             .Include(s => s.InventoryStatus)
+            .Include(s => s.LicensePlate)
             .AsQueryable();
         query = ApplyScope(query, scope);
         return await query.ToListAsync(cancellationToken);
@@ -59,6 +61,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Lot)
             .Include(s => s.Serial)
             .Include(s => s.InventoryStatus)
+            .Include(s => s.LicensePlate)
             .Where(s => s.ItemId == itemId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -75,6 +78,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Lot)
             .Include(s => s.Serial)
             .Include(s => s.InventoryStatus)
+            .Include(s => s.LicensePlate)
             .Where(s => s.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -92,6 +96,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Lot)
             .Include(s => s.Serial)
             .Include(s => s.InventoryStatus)
+            .Include(s => s.LicensePlate)
             .Where(s => s.ItemId == itemId && s.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -135,6 +140,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Lot)
             .Include(stock => stock.Serial)
             .Include(stock => stock.InventoryStatus)
+            .Include(stock => stock.LicensePlate)
             .Where(stock => stock.ItemId == itemId && stock.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -161,6 +167,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Lot)
             .Include(stock => stock.Serial)
             .Include(stock => stock.InventoryStatus)
+            .Include(stock => stock.LicensePlate)
             .Where(stock => stock.LotId == lotId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -184,6 +191,25 @@ public class StockRepository : Repository<Stock>, IStockRepository
         return await query.OrderBy(stock => stock.Location.Code).ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Stock>> GetByLicensePlateIdAsync(
+        int licensePlateId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var query = DbSet
+            .Include(stock => stock.Item)
+            .Include(stock => stock.Location)
+            .Include(stock => stock.Lot)
+            .Include(stock => stock.Serial)
+            .Include(stock => stock.InventoryStatus)
+            .Include(stock => stock.LicensePlate)
+            .Where(stock => stock.LicensePlateId == licensePlateId)
+            .AsQueryable();
+        query = ApplyScope(query, scope);
+        return await query.OrderBy(stock => stock.ItemId).ThenBy(stock => stock.Id)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Stock>> GetAvailableStockAsync(int itemId,
         CancellationToken cancellationToken = default)
     {
@@ -194,6 +220,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Lot)
             .Include(s => s.Serial)
             .Include(s => s.InventoryStatus)
+            .Include(s => s.LicensePlate)
             .Where(s => s.ItemId == itemId &&
                         s.InventoryStatus != null &&
                         s.InventoryStatus.IsActive &&

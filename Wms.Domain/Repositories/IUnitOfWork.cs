@@ -9,6 +9,7 @@ public interface IUnitOfWork : IDisposable
     ILotRepository Lots { get; }
     ISerialNumberRepository SerialNumbers { get; }
     IInventoryStatusRepository InventoryStatuses { get; }
+    ILicensePlateRepository LicensePlates { get; }
     IStockRepository Stock { get; }
     IMovementRepository Movements { get; }
 

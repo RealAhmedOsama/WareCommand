@@ -28,6 +28,10 @@ public interface IStockRepository : IRepository<Stock>
         int serialNumberId,
         CancellationToken cancellationToken = default);
 
+    Task<IEnumerable<Stock>> GetByLicensePlateIdAsync(
+        int licensePlateId,
+        CancellationToken cancellationToken = default);
+
     Task<IEnumerable<Stock>> GetAvailableStockAsync(int itemId, CancellationToken cancellationToken = default);
     Task<Quantity> GetTotalQuantityAsync(int itemId, CancellationToken cancellationToken = default);
 }

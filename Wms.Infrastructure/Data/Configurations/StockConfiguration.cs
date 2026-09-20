@@ -23,6 +23,8 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
         builder.Property(e => e.InventoryStatusId)
             .IsRequired();
 
+        builder.Property(e => e.LicensePlateId);
+
         builder.Property(e => e.CreatedAt)
             .IsRequired()
             .HasColumnType("timestamp with time zone");
@@ -72,15 +74,21 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
             .HasForeignKey(e => e.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.LicensePlate)
+            .WithMany()
+            .HasForeignKey(e => e.LicensePlateId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Indexes
         builder.HasIndex(e => new
-            {
-                e.ItemId,
-                e.LocationId,
-                e.LotId,
-                e.SerialNumber,
-                e.InventoryStatusId
-            })
+        {
+            e.ItemId,
+            e.LocationId,
+            e.LotId,
+            e.SerialNumber,
+            e.InventoryStatusId,
+            e.LicensePlateId
+        })
             .IsUnique()
             .AreNullsDistinct(false);
         builder.HasIndex(e => e.ItemId);
@@ -88,6 +96,7 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
         builder.HasIndex(e => e.LotId);
         builder.HasIndex(e => e.SerialNumberId);
         builder.HasIndex(e => e.InventoryStatusId);
+        builder.HasIndex(e => e.LicensePlateId);
         builder.ToTable("Stock", table => table.HasCheckConstraint(
             "CK_Stock_SerialQuantity",
             "\"SerialNumberId\" IS NULL OR (\"QuantityAvailable\" >= 0 AND \"QuantityAvailable\" <= 1 AND \"QuantityReserved\" >= 0 AND \"QuantityReserved\" <= 1)"));

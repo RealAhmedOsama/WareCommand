@@ -21,6 +21,7 @@ public class UnitOfWork : IUnitOfWork
         Lots = new LotRepository(context);
         SerialNumbers = new SerialNumberRepository(context);
         InventoryStatuses = new InventoryStatusRepository(context);
+        LicensePlates = new LicensePlateRepository(context, warehouseAccessService);
         Stock = new StockRepository(context, warehouseAccessService);
         Movements = new MovementRepository(context, warehouseAccessService);
     }
@@ -30,6 +31,7 @@ public class UnitOfWork : IUnitOfWork
     public ILotRepository Lots { get; }
     public ISerialNumberRepository SerialNumbers { get; }
     public IInventoryStatusRepository InventoryStatuses { get; }
+    public ILicensePlateRepository LicensePlates { get; }
     public IStockRepository Stock { get; }
     public IMovementRepository Movements { get; }
 

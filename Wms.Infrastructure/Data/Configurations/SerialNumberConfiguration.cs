@@ -20,6 +20,7 @@ public sealed class SerialNumberConfiguration : IEntityTypeConfiguration<SerialN
             .IsRequired();
         builder.Property(serial => serial.CurrentLicensePlate)
             .HasMaxLength(100);
+        builder.Property(serial => serial.CurrentLicensePlateId);
         builder.Property(serial => serial.StatusReason)
             .HasMaxLength(1_000);
         builder.Property(serial => serial.ReceiptReference)
@@ -52,11 +53,16 @@ public sealed class SerialNumberConfiguration : IEntityTypeConfiguration<SerialN
             .WithMany()
             .HasForeignKey(serial => serial.CurrentLocationId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(serial => serial.CurrentLicensePlateEntity)
+            .WithMany()
+            .HasForeignKey(serial => serial.CurrentLicensePlateId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(serial => new { serial.ItemId, serial.Number })
             .IsUnique();
         builder.HasIndex(serial => serial.CurrentLocationId);
         builder.HasIndex(serial => serial.CurrentWarehouseId);
+        builder.HasIndex(serial => serial.CurrentLicensePlateId);
         builder.HasIndex(serial => serial.Status);
         builder.HasIndex(serial => serial.HasMigrationConflict);
     }

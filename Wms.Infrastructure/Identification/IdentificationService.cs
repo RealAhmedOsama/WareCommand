@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.Context;
-using Wms.Application.Identity;
 using Wms.Application.Identification;
+using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Identification;
@@ -319,7 +319,41 @@ public sealed class IdentificationService(
 
         if (owner.StartsWith("LPN:", StringComparison.Ordinal))
         {
-            return Result.Success(Map(identifier, gs1, licensePlate: owner[4..]));
+            var number = owner[4..];
+            var plate = await context.LicensePlates
+                .AsNoTracking()
+                .Include(candidate => candidate.Warehouse)
+                .SingleOrDefaultAsync(
+                    candidate => candidate.Number == number &&
+                                 (includeInactive || candidate.IsActive),
+                    cancellationToken);
+            if (plate is null)
+            {
+                return Result.Success(Map(identifier, gs1, licensePlate: number));
+            }
+
+            if (requestedWarehouseId.HasValue && requestedWarehouseId.Value != plate.WarehouseId)
+            {
+                return Result.Failure<IdentificationResolutionDto>(WmsErrors.NotFound(
+                    "license_plate.not_found",
+                    "The scanned license plate is outside the requested warehouse."));
+            }
+
+            var warehouseAuthorization = await warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryRead,
+                plate.WarehouseId,
+                cancellationToken);
+            if (warehouseAuthorization.IsFailure)
+            {
+                return warehouseAuthorization.ToFailure<IdentificationResolutionDto>();
+            }
+
+            return Result.Success(Map(
+                identifier,
+                gs1,
+                entityId: plate.Id,
+                warehouseId: plate.WarehouseId,
+                licensePlate: plate.Number));
         }
 
         if (owner.StartsWith("DOCUMENT:", StringComparison.Ordinal))

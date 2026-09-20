@@ -24,7 +24,9 @@ public record StockDto(
     string InventoryStatusName = "",
     bool IsAllocatable = false,
     bool IsPickable = false,
-    bool IsShippable = false
+    bool IsShippable = false,
+    int? LicensePlateId = null,
+    string? LicensePlateNumber = null
 );
 
 public record StockSummaryDto(

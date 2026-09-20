@@ -22,6 +22,7 @@ public class SerialNumber : Entity
     public int? LotId { get; private set; }
     public int? CurrentWarehouseId { get; private set; }
     public int? CurrentLocationId { get; private set; }
+    public int? CurrentLicensePlateId { get; private set; }
     public string? CurrentLicensePlate { get; private set; }
     public SerialStatus Status { get; private set; } = SerialStatus.Available;
     public string? StatusReason { get; private set; }
@@ -35,6 +36,7 @@ public class SerialNumber : Entity
     public Lot? Lot { get; private set; }
     public Warehouse? CurrentWarehouse { get; private set; }
     public Location? CurrentLocation { get; private set; }
+    public LicensePlate? CurrentLicensePlateEntity { get; private set; }
 
     public bool IsAllocationEligible =>
         (Status is SerialStatus.Available or SerialStatus.Returned) &&
@@ -60,6 +62,7 @@ public class SerialNumber : Entity
         LotId = lotId;
         CurrentWarehouseId = warehouseId;
         CurrentLocationId = locationId;
+        CurrentLicensePlateId = null;
         CurrentLicensePlate = null;
         ReceiptReference = NormalizeOptional(referenceNumber, 100);
         ShipmentReference = null;
@@ -73,11 +76,13 @@ public class SerialNumber : Entity
         int warehouseId,
         int locationId,
         string? licensePlate,
-        DateTime timestampUtc)
+        DateTime timestampUtc,
+        int? licensePlateId = null)
     {
         EnsureMovable();
         CurrentWarehouseId = warehouseId;
         CurrentLocationId = locationId;
+        CurrentLicensePlateId = licensePlateId;
         CurrentLicensePlate = NormalizeOptional(licensePlate, 100);
         LastMovedAt = NormalizeUtcValue(timestampUtc);
         SetUpdatedAt(timestampUtc);
@@ -88,6 +93,7 @@ public class SerialNumber : Entity
         EnsureMovable();
         CurrentWarehouseId = null;
         CurrentLocationId = null;
+        CurrentLicensePlateId = null;
         CurrentLicensePlate = null;
         LastMovedAt = NormalizeUtcValue(timestampUtc);
         SetUpdatedAt(timestampUtc);
@@ -98,6 +104,7 @@ public class SerialNumber : Entity
         SetStatus(SerialStatus.Shipped, "shipment completed", timestampUtc);
         CurrentWarehouseId = null;
         CurrentLocationId = null;
+        CurrentLicensePlateId = null;
         CurrentLicensePlate = null;
         ShipmentReference = NormalizeOptional(referenceNumber, 100);
         LastMovedAt = NormalizeUtcValue(timestampUtc);
@@ -109,6 +116,7 @@ public class SerialNumber : Entity
         SetStatus(SerialStatus.Corrected, reason, timestampUtc);
         CurrentWarehouseId = null;
         CurrentLocationId = null;
+        CurrentLicensePlateId = null;
         CurrentLicensePlate = null;
         LastMovedAt = NormalizeUtc(timestampUtc);
         SetUpdatedAt(timestampUtc);
@@ -138,6 +146,7 @@ public class SerialNumber : Entity
         {
             CurrentWarehouseId = null;
             CurrentLocationId = null;
+            CurrentLicensePlateId = null;
             CurrentLicensePlate = null;
         }
 

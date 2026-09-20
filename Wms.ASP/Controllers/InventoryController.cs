@@ -59,6 +59,7 @@ public class InventoryController : Controller
                         s.ItemSku.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                         s.ItemName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                         s.LocationCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        (s.LicensePlateNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
                         (s.LotNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
                         s.InventoryStatusCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                         s.InventoryStatusName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));

@@ -12,6 +12,10 @@ public interface IMovementRepository : IRepository<Movement>
     Task<IEnumerable<Movement>> GetBySerialNumberIdAsync(
         int serialNumberId,
         CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<Movement>> GetByLicensePlateIdAsync(
+        int licensePlateId,
+        CancellationToken cancellationToken = default);
     Task<IEnumerable<Movement>> GetByLocationIdAsync(int locationId, CancellationToken cancellationToken = default);
 
     /// <summary>

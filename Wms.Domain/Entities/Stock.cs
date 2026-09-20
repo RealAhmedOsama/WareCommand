@@ -20,7 +20,8 @@ public class Stock : Entity
         int? lotId = null,
         string? serialNumber = null,
         int? serialNumberId = null,
-        int inventoryStatusId = InventoryStatusSystemIds.Available)
+        int inventoryStatusId = InventoryStatusSystemIds.Available,
+        int? licensePlateId = null)
     {
         ItemId = itemId;
         LocationId = locationId;
@@ -28,6 +29,7 @@ public class Stock : Entity
         SerialNumber = serialNumber?.Trim();
         SerialNumberId = serialNumberId;
         InventoryStatusId = inventoryStatusId;
+        LicensePlateId = licensePlateId;
         QuantityAvailable = quantity;
         QuantityReserved = Quantity.Zero;
     }
@@ -37,6 +39,7 @@ public class Stock : Entity
     public int? LotId { get; private set; }
     public int? SerialNumberId { get; private set; }
     public int InventoryStatusId { get; private set; }
+    public int? LicensePlateId { get; private set; }
     public string? SerialNumber { get; private set; }
     public Quantity QuantityAvailable { get; private set; } = Quantity.Zero;
     public Quantity QuantityReserved { get; private set; } = Quantity.Zero;
@@ -47,12 +50,31 @@ public class Stock : Entity
     public Lot? Lot { get; private set; }
     public SerialNumber? Serial { get; private set; }
     public InventoryStatus? InventoryStatus { get; private set; }
+    public LicensePlate? LicensePlate { get; private set; }
 
     public void SetInventoryStatus(int inventoryStatusId)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(inventoryStatusId);
 
         InventoryStatusId = inventoryStatusId;
+        SetUpdatedAt();
+    }
+
+    public void SetLicensePlate(int? licensePlateId)
+    {
+        if (licensePlateId is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(licensePlateId));
+        }
+
+        LicensePlateId = licensePlateId;
+        SetUpdatedAt();
+    }
+
+    public void SetLocation(int locationId)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(locationId);
+        LocationId = locationId;
         SetUpdatedAt();
     }
 

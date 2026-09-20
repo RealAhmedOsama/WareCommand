@@ -56,6 +56,12 @@ public static class WmsAuditActions
     public const string InventoryStatusConfigured = "inventory.status.configured";
     public const string InventoryStatusTransitionConfigured = "inventory.status.transition_configured";
     public const string InventoryStatusChanged = "inventory.status.changed";
+    public const string LicensePlateCreated = "inventory.license_plate.created";
+    public const string LicensePlateContentChanged = "inventory.license_plate.content_changed";
+    public const string LicensePlateMoved = "inventory.license_plate.moved";
+    public const string LicensePlateLifecycleChanged = "inventory.license_plate.lifecycle_changed";
+    public const string LicensePlateShipped = "inventory.license_plate.shipped";
+    public const string LicensePlateNumberingConfigured = "inventory.license_plate.numbering_configured";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -108,7 +114,13 @@ public static class WmsAuditActions
         SerialCorrected,
         InventoryStatusConfigured,
         InventoryStatusTransitionConfigured,
-        InventoryStatusChanged
+        InventoryStatusChanged,
+        LicensePlateCreated,
+        LicensePlateContentChanged,
+        LicensePlateMoved,
+        LicensePlateLifecycleChanged,
+        LicensePlateShipped,
+        LicensePlateNumberingConfigured
     ];
 }
 
@@ -136,6 +148,9 @@ public static class WmsAuditEntityTypes
     public const string Serial = "Serial";
     public const string InventoryStatus = "InventoryStatus";
     public const string InventoryStatusTransition = "InventoryStatusTransition";
+    public const string LicensePlate = "LicensePlate";
+    public const string LicensePlateContent = "LicensePlateContent";
+    public const string LicensePlateNumberSequence = "LicensePlateNumberSequence";
 }
 
 /// <summary>

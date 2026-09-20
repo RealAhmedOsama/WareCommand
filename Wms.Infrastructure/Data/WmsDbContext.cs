@@ -37,6 +37,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<SerialNumber> SerialNumbers => Set<SerialNumber>();
     public DbSet<InventoryStatus> InventoryStatuses => Set<InventoryStatus>();
     public DbSet<InventoryStatusTransition> InventoryStatusTransitions => Set<InventoryStatusTransition>();
+    public DbSet<LicensePlate> LicensePlates => Set<LicensePlate>();
+    public DbSet<LicensePlateContent> LicensePlateContents => Set<LicensePlateContent>();
+    public DbSet<LicensePlateHistory> LicensePlateHistories => Set<LicensePlateHistory>();
+    public DbSet<LicensePlateNumberSequence> LicensePlateNumberSequences => Set<LicensePlateNumberSequence>();
     public DbSet<Stock> Stock => Set<Stock>();
     public DbSet<Movement> Movements => Set<Movement>();
     public DbSet<WmsIdentifier> WmsIdentifiers => Set<WmsIdentifier>();
@@ -72,6 +76,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new SerialNumberConfiguration());
         builder.ApplyConfiguration(new InventoryStatusConfiguration());
         builder.ApplyConfiguration(new InventoryStatusTransitionConfiguration());
+        builder.ApplyConfiguration(new LicensePlateConfiguration());
+        builder.ApplyConfiguration(new LicensePlateContentConfiguration());
+        builder.ApplyConfiguration(new LicensePlateHistoryConfiguration());
+        builder.ApplyConfiguration(new LicensePlateNumberSequenceConfiguration());
         builder.ApplyConfiguration(new StockConfiguration());
         builder.ApplyConfiguration(new MovementConfiguration());
         builder.ApplyConfiguration(new WmsIdentifierConfiguration());

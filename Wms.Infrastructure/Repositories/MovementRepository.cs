@@ -68,6 +68,21 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Movement>> GetByLicensePlateIdAsync(
+        int licensePlateId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var query = IncludeNavigations(DbSet.AsQueryable())
+            .Where(movement => movement.LicensePlateId == licensePlateId ||
+                               movement.FromLicensePlateId == licensePlateId ||
+                               movement.ToLicensePlateId == licensePlateId)
+            .AsQueryable();
+        query = ApplyScope(query, scope);
+        return await query.OrderByDescending(movement => movement.Timestamp)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Movement>> GetByLocationIdAsync(int locationId,
         CancellationToken cancellationToken = default)
     {
@@ -140,7 +155,10 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
             : included
                 .Include(movement => movement.InventoryStatus)
                 .Include(movement => movement.FromInventoryStatus)
-                .Include(movement => movement.ToInventoryStatus);
+                .Include(movement => movement.ToInventoryStatus)
+                .Include(movement => movement.LicensePlate)
+                .Include(movement => movement.FromLicensePlate)
+                .Include(movement => movement.ToLicensePlate);
     }
 
     private static IQueryable<Movement> ApplyScope(

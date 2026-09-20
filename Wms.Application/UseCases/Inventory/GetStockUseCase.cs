@@ -206,7 +206,9 @@ public class GetStockUseCase : IGetStockUseCase
             statusName,
             isAllocatable,
             isPickable,
-            isShippable
+            isShippable,
+            stock.LicensePlateId,
+            stock.LicensePlate?.Number
         );
     }
 }
