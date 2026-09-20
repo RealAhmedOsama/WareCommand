@@ -59,6 +59,12 @@ public class StockMovementService : IStockMovementService
         {
             var existingStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 itemId, locationId, lotId, serialNumber, cancellationToken);
+            await EnsureInboundCapacityAsync(
+                location,
+                itemId,
+                lotId,
+                quantity.Value,
+                cancellationToken);
             var quantityBefore = existingStock?.QuantityAvailable.Value ?? 0m;
 
             // Create receipt movement
@@ -161,6 +167,12 @@ public class StockMovementService : IStockMovementService
             var sourceQuantityBefore = sourceStock.QuantityAvailable.Value;
             var destinationStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 itemId, toLocationId, lotId, serialNumber, cancellationToken);
+            await EnsureInboundCapacityAsync(
+                toLocation,
+                itemId,
+                lotId,
+                quantity.Value,
+                cancellationToken);
             var destinationQuantityBefore = destinationStock?.QuantityAvailable.Value ?? 0m;
 
             // Create putaway movement
@@ -346,12 +358,28 @@ public class StockMovementService : IStockMovementService
                 // Create new stock if adjusting to positive quantity
                 if (newQuantity.Value > 0)
                 {
+                    await EnsureInboundCapacityAsync(
+                        location,
+                        itemId,
+                        lotId,
+                        newQuantity.Value,
+                        cancellationToken);
                     var newStock = new Stock(itemId, locationId, newQuantity, lotId, serialNumber);
                     await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
                 }
             }
             else
             {
+                var delta = newQuantity.Value - stock.QuantityAvailable.Value;
+                if (delta > 0)
+                {
+                    await EnsureInboundCapacityAsync(
+                        location,
+                        itemId,
+                        lotId,
+                        delta,
+                        cancellationToken);
+                }
                 stock.AdjustQuantity(newQuantity, reason);
                 await _unitOfWork.Stock.UpdateAsync(stock, cancellationToken);
             }
@@ -404,6 +432,53 @@ public class StockMovementService : IStockMovementService
         {
             telemetryScope.Fail(exception);
             throw;
+        }
+    }
+
+    private async Task EnsureInboundCapacityAsync(
+        Location? location,
+        int itemId,
+        int? lotId,
+        decimal incomingUnits,
+        CancellationToken cancellationToken)
+    {
+        if (location is null)
+        {
+            throw new LocationConstraintViolationException(
+                "location.not_found",
+                "The target location was not found.");
+        }
+
+        var occupiedStock = (await _unitOfWork.Stock.GetByLocationIdAsync(
+                location.Id,
+                cancellationToken))
+            .Where(stock => stock.QuantityAvailable.Value > 0 || stock.QuantityReserved.Value > 0)
+            .ToArray();
+
+        if (!location.AllowMixedItems && occupiedStock.Any(stock => stock.ItemId != itemId))
+        {
+            throw new LocationConstraintViolationException(
+                "location.mixed_items_blocked",
+                $"Location '{location.Code}' does not allow mixed items.");
+        }
+
+        if (!location.AllowMixedLots && occupiedStock.Any(stock =>
+                stock.ItemId == itemId && stock.LotId != lotId))
+        {
+            throw new LocationConstraintViolationException(
+                "location.mixed_lots_blocked",
+                $"Location '{location.Code}' does not allow mixed lots.");
+        }
+
+        var violation = location.ValidateCapacity(
+            new LocationCapacitySnapshot(
+                occupiedStock.Sum(stock => stock.QuantityAvailable.Value)),
+            new LocationCapacitySnapshot(incomingUnits));
+        if (violation is not null)
+        {
+            throw new LocationConstraintViolationException(
+                violation.Code,
+                violation.Message);
         }
     }
 }

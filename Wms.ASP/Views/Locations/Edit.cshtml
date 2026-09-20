@@ -1,0 +1,36 @@
+@model EditLocationViewModel
+@{
+    ViewData["Title"] = T["Locations.Edit"];
+    ViewData["LocationFormMode"] = "edit";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>@T["Locations.Edit"]</h2>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>@T["Common.Back"]</a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-xl-10">
+        <div class="card border-0 shadow">
+            <div class="card-header bg-primary bg-opacity-10 border-bottom">
+                <h5 class="card-title mb-0 text-primary"><i class="bi bi-geo-alt me-2"></i>@Model.Code</h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="Edit" method="post">
+                    <input asp-for="Id" type="hidden" />
+                    <input asp-for="WarehouseId" type="hidden" />
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <partial name="_LocationForm" model="Model" view-data="ViewData" />
+                    <div class="d-flex gap-2 justify-content-end mt-4">
+                        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">@T["Common.Cancel"]</a>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>@T["Common.Save"]</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

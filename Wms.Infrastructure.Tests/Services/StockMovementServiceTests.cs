@@ -6,6 +6,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
@@ -117,6 +118,24 @@ public class StockMovementServiceTests : IDisposable
         // Assert
         var stock = await _context.Stock.FirstOrDefaultAsync(s => s.ItemId == _item.Id && s.LocationId == _location.Id);
         stock!.QuantityAvailable.Should().Be(expectedTotal);
+    }
+
+    [Fact]
+    public async Task ReceiveAsync_RejectsLocationCapacityOverflowBeforeMutation()
+    {
+        _location.SetCapacity(10);
+        await _context.SaveChangesAsync();
+
+        var act = async () => await _service.ReceiveAsync(
+            _item.Id,
+            _location.Id,
+            new Quantity(11),
+            "USER1");
+
+        var exception = await act.Should().ThrowAsync<LocationConstraintViolationException>();
+        exception.Which.Code.Should().Be("location.capacity_units_exceeded");
+        (await _context.Stock.CountAsync()).Should().Be(0);
+        (await _context.Movements.CountAsync()).Should().Be(0);
     }
 
     [Fact]

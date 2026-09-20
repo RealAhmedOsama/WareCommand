@@ -205,7 +205,24 @@ public class GetLocationsUseCase : IGetLocationsUseCase
             location.Capacity,
             location.GetFullPath(),
             location.CreatedAt,
-            location.UpdatedAt
+            location.UpdatedAt,
+            location.Type,
+            location.Barcode,
+            location.Priority,
+            location.IsCountable,
+            location.AllowMixedItems,
+            location.AllowMixedLots,
+            location.MaxUnits,
+            location.MaxWeightKg,
+            location.MaxVolumeCubicMeters,
+            location.MaxPallets,
+            location.MaxLpns,
+            location.StorageProfile,
+            location.MinimumTemperatureCelsius,
+            location.MaximumTemperatureCelsius,
+            location.HazardClass,
+            location.AccessRestriction,
+            location.ConstraintAttributesJson
         );
     }
 }

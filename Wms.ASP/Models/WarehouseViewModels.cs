@@ -42,6 +42,14 @@ public class LocationManagementViewModel
 {
     public List<LocationDto> Locations { get; set; } = new();
     public string? SearchTerm { get; set; }
+    public int? WarehouseId { get; set; }
+    public LocationType? Type { get; set; }
+    public bool IncludeInactive { get; set; } = true;
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 50;
+    public int TotalCount { get; set; }
+    public int TotalPages { get; set; }
+    public IReadOnlyList<WmsWarehouseOption> Warehouses { get; set; } = [];
 }
 
 public class StockAdjustmentViewModel
@@ -350,10 +358,134 @@ public class CreateLocationViewModel
     [Range(1, int.MaxValue)]
     public int WarehouseId { get; set; }
 
-    public bool IsPickable { get; set; } = true;
-    public bool IsReceivable { get; set; } = true;
+    [Range(1, int.MaxValue)]
+    public int? ParentLocationId { get; set; }
+
+    [EnumDataType(typeof(LocationType))]
+    public LocationType Type { get; set; } = LocationType.Storage;
+
+    [StringLength(100)]
+    public string? Barcode { get; set; }
 
     [Range(0, int.MaxValue)]
-    public int Capacity { get; set; }
+    public int Priority { get; set; }
+
+    public bool IsPickable { get; set; } = true;
+    public bool IsReceivable { get; set; } = true;
+    public bool IsCountable { get; set; } = true;
+    public bool AllowMixedItems { get; set; } = true;
+    public bool AllowMixedLots { get; set; } = true;
+
+    [Range(0, int.MaxValue)]
+    public decimal? MaxUnits { get; set; } = 1000;
+
+    [Range(0, double.MaxValue)]
+    public decimal? MaxWeightKg { get; set; }
+
+    [Range(0, double.MaxValue)]
+    public decimal? MaxVolumeCubicMeters { get; set; }
+
+    [Range(0, int.MaxValue)]
+    public int? MaxPallets { get; set; }
+
+    [Range(0, int.MaxValue)]
+    public int? MaxLpns { get; set; }
+
+    [StringLength(100)]
+    public string? StorageProfile { get; set; }
+
+    public decimal? MinimumTemperatureCelsius { get; set; }
+    public decimal? MaximumTemperatureCelsius { get; set; }
+
+    [StringLength(100)]
+    public string? HazardClass { get; set; }
+
+    [StringLength(200)]
+    public string? AccessRestriction { get; set; }
+
+    [StringLength(4000)]
+    public string? ConstraintAttributesJson { get; set; }
+
+    public IReadOnlyList<LocationDto> ParentLocations { get; set; } = [];
     public IReadOnlyList<WmsWarehouseOption> Warehouses { get; set; } = [];
+}
+
+public sealed class EditLocationViewModel : CreateLocationViewModel
+{
+    [Range(1, int.MaxValue)]
+    public int Id { get; set; }
+}
+
+public sealed class GenerateLocationsViewModel
+{
+    [Range(1, int.MaxValue)]
+    public int WarehouseId { get; set; }
+
+    [Required, StringLength(40)]
+    public string CodePrefix { get; set; } = string.Empty;
+
+    [Required, StringLength(100)]
+    public string NamePrefix { get; set; } = string.Empty;
+
+    [Range(0, int.MaxValue)]
+    public int StartNumber { get; set; }
+
+    [Range(1, 1000)]
+    public int Count { get; set; } = 1;
+
+    [Range(1, 20)]
+    public int NumberWidth { get; set; } = 3;
+
+    [Range(1, int.MaxValue)]
+    public int? ParentLocationId { get; set; }
+
+    [EnumDataType(typeof(LocationType))]
+    public LocationType Type { get; set; } = LocationType.Bin;
+
+    public bool IsPickable { get; set; } = true;
+    public bool IsReceivable { get; set; }
+    public bool IsCountable { get; set; } = true;
+    public bool AllowMixedItems { get; set; } = true;
+    public bool AllowMixedLots { get; set; } = true;
+
+    [Range(0, double.MaxValue)]
+    public decimal? MaxUnits { get; set; } = 1000;
+
+    [StringLength(100)]
+    public string? StorageProfile { get; set; }
+
+    public IReadOnlyList<LocationDto> ParentLocations { get; set; } = [];
+    public IReadOnlyList<WmsWarehouseOption> Warehouses { get; set; } = [];
+}
+
+public sealed class ImportLocationsViewModel
+{
+    [Range(1, int.MaxValue)]
+    public int WarehouseId { get; set; }
+
+    public Microsoft.AspNetCore.Http.IFormFile? File { get; set; }
+
+    [StringLength(2_000_000)]
+    public string? Csv { get; set; }
+
+    public IReadOnlyList<WmsWarehouseOption> Warehouses { get; set; } = [];
+}
+
+public sealed class LocationLabelsViewModel
+{
+    [Range(1, int.MaxValue)]
+    public int WarehouseId { get; set; }
+
+    public int[] LocationIds { get; set; } = [];
+    public IReadOnlyList<LocationDto> Locations { get; set; } = [];
+    public IReadOnlyList<Wms.Application.Locations.LocationLabelDto> Labels { get; set; } = [];
+}
+
+public sealed class LocationChildrenViewModel
+{
+    public int WarehouseId { get; set; }
+    public int? ParentLocationId { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+    public List<LocationDto> Locations { get; set; } = [];
 }

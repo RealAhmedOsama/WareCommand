@@ -4,141 +4,115 @@
     var canManageLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsManage)).Succeeded;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0">
-        <i class="bi bi-geo-alt me-2 text-primary"></i>
-        @T["Locations.Title"]
-    </h2>
+<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-diagram-3 me-2 text-primary"></i>@T["Locations.Title"]</h2>
     @if (canManageLocations)
     {
-        <a asp-action="Create" class="btn btn-primary">
-            <i class="bi bi-plus-circle me-1"></i>
-            @T["Locations.Add"]
-        </a>
+        <div class="d-flex gap-2">
+            <a asp-action="Import" class="btn btn-outline-primary"><i class="bi bi-upload me-1"></i>@T["Locations.Import"]</a>
+            <a asp-action="Generate" class="btn btn-outline-primary"><i class="bi bi-lightning-charge me-1"></i>@T["Locations.Generate"]</a>
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>@T["Locations.Add"]</a>
+        </div>
     }
 </div>
 
-<!-- Search Bar -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end">
-            <div class="col-md-6">
+            <div class="col-lg-4">
                 <label for="searchTerm" class="form-label">@T["Locations.Search"]</label>
-                <div class="input-group">
-                    <span class="input-group-text">
-                        <i class="bi bi-search"></i>
-                    </span>
-                    <input type="text" class="form-control" id="searchTerm" name="searchTerm"
-                           value="@Model.SearchTerm" placeholder="@T["Locations.SearchPlaceholder"]">
+                <input type="text" class="form-control" id="searchTerm" name="searchTerm" value="@Model.SearchTerm" placeholder="@T["Locations.SearchPlaceholder"]" />
+            </div>
+            <div class="col-lg-3">
+                <label for="warehouseId" class="form-label">@T["Field.Warehouse"]</label>
+                <select id="warehouseId" name="warehouseId" class="form-select">
+                    <option value="">@T["Locations.AllWarehouses"]</option>
+                    @foreach (var warehouse in Model.Warehouses)
+                    {
+                        <option value="@warehouse.Id" selected="@(Model.WarehouseId == warehouse.Id)">@warehouse.Code — @warehouse.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <label for="type" class="form-label">@T["Locations.Type"]</label>
+                <select id="type" name="type" class="form-select">
+                    <option value="">@T["Locations.AllTypes"]</option>
+                    @foreach (var type in Enum.GetValues<LocationType>())
+                    {
+                        <option value="@type" selected="@(Model.Type == type)">@T[$"Locations.Type.{type}"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <div class="form-check form-switch mb-2">
+                    <input type="hidden" name="includeInactive" value="false" />
+                    <input class="form-check-input" type="checkbox" id="includeInactive" name="includeInactive" value="true" checked="@Model.IncludeInactive" />
+                    <label class="form-check-label" for="includeInactive">@T["Locations.IncludeInactive"]</label>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search me-1"></i>
-                        @T["Common.Search"]
-                    </button>
-                    <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
-                        <i class="bi bi-x-circle me-1"></i>
-                        @T["Common.Clear"]
-                    </a>
-                </div>
+            <div class="col-lg-1 d-flex gap-1">
+                <input type="hidden" name="pageSize" value="@Model.PageSize" />
+                <button type="submit" class="btn btn-primary" title="@T["Common.Search"]"><i class="bi bi-search"></i></button>
+                <a asp-action="Index" class="btn btn-outline-secondary" title="@T["Common.Clear"]"><i class="bi bi-x-circle"></i></a>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Locations Table -->
 <div class="card border-0 shadow-sm">
-    <div class="card-header bg-white border-bottom">
-        <h5 class="card-title mb-0">
-            <i class="bi bi-list-ul me-2 text-primary"></i>
-            @T["Locations.Title"] (@Model.Locations.Count)
-        </h5>
+    <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>@T["Locations.Title"]</h5>
+        <span class="badge text-bg-light">@Model.TotalCount.ToString("N0")</span>
     </div>
     <div class="card-body p-0">
         @if (Model.Locations.Any())
         {
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                     <tr>
-                        <th>@T["Field.Code"]</th>
-                        <th>@T["Field.Name"]</th>
-                        <th>@T["Field.Type"]</th>
-                        <th class="text-center">@T["Field.Pickable"]</th>
-                        <th class="text-center">@T["Field.Receivable"]</th>
-                        <th class="text-end">@T["Field.Capacity"]</th>
+                        <th>@T["Locations.Code"]</th>
+                        <th>@T["Locations.Name"]</th>
+                        <th>@T["Locations.Type"]</th>
+                        <th>@T["Locations.Parent"]</th>
+                        <th class="text-center">@T["Locations.Capacity"]</th>
+                        <th class="text-center">@T["Locations.Properties"]</th>
                         <th class="text-center">@T["Field.Status"]</th>
-                        <th class="text-center">@T["Common.Actions"]</th>
+                        <th class="text-end">@T["Common.Actions"]</th>
                     </tr>
                     </thead>
                     <tbody>
                     @foreach (var location in Model.Locations)
                     {
-                        <tr class="@(location.IsActive ? "" : "table-secondary")">
-                            <td class="fw-medium">
-                                <code class="wms-identifier">@location.Code</code>
-                            </td>
-                            <td>
-                                <div class="fw-medium">@location.Name</div>
-                                @if (!string.IsNullOrEmpty(location.FullPath) && location.FullPath != location.Code)
-                                {
-                                    <small class="text-muted">@location.FullPath</small>
-                                }
-                            </td>
-                            <td>
-                                <span class="badge bg-info">@(location.ParentLocationId.HasValue ? T["Locations.SubLocation"] : T["Locations.MainLocation"])</span>
-                            </td>
+                        <tr class="@(location.IsActive ? string.Empty : "table-secondary")">
+                            <td><a asp-action="Details" asp-route-id="@location.Id" class="fw-semibold text-decoration-none"><code class="wms-identifier">@location.Code</code></a><br /><small class="text-muted">W@location.WarehouseId</small></td>
+                            <td><span class="fw-medium">@location.Name</span><br /><small class="text-muted">@location.FullPath</small></td>
+                            <td><span class="badge text-bg-info">@T[$"Locations.Type.{location.Type}"]</span></td>
+                            <td>@(location.ParentLocationId.HasValue ? T["Locations.HasParent"] : T["Locations.NoParent"])</td>
+                            <td class="text-center">@(location.MaxUnits.HasValue ? location.MaxUnits.Value.ToString("N2") : T["Common.Unlimited"])</td>
                             <td class="text-center">
-                                @if (location.IsPickable)
-                                {
-                                    <i class="bi bi-check-circle text-success" title="@T["Field.Pickable"]"></i>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-x-circle text-muted" title="@T["Locations.NotPickable"]"></i>
-                                }
+                                @if (location.IsPickable) { <i class="bi bi-box-arrow-up text-primary me-1" title="@T["Locations.Pickable"]"></i> }
+                                @if (location.IsReceivable) { <i class="bi bi-box-arrow-in-down text-success me-1" title="@T["Locations.Receivable"]"></i> }
+                                @if (location.IsCountable) { <i class="bi bi-clipboard-check text-info" title="@T["Locations.Countable"]"></i> }
                             </td>
-                            <td class="text-center">
-                                @if (location.IsReceivable)
-                                {
-                                    <i class="bi bi-check-circle text-success" title="@T["Field.Receivable"]"></i>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-x-circle text-muted" title="@T["Locations.NotReceivable"]"></i>
-                                }
-                            </td>
+                            <td class="text-center">@(location.IsActive ? Html.Raw($"<span class='badge text-bg-success'>{T["Common.Active"]}</span>") : Html.Raw($"<span class='badge text-bg-secondary'>{T["Common.Inactive"]}</span>"))</td>
                             <td class="text-end">
-                                @if (location.Capacity > 0)
-                                {
-                                    <span>@location.Capacity.ToString("N0")</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">@T["Common.Unlimited"]</span>
-                                }
-                            </td>
-                            <td class="text-center">
-                                @if (location.IsActive)
-                                {
-                                    <span class="badge bg-success">@T["Common.Active"]</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">@T["Common.Inactive"]</span>
-                                }
-                            </td>
-                            <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" title="@T["Locations.Edit"]">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <a asp-controller="Inventory" asp-action="Index" asp-route-searchTerm="@location.Code"
-                                       class="btn btn-outline-info" title="@T["Locations.ViewStock"]">
-                                        <i class="bi bi-stack"></i>
-                                    </a>
+                                    <a asp-action="Details" asp-route-id="@location.Id" class="btn btn-outline-primary" title="@T["Common.View"]"><i class="bi bi-eye"></i></a>
+                                    @if (canManageLocations)
+                                    {
+                                        <a asp-action="Edit" asp-route-id="@location.Id" class="btn btn-outline-primary" title="@T["Locations.Edit"]"><i class="bi bi-pencil"></i></a>
+                                        @if (location.IsActive)
+                                        {
+                                            <form asp-action="Deactivate" method="post" class="d-inline"><input type="hidden" name="id" value="@location.Id" /><button type="submit" class="btn btn-outline-warning" title="@T["Locations.Deactivate"]"><i class="bi bi-pause-circle"></i></button></form>
+                                        }
+                                        else
+                                        {
+                                            <form asp-action="Activate" method="post" class="d-inline"><input type="hidden" name="id" value="@location.Id" /><button type="submit" class="btn btn-outline-success" title="@T["Locations.Activate"]"><i class="bi bi-play-circle"></i></button></form>
+                                        }
+                                    }
+                                    <a asp-controller="Inventory" asp-action="Index" asp-route-searchTerm="@location.Code" class="btn btn-outline-info" title="@T["Locations.ViewStock"]"><i class="bi bi-stack"></i></a>
+                                    <a asp-action="Labels" asp-route-warehouseId="@location.WarehouseId" asp-route-ids="@location.Id" class="btn btn-outline-secondary" title="@T["Locations.Labels"]"><i class="bi bi-upc-scan"></i></a>
                                 </div>
                             </td>
                         </tr>
@@ -152,22 +126,24 @@
             <div class="text-center py-5 text-muted">
                 <i class="bi bi-geo-alt fs-1 mb-3"></i>
                 <p class="mb-0">@T["Locations.NoLocations"]</p>
-                @if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
-                {
-                    <p>@T["Locations.NoSearchResults"]</p>
-                }
-                else
-                {
-                    <p>@T["Locations.FirstLocation"]</p>
-                    @if (canManageLocations)
-                    {
-                        <a asp-action="Create" class="btn btn-primary mt-2">
-                            <i class="bi bi-plus-circle me-1"></i>
-                            @T["Locations.Add"]
-                        </a>
-                    }
-                }
+                <p>@T["Locations.NoSearchResults"]</p>
             </div>
         }
     </div>
+    @if (Model.TotalPages > 1)
+    {
+        <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+            <small class="text-muted">@T["Locations.PageOf", Model.Page, Model.TotalPages]</small>
+            <div class="btn-group">
+                @if (Model.Page > 1)
+                {
+                    <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-warehouseId="@Model.WarehouseId" asp-route-searchTerm="@Model.SearchTerm" asp-route-type="@Model.Type" asp-route-includeInactive="@Model.IncludeInactive" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize">@T["Common.Previous"]</a>
+                }
+                @if (Model.Page < Model.TotalPages)
+                {
+                    <a class="btn btn-outline-secondary btn-sm" asp-action="Index" asp-route-warehouseId="@Model.WarehouseId" asp-route-searchTerm="@Model.SearchTerm" asp-route-type="@Model.Type" asp-route-includeInactive="@Model.IncludeInactive" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize">@T["Common.Next"]</a>
+                }
+            </div>
+        </div>
+    }
 </div>

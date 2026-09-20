@@ -1,0 +1,79 @@
+@model Wms.Application.DTOs.LocationDto
+@{
+    ViewData["Title"] = Model.Code;
+    var canManageLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsManage)).Succeeded;
+}
+
+<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
+    <div><h2 class="mb-1"><i class="bi bi-geo-alt me-2 text-primary"></i>@Model.Code</h2><span class="text-muted">@Model.Name · @Model.FullPath</span></div>
+    <div class="d-flex gap-2">
+        <a asp-action="Index" asp-route-warehouseId="@Model.WarehouseId" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>@T["Common.Back"]</a>
+        @if (canManageLocations)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary"><i class="bi bi-pencil me-1"></i>@T["Locations.Edit"]</a>
+        }
+        <a asp-action="Labels" asp-route-warehouseId="@Model.WarehouseId" asp-route-ids="@Model.Id" class="btn btn-outline-primary"><i class="bi bi-upc-scan me-1"></i>@T["Locations.Labels"]</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Locations.Information"]</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">@T["Locations.Code"]</dt><dd class="col-sm-8"><code>@Model.Code</code></dd>
+                    <dt class="col-sm-4">@T["Locations.Type"]</dt><dd class="col-sm-8">@T[$"Locations.Type.{Model.Type}"]</dd>
+                    <dt class="col-sm-4">@T["Locations.Barcode"]</dt><dd class="col-sm-8">@(Model.Barcode ?? T["Common.NotSet"])</dd>
+                    <dt class="col-sm-4">@T["Locations.Parent"]</dt><dd class="col-sm-8">@(Model.ParentLocationId?.ToString() ?? T["Locations.NoParent"])</dd>
+                    <dt class="col-sm-4">@T["Locations.Priority"]</dt><dd class="col-sm-8">@Model.Priority</dd>
+                    <dt class="col-sm-4">@T["Locations.StorageProfile"]</dt><dd class="col-sm-8">@(string.IsNullOrWhiteSpace(Model.StorageProfile) ? T["Common.NotSet"] : Model.StorageProfile)</dd>
+                    <dt class="col-sm-4">@T["Field.Status"]</dt><dd class="col-sm-8">@(Model.IsActive ? T["Common.Active"] : T["Common.Inactive"])</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Locations.CapacityAndConstraints"]</h5></div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-7">@T["Locations.MaxUnits"]</dt><dd class="col-5 text-end">@(Model.MaxUnits?.ToString("N2") ?? T["Common.Unlimited"])</dd>
+                    <dt class="col-7">@T["Locations.MaxWeightKg"]</dt><dd class="col-5 text-end">@(Model.MaxWeightKg?.ToString("N2") ?? T["Common.Unlimited"])</dd>
+                    <dt class="col-7">@T["Locations.MaxVolume"]</dt><dd class="col-5 text-end">@(Model.MaxVolumeCubicMeters?.ToString("N2") ?? T["Common.Unlimited"])</dd>
+                    <dt class="col-7">@T["Locations.MaxPallets"]</dt><dd class="col-5 text-end">@(Model.MaxPallets?.ToString() ?? T["Common.Unlimited"])</dd>
+                    <dt class="col-7">@T["Locations.MaxLpns"]</dt><dd class="col-5 text-end">@(Model.MaxLpns?.ToString() ?? T["Common.Unlimited"])</dd>
+                    <dt class="col-7">@T["Locations.HazardClass"]</dt><dd class="col-5 text-end">@(string.IsNullOrWhiteSpace(Model.HazardClass) ? T["Common.NotSet"] : Model.HazardClass)</dd>
+                    <dt class="col-7">@T["Locations.AccessRestriction"]</dt><dd class="col-5 text-end">@(string.IsNullOrWhiteSpace(Model.AccessRestriction) ? T["Common.NotSet"] : Model.AccessRestriction)</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Locations.Properties"]</h5></div>
+            <div class="card-body d-flex flex-wrap gap-2">
+                <span class="badge @(Model.IsPickable ? "text-bg-primary" : "text-bg-light")">@T["Locations.Pickable"]</span>
+                <span class="badge @(Model.IsReceivable ? "text-bg-success" : "text-bg-light")">@T["Locations.Receivable"]</span>
+                <span class="badge @(Model.IsCountable ? "text-bg-info" : "text-bg-light")">@T["Locations.Countable"]</span>
+                <span class="badge @(Model.AllowMixedItems ? "text-bg-secondary" : "text-bg-light")">@T["Locations.MixedItems"]</span>
+                <span class="badge @(Model.AllowMixedLots ? "text-bg-secondary" : "text-bg-light")">@T["Locations.MixedLots"]</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (canManageLocations)
+{
+    <div class="d-flex gap-2 mt-4">
+        @if (Model.IsActive)
+        {
+            <form asp-action="Deactivate" method="post"><input type="hidden" name="id" value="@Model.Id" /><button type="submit" class="btn btn-outline-warning"><i class="bi bi-pause-circle me-1"></i>@T["Locations.Deactivate"]</button></form>
+        }
+        else
+        {
+            <form asp-action="Activate" method="post"><input type="hidden" name="id" value="@Model.Id" /><button type="submit" class="btn btn-outline-success"><i class="bi bi-play-circle me-1"></i>@T["Locations.Activate"]</button></form>
+        }
+        <form asp-action="Delete" method="post"><input type="hidden" name="id" value="@Model.Id" /><button type="submit" class="btn btn-outline-danger" onclick="return confirm('@T["Locations.DeleteConfirm"]');"><i class="bi bi-trash me-1"></i>@T["Common.Delete"]</button></form>
+    </div>
+}

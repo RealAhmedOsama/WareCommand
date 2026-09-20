@@ -43,7 +43,7 @@ public class LocationRepository : Repository<Location>, ILocationRepository
 
     public async Task<Location?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
-        var normalizedCode = code.ToUpperInvariant();
+        var normalizedCode = code.Trim().ToUpperInvariant();
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = DbSet
             .Include(l => l.Warehouse)
@@ -132,7 +132,7 @@ public class LocationRepository : Repository<Location>, ILocationRepository
 
     public async Task<bool> CodeExistsAsync(string code, CancellationToken cancellationToken = default)
     {
-        var normalizedCode = code.ToUpperInvariant();
+        var normalizedCode = code.Trim().ToUpperInvariant();
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = ApplyScope(DbSet.AsQueryable(), scope);
         return await query.AnyAsync(l => l.Code == normalizedCode, cancellationToken);

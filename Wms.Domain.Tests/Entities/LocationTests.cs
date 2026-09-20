@@ -1,6 +1,7 @@
 // Wms.Domain.Tests/Entities/LocationTests.cs
 
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 
 namespace Wms.Domain.Tests.Entities;
 
@@ -179,5 +180,82 @@ public class LocationTests
 
         // Assert
         fullPath.Should().Be("Z001-A001"); // Will return just the code since ParentLocation is null
+    }
+
+    [Fact]
+    public void Constructor_WithTypeThatCannotPick_RejectsPickableFlag()
+    {
+        var act = () => new Location(
+            "DOCK-01",
+            "Inbound dock",
+            1,
+            type: LocationType.Dock,
+            isPickable: true,
+            isReceivable: true);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Constructor_WithTypeThatCannotReceive_RejectsReceivableFlag()
+    {
+        var act = () => new Location(
+            "PACK-01",
+            "Packing",
+            1,
+            type: LocationType.Packing,
+            isPickable: false,
+            isReceivable: true);
+
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void ValidateCapacity_ReportsUnitOverflow()
+    {
+        var location = new Location(
+            "BIN-01",
+            "Bin",
+            1,
+            type: LocationType.Bin,
+            isPickable: true,
+            isReceivable: false,
+            maxUnits: 10);
+
+        var violation = location.ValidateCapacity(
+            new LocationCapacitySnapshot(8),
+            new LocationCapacitySnapshot(3));
+
+        violation.Should().NotBeNull();
+        violation!.Code.Should().Be("location.capacity_units_exceeded");
+    }
+
+    [Fact]
+    public void UpdateDefinition_RejectsInvertedTemperatureRange()
+    {
+        var location = new Location("COLD-01", "Cold room", 1);
+
+        var act = () => location.UpdateDefinition(
+            LocationType.Storage,
+            barcode: null,
+            priority: 0,
+            isPickable: true,
+            isReceivable: true,
+            isCountable: true,
+            allowMixedItems: true,
+            allowMixedLots: true,
+            maxUnits: 100,
+            maxWeightKg: null,
+            maxVolumeCubicMeters: null,
+            maxPallets: null,
+            maxLpns: null,
+            storageProfile: "Cold",
+            minimumTemperatureCelsius: 10,
+            maximumTemperatureCelsius: 0,
+            hazardClass: null,
+            accessRestriction: null,
+            constraintAttributesJson: "{}");
+
+        act.Should().Throw<ArgumentException>();
     }
 }

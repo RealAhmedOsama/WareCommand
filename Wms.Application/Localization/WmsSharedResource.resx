@@ -51,6 +51,10 @@
   <data name="Common.Total" xml:space="preserve"><value>total</value></data>
   <data name="Common.System" xml:space="preserve"><value>System</value></data>
   <data name="Common.Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="Common.Print" xml:space="preserve"><value>Print</value></data>
+  <data name="Common.NotSet" xml:space="preserve"><value>Not set</value></data>
+  <data name="Common.Previous" xml:space="preserve"><value>Previous</value></data>
+  <data name="Common.Next" xml:space="preserve"><value>Next</value></data>
   <data name="Nav.Dashboard" xml:space="preserve"><value>Dashboard</value></data>
   <data name="Nav.Operations" xml:space="preserve"><value>Operations</value></data>
   <data name="Nav.Receiving" xml:space="preserve"><value>Receiving</value></data>
@@ -227,6 +231,77 @@
   <data name="Locations.ViewStock" xml:space="preserve"><value>View Stock</value></data>
   <data name="Locations.NoSearchResults" xml:space="preserve"><value>Try adjusting your search criteria</value></data>
   <data name="Locations.FirstLocation" xml:space="preserve"><value>Get started by adding your first location</value></data>
+  <data name="Locations.CodeHelp" xml:space="preserve"><value>Unique within the selected warehouse; codes are normalized to uppercase.</value></data>
+  <data name="Locations.Updated" xml:space="preserve"><value>Location '{0}' was updated successfully.</value></data>
+  <data name="Locations.Activated" xml:space="preserve"><value>Location activated successfully.</value></data>
+  <data name="Locations.Deactivated" xml:space="preserve"><value>Location deactivated successfully.</value></data>
+  <data name="Locations.Deleted" xml:space="preserve"><value>Location deleted safely (soft-deactivated).</value></data>
+  <data name="Locations.DeleteConfirm" xml:space="preserve"><value>Delete this location after the safety checks?</value></data>
+  <data name="Locations.Deactivate" xml:space="preserve"><value>Deactivate location</value></data>
+  <data name="Locations.Activate" xml:space="preserve"><value>Activate location</value></data>
+  <data name="Locations.Parent" xml:space="preserve"><value>Parent location</value></data>
+  <data name="Locations.NoParent" xml:space="preserve"><value>No parent (root)</value></data>
+  <data name="Locations.HasParent" xml:space="preserve"><value>Nested</value></data>
+  <data name="Locations.Type" xml:space="preserve"><value>Location type</value></data>
+  <data name="Locations.AllTypes" xml:space="preserve"><value>All types</value></data>
+  <data name="Locations.AllWarehouses" xml:space="preserve"><value>All warehouses</value></data>
+  <data name="Locations.Barcode" xml:space="preserve"><value>Barcode</value></data>
+  <data name="Locations.Priority" xml:space="preserve"><value>Priority</value></data>
+  <data name="Locations.StorageProfile" xml:space="preserve"><value>Storage profile</value></data>
+  <data name="Locations.MaxUnits" xml:space="preserve"><value>Maximum units</value></data>
+  <data name="Locations.MaxWeightKg" xml:space="preserve"><value>Maximum weight (kg)</value></data>
+  <data name="Locations.MaxVolume" xml:space="preserve"><value>Maximum volume (m³)</value></data>
+  <data name="Locations.MaxPallets" xml:space="preserve"><value>Maximum pallets</value></data>
+  <data name="Locations.MaxLpns" xml:space="preserve"><value>Maximum LPNs</value></data>
+  <data name="Locations.MinTemperature" xml:space="preserve"><value>Minimum temperature (°C)</value></data>
+  <data name="Locations.MaxTemperature" xml:space="preserve"><value>Maximum temperature (°C)</value></data>
+  <data name="Locations.HazardClass" xml:space="preserve"><value>Hazard class</value></data>
+  <data name="Locations.AccessRestriction" xml:space="preserve"><value>Access restriction</value></data>
+  <data name="Locations.ConstraintAttributes" xml:space="preserve"><value>Constraint attributes (JSON)</value></data>
+  <data name="Locations.Capacity" xml:space="preserve"><value>Capacity</value></data>
+  <data name="Locations.CapacityAndConstraints" xml:space="preserve"><value>Capacity and constraints</value></data>
+  <data name="Locations.Countable" xml:space="preserve"><value>Countable location</value></data>
+  <data name="Locations.MixedItems" xml:space="preserve"><value>Allow mixed items</value></data>
+  <data name="Locations.MixedLots" xml:space="preserve"><value>Allow mixed lots</value></data>
+  <data name="Locations.IncludeInactive" xml:space="preserve"><value>Include inactive</value></data>
+  <data name="Locations.PageOf" xml:space="preserve"><value>Page {0} of {1}</value></data>
+  <data name="Locations.Hierarchy" xml:space="preserve"><value>Location hierarchy</value></data>
+  <data name="Locations.Children" xml:space="preserve"><value>Child locations</value></data>
+  <data name="Locations.NoChildren" xml:space="preserve"><value>No child locations found.</value></data>
+  <data name="Locations.Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Locations.Generate" xml:space="preserve"><value>Generate locations</value></data>
+  <data name="Locations.GenerateHelp" xml:space="preserve"><value>Generate a numbered batch under one validated parent. The whole batch succeeds or rolls back.</value></data>
+  <data name="Locations.CodePrefix" xml:space="preserve"><value>Code prefix</value></data>
+  <data name="Locations.NamePrefix" xml:space="preserve"><value>Name prefix</value></data>
+  <data name="Locations.StartNumber" xml:space="preserve"><value>Start number</value></data>
+  <data name="Locations.Count" xml:space="preserve"><value>Number of locations</value></data>
+  <data name="Locations.NumberWidth" xml:space="preserve"><value>Number width</value></data>
+  <data name="Locations.BulkGenerated" xml:space="preserve"><value>{0} locations generated successfully.</value></data>
+  <data name="Locations.Import" xml:space="preserve"><value>Import CSV</value></data>
+  <data name="Locations.ImportHelp" xml:space="preserve"><value>Upload a CSV or paste it below. Parent codes are resolved safely and imports are transactional.</value></data>
+  <data name="Locations.CsvFile" xml:space="preserve"><value>CSV file</value></data>
+  <data name="Locations.CsvText" xml:space="preserve"><value>CSV text</value></data>
+  <data name="Locations.Imported" xml:space="preserve"><value>{0} locations imported successfully.</value></data>
+  <data name="Locations.ImportTooLarge" xml:space="preserve"><value>The CSV file must not exceed 2 MB.</value></data>
+  <data name="Locations.Labels" xml:space="preserve"><value>Location labels</value></data>
+  <data name="Locations.NoLabels" xml:space="preserve"><value>No labels were selected.</value></data>
+  <data name="Locations.Type.Dock" xml:space="preserve"><value>Dock</value></data>
+  <data name="Locations.Type.Receiving" xml:space="preserve"><value>Receiving</value></data>
+  <data name="Locations.Type.Staging" xml:space="preserve"><value>Staging</value></data>
+  <data name="Locations.Type.Storage" xml:space="preserve"><value>Storage</value></data>
+  <data name="Locations.Type.Zone" xml:space="preserve"><value>Zone</value></data>
+  <data name="Locations.Type.Aisle" xml:space="preserve"><value>Aisle</value></data>
+  <data name="Locations.Type.Rack" xml:space="preserve"><value>Rack</value></data>
+  <data name="Locations.Type.Bin" xml:space="preserve"><value>Bin</value></data>
+  <data name="Locations.Type.PickFace" xml:space="preserve"><value>Pick face</value></data>
+  <data name="Locations.Type.Bulk" xml:space="preserve"><value>Bulk</value></data>
+  <data name="Locations.Type.Packing" xml:space="preserve"><value>Packing</value></data>
+  <data name="Locations.Type.Shipping" xml:space="preserve"><value>Shipping</value></data>
+  <data name="Locations.Type.Quarantine" xml:space="preserve"><value>Quarantine</value></data>
+  <data name="Locations.Type.Damaged" xml:space="preserve"><value>Damaged</value></data>
+  <data name="Locations.Type.Returns" xml:space="preserve"><value>Returns</value></data>
+  <data name="Locations.Type.Transit" xml:space="preserve"><value>Transit</value></data>
+  <data name="Locations.Type.Virtual" xml:space="preserve"><value>Virtual</value></data>
   <data name="Audit.Title" xml:space="preserve"><value>Audit log</value></data>
   <data name="Audit.Subtitle" xml:space="preserve"><value>Immutable security and warehouse activity history</value></data>
   <data name="Audit.AllWarehouses" xml:space="preserve"><value>All accessible warehouses</value></data>

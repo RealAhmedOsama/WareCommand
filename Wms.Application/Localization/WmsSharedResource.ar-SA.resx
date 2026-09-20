@@ -51,6 +51,10 @@
   <data name="Common.Total" xml:space="preserve"><value>الإجمالي</value></data>
   <data name="Common.System" xml:space="preserve"><value>النظام</value></data>
   <data name="Common.Delete" xml:space="preserve"><value>حذف</value></data>
+  <data name="Common.Print" xml:space="preserve"><value>طباعة</value></data>
+  <data name="Common.NotSet" xml:space="preserve"><value>غير محدد</value></data>
+  <data name="Common.Previous" xml:space="preserve"><value>السابق</value></data>
+  <data name="Common.Next" xml:space="preserve"><value>التالي</value></data>
   <data name="Nav.Dashboard" xml:space="preserve"><value>لوحة التحكم</value></data>
   <data name="Nav.Operations" xml:space="preserve"><value>العمليات</value></data>
   <data name="Nav.Receiving" xml:space="preserve"><value>الاستلام</value></data>
@@ -227,6 +231,77 @@
   <data name="Locations.ViewStock" xml:space="preserve"><value>عرض المخزون</value></data>
   <data name="Locations.NoSearchResults" xml:space="preserve"><value>حاول تعديل معايير البحث</value></data>
   <data name="Locations.FirstLocation" xml:space="preserve"><value>ابدأ بإضافة أول موقع</value></data>
+  <data name="Locations.CodeHelp" xml:space="preserve"><value>فريد داخل المستودع المحدد، ويتم توحيده إلى أحرف كبيرة.</value></data>
+  <data name="Locations.Updated" xml:space="preserve"><value>تم تحديث الموقع '{0}' بنجاح.</value></data>
+  <data name="Locations.Activated" xml:space="preserve"><value>تم تفعيل الموقع بنجاح.</value></data>
+  <data name="Locations.Deactivated" xml:space="preserve"><value>تم تعطيل الموقع بنجاح.</value></data>
+  <data name="Locations.Deleted" xml:space="preserve"><value>تم حذف الموقع بأمان (تعطيل منطقي).</value></data>
+  <data name="Locations.DeleteConfirm" xml:space="preserve"><value>هل تريد حذف الموقع بعد اجتياز فحوصات الأمان؟</value></data>
+  <data name="Locations.Deactivate" xml:space="preserve"><value>تعطيل الموقع</value></data>
+  <data name="Locations.Activate" xml:space="preserve"><value>تفعيل الموقع</value></data>
+  <data name="Locations.Parent" xml:space="preserve"><value>الموقع الأب</value></data>
+  <data name="Locations.NoParent" xml:space="preserve"><value>بدون أب (جذر)</value></data>
+  <data name="Locations.HasParent" xml:space="preserve"><value>متداخل</value></data>
+  <data name="Locations.Type" xml:space="preserve"><value>نوع الموقع</value></data>
+  <data name="Locations.AllTypes" xml:space="preserve"><value>كل الأنواع</value></data>
+  <data name="Locations.AllWarehouses" xml:space="preserve"><value>كل المستودعات</value></data>
+  <data name="Locations.Barcode" xml:space="preserve"><value>الباركود</value></data>
+  <data name="Locations.Priority" xml:space="preserve"><value>الأولوية</value></data>
+  <data name="Locations.StorageProfile" xml:space="preserve"><value>ملف التخزين</value></data>
+  <data name="Locations.MaxUnits" xml:space="preserve"><value>الحد الأقصى للوحدات</value></data>
+  <data name="Locations.MaxWeightKg" xml:space="preserve"><value>الحد الأقصى للوزن (كجم)</value></data>
+  <data name="Locations.MaxVolume" xml:space="preserve"><value>الحد الأقصى للحجم (م³)</value></data>
+  <data name="Locations.MaxPallets" xml:space="preserve"><value>الحد الأقصى للطبالي</value></data>
+  <data name="Locations.MaxLpns" xml:space="preserve"><value>الحد الأقصى للـ LPN</value></data>
+  <data name="Locations.MinTemperature" xml:space="preserve"><value>أدنى حرارة (°م)</value></data>
+  <data name="Locations.MaxTemperature" xml:space="preserve"><value>أقصى حرارة (°م)</value></data>
+  <data name="Locations.HazardClass" xml:space="preserve"><value>تصنيف الخطورة</value></data>
+  <data name="Locations.AccessRestriction" xml:space="preserve"><value>قيد الوصول</value></data>
+  <data name="Locations.ConstraintAttributes" xml:space="preserve"><value>خصائص القيود (JSON)</value></data>
+  <data name="Locations.Capacity" xml:space="preserve"><value>السعة</value></data>
+  <data name="Locations.CapacityAndConstraints" xml:space="preserve"><value>السعة والقيود</value></data>
+  <data name="Locations.Countable" xml:space="preserve"><value>موقع قابل للجرد</value></data>
+  <data name="Locations.MixedItems" xml:space="preserve"><value>السماح بأصناف مختلطة</value></data>
+  <data name="Locations.MixedLots" xml:space="preserve"><value>السماح بتشغيلات مختلطة</value></data>
+  <data name="Locations.IncludeInactive" xml:space="preserve"><value>تضمين غير النشط</value></data>
+  <data name="Locations.PageOf" xml:space="preserve"><value>صفحة {0} من {1}</value></data>
+  <data name="Locations.Hierarchy" xml:space="preserve"><value>هيكل المواقع</value></data>
+  <data name="Locations.Children" xml:space="preserve"><value>المواقع الفرعية</value></data>
+  <data name="Locations.NoChildren" xml:space="preserve"><value>لا توجد مواقع فرعية.</value></data>
+  <data name="Locations.Open" xml:space="preserve"><value>فتح</value></data>
+  <data name="Locations.Generate" xml:space="preserve"><value>توليد المواقع</value></data>
+  <data name="Locations.GenerateHelp" xml:space="preserve"><value>ولّد مجموعة مرقمة تحت أب تم التحقق منه. تنجح العملية كاملة أو يتم التراجع عنها.</value></data>
+  <data name="Locations.CodePrefix" xml:space="preserve"><value>بادئة الرمز</value></data>
+  <data name="Locations.NamePrefix" xml:space="preserve"><value>بادئة الاسم</value></data>
+  <data name="Locations.StartNumber" xml:space="preserve"><value>رقم البداية</value></data>
+  <data name="Locations.Count" xml:space="preserve"><value>عدد المواقع</value></data>
+  <data name="Locations.NumberWidth" xml:space="preserve"><value>عرض الرقم</value></data>
+  <data name="Locations.BulkGenerated" xml:space="preserve"><value>تم توليد {0} موقعاً بنجاح.</value></data>
+  <data name="Locations.Import" xml:space="preserve"><value>استيراد CSV</value></data>
+  <data name="Locations.ImportHelp" xml:space="preserve"><value>ارفع CSV أو الصقه أدناه. يتم حل رموز الآباء بأمان والاستيراد داخل معاملة واحدة.</value></data>
+  <data name="Locations.CsvFile" xml:space="preserve"><value>ملف CSV</value></data>
+  <data name="Locations.CsvText" xml:space="preserve"><value>نص CSV</value></data>
+  <data name="Locations.Imported" xml:space="preserve"><value>تم استيراد {0} موقعاً بنجاح.</value></data>
+  <data name="Locations.ImportTooLarge" xml:space="preserve"><value>يجب ألا يتجاوز ملف CSV حجم 2 ميجابايت.</value></data>
+  <data name="Locations.Labels" xml:space="preserve"><value>ملصقات المواقع</value></data>
+  <data name="Locations.NoLabels" xml:space="preserve"><value>لم يتم اختيار ملصقات.</value></data>
+  <data name="Locations.Type.Dock" xml:space="preserve"><value>رصيف</value></data>
+  <data name="Locations.Type.Receiving" xml:space="preserve"><value>استلام</value></data>
+  <data name="Locations.Type.Staging" xml:space="preserve"><value>تجهيز</value></data>
+  <data name="Locations.Type.Storage" xml:space="preserve"><value>تخزين</value></data>
+  <data name="Locations.Type.Zone" xml:space="preserve"><value>منطقة</value></data>
+  <data name="Locations.Type.Aisle" xml:space="preserve"><value>ممر</value></data>
+  <data name="Locations.Type.Rack" xml:space="preserve"><value>رف</value></data>
+  <data name="Locations.Type.Bin" xml:space="preserve"><value>خانة</value></data>
+  <data name="Locations.Type.PickFace" xml:space="preserve"><value>واجهة تجهيز</value></data>
+  <data name="Locations.Type.Bulk" xml:space="preserve"><value>سائب</value></data>
+  <data name="Locations.Type.Packing" xml:space="preserve"><value>تعبئة</value></data>
+  <data name="Locations.Type.Shipping" xml:space="preserve"><value>شحن</value></data>
+  <data name="Locations.Type.Quarantine" xml:space="preserve"><value>حجر</value></data>
+  <data name="Locations.Type.Damaged" xml:space="preserve"><value>تالف</value></data>
+  <data name="Locations.Type.Returns" xml:space="preserve"><value>مرتجعات</value></data>
+  <data name="Locations.Type.Transit" xml:space="preserve"><value>عبور</value></data>
+  <data name="Locations.Type.Virtual" xml:space="preserve"><value>افتراضي</value></data>
   <data name="Audit.Title" xml:space="preserve"><value>سجل التدقيق</value></data>
   <data name="Audit.Subtitle" xml:space="preserve"><value>سجل غير قابل للتعديل لأمن المستودع ونشاطه</value></data>
   <data name="Audit.AllWarehouses" xml:space="preserve"><value>كل المستودعات المتاحة</value></data>

@@ -1,3 +1,5 @@
+using Wms.Domain.Services;
+
 namespace Wms.Application.Common;
 
 public enum ErrorType
@@ -35,6 +37,11 @@ public static class WmsErrors
 
         for (var current = exception; current is not null; current = current.InnerException)
         {
+            if (current is LocationConstraintViolationException locationConstraint)
+            {
+                return Conflict(locationConstraint.Code, locationConstraint.Message);
+            }
+
             var exceptionType = current.GetType();
             if (exceptionType.Name == "DbUpdateConcurrencyException")
             {

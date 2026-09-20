@@ -1,0 +1,22 @@
+@model ImportLocationsViewModel
+@{
+    ViewData["Title"] = T["Locations.Import"];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-upload me-2 text-primary"></i>@T["Locations.Import"]</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Back"]</a>
+</div>
+
+<div class="row justify-content-center"><div class="col-xl-8"><div class="card border-0 shadow-sm"><div class="card-body">
+    <div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>@T["Locations.ImportHelp"]</div>
+    <form asp-action="Import" method="post" enctype="multipart/form-data">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="mb-3"><label asp-for="WarehouseId" class="form-label">@T["Field.Warehouse"]</label><select asp-for="WarehouseId" class="form-select"><option value="">@T["Locations.SelectWarehouse"]</option>@foreach (var warehouse in Model.Warehouses) { <option value="@warehouse.Id">@warehouse.Code — @warehouse.Name</option> }</select></div>
+        <div class="mb-3"><label asp-for="File" class="form-label">@T["Locations.CsvFile"]</label><input asp-for="File" class="form-control" type="file" accept=".csv,text/csv" /><span asp-validation-for="File" class="text-danger"></span></div>
+        <div class="mb-3"><label asp-for="Csv" class="form-label">@T["Locations.CsvText"]</label><textarea asp-for="Csv" class="form-control font-monospace" rows="8" placeholder="CODE,NAME,PARENT_CODE,TYPE,BARCODE,PRIORITY,IS_PICKABLE,IS_RECEIVABLE,IS_COUNTABLE,ALLOW_MIXED_ITEMS,ALLOW_MIXED_LOTS,MAX_UNITS,MAX_WEIGHT_KG,MAX_VOLUME_CUBIC_METERS,MAX_PALLETS,MAX_LPNS,STORAGE_PROFILE"></textarea></div>
+        <div class="d-flex justify-content-end gap-2"><a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Cancel"]</a><button class="btn btn-primary" type="submit"><i class="bi bi-upload me-1"></i>@T["Locations.Import"]</button></div>
+    </form>
+</div></div></div></div>
+
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

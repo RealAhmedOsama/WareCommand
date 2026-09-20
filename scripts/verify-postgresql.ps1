@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $false
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $testProject = Join-Path $repositoryRoot 'Wms.Infrastructure.Tests/Wms.Infrastructure.Tests.csproj'
 $previousConnectionString = $env:WARECOMMAND_TEST_POSTGRES_CONNECTION
@@ -32,8 +33,12 @@ try {
     Push-Location $repositoryRoot
     $locationPushed = $true
 
-    & docker container inspect $ContainerName 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) {
+    $existingContainers = @(& docker ps --all --format '{{.Names}}')
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to inspect Docker containers before PostgreSQL verification.'
+    }
+
+    if ($existingContainers -contains $ContainerName) {
         throw "Refusing to reuse or remove existing Docker container '$ContainerName'."
     }
 

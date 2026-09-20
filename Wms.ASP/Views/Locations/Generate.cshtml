@@ -1,0 +1,32 @@
+@model GenerateLocationsViewModel
+@{
+    ViewData["Title"] = T["Locations.Generate"];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-lightning-charge me-2 text-primary"></i>@T["Locations.Generate"]</h2>
+    <a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Back"]</a>
+</div>
+
+<div class="row justify-content-center"><div class="col-xl-8"><div class="card border-0 shadow-sm"><div class="card-body">
+    <div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>@T["Locations.GenerateHelp"]</div>
+    <form asp-action="Generate" method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="row g-3">
+            <div class="col-md-6"><label asp-for="WarehouseId" class="form-label">@T["Field.Warehouse"]</label><select asp-for="WarehouseId" class="form-select"><option value="">@T["Locations.SelectWarehouse"]</option>@foreach (var warehouse in Model.Warehouses) { <option value="@warehouse.Id">@warehouse.Code — @warehouse.Name</option> }</select></div>
+            <div class="col-md-6"><label asp-for="ParentLocationId" class="form-label">@T["Locations.Parent"]</label><select asp-for="ParentLocationId" class="form-select"><option value="">@T["Locations.NoParent"]</option>@foreach (var parent in Model.ParentLocations) { <option value="@parent.Id">@parent.FullPath — @parent.Name</option> }</select></div>
+            <div class="col-md-6"><label asp-for="CodePrefix" class="form-label">@T["Locations.CodePrefix"]</label><input asp-for="CodePrefix" class="form-control wms-identifier" /><span asp-validation-for="CodePrefix" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="NamePrefix" class="form-label">@T["Locations.NamePrefix"]</label><input asp-for="NamePrefix" class="form-control" /><span asp-validation-for="NamePrefix" class="text-danger"></span></div>
+            <div class="col-md-4"><label asp-for="StartNumber" class="form-label">@T["Locations.StartNumber"]</label><input asp-for="StartNumber" class="form-control" type="number" min="0" /></div>
+            <div class="col-md-4"><label asp-for="Count" class="form-label">@T["Locations.Count"]</label><input asp-for="Count" class="form-control" type="number" min="1" max="1000" /></div>
+            <div class="col-md-4"><label asp-for="NumberWidth" class="form-label">@T["Locations.NumberWidth"]</label><input asp-for="NumberWidth" class="form-control" type="number" min="1" max="20" /></div>
+            <div class="col-md-6"><label asp-for="Type" class="form-label">@T["Locations.Type"]</label><select asp-for="Type" class="form-select">@foreach (var type in Enum.GetValues<LocationType>()) { <option value="@type">@T[$"Locations.Type.{type}"]</option> }</select></div>
+            <div class="col-md-6"><label asp-for="MaxUnits" class="form-label">@T["Locations.MaxUnits"]</label><input asp-for="MaxUnits" class="form-control" type="number" min="0" step="0.0001" /></div>
+            <div class="col-12"><label asp-for="StorageProfile" class="form-label">@T["Locations.StorageProfile"]</label><input asp-for="StorageProfile" class="form-control" /></div>
+            <div class="col-12 d-flex flex-wrap gap-4"><div class="form-check form-switch"><input asp-for="IsPickable" class="form-check-input" /><label asp-for="IsPickable" class="form-check-label">@T["Locations.Pickable"]</label></div><div class="form-check form-switch"><input asp-for="IsReceivable" class="form-check-input" /><label asp-for="IsReceivable" class="form-check-label">@T["Locations.Receivable"]</label></div><div class="form-check form-switch"><input asp-for="IsCountable" class="form-check-input" /><label asp-for="IsCountable" class="form-check-label">@T["Locations.Countable"]</label></div><div class="form-check form-switch"><input asp-for="AllowMixedItems" class="form-check-input" /><label asp-for="AllowMixedItems" class="form-check-label">@T["Locations.MixedItems"]</label></div><div class="form-check form-switch"><input asp-for="AllowMixedLots" class="form-check-input" /><label asp-for="AllowMixedLots" class="form-check-label">@T["Locations.MixedLots"]</label></div></div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4"><a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Cancel"]</a><button class="btn btn-primary" type="submit"><i class="bi bi-lightning-charge me-1"></i>@T["Locations.Generate"]</button></div>
+    </form>
+</div></div></div></div>
+
+@section Scripts { @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); } }

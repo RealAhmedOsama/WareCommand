@@ -14,7 +14,10 @@ public static class WmsAuditActions
     public const string ItemDeactivated = "master.item.deactivated";
     public const string LocationCreated = "master.location.created";
     public const string LocationUpdated = "master.location.updated";
+    public const string LocationActivated = "master.location.activated";
     public const string LocationDeactivated = "master.location.deactivated";
+    public const string LocationBulkGenerated = "master.location.bulk_generated";
+    public const string LocationBulkImported = "master.location.bulk_imported";
     public const string WarehouseCreated = "master.warehouse.created";
     public const string WarehouseUpdated = "master.warehouse.updated";
     public const string WarehouseActivated = "master.warehouse.activated";
@@ -45,7 +48,10 @@ public static class WmsAuditActions
         ItemDeactivated,
         LocationCreated,
         LocationUpdated,
+        LocationActivated,
         LocationDeactivated,
+        LocationBulkGenerated,
+        LocationBulkImported,
         WarehouseCreated,
         WarehouseUpdated,
         WarehouseActivated,
