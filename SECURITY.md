@@ -50,6 +50,61 @@ The repository `.gitignore` covers runtime SQLite files, logs, local settings,
 coverage, test results, and generated artifacts. A pre-commit or CI secret scan
 is still required for release qualification.
 
+## Web request controls
+
+- All MVC state-changing actions receive the global
+  `AutoValidateAntiforgeryTokenAttribute`; mutation endpoints also declare the
+  attribute explicitly where the action contract is easy to audit. No current
+  MVC action opts out of antiforgery validation.
+- Responses receive a nonce-based Content Security Policy, clickjacking and
+  MIME-sniffing protection, a strict referrer policy, a restrictive
+  Permissions Policy, and Cross-Origin Opener Policy. Inline handlers and
+  inline styles are not used by the MVC views. The external Bootstrap Icons
+  stylesheet is the only explicitly allow-listed third-party asset.
+- HSTS is enabled outside Development. HTTPS redirection and forwarded-header
+  processing are deployment settings. Forwarded headers are trusted only when
+  `ForwardedHeaders:Enabled` is true and at least one valid
+  `ForwardedHeaders:KnownProxies` address is configured; malformed or empty
+  trusted-proxy configuration fails startup instead of trusting arbitrary
+  client headers.
+- Kestrel and form limits reject oversized requests. There are currently no
+  upload, import, scanning, or API endpoints in the Web host. Any future file
+  endpoint must add a narrow request limit, content-type and size validation,
+  server-generated storage names, path containment checks, and malware/content
+  inspection before it is enabled.
+- Fixed-window rate-limit policies are configured for all requests plus
+  authentication, password reset, reports, API, scanning, and import policy
+  names. Current MVC login/reset/report actions use the relevant policies;
+  future endpoints must opt into the matching named policy.
+- Mutation actions use explicit `[Bind]` allowlists and validation attributes.
+  Display-only fields such as current quantity, warehouse option lists, and
+  item metadata are excluded from mutation requests. Application use cases
+  perform the authoritative item, location, warehouse, and permission checks;
+  hidden form fields are never treated as authorization evidence.
+- Razor output remains encoded; SQL access goes through EF Core/query
+  repositories; local return URLs are checked with `Url.IsLocalUrl`; and the
+  current MVC surface does not use `Html.Raw` for request data.
+
+Rate-limit values and request limits are configured under `Security` in the
+host settings. Tune them per deployment and preserve the named policy
+boundaries when adding expensive operations.
+
+## Secrets and logging
+
+- Credentials, reset tokens, Data Protection keys, connection strings, SMTP
+  passwords, and bootstrap passwords belong in the .NET user-secrets store,
+  environment variables, mounted secret files, or the deployment secret
+  manager. They must not be placed in tracked settings, source, container
+  images, issue comments, or command history.
+- Authentication and operational logs use user IDs, stable identifiers, and
+  error codes where possible. They must never log passwords, reset tokens,
+  cookie values, connection-string passwords, security stamps, or full
+  authorization headers. Audit metadata is redacted before persistence and
+  must be treated as security-sensitive data.
+- The production example intentionally leaves forwarded-proxy trust disabled
+  until an operator supplies the real proxy address. Do not copy placeholder
+  values into a live environment.
+
 ## Database and migration controls
 
 - PostgreSQL schema changes are explicit and use checked-in EF migrations.
@@ -62,10 +117,16 @@ is still required for release qualification.
 
 ## Open security scope
 
-Tenant isolation, abuse controls, security headers, threat modeling, deep
-dependency scanning, and production secret rotation are not closed by the
-current local qualification. Treat the application as an internal development
-system until those gates are implemented and evidenced.
+The controls above are locally implemented and tested, but they do not replace
+an external security review. Remaining release gates include threat modeling,
+deep dependency/vulnerability scanning, deployment-specific proxy and HTTPS
+verification, production secret rotation, backup/restore rehearsal, and
+provider-specific qualification. Treat the application as an internal
+development system until those gates are implemented and evidenced.
 
-Report suspected vulnerabilities privately to the repository owner rather than
-publishing credentials or exploit details in a public issue.
+Report suspected vulnerabilities privately through the repository's
+[GitHub Security Advisory form](https://github.com/RealAhmedOsama/Warehouse-Management-System/security/advisories/new)
+or directly to the repository owner. Do not publish credentials, reset tokens,
+personal data, or an uncoordinated exploit in a public issue. Include the
+affected revision, a minimal reproduction, impact, and any safe mitigation
+when disclosure will not expose sensitive data.

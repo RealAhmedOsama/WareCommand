@@ -35,8 +35,11 @@ public class ReceivingController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [Authorize(Policy = WmsPermissions.ReceivingExecute)]
-    public async Task<IActionResult> Receive(ReceivingViewModel model)
+    public async Task<IActionResult> Receive(
+        [Bind("ItemSku,LocationCode,Quantity,LotNumber,SerialNumber,ReferenceNumber,Notes")]
+        ReceivingViewModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -82,8 +85,11 @@ public class ReceivingController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     [Authorize(Policy = WmsPermissions.PutawayExecute)]
-    public async Task<IActionResult> Putaway(PutawayViewModel model)
+    public async Task<IActionResult> Putaway(
+        [Bind("ItemSku,FromLocationCode,ToLocationCode,Quantity,LotNumber,SerialNumber,Notes")]
+        PutawayViewModel model)
     {
         if (!ModelState.IsValid)
         {

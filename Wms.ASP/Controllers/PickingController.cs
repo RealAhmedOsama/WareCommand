@@ -29,7 +29,10 @@ public class PickingController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> Pick(PickingViewModel model)
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Pick(
+        [Bind("ItemSku,LocationCode,Quantity,OrderNumber,LotNumber,SerialNumber,Notes")]
+        PickingViewModel model)
     {
         if (!ModelState.IsValid)
         {

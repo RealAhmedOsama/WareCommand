@@ -676,3 +676,11 @@ code {
     color: #6c757d !important;
   }
 }
+
+.footer-attribution {
+  color: #fff;
+}
+
+.footer-heart {
+  color: #f00;
+}

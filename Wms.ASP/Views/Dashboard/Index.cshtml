@@ -188,7 +188,7 @@
 </div>
 
 @section Scripts {
-    <script>
+    <script nonce="@Context.Items[SecurityHeadersMiddleware.ContentSecurityPolicyNonceItem]">
         $(document).ready(function() {
             $('#refreshBtn').click(function() {
                 window.location.reload();

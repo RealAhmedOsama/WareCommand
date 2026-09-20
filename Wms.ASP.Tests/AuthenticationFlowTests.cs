@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Wms.ASP.Security;
 using Xunit;
 
 namespace Wms.ASP.Tests;
@@ -21,6 +23,88 @@ public sealed class AuthenticationFlowTests(WareCommandWebApplicationFactory fac
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/Account/Login", response.Headers.Location?.AbsolutePath);
         Assert.Contains("ReturnUrl", response.Headers.Location?.Query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task StateChangingLoginRequiresAnAntiforgeryToken()
+    {
+        using var client = CreateClient();
+
+        using var response = await client.PostAsync(
+            "/Account/Login",
+            Form(new Dictionary<string, string>
+            {
+                ["UserName"] = "operator",
+                ["Password"] = CurrentPassword
+            }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SecurityHeadersAndAccountCachePolicyAreApplied()
+    {
+        using var client = CreateClient();
+
+        using var response = await client.GetAsync("/Account/Login");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        AssertHeaderContains(response, "Content-Security-Policy", "default-src 'self'");
+        AssertHeaderContains(response, "Content-Security-Policy", "frame-ancestors 'none'");
+        AssertHeaderContains(response, "Content-Security-Policy", "'nonce-");
+        AssertHeaderContains(response, "X-Content-Type-Options", "nosniff");
+        AssertHeaderContains(response, "X-Frame-Options", "DENY");
+        AssertHeaderContains(response, "Referrer-Policy", "strict-origin-when-cross-origin");
+        AssertHeaderContains(response, "Permissions-Policy", "camera=()");
+        AssertHeaderContains(response, "Cache-Control", "no-store");
+        AssertHeaderContains(response, "Pragma", "no-cache");
+    }
+
+    [Fact]
+    public async Task ExternalLoginReturnUrlFallsBackToDashboard()
+    {
+        var user = await factory.CreateUserAsync();
+        using var client = CreateClient();
+
+        using var login = await PostLoginAsync(
+            client,
+            user.UserName!,
+            CurrentPassword,
+            returnUrl: "https://evil.example/account");
+
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+        Assert.Equal("/", GetPath(login.Headers.Location));
+    }
+
+    [Fact]
+    public async Task AuthenticationRateLimitReturnsRetryAfterWhenExhausted()
+    {
+        using var limitedFactory = new WareCommandWebApplicationFactory
+        {
+            AuthenticationPermitLimitOverride = 1
+        };
+        var user = await limitedFactory.CreateUserAsync();
+        Assert.Equal(
+            1,
+            limitedFactory.Services.GetRequiredService<WmsSecurityOptions>()
+                .RateLimiting.AuthenticationPermitLimit);
+        using var client = limitedFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+
+        using var firstAttempt = await PostLoginAsync(client, user.UserName!, CurrentPassword);
+        Assert.Equal(HttpStatusCode.Redirect, firstAttempt.StatusCode);
+
+        using var secondClient = limitedFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false,
+            HandleCookies = true
+        });
+        using var secondAttempt = await PostLoginAsync(secondClient, user.UserName!, CurrentPassword);
+        Assert.Equal(HttpStatusCode.TooManyRequests, secondAttempt.StatusCode);
+        Assert.True(secondAttempt.Headers.Contains("Retry-After"));
     }
 
     [Fact]
@@ -146,18 +230,35 @@ public sealed class AuthenticationFlowTests(WareCommandWebApplicationFactory fac
         HttpClient client,
         string userName,
         string password,
-        bool rememberMe = false)
+        bool rememberMe = false,
+        string? returnUrl = null)
     {
         var token = await GetAntiForgeryTokenAsync(client, "/Account/Login");
+        var values = new Dictionary<string, string>
+        {
+            ["UserName"] = userName,
+            ["Password"] = password,
+            ["RememberMe"] = rememberMe ? "true" : "false",
+            ["__RequestVerificationToken"] = token
+        };
+
+        if (returnUrl is not null)
+        {
+            values["ReturnUrl"] = returnUrl;
+        }
+
         return await client.PostAsync(
             "/Account/Login",
-            Form(new Dictionary<string, string>
-            {
-                ["UserName"] = userName,
-                ["Password"] = password,
-                ["RememberMe"] = rememberMe ? "true" : "false",
-                ["__RequestVerificationToken"] = token
-            }));
+            Form(values));
+    }
+
+    private static void AssertHeaderContains(
+        HttpResponseMessage response,
+        string headerName,
+        string expectedValue)
+    {
+        Assert.True(response.Headers.TryGetValues(headerName, out var values), $"Missing {headerName} header.");
+        Assert.Contains(expectedValue, string.Join(";", values!), StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<string> GetAntiForgeryTokenAsync(HttpClient client, string path)

@@ -48,10 +48,21 @@ and Data Protection keys. Do not use it for a production rollback.
 The image is HTTP-only on its internal 8080 port. In production, terminate
 HTTPS at a managed reverse proxy, forward `X-Forwarded-For` and
 `X-Forwarded-Proto`, set `ForwardedHeaders:Enabled=true`, and configure only
-the proxy addresses in `ForwardedHeaders:KnownProxies`. The proxy must enforce
-the external HTTPS policy; do not bake certificates or private keys into the
-image. If the application terminates TLS directly, provide the certificate
-through the platform secret store and configure a separate HTTPS endpoint.
+the proxy addresses in `ForwardedHeaders:KnownProxies`. The host refuses to
+start when forwarded-header processing is enabled without valid trusted proxy
+addresses, and it accepts only one symmetric forwarded-header hop. The proxy
+must enforce the external HTTPS policy; do not bake certificates or private
+keys into the image. If the application terminates TLS directly, provide the
+certificate through the platform secret store and configure a separate HTTPS
+endpoint. HSTS is emitted by the host outside Development.
+
+The production example keeps forwarded-header processing disabled until the
+operator supplies the actual proxy addresses. Set the production `Security`
+limits and named rate-limit values deliberately for the deployment; do not
+widen them to compensate for an unbounded client or report workload.
+For the Compose baseline, set `WARECOMMAND_FORWARDED_HEADERS_ENABLED=true`
+and `WARECOMMAND_FORWARDED_HEADERS_PROXY` to the reverse proxy address
+together; enabling the flag without the address intentionally fails startup.
 
 Keep `/var/lib/warecommand/keys` on persistent protected storage. Losing this
 directory invalidates encrypted cookies and other Data Protection payloads.

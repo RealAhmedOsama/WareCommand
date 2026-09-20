@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.ASP.Identity;
 using Wms.ASP.Models;
+using Wms.ASP.Security;
 using Wms.Infrastructure.Identity;
 
 namespace Wms.ASP.Controllers;
@@ -36,7 +38,9 @@ public sealed class AccountController(
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Login(LoginViewModel model)
+    [EnableRateLimiting(WmsRateLimitPolicies.Authentication)]
+    public async Task<IActionResult> Login(
+        [Bind("UserName,Password,RememberMe,ReturnUrl")] LoginViewModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -136,7 +140,9 @@ public sealed class AccountController(
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
+    [EnableRateLimiting(WmsRateLimitPolicies.PasswordReset)]
+    public async Task<IActionResult> ForgotPassword(
+        [Bind("Email")] ForgotPasswordViewModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -205,7 +211,9 @@ public sealed class AccountController(
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+    [EnableRateLimiting(WmsRateLimitPolicies.PasswordReset)]
+    public async Task<IActionResult> ResetPassword(
+        [Bind("UserId,Code,Password,ConfirmPassword")] ResetPasswordViewModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -253,7 +261,8 @@ public sealed class AccountController(
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Manage(ChangePasswordViewModel model)
+    public async Task<IActionResult> Manage(
+        [Bind("CurrentPassword,NewPassword,ConfirmPassword")] ChangePasswordViewModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -312,7 +321,9 @@ public sealed class AccountController(
     [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateUser(CreateUserViewModel model)
+    public async Task<IActionResult> CreateUser(
+        [Bind("UserName,Email,DisplayName,EmployeeCode,Locale,TimeZone,Password,ConfirmPassword")]
+        CreateUserViewModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -405,7 +416,9 @@ public sealed class AccountController(
     [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Access(ManageAccessViewModel model)
+    public async Task<IActionResult> Access(
+        [Bind("UserId,RoleNames,PermissionNames,WarehouseIds,DefaultWarehouseId")]
+        ManageAccessViewModel model)
     {
         var profile = await userAccessDirectory.GetProfileAsync(model.UserId);
         if (profile is null)

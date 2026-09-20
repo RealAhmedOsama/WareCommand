@@ -101,7 +101,7 @@
                         <!-- Action Buttons -->
                         <div class="col-12 pt-3">
                             <div class="d-flex gap-2 justify-content-end">
-                                <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                                <button type="button" class="btn btn-outline-secondary" data-clear-form data-focus-field="OrderNumber">
                                     <i class="bi bi-arrow-clockwise me-1"></i>
                                     Clear
                                 </button>
@@ -146,7 +146,7 @@
 
 @section Scripts {
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
-    <script>
+    <script nonce="@Context.Items[SecurityHeadersMiddleware.ContentSecurityPolicyNonceItem]">
         function clearForm() {
             $('form')[0].reset();
             $('#OrderNumber').focus();

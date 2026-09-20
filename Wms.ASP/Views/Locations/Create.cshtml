@@ -129,7 +129,7 @@
 
 @section Scripts {
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
-    <script>
+    <script nonce="@Context.Items[SecurityHeadersMiddleware.ContentSecurityPolicyNonceItem]">
         $(document).ready(function() {
             // Generate location code based on name
             $('#Name').on('input', function() {

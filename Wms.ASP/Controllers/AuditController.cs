@@ -2,9 +2,11 @@ using System.Globalization;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Auditing;
 using Wms.Application.Identity;
 using Wms.ASP.Models;
+using Wms.ASP.Security;
 
 namespace Wms.ASP.Controllers;
 
@@ -15,6 +17,7 @@ public sealed class AuditController(
     ILogger<AuditController> logger) : Controller
 {
     [HttpGet]
+    [EnableRateLimiting(WmsRateLimitPolicies.Report)]
     public async Task<IActionResult> Index(AuditLogViewModel model, CancellationToken cancellationToken)
     {
         model.Page = Math.Max(model.Page, 1);
@@ -51,6 +54,7 @@ public sealed class AuditController(
     }
 
     [HttpGet]
+    [EnableRateLimiting(WmsRateLimitPolicies.Report)]
     public async Task<IActionResult> Export(AuditLogViewModel model, CancellationToken cancellationToken)
     {
         const int pageSize = 200;

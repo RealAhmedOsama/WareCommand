@@ -3,12 +3,14 @@ using System.Net;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Wms.Application.DependencyInjection;
 using Wms.ASP.Health;
 using Wms.ASP.Identity;
 using Wms.ASP.Middleware;
+using Wms.ASP.Security;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
 using Wms.Infrastructure.Identity;
@@ -35,8 +37,12 @@ public class Program
         ConfigureHost(builder);
         ConfigureDataProtection(builder);
         ConfigureForwardedHeaders(builder);
+        builder.AddWmsSecurity();
 
-        builder.Services.AddControllersWithViews();
+        builder.Services.AddControllersWithViews(options =>
+        {
+            options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+        });
         builder.Services.AddWmsInfrastructure(
             connectionString,
             databaseProvider);
@@ -52,15 +58,15 @@ public class Program
         await InitializeDatabaseAsync(app.Services, seedProfile);
         await InitializeIdentityAsync(app.Services);
 
+        if (builder.Configuration.GetValue("ForwardedHeaders:Enabled", false))
+        {
+            app.UseForwardedHeaders();
+        }
+
         if (!app.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/Home/Error");
             app.UseHsts();
-        }
-
-        if (builder.Configuration.GetValue("ForwardedHeaders:Enabled", false))
-        {
-            app.UseForwardedHeaders();
         }
 
         if (builder.Configuration.GetValue("HttpsRedirection:Enabled", true))
@@ -68,8 +74,10 @@ public class Program
             app.UseHttpsRedirection();
         }
 
+        app.UseMiddleware<SecurityHeadersMiddleware>();
         app.UseStaticFiles();
         app.UseRouting();
+        app.UseRateLimiter();
         app.UseMiddleware<WmsRequestContextMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
@@ -129,24 +137,45 @@ public class Program
             return;
         }
 
+        var configuredProxyValues = builder.Configuration
+            .GetSection("ForwardedHeaders:KnownProxies")
+            .GetChildren()
+            .Select(section => section.Value)
+            .Concat((builder.Configuration["ForwardedHeaders:KnownProxies"] ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (configuredProxyValues.Length == 0)
+        {
+            throw new InvalidOperationException(
+                "ForwardedHeaders:Enabled requires at least one trusted ForwardedHeaders:KnownProxies address.");
+        }
+
+        var parsedProxies = new List<IPAddress>();
+        foreach (var configuredProxy in configuredProxyValues)
+        {
+            if (!IPAddress.TryParse(configuredProxy, out var proxyAddress))
+            {
+                throw new InvalidOperationException(
+                    $"ForwardedHeaders:KnownProxies contains an invalid IP address '{configuredProxy}'.");
+            }
+
+            parsedProxies.Add(proxyAddress);
+        }
+
         builder.Services.Configure<ForwardedHeadersOptions>(options =>
         {
             options.ForwardedHeaders =
                 ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.ForwardLimit = 1;
+            options.RequireHeaderSymmetry = true;
 
-            var configuredProxies = builder.Configuration
-                .GetSection("ForwardedHeaders:KnownProxies")
-                .GetChildren()
-                .Select(section => section.Value)
-                .Concat((builder.Configuration["ForwardedHeaders:KnownProxies"] ?? string.Empty)
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-
-            foreach (var configuredProxy in configuredProxies.Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var proxyAddress in parsedProxies)
             {
-                if (IPAddress.TryParse(configuredProxy, out var proxyAddress))
-                {
-                    options.KnownProxies.Add(proxyAddress);
-                }
+                options.KnownProxies.Add(proxyAddress);
             }
         });
     }

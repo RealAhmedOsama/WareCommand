@@ -113,7 +113,7 @@
 
 @section Scripts {
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
-    <script>
+    <script nonce="@Context.Items[SecurityHeadersMiddleware.ContentSecurityPolicyNonceItem]">
         $(document).ready(function() {
             const currentQuantity = parseFloat(@Model.CurrentQuantity);
             

@@ -79,7 +79,9 @@ public class LocationsController : Controller
 
     [HttpPost]
     [Authorize(Policy = WmsPermissions.LocationsManage)]
-    public async Task<IActionResult> Create(CreateLocationViewModel model)
+    public async Task<IActionResult> Create(
+        [Bind("Code,Name,WarehouseId,IsPickable,IsReceivable,Capacity")]
+        CreateLocationViewModel model)
     {
         if (!ModelState.IsValid)
         {

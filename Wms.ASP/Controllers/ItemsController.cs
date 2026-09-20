@@ -68,7 +68,9 @@ public class ItemsController : Controller
 
     [HttpPost]
     [Authorize(Policy = WmsPermissions.ItemsManage)]
-    public async Task<IActionResult> Create(CreateItemViewModel model)
+    public async Task<IActionResult> Create(
+        [Bind("Sku,Name,Description,UnitOfMeasure,RequiresLot,RequiresSerial,Barcode")]
+        CreateItemViewModel model)
     {
         if (!ModelState.IsValid)
         {
@@ -156,7 +158,8 @@ public class ItemsController : Controller
 
     [HttpPost]
     [Authorize(Policy = WmsPermissions.ItemsManage)]
-    public async Task<IActionResult> Edit(EditItemViewModel model)
+    public async Task<IActionResult> Edit(
+        [Bind("Id,Name,Description,Barcode")] EditItemViewModel model)
     {
         if (!ModelState.IsValid)
         {

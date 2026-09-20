@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -21,6 +22,8 @@ public sealed class WareCommandWebApplicationFactory : WebApplicationFactory<Wms
 
     public string DataProtectionPath => Path.Combine(_root, "keys");
 
+    public int? AuthenticationPermitLimitOverride { get; set; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         Directory.CreateDirectory(_root);
@@ -30,9 +33,15 @@ public sealed class WareCommandWebApplicationFactory : WebApplicationFactory<Wms
         builder.UseSetting("ConnectionStrings:DefaultConnection", $"Data Source={DatabasePath}");
         builder.UseSetting("Wms:DatabaseProvider", "Sqlite");
         builder.UseSetting("Wms:SeedProfile", "None");
+        if (AuthenticationPermitLimitOverride.HasValue)
+        {
+            builder.UseSetting(
+                "Security:RateLimiting:AuthenticationPermitLimit",
+                AuthenticationPermitLimitOverride.Value.ToString(CultureInfo.InvariantCulture));
+        }
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            var settings = new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = $"Data Source={DatabasePath}",
                 ["Wms:DatabaseProvider"] = "Sqlite",
@@ -42,7 +51,15 @@ public sealed class WareCommandWebApplicationFactory : WebApplicationFactory<Wms
                 ["HttpsRedirection:Enabled"] = "false",
                 ["DataProtection:KeyDirectory"] = DataProtectionPath,
                 ["AllowedHosts"] = "*"
-            });
+            };
+
+            if (AuthenticationPermitLimitOverride.HasValue)
+            {
+                settings["Security:RateLimiting:AuthenticationPermitLimit"] =
+                    AuthenticationPermitLimitOverride.Value.ToString(CultureInfo.InvariantCulture);
+            }
+
+            configuration.AddInMemoryCollection(settings);
         });
     }
 

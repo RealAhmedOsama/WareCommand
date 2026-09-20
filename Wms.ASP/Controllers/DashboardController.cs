@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Identity;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Reports;
 using Wms.ASP.Models;
+using Wms.ASP.Security;
 
 namespace Wms.ASP.Controllers;
 
@@ -28,6 +30,7 @@ public class DashboardController : Controller
         _logger = logger;
     }
 
+    [EnableRateLimiting(WmsRateLimitPolicies.Report)]
     public async Task<IActionResult> Index()
     {
         var model = new DashboardViewModel();

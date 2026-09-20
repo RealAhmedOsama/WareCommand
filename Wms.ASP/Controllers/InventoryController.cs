@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Identity;
 using Wms.Application.UseCases.Inventory;
 using Wms.ASP.Models;
+using Wms.ASP.Security;
 
 namespace Wms.ASP.Controllers;
 
@@ -26,6 +28,7 @@ public class InventoryController : Controller
         _logger = logger;
     }
 
+    [EnableRateLimiting(WmsRateLimitPolicies.Report)]
     public async Task<IActionResult> Index(string? searchTerm, bool showSummary = false)
     {
         try
@@ -89,7 +92,8 @@ public class InventoryController : Controller
 
     [HttpPost]
     [Authorize(Policy = WmsPermissions.InventoryAdjust)]
-    public async Task<IActionResult> Adjust(StockAdjustmentViewModel model)
+    public async Task<IActionResult> Adjust(
+        [Bind("ItemSku,LocationCode,NewQuantity,Reason")] StockAdjustmentViewModel model)
     {
         if (!ModelState.IsValid)
         {
