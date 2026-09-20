@@ -1,9 +1,11 @@
 // Wms.Infrastructure.Tests/Services/StockMovementServiceTests.cs
 
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.SerialNumbers;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Services;
@@ -14,6 +16,7 @@ using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
+using Wms.Infrastructure.SerialNumbers;
 
 namespace Wms.Infrastructure.Tests.Services;
 
@@ -46,13 +49,19 @@ public class StockMovementServiceTests : IDisposable
             new SystemClock(),
             new WmsRequestContext("Test"),
             new WmsWarehouseContext());
+        var serialNumberService = new SerialNumberService(
+            unitOfWork,
+            auditWriter,
+            new SystemClock(),
+            NullLogger<SerialNumberService>.Instance);
         _service = new StockMovementService(
             unitOfWork,
             mockLogger.Object,
             auditWriter,
             new WmsRequestContext("Test"),
             new WmsOperationContextAccessor(),
-            new SystemClock());
+            new SystemClock(),
+            serialNumberService);
 
         // Setup test data
         _warehouse = new Warehouse("TEST", "Test Warehouse");
@@ -346,19 +355,24 @@ public class StockMovementServiceTests : IDisposable
         // Arrange
         var quantity = new Quantity(1.0m);
         var serialNumber = "SN-12345";
+        var serialItem = new Item("SERIAL-001", "Serial widget", "EA", requiresSerial: true);
+        _context.Items.Add(serialItem);
+        await _context.SaveChangesAsync();
 
         // Act
         var movement =
-            await _service.ReceiveAsync(_item.Id, _location.Id, quantity, "USER1", serialNumber: serialNumber);
+            await _service.ReceiveAsync(serialItem.Id, _location.Id, quantity, "USER1", serialNumber: serialNumber);
         await _context.SaveChangesAsync(); // Save changes to persist data
 
         // Assert
         movement.SerialNumber.Should().Be(serialNumber);
 
         var stock = await _context.Stock.FirstOrDefaultAsync(s =>
-            s.ItemId == _item.Id && s.LocationId == _location.Id && s.SerialNumber == serialNumber);
+            s.ItemId == serialItem.Id && s.LocationId == _location.Id && s.SerialNumber == serialNumber);
         stock.Should().NotBeNull();
         stock!.SerialNumber.Should().Be(serialNumber);
+        stock.SerialNumberId.Should().NotBeNull();
+        movement.SerialNumberId.Should().Be(stock.SerialNumberId);
     }
 
     [Fact]

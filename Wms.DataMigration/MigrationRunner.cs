@@ -27,6 +27,11 @@ public sealed class MigrationRunner
             var source = await new SqliteSourceReader(sourcePath).ReadAsync(cancellationToken);
             sourceSummary = source.Summary;
             validationErrors.AddRange(source.ValidationErrors);
+            if (source.LegacySerialConflicts.Count > 0)
+            {
+                warnings.Add(
+                    $"{source.LegacySerialConflicts.Count} legacy serial rows were preserved in the serial migration conflict report and require reconciliation.");
+            }
 
             if (validationErrors.Count > 0)
             {

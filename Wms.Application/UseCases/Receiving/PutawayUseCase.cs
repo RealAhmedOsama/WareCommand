@@ -151,7 +151,11 @@ public class PutawayUseCase : IPutawayUseCase
 
             // Validate stock exists in from location using the requested lot identity.
             var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-                item.Id, fromLocation.Id, lotId, request.SerialNumber, cancellationToken);
+                item.Id,
+                fromLocation.Id,
+                lotId,
+                request.SerialNumber,
+                cancellationToken: cancellationToken);
 
             if (stock == null)
                 return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(

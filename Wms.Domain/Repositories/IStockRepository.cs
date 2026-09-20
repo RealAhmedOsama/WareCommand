@@ -11,7 +11,8 @@ public interface IStockRepository : IRepository<Stock>
     Task<IEnumerable<Stock>> GetByLocationIdAsync(int locationId, CancellationToken cancellationToken = default);
 
     Task<Stock?> GetByItemAndLocationAsync(int itemId, int locationId, int? lotId = null,
-        string? serialNumber = null, CancellationToken cancellationToken = default);
+        string? serialNumber = null, int? serialNumberId = null,
+        CancellationToken cancellationToken = default);
 
     Task<IEnumerable<Stock>> GetByItemAndLocationCandidatesAsync(
         int itemId,
@@ -21,6 +22,10 @@ public interface IStockRepository : IRepository<Stock>
 
     Task<IEnumerable<Stock>> GetByLotIdAsync(
         int lotId,
+        CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<Stock>> GetBySerialNumberIdAsync(
+        int serialNumberId,
         CancellationToken cancellationToken = default);
 
     Task<IEnumerable<Stock>> GetAvailableStockAsync(int itemId, CancellationToken cancellationToken = default);

@@ -12,6 +12,8 @@ internal static class PostgreSqlTargetWriter
         "Warehouses",
         "Locations",
         "Lots",
+        "SerialNumbers",
+        "SerialNumberMigrationConflicts",
         "Stock",
         "Movements"
     ];
@@ -176,6 +178,65 @@ internal static class PostgreSqlTargetWriter
                 ("UpdatedAt", row.UpdatedAt));
         }
 
+        foreach (var row in source.LegacySerialNumbers)
+        {
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                INSERT INTO "SerialNumbers" ("Number", "ItemId", "LotId", "CurrentWarehouseId", "CurrentLocationId", "Status", "StatusReason", "HasMigrationConflict", "ConflictReason", "LastMovedAt", "CreatedAt")
+                VALUES (@Number, @ItemId, @LotId, @CurrentWarehouseId, @CurrentLocationId, @Status, @StatusReason, @HasMigrationConflict, @ConflictReason, @LastMovedAt, @CreatedAt)
+                ON CONFLICT ("ItemId", "Number") DO UPDATE SET
+                    "LotId" = EXCLUDED."LotId",
+                    "CurrentWarehouseId" = EXCLUDED."CurrentWarehouseId",
+                    "CurrentLocationId" = EXCLUDED."CurrentLocationId",
+                    "Status" = EXCLUDED."Status",
+                    "StatusReason" = EXCLUDED."StatusReason",
+                    "HasMigrationConflict" = EXCLUDED."HasMigrationConflict",
+                    "ConflictReason" = EXCLUDED."ConflictReason",
+                    "LastMovedAt" = EXCLUDED."LastMovedAt",
+                    "CreatedAt" = EXCLUDED."CreatedAt";
+                """,
+                cancellationToken,
+                ("Number", row.Number),
+                ("ItemId", row.ItemId),
+                ("LotId", row.LotId),
+                ("CurrentWarehouseId", row.CurrentWarehouseId),
+                ("CurrentLocationId", row.CurrentLocationId),
+                ("Status", row.Status),
+                ("StatusReason", row.StatusReason),
+                ("HasMigrationConflict", row.HasMigrationConflict),
+                ("ConflictReason", row.ConflictReason),
+                ("LastMovedAt", row.LastMovedAt),
+                ("CreatedAt", row.CreatedAt));
+        }
+
+        foreach (var row in source.LegacySerialConflicts)
+        {
+            await ExecuteAsync(
+                connection,
+                transaction,
+                """
+                INSERT INTO "SerialNumberMigrationConflicts" ("ItemId", "Number", "SourceType", "SourceId", "Reason", "CreatedAt")
+                SELECT @ItemId, @Number, @SourceType, @SourceId, @Reason, @CreatedAt
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM "SerialNumberMigrationConflicts" existing
+                    WHERE existing."ItemId" = @ItemId
+                      AND existing."Number" = @Number
+                      AND existing."SourceType" = @SourceType
+                      AND existing."SourceId" IS NOT DISTINCT FROM @SourceId
+                );
+                """,
+                cancellationToken,
+                ("ItemId", row.ItemId),
+                ("Number", row.Number),
+                ("SourceType", row.SourceType),
+                ("SourceId", row.SourceId),
+                ("Reason", row.Reason),
+                ("CreatedAt", row.CreatedAt));
+        }
+
         foreach (var row in source.Stock)
         {
             await ExecuteAsync(
@@ -199,7 +260,7 @@ internal static class PostgreSqlTargetWriter
                 ("ItemId", row.ItemId),
                 ("LocationId", row.LocationId),
                 ("LotId", row.LotId),
-                ("SerialNumber", row.SerialNumber),
+                ("SerialNumber", NormalizeLegacySerial(row.SerialNumber)),
                 ("QuantityAvailable", row.QuantityAvailable),
                 ("QuantityReserved", row.QuantityReserved),
                 ("CreatedAt", row.CreatedAt),
@@ -236,7 +297,7 @@ internal static class PostgreSqlTargetWriter
                 ("FromLocationId", row.FromLocationId),
                 ("ToLocationId", row.ToLocationId),
                 ("LotId", row.LotId),
-                ("SerialNumber", row.SerialNumber),
+                ("SerialNumber", NormalizeLegacySerial(row.SerialNumber)),
                 ("Quantity", row.Quantity),
                 ("UserId", row.UserId),
                 ("ReferenceNumber", row.ReferenceNumber),
@@ -245,6 +306,28 @@ internal static class PostgreSqlTargetWriter
                 ("CreatedAt", row.CreatedAt),
                 ("UpdatedAt", row.UpdatedAt));
         }
+
+        await ExecuteAsync(
+            connection,
+            transaction,
+            """
+            UPDATE "Stock" s
+            SET "SerialNumberId" = serial."Id"
+            FROM "SerialNumbers" serial
+            WHERE s."SerialNumber" IS NOT NULL
+              AND serial."ItemId" = s."ItemId"
+              AND serial."Number" = left(upper(btrim(s."SerialNumber")), 100)
+              AND serial."HasMigrationConflict" = FALSE;
+
+            UPDATE "Movements" m
+            SET "SerialNumberId" = serial."Id"
+            FROM "SerialNumbers" serial
+            WHERE m."SerialNumber" IS NOT NULL
+              AND serial."ItemId" = m."ItemId"
+              AND serial."Number" = left(upper(btrim(m."SerialNumber")), 100)
+              AND serial."HasMigrationConflict" = FALSE;
+            """,
+            cancellationToken);
 
         foreach (var table in IdentityTables)
         {
@@ -262,7 +345,7 @@ internal static class PostgreSqlTargetWriter
         CancellationToken cancellationToken)
     {
         var rowCounts = new Dictionary<string, long>(StringComparer.Ordinal);
-        foreach (var table in new[] { "Items", "ItemBarcodes", "Warehouses", "Locations", "Lots", "Stock", "Movements" })
+        foreach (var table in new[] { "Items", "ItemBarcodes", "Warehouses", "Locations", "Lots", "SerialNumbers", "SerialNumberMigrationConflicts", "Stock", "Movements" })
         {
             rowCounts[table] = await ReadInt64Async(
                 connection,
@@ -288,8 +371,10 @@ internal static class PostgreSqlTargetWriter
             ["orphan item barcodes"] = "SELECT COUNT(*) FROM \"ItemBarcodes\" b LEFT JOIN \"Items\" i ON i.\"Id\" = b.\"ItemId\" WHERE i.\"Id\" IS NULL;",
             ["orphan locations"] = "SELECT COUNT(*) FROM \"Locations\" l LEFT JOIN \"Warehouses\" w ON w.\"Id\" = l.\"WarehouseId\" LEFT JOIN \"Locations\" p ON p.\"Id\" = l.\"ParentLocationId\" WHERE w.\"Id\" IS NULL OR (l.\"ParentLocationId\" IS NOT NULL AND p.\"Id\" IS NULL) OR l.\"ParentLocationId\" = l.\"Id\";",
             ["orphan lots"] = "SELECT COUNT(*) FROM \"Lots\" l LEFT JOIN \"Items\" i ON i.\"Id\" = l.\"ItemId\" WHERE i.\"Id\" IS NULL;",
-            ["orphan stock"] = "SELECT COUNT(*) FROM \"Stock\" s LEFT JOIN \"Items\" i ON i.\"Id\" = s.\"ItemId\" LEFT JOIN \"Locations\" l ON l.\"Id\" = s.\"LocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = s.\"LotId\" WHERE i.\"Id\" IS NULL OR l.\"Id\" IS NULL OR (s.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL);",
-            ["orphan movements"] = "SELECT COUNT(*) FROM \"Movements\" m LEFT JOIN \"Items\" i ON i.\"Id\" = m.\"ItemId\" LEFT JOIN \"Locations\" f ON f.\"Id\" = m.\"FromLocationId\" LEFT JOIN \"Locations\" t ON t.\"Id\" = m.\"ToLocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = m.\"LotId\" WHERE i.\"Id\" IS NULL OR (m.\"FromLocationId\" IS NOT NULL AND f.\"Id\" IS NULL) OR (m.\"ToLocationId\" IS NOT NULL AND t.\"Id\" IS NULL) OR (m.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL);"
+            ["orphan serial numbers"] = "SELECT COUNT(*) FROM \"SerialNumbers\" s LEFT JOIN \"Items\" i ON i.\"Id\" = s.\"ItemId\" LEFT JOIN \"Locations\" l ON l.\"Id\" = s.\"CurrentLocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = s.\"LotId\" WHERE i.\"Id\" IS NULL OR (s.\"CurrentLocationId\" IS NOT NULL AND l.\"Id\" IS NULL) OR (s.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL);",
+            ["orphan serial conflicts"] = "SELECT COUNT(*) FROM \"SerialNumberMigrationConflicts\" c LEFT JOIN \"Items\" i ON i.\"Id\" = c.\"ItemId\" WHERE i.\"Id\" IS NULL;",
+            ["orphan stock"] = "SELECT COUNT(*) FROM \"Stock\" s LEFT JOIN \"Items\" i ON i.\"Id\" = s.\"ItemId\" LEFT JOIN \"Locations\" l ON l.\"Id\" = s.\"LocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = s.\"LotId\" LEFT JOIN \"SerialNumbers\" sn ON sn.\"Id\" = s.\"SerialNumberId\" WHERE i.\"Id\" IS NULL OR l.\"Id\" IS NULL OR (s.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL) OR (s.\"SerialNumberId\" IS NOT NULL AND sn.\"Id\" IS NULL);",
+            ["orphan movements"] = "SELECT COUNT(*) FROM \"Movements\" m LEFT JOIN \"Items\" i ON i.\"Id\" = m.\"ItemId\" LEFT JOIN \"Locations\" f ON f.\"Id\" = m.\"FromLocationId\" LEFT JOIN \"Locations\" t ON t.\"Id\" = m.\"ToLocationId\" LEFT JOIN \"Lots\" o ON o.\"Id\" = m.\"LotId\" LEFT JOIN \"SerialNumbers\" sn ON sn.\"Id\" = m.\"SerialNumberId\" WHERE i.\"Id\" IS NULL OR (m.\"FromLocationId\" IS NOT NULL AND f.\"Id\" IS NULL) OR (m.\"ToLocationId\" IS NOT NULL AND t.\"Id\" IS NULL) OR (m.\"LotId\" IS NOT NULL AND o.\"Id\" IS NULL) OR (m.\"SerialNumberId\" IS NOT NULL AND sn.\"Id\" IS NULL);"
         };
 
         var errors = new List<string>();
@@ -330,6 +415,17 @@ internal static class PostgreSqlTargetWriter
         }
 
         return ordered;
+    }
+
+    private static string? NormalizeLegacySerial(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized = value.Trim().ToUpperInvariant();
+        return normalized.Length <= 100 ? normalized : normalized[..100];
     }
 
     private static async Task ExecuteAsync(

@@ -210,6 +210,41 @@ public class ReceiveItemUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithLotAndSerialRequiredButLotMissing_RollsBackIdentityTransaction()
+    {
+        var request = new ReceiveItemDto(
+            "LOT-SERIAL-ITEM",
+            "RECEIVE",
+            1.0m,
+            SerialNumber: "SN-001");
+
+        var item = new Item(
+            "LOT-SERIAL-ITEM",
+            "Lot and serial controlled item",
+            "EA",
+            requiresLot: true,
+            requiresSerial: true);
+        var location = new Location("RECEIVE", "Receiving Dock", 1);
+
+        _mockItemRepository.Setup(x => x.GetBySkuAsync(request.ItemSku, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+        _mockLocationRepository.Setup(x => x.GetByCodeAsync(request.LocationCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(location);
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _useCase.ExecuteAsync(request, "USER1");
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Contain("requires a lot number");
+        _mockUnitOfWork.Verify(
+            x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WhenRepositoryThrowsException_ReturnsFailure()
     {
         // Arrange

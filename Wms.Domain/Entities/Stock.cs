@@ -12,12 +12,19 @@ public class Stock : Entity
     {
     }
 
-    public Stock(int itemId, int locationId, Quantity quantity, int? lotId = null, string? serialNumber = null)
+    public Stock(
+        int itemId,
+        int locationId,
+        Quantity quantity,
+        int? lotId = null,
+        string? serialNumber = null,
+        int? serialNumberId = null)
     {
         ItemId = itemId;
         LocationId = locationId;
         LotId = lotId;
         SerialNumber = serialNumber?.Trim();
+        SerialNumberId = serialNumberId;
         QuantityAvailable = quantity;
         QuantityReserved = Quantity.Zero;
     }
@@ -25,6 +32,7 @@ public class Stock : Entity
     public int ItemId { get; private set; }
     public int LocationId { get; private set; }
     public int? LotId { get; private set; }
+    public int? SerialNumberId { get; private set; }
     public string? SerialNumber { get; private set; }
     public Quantity QuantityAvailable { get; private set; } = Quantity.Zero;
     public Quantity QuantityReserved { get; private set; } = Quantity.Zero;
@@ -33,6 +41,7 @@ public class Stock : Entity
     public Item Item { get; private set; } = null!;
     public Location Location { get; private set; } = null!;
     public Lot? Lot { get; private set; }
+    public SerialNumber? Serial { get; private set; }
 
     public void AddQuantity(Quantity quantity)
     {

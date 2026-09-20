@@ -29,6 +29,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Item)
             .Include(stock => stock.Location)
             .Include(stock => stock.Lot)
+            .Include(stock => stock.Serial)
             .AsQueryable();
         query = ApplyScope(query, scope);
         return await query.FirstOrDefaultAsync(stock => stock.Id == id, cancellationToken);
@@ -41,6 +42,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
+            .Include(s => s.Serial)
             .AsQueryable();
         query = ApplyScope(query, scope);
         return await query.ToListAsync(cancellationToken);
@@ -53,6 +55,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
+            .Include(s => s.Serial)
             .Where(s => s.ItemId == itemId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -67,6 +70,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
+            .Include(s => s.Serial)
             .Where(s => s.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -74,13 +78,15 @@ public class StockRepository : Repository<Stock>, IStockRepository
     }
 
     public async Task<Stock?> GetByItemAndLocationAsync(int itemId, int locationId, int? lotId = null,
-        string? serialNumber = null, CancellationToken cancellationToken = default)
+        string? serialNumber = null, int? serialNumberId = null,
+        CancellationToken cancellationToken = default)
     {
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = DbSet
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
+            .Include(s => s.Serial)
             .Where(s => s.ItemId == itemId && s.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -90,10 +96,23 @@ public class StockRepository : Repository<Stock>, IStockRepository
         else
             query = query.Where(s => s.LotId == null);
 
-        if (!string.IsNullOrWhiteSpace(serialNumber))
+        if (serialNumberId.HasValue && !string.IsNullOrWhiteSpace(serialNumber))
+        {
+            query = query.Where(s => s.SerialNumberId == serialNumberId.Value ||
+                (s.SerialNumberId == null && s.SerialNumber == serialNumber));
+        }
+        else if (serialNumberId.HasValue)
+        {
+            query = query.Where(s => s.SerialNumberId == serialNumberId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(serialNumber))
+        {
             query = query.Where(s => s.SerialNumber == serialNumber);
+        }
         else
+        {
             query = query.Where(s => s.SerialNumber == null);
+        }
 
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
@@ -109,6 +128,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Item)
             .Include(stock => stock.Location)
             .Include(stock => stock.Lot)
+            .Include(stock => stock.Serial)
             .Where(stock => stock.ItemId == itemId && stock.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -133,7 +153,24 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Item)
             .Include(stock => stock.Location)
             .Include(stock => stock.Lot)
+            .Include(stock => stock.Serial)
             .Where(stock => stock.LotId == lotId)
+            .AsQueryable();
+        query = ApplyScope(query, scope);
+        return await query.OrderBy(stock => stock.Location.Code).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<Stock>> GetBySerialNumberIdAsync(
+        int serialNumberId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var query = DbSet
+            .Include(stock => stock.Item)
+            .Include(stock => stock.Location)
+            .Include(stock => stock.Lot)
+            .Include(stock => stock.Serial)
+            .Where(stock => stock.SerialNumberId == serialNumberId)
             .AsQueryable();
         query = ApplyScope(query, scope);
         return await query.OrderBy(stock => stock.Location.Code).ToListAsync(cancellationToken);
@@ -147,6 +184,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Item)
             .Include(s => s.Location)
             .Include(s => s.Lot)
+            .Include(s => s.Serial)
             .Where(s => s.ItemId == itemId &&
                         s.QuantityAvailable.Value > s.QuantityReserved.Value)
             .AsQueryable();

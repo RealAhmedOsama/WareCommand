@@ -159,7 +159,7 @@ public class PickOrderUseCase : IPickOrderUseCase
                     location.Id,
                     lotId,
                     request.SerialNumber,
-                    cancellationToken);
+                    cancellationToken: cancellationToken);
             }
             else if (_lotService is not null && item.RequiresLot && item.UseFefo)
             {
@@ -190,7 +190,11 @@ public class PickOrderUseCase : IPickOrderUseCase
                 }
 
                 stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-                    item.Id, location.Id, null, request.SerialNumber, cancellationToken);
+                    item.Id,
+                    location.Id,
+                    null,
+                    request.SerialNumber,
+                    cancellationToken: cancellationToken);
             }
 
             if (stock == null)

@@ -53,6 +53,19 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Movement>> GetBySerialNumberIdAsync(
+        int serialNumberId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var query = IncludeNavigations(DbSet.AsQueryable())
+            .Where(movement => movement.SerialNumberId == serialNumberId)
+            .AsQueryable();
+        query = ApplyScope(query, scope);
+        return await query.OrderByDescending(movement => movement.Timestamp)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Movement>> GetByLocationIdAsync(int locationId,
         CancellationToken cancellationToken = default)
     {
@@ -114,7 +127,8 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
             .Include(movement => movement.Item)
             .Include(movement => movement.FromLocation)
             .Include(movement => movement.ToLocation)
-            .Include(movement => movement.Lot);
+            .Include(movement => movement.Lot)
+            .Include(movement => movement.Serial);
     }
 
     private static IQueryable<Movement> ApplyScope(

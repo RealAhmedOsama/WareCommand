@@ -26,6 +26,8 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.Property(e => e.SerialNumber)
             .HasMaxLength(100);
 
+        builder.Property(e => e.SerialNumberId);
+
         builder.Property(e => e.ReferenceNumber)
             .HasMaxLength(100);
 
@@ -126,6 +128,11 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .HasForeignKey(e => e.LotId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.Serial)
+            .WithMany()
+            .HasForeignKey(e => e.SerialNumberId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Indexes
         builder.HasIndex(e => e.ItemId);
         builder.HasIndex(e => e.FromLocationId);
@@ -135,5 +142,6 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.HasIndex(e => e.Timestamp);
         builder.HasIndex(e => e.ReferenceNumber);
         builder.HasIndex(e => e.PackagingCode);
+        builder.HasIndex(e => e.SerialNumberId);
     }
 }

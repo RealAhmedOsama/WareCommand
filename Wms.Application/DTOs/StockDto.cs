@@ -17,7 +17,8 @@ public record StockDto(
     decimal QuantityReserved,
     decimal AvailableQuantity,
     DateTime CreatedAt,
-    DateTime? UpdatedAt
+    DateTime? UpdatedAt,
+    int? SerialNumberId = null
 );
 
 public record StockSummaryDto(

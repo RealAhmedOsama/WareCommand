@@ -106,18 +106,34 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                     $"Item '{request.ItemSku}' is not lot controlled and must not receive a lot number."));
             }
 
+            if (item.RequiresSerial && string.IsNullOrWhiteSpace(request.SerialNumber))
+            {
+                return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
+                    "receiving.serial_required",
+                    $"Item '{request.ItemSku}' requires a serial number."));
+            }
+
+            var identityTransactionRequired =
+                (item.RequiresLot && !string.IsNullOrWhiteSpace(request.LotNumber)) ||
+                (item.RequiresSerial && !string.IsNullOrWhiteSpace(request.SerialNumber));
+            if (identityTransactionRequired)
+            {
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                lotTransactionStarted = true;
+            }
+
             if (item.RequiresLot && !string.IsNullOrWhiteSpace(request.LotNumber))
             {
                 if (_lotService is null)
                 {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
                     return Result.Failure<ReceiptResultDto>(WmsErrors.Dependency(
                         "lot.service_unavailable",
                         "Lot-controlled receiving is not available.",
                         isRetryable: false));
                 }
 
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-                lotTransactionStarted = true;
                 var lotResult = await _lotService.ResolveForReceiptAsync(
                     item,
                     request.LotNumber,
@@ -137,6 +153,12 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             }
             else if (item.RequiresLot)
             {
+                if (lotTransactionStarted)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                }
+
                 return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
                     "receiving.lot_required",
                     $"Item '{request.ItemSku}' requires a lot number."));
@@ -157,6 +179,12 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 cancellationToken);
             if (quantityResult.IsFailure)
             {
+                if (lotTransactionStarted)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                }
+
                 return quantityResult.ToFailure<ReceiptResultDto>();
             }
 

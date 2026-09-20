@@ -4,6 +4,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Wms.DataMigration;
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
 using Xunit;
@@ -70,8 +71,10 @@ public sealed class PostgreSqlDataMigrationTests
             Assert.Equal(2, firstReport.Source.RowCounts["ItemBarcodes"]);
             Assert.Equal(2, firstReport.Source.RowCounts["Locations"]);
             Assert.Equal(1, firstReport.Source.RowCounts["Lots"]);
-            Assert.Equal(1, firstReport.Source.RowCounts["Stock"]);
+            Assert.Equal(3, firstReport.Source.RowCounts["Stock"]);
             Assert.Equal(1, firstReport.Source.RowCounts["Movements"]);
+            Assert.Equal(1, firstReport.Source.RowCounts["SerialNumbers"]);
+            Assert.Equal(2, firstReport.Source.RowCounts["SerialNumberMigrationConflicts"]);
 
             await using (var targetContext = new WmsDbContext(targetOptions))
             {
@@ -83,8 +86,26 @@ public sealed class PostgreSqlDataMigrationTests
                 Assert.Equal(2, await targetContext.Locations.CountAsync());
                 Assert.Equal(sourceIds.ParentLocationId, (await targetContext.Locations.SingleAsync(entity => entity.Id == sourceIds.ChildLocationId)).ParentLocationId);
                 Assert.Equal(sourceIds.LotId, (await targetContext.Lots.SingleAsync()).Id);
-                Assert.Equal(1, await targetContext.Stock.CountAsync());
+                Assert.Equal(3, await targetContext.Stock.CountAsync());
                 Assert.Equal(1, await targetContext.Movements.CountAsync());
+                var serial = await targetContext.SerialNumbers.SingleAsync();
+                Assert.Equal("SN-LEGACY-001", serial.Number);
+                Assert.True(serial.HasMigrationConflict);
+                Assert.Equal(SerialStatus.Corrected, serial.Status);
+                var serialStock = await targetContext.Stock
+                    .Where(entity => entity.ItemId == sourceIds.SecondItemId)
+                    .ToListAsync();
+                Assert.Equal(2, serialStock.Count);
+                Assert.All(serialStock, row =>
+                {
+                    Assert.Null(row.SerialNumberId);
+                    Assert.Equal("SN-LEGACY-001", row.SerialNumber);
+                });
+                Assert.Equal(
+                    2,
+                    await targetContext.Database
+                        .SqlQueryRaw<int>("SELECT COUNT(*) AS \"Value\" FROM \"SerialNumberMigrationConflicts\"")
+                        .SingleAsync());
                 Assert.Single(item.Barcodes);
             }
 
@@ -99,6 +120,7 @@ public sealed class PostgreSqlDataMigrationTests
 
             Assert.True(secondReport.Succeeded, secondReport.Error);
             Assert.Equal(2, secondReport.TargetAfter.RowCounts["Items"]);
+            Assert.Equal(2, secondReport.TargetAfter.RowCounts["SerialNumberMigrationConflicts"]);
             Assert.Equal(sourceHashBefore, ComputeHash(sourcePath));
 
             File.Copy(sourcePath, invalidSourcePath);
@@ -121,8 +143,9 @@ public sealed class PostgreSqlDataMigrationTests
             await using (var targetContext = new WmsDbContext(targetOptions))
             {
                 Assert.Equal(2, await targetContext.Items.CountAsync());
-                Assert.Equal(1, await targetContext.Stock.CountAsync());
+                Assert.Equal(3, await targetContext.Stock.CountAsync());
                 Assert.Equal(1, await targetContext.Movements.CountAsync());
+                Assert.Equal(1, await targetContext.SerialNumbers.CountAsync());
             }
         }
         finally
@@ -156,7 +179,7 @@ public sealed class PostgreSqlDataMigrationTests
 
         var item = new Item("MIGRATION-ITEM-001", "Migration Item", "EA", requiresLot: true);
         item.AddBarcode(new Barcode("MIGRATION-001"));
-        var secondItem = new Item("MIGRATION-ITEM-002", "Second Migration Item", "EA");
+        var secondItem = new Item("MIGRATION-ITEM-002", "Second Migration Item", "EA", requiresSerial: true);
         secondItem.AddBarcode(new Barcode("MIGRATION-002"));
         context.Items.AddRange(item, secondItem);
         await context.SaveChangesAsync();
@@ -168,6 +191,10 @@ public sealed class PostgreSqlDataMigrationTests
         var stock = new Stock(item.Id, childLocation.Id, new Quantity(12.5m), lot.Id);
         stock.ReserveQuantity(new Quantity(2.5m));
         context.Stock.Add(stock);
+
+        context.Stock.AddRange(
+            new Stock(secondItem.Id, childLocation.Id, new Quantity(1m), serialNumber: " sn-legacy-001 "),
+            new Stock(secondItem.Id, parentLocation.Id, new Quantity(1m), serialNumber: "SN-LEGACY-001"));
 
         var movement = Movement.CreateReceipt(
             item.Id,

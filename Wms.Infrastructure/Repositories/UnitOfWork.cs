@@ -19,6 +19,7 @@ public class UnitOfWork : IUnitOfWork
         Items = new ItemRepository(context);
         Locations = new LocationRepository(context, warehouseAccessService);
         Lots = new LotRepository(context);
+        SerialNumbers = new SerialNumberRepository(context);
         Stock = new StockRepository(context, warehouseAccessService);
         Movements = new MovementRepository(context, warehouseAccessService);
     }
@@ -26,6 +27,7 @@ public class UnitOfWork : IUnitOfWork
     public IItemRepository Items { get; }
     public ILocationRepository Locations { get; }
     public ILotRepository Lots { get; }
+    public ISerialNumberRepository SerialNumbers { get; }
     public IStockRepository Stock { get; }
     public IMovementRepository Movements { get; }
 

@@ -183,7 +183,8 @@ public class GetStockUseCase : IGetStockUseCase
             stock.QuantityReserved.Value,
             stock.GetAvailableQuantity().Value,
             stock.CreatedAt,
-            stock.UpdatedAt
+            stock.UpdatedAt,
+            stock.SerialNumberId
         );
     }
 }

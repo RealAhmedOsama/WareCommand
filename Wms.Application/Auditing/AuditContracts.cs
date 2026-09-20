@@ -50,6 +50,9 @@ public static class WmsAuditActions
     public const string LotUpdated = "inventory.lot.updated";
     public const string LotStatusChanged = "inventory.lot.status_changed";
     public const string LotCreated = "inventory.lot.created";
+    public const string SerialCreated = "inventory.serial.created";
+    public const string SerialStatusChanged = "inventory.serial.status_changed";
+    public const string SerialCorrected = "inventory.serial.corrected";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -96,7 +99,10 @@ public static class WmsAuditActions
         IdentifierResolved,
         LotUpdated,
         LotStatusChanged,
-        LotCreated
+        LotCreated,
+        SerialCreated,
+        SerialStatusChanged,
+        SerialCorrected
     ];
 }
 
@@ -121,6 +127,7 @@ public static class WmsAuditEntityTypes
     public const string Integration = "Integration";
     public const string Identifier = "Identifier";
     public const string Lot = "Lot";
+    public const string Serial = "Serial";
 }
 
 /// <summary>
