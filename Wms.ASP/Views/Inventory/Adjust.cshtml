@@ -62,6 +62,12 @@
                                 @T["Field.NewQuantity"]
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <label asp-for="UnitOfMeasure" class="form-label">@T["Field.UnitOfMeasure"]</label>
+                            <input asp-for="UnitOfMeasure" class="form-control" maxlength="20" placeholder="@T["Uom.EnterCode"]" />
+                            <span class="form-text">@T["Uom.OptionalOperationUnit"]</span>
+                            <span asp-validation-for="UnitOfMeasure" class="text-danger"></span>
+                        </div>
 
                         <!-- Adjustment Calculation -->
                         <div class="col-12">

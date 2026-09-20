@@ -68,7 +68,8 @@ public sealed record ItemTrackingRequest(
     bool TemperatureControlled = false,
     bool SpecialHandlingRequired = false,
     decimal? MinimumTemperatureCelsius = null,
-    decimal? MaximumTemperatureCelsius = null);
+    decimal? MaximumTemperatureCelsius = null,
+    bool AllowFractionalQuantity = true);
 
 public sealed record ItemStorageRequest(
     string? StorageProfile = null,

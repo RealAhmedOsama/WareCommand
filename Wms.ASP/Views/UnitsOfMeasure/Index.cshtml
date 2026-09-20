@@ -1,0 +1,105 @@
+@model UnitOfMeasureListViewModel
+@using Wms.Domain.Enums
+@{
+    ViewData["Title"] = T["Uom.Title"];
+    var canManage = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsManage)).Succeeded;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-rulers me-2 text-primary"></i>@T["Uom.Title"]</h2>
+    @if (canManage)
+    {
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>@T["Uom.Create"]</a>
+    }
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label for="searchTerm" class="form-label">@T["Uom.Search"]</label>
+                <input id="searchTerm" name="searchTerm" value="@Model.SearchTerm" class="form-control" placeholder="@T["Uom.SearchPlaceholder"]" />
+            </div>
+            <div class="col-md-3">
+                <label for="category" class="form-label">@T["Uom.Category"]</label>
+                <select id="category" name="category" class="form-select">
+                    <option value="">@T["Common.All"]</option>
+                    @foreach (var category in Enum.GetValues<UnitOfMeasureCategory>())
+                    {
+                        <option value="@category" selected="@(Model.Category == category ? "selected" : null)">@T[$"Uom.Category.{category}"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="includeInactive" name="includeInactive" value="true" checked="@(Model.IncludeInactive ? "checked" : null)" />
+                    <label class="form-check-label" for="includeInactive">@T["Uom.IncludeInactive"]</label>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">@T["Common.Search"]</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Clear"]</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+            <tr>
+                <th>@T["Uom.Code"]</th>
+                <th>@T["Uom.Name"]</th>
+                <th>@T["Uom.Category"]</th>
+                <th>@T["Uom.Symbol"]</th>
+                <th class="text-end">@T["Uom.Precision"]</th>
+                <th>@T["Common.Status"]</th>
+                <th class="text-end">@T["Common.Actions"]</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var unit in Model.Items)
+            {
+                <tr>
+                    <td class="wms-identifier fw-medium">@unit.Code</td>
+                    <td>@unit.Name <small class="text-muted">(@unit.LocalizedName)</small></td>
+                    <td>@T[$"Uom.Category.{unit.Category}"]</td>
+                    <td>@unit.Symbol</td>
+                    <td class="text-end">@unit.Precision</td>
+                    <td><span class="badge bg-@(unit.IsActive ? "success" : "secondary")">@T[unit.IsActive ? "Uom.Active" : "Uom.Inactive"]</span></td>
+                    <td class="text-end">
+                        @if (canManage)
+                        {
+                            <a asp-action="Edit" asp-route-id="@unit.Id" class="btn btn-sm btn-outline-primary">@T["Common.Edit"]</a>
+                            <form asp-action="SetActive" method="post" class="d-inline">
+                                <input type="hidden" name="id" value="@unit.Id" />
+                                <input type="hidden" name="active" value="@(!unit.IsActive).ToString().ToLowerInvariant()" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">@T[unit.IsActive ? "Uom.Deactivate" : "Uom.Activate"]</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    @if (Model.Items.Count == 0)
+    {
+        <div class="p-4 text-muted">@T["Uom.NoUnits"]</div>
+    }
+</div>
+
+@if (Model.TotalPages > 1)
+{
+    <nav class="mt-3" aria-label="@T["Uom.Title"]">
+        <ul class="pagination">
+            @for (var page = 1; page <= Model.TotalPages; page++)
+            {
+                <li class="page-item @(page == Model.Page ? "active" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-searchTerm="@Model.SearchTerm" asp-route-category="@Model.Category" asp-route-includeInactive="@Model.IncludeInactive" asp-route-page="@(page)" asp-route-pageSize="@Model.PageSize">@(page)</a>
+                </li>
+            }
+        </ul>
+    </nav>
+}

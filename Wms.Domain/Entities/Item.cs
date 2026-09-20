@@ -17,6 +17,7 @@ public class Item : Entity
 
     private readonly List<Barcode> _barcodes = new();
     private readonly List<ItemPackaging> _packagings = new();
+    private readonly List<ItemUnitConversion> _unitConversions = new();
 
     // EF Constructor
     private Item()
@@ -60,6 +61,7 @@ public class Item : Entity
     public bool IsActive { get; private set; } = true;
     public bool RequiresLot { get; private set; }
     public bool RequiresSerial { get; private set; }
+    public bool AllowFractionalQuantity { get; private set; } = true;
     public bool RequiresExpiry { get; private set; }
     public int ShelfLifeDays { get; private set; }
     public bool UseFefo { get; private set; }
@@ -89,6 +91,7 @@ public class Item : Entity
 
     public IReadOnlyList<Barcode> Barcodes => _barcodes.AsReadOnly();
     public IReadOnlyList<ItemPackaging> Packagings => _packagings.AsReadOnly();
+    public IReadOnlyList<ItemUnitConversion> UnitConversions => _unitConversions.AsReadOnly();
 
     public void AddBarcode(Barcode barcode)
     {
@@ -138,10 +141,65 @@ public class Item : Entity
         SetUpdatedAt();
     }
 
+    public void AddUnitConversion(ItemUnitConversion conversion)
+    {
+        ArgumentNullException.ThrowIfNull(conversion);
+        if (_unitConversions.Any(existing =>
+                existing.IsActive &&
+                string.Equals(existing.FromUnitOfMeasure, conversion.FromUnitOfMeasure,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(existing.ToUnitOfMeasure, conversion.ToUnitOfMeasure,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                $"An active conversion from {conversion.FromUnitOfMeasure} to {conversion.ToUnitOfMeasure} already exists for item {Sku}.");
+        }
+
+        _unitConversions.Add(conversion);
+        SetUpdatedAt();
+    }
+
+    public void RemoveUnitConversion(ItemUnitConversion conversion)
+    {
+        ArgumentNullException.ThrowIfNull(conversion);
+        if (!_unitConversions.Remove(conversion))
+        {
+            throw new InvalidOperationException(
+                $"The conversion from {conversion.FromUnitOfMeasure} to {conversion.ToUnitOfMeasure} does not exist for item {Sku}.");
+        }
+
+        SetUpdatedAt();
+    }
+
     public void UpdateDetails(string name, string description = "")
     {
         Name = NormalizeRequired(name, MaximumNameLength, nameof(name));
         Description = NormalizeOptional(description, MaximumDescriptionLength);
+        SetUpdatedAt();
+    }
+
+    public void UpdateUnits(
+        string baseUnit,
+        string? purchaseUnit,
+        string? salesUnit,
+        bool allowFractionalQuantity)
+    {
+        UnitOfMeasure = NormalizeRequired(
+            baseUnit,
+            MaximumUnitLength,
+            nameof(baseUnit),
+            uppercase: true);
+        PurchaseUnit = NormalizeRequired(
+            purchaseUnit ?? UnitOfMeasure,
+            MaximumUnitLength,
+            nameof(purchaseUnit),
+            uppercase: true);
+        SalesUnit = NormalizeRequired(
+            salesUnit ?? UnitOfMeasure,
+            MaximumUnitLength,
+            nameof(salesUnit),
+            uppercase: true);
+        AllowFractionalQuantity = allowFractionalQuantity;
         SetUpdatedAt();
     }
 
@@ -214,6 +272,7 @@ public class Item : Entity
         SalesUnit = NormalizeRequired(details.SalesUnit ?? UnitOfMeasure, MaximumUnitLength, nameof(details.SalesUnit), uppercase: true);
         RequiresLot = details.RequiresLot;
         RequiresSerial = details.RequiresSerial;
+        AllowFractionalQuantity = details.AllowFractionalQuantity;
         ShelfLifeDays = ValidateNonNegative(details.ShelfLifeDays, nameof(details.ShelfLifeDays));
         RequiresExpiry = details.RequiresExpiry;
         UseFefo = details.UseFefo;

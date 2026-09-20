@@ -34,6 +34,17 @@ public class Movement : Entity
         Timestamp = timestampUtc.HasValue
             ? NormalizeUtc(timestampUtc.Value)
             : DateTime.UnixEpoch;
+
+        var conversion = quantity.ConversionSnapshot;
+        EnteredQuantity = conversion?.EnteredQuantity ?? quantity.Value;
+        EnteredUnitOfMeasure = conversion?.EnteredUnitOfMeasure ?? "BASE";
+        BaseUnitOfMeasure = conversion?.BaseUnitOfMeasure ?? "BASE";
+        ConversionFactorToBase = conversion?.ConversionFactorToBase ?? 1m;
+        ConversionPrecision = conversion?.ResultPrecision ?? 4;
+        ConversionRoundingMode = conversion?.RoundingMode ?? QuantityRoundingMode.Reject;
+        ConversionRoundingDelta = conversion?.RoundingDelta ?? 0m;
+        ConversionPath = conversion?.ConversionPath ?? "BASE";
+        ConversionRuleIds = conversion?.ConversionRuleIds ?? string.Empty;
     }
 
     public MovementType Type { get; private set; }
@@ -43,6 +54,15 @@ public class Movement : Entity
     public int? LotId { get; private set; }
     public string? SerialNumber { get; private set; }
     public Quantity Quantity { get; private set; } = Quantity.Zero;
+    public decimal EnteredQuantity { get; private set; }
+    public string EnteredUnitOfMeasure { get; private set; } = "BASE";
+    public string BaseUnitOfMeasure { get; private set; } = "BASE";
+    public decimal ConversionFactorToBase { get; private set; } = 1m;
+    public int ConversionPrecision { get; private set; } = 4;
+    public QuantityRoundingMode ConversionRoundingMode { get; private set; } = QuantityRoundingMode.Reject;
+    public decimal ConversionRoundingDelta { get; private set; }
+    public string ConversionPath { get; private set; } = "BASE";
+    public string ConversionRuleIds { get; private set; } = string.Empty;
     public string UserId { get; private set; } = string.Empty;
     public string? ReferenceNumber { get; private set; }
     public string? Notes { get; private set; }

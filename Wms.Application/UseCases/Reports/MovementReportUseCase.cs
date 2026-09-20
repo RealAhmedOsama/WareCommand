@@ -6,6 +6,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Settings;
 using Wms.Application.Time;
+using Wms.Application.Units;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
@@ -26,7 +27,16 @@ public record MovementReportDto(
     string? ReferenceNumber,
     string? Notes,
     DateTime Timestamp
-);
+)
+{
+    public decimal BaseQuantity => Quantity;
+    public string BaseUnitOfMeasure { get; init; } = "BASE";
+    public decimal EnteredQuantity { get; init; } = Quantity;
+    public string EnteredUnitOfMeasure { get; init; } = "BASE";
+    public decimal DisplayQuantity { get; init; } = Quantity;
+    public string DisplayUnitOfMeasure { get; init; } = "BASE";
+    public decimal ConversionRoundingDelta { get; init; }
+}
 
 // These values are business dates in the effective warehouse time zone. They
 // are converted to a half-open UTC range before querying persistence.
@@ -36,7 +46,8 @@ public record MovementReportRequest(
     string? ItemSku = null,
     string? LocationCode = null,
     MovementType? MovementType = null,
-    string? UserId = null
+    string? UserId = null,
+    string? DisplayUnitOfMeasure = null
 );
 
 public interface IMovementReportUseCase
@@ -52,19 +63,22 @@ public class MovementReportUseCase : IMovementReportUseCase
     private readonly IWmsSettingsService _settingsService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
+    private readonly IItemQuantityConversionService? _quantityConversionService;
 
     public MovementReportUseCase(
         IUnitOfWork unitOfWork,
         ILogger<MovementReportUseCase> logger,
         IWarehouseAccessService warehouseAccessService,
         IClock clock,
-        IWmsSettingsService settingsService)
+        IWmsSettingsService settingsService,
+        IItemQuantityConversionService? quantityConversionService = null)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
         _clock = clock;
         _settingsService = settingsService;
+        _quantityConversionService = quantityConversionService;
     }
 
     public async Task<Result<IEnumerable<MovementReportDto>>> ExecuteAsync(MovementReportRequest request,
@@ -92,10 +106,36 @@ public class MovementReportUseCase : IMovementReportUseCase
             }
 
             var movements = await GetFilteredMovementsAsync(request, settings, cancellationToken);
-            var reportData = movements.Select(MapToDto);
+            var reportData = new List<MovementReportDto>();
+            foreach (var movement in movements)
+            {
+                var row = MapToDto(movement);
+                if (!string.IsNullOrWhiteSpace(request.DisplayUnitOfMeasure) &&
+                    _quantityConversionService is not null)
+                {
+                    var displayResult = await _quantityConversionService.ConvertFromBaseAsync(
+                        movement.ItemId,
+                        movement.Quantity.Value,
+                        request.DisplayUnitOfMeasure,
+                        QuantityRoundingMode.ToEven,
+                        cancellationToken);
+                    if (displayResult.IsFailure)
+                    {
+                        return displayResult.ToFailure<IEnumerable<MovementReportDto>>();
+                    }
 
-            _logger.LogInformation("Movement report generated with {Count} records", reportData.Count());
-            return Result.Success(reportData);
+                    row = row with
+                    {
+                        DisplayQuantity = displayResult.Value,
+                        DisplayUnitOfMeasure = request.DisplayUnitOfMeasure.Trim().ToUpperInvariant()
+                    };
+                }
+
+                reportData.Add(row);
+            }
+
+            _logger.LogInformation("Movement report generated with {Count} records", reportData.Count);
+            return Result.Success<IEnumerable<MovementReportDto>>(reportData);
         }
         catch (OperationCanceledException)
         {
@@ -172,7 +212,14 @@ public class MovementReportUseCase : IMovementReportUseCase
             movement.UserId,
             movement.ReferenceNumber,
             movement.Notes,
-            movement.Timestamp
-        );
+            movement.Timestamp)
+        {
+            BaseUnitOfMeasure = movement.BaseUnitOfMeasure,
+            EnteredQuantity = movement.EnteredQuantity,
+            EnteredUnitOfMeasure = movement.EnteredUnitOfMeasure,
+            DisplayQuantity = movement.Quantity.Value,
+            DisplayUnitOfMeasure = movement.BaseUnitOfMeasure,
+            ConversionRoundingDelta = movement.ConversionRoundingDelta
+        };
     }
 }

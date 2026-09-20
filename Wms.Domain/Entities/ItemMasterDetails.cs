@@ -42,4 +42,5 @@ public sealed record ItemMasterDetails(
     int? LeadTimeDays = null,
     int ShelfLifeDays = 0,
     bool RequiresLot = false,
-    bool RequiresSerial = false);
+    bool RequiresSerial = false,
+    bool AllowFractionalQuantity = true);

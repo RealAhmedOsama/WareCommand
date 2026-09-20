@@ -376,7 +376,8 @@ public sealed class ItemsController(
                 model.TemperatureControlled,
                 model.SpecialHandlingRequired,
                 model.MinimumTemperatureCelsius,
-                model.MaximumTemperatureCelsius);
+                model.MaximumTemperatureCelsius,
+                model.AllowFractionalQuantity);
             storage = new ItemStorageRequest(model.StorageProfile, model.PutawayProfile, model.DefaultSupplierCode);
             planning = new ItemPlanningRequest(
                 model.ReorderPolicy,

@@ -1,0 +1,57 @@
+@model ItemUnitAssignmentViewModel
+@{
+    ViewData["Title"] = T["Uom.ItemAssignment"];
+    var canManage = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsManage)).Succeeded;
+}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">@T["Uom.ItemAssignment"] <span class="wms-identifier text-muted">@Model.Sku</span></h2>
+    <a asp-controller="Items" asp-action="Details" asp-route-id="@Model.ItemId" class="btn btn-outline-secondary">@T["Uom.BackToItem"]</a>
+</div>
+<form method="post" class="card border-0 shadow-sm">
+    <div class="card-body row g-3">
+        <input asp-for="ItemId" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="col-md-4">
+            <label asp-for="BaseUnitOfMeasure" class="form-label">@T["Uom.BaseUnit"]</label>
+            <input asp-for="BaseUnitOfMeasure" class="form-control wms-identifier" readonly="@(canManage ? null : "readonly")" />
+            <span class="form-text">@T["Uom.BaseUnitHelp"]</span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="PurchaseUnitOfMeasure" class="form-label">@T["Uom.PurchaseUnit"]</label>
+            <input asp-for="PurchaseUnitOfMeasure" class="form-control wms-identifier" readonly="@(canManage ? null : "readonly")" />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="SalesUnitOfMeasure" class="form-label">@T["Uom.SalesUnit"]</label>
+            <input asp-for="SalesUnitOfMeasure" class="form-control wms-identifier" readonly="@(canManage ? null : "readonly")" />
+        </div>
+        <div class="col-12">
+            <div class="form-check form-switch">
+                <input asp-for="AllowFractionalQuantity" class="form-check-input" disabled="@(canManage ? null : "disabled")" />
+                <label asp-for="AllowFractionalQuantity" class="form-check-label">@T["Uom.AllowFractional"]</label>
+            </div>
+        </div>
+        <div class="col-12">
+            <label asp-for="ConversionsText" class="form-label">@T["Uom.Conversions"]</label>
+            <textarea asp-for="ConversionsText" class="form-control wms-identifier" rows="8" readonly="@(canManage ? null : "readonly")"></textarea>
+            <div class="form-text">@T["Uom.ConversionHelp"]</div>
+        </div>
+        @if (Model.ExistingConversions.Any())
+        {
+            <div class="col-12">
+                <h6>@T["Uom.History"]</h6>
+                <ul class="small mb-0">
+                    @foreach (var conversion in Model.ExistingConversions)
+                    {
+                        <li class="@(conversion.IsActive ? "" : "text-muted")">@conversion.FromUnitOfMeasure → @conversion.ToUnitOfMeasure = @conversion.ConversionFactor (@conversion.RoundingMode), v@conversion.Version@(conversion.IsUsedByHistory ? " - " + T["Uom.UsedByHistory"] : "")</li>
+                    }
+                </ul>
+            </div>
+        }
+        @if (canManage)
+        {
+            <div class="col-12 d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">@T["Common.Save"]</button>
+            </div>
+        }
+    </div>
+</form>

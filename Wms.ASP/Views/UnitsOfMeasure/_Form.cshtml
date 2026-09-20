@@ -1,0 +1,44 @@
+@model UnitOfMeasureFormViewModel
+@using Wms.Domain.Enums
+<form method="post" class="card border-0 shadow-sm">
+    <div class="card-body row g-3">
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="col-md-3">
+            <label asp-for="Code" class="form-label">@T["Uom.Code"]</label>
+            <input asp-for="Code" class="form-control wms-identifier" readonly="@(ViewContext.RouteData.Values["action"]?.ToString() == "Edit")" />
+            <span asp-validation-for="Code" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Category" class="form-label">@T["Uom.Category"]</label>
+            <select asp-for="Category" class="form-select">
+                @foreach (var category in Enum.GetValues<UnitOfMeasureCategory>())
+                {
+                    <option value="@category">@T[$"Uom.Category.{category}"]</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="Precision" class="form-label">@T["Uom.Precision"]</label>
+            <input asp-for="Precision" class="form-control" type="number" min="0" max="12" />
+            <span asp-validation-for="Precision" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Symbol" class="form-label">@T["Uom.Symbol"]</label>
+            <input asp-for="Symbol" class="form-control" />
+            <span asp-validation-for="Symbol" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Name" class="form-label">@T["Uom.Name"]</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="LocalizedName" class="form-label">@T["Uom.LocalizedName"]</label>
+            <input asp-for="LocalizedName" class="form-control" dir="auto" />
+        </div>
+        <div class="col-12 d-flex gap-2 justify-content-end">
+            <a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Cancel"]</a>
+            <button type="submit" class="btn btn-primary">@T["Common.Save"]</button>
+        </div>
+    </div>
+</form>

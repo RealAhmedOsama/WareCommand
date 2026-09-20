@@ -98,6 +98,7 @@ public sealed class ItemFormViewModel
 
     public bool RequiresLot { get; set; }
     public bool RequiresSerial { get; set; }
+    public bool AllowFractionalQuantity { get; set; } = true;
     public bool RequiresExpiry { get; set; }
 
     [Range(0, 36_500)]
@@ -169,6 +170,7 @@ public sealed class ItemFormViewModel
         CustomsCode = item.CustomsCode,
         RequiresLot = item.RequiresLot,
         RequiresSerial = item.RequiresSerial,
+        AllowFractionalQuantity = item.AllowFractionalQuantity,
         RequiresExpiry = item.RequiresExpiry,
         ShelfLifeDays = item.ShelfLifeDays,
         UseFefo = item.UseFefo,

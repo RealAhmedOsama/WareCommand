@@ -9,15 +9,17 @@ public class Quantity : ValueObject, IComparable<Quantity>, IEquatable<Quantity>
 {
     public static readonly Quantity Zero = new(0);
 
-    public Quantity(decimal value)
+    public Quantity(decimal value, QuantityConversionSnapshot? conversionSnapshot = null)
     {
         if (value < 0)
             throw new ArgumentException("Quantity cannot be negative", nameof(value));
 
-        Value = Math.Round(value, 4);
+        Value = value;
+        ConversionSnapshot = conversionSnapshot;
     }
 
     public decimal Value { get; }
+    public QuantityConversionSnapshot? ConversionSnapshot { get; }
 
     public int CompareTo(Quantity? other)
     {
@@ -47,7 +49,7 @@ public class Quantity : ValueObject, IComparable<Quantity>, IEquatable<Quantity>
 
     public override string ToString()
     {
-        return Value.ToString("0.##", CultureInfo.InvariantCulture);
+        return Value.ToString("0.############", CultureInfo.InvariantCulture);
     }
 
     public static implicit operator decimal(Quantity quantity)

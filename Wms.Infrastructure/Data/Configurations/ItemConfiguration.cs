@@ -67,6 +67,10 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
             .IsRequired()
             .HasMaxLength(20);
 
+        builder.Property(e => e.AllowFractionalQuantity)
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.Property(e => e.NetWeightKg).HasColumnType("decimal(18,6)");
         builder.Property(e => e.LengthCm).HasColumnType("decimal(18,6)");
         builder.Property(e => e.WidthCm).HasColumnType("decimal(18,6)");

@@ -67,6 +67,9 @@ public class StockAdjustmentViewModel
     [Range(typeof(decimal), "0", "1000000000")]
     public decimal NewQuantity { get; set; }
 
+    [StringLength(20)]
+    public string? UnitOfMeasure { get; set; }
+
     [Required]
     [StringLength(1000)]
     public string Reason { get; set; } = string.Empty;
@@ -230,6 +233,9 @@ public class ReceivingViewModel
     [Range(typeof(decimal), "0.0001", "1000000000")]
     public decimal Quantity { get; set; }
 
+    [StringLength(20)]
+    public string? UnitOfMeasure { get; set; }
+
     [StringLength(100)]
     public string? LotNumber { get; set; }
 
@@ -255,6 +261,9 @@ public class PickingViewModel
 
     [Range(typeof(decimal), "0.0001", "1000000000")]
     public decimal Quantity { get; set; }
+
+    [StringLength(20)]
+    public string? UnitOfMeasure { get; set; }
 
     [StringLength(100)]
     public string OrderNumber { get; set; } = string.Empty;
@@ -285,6 +294,9 @@ public class PutawayViewModel
 
     [Range(typeof(decimal), "0.0001", "1000000000")]
     public decimal Quantity { get; set; }
+
+    [StringLength(20)]
+    public string? UnitOfMeasure { get; set; }
 
     [StringLength(100)]
     public string? LotNumber { get; set; }

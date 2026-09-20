@@ -25,6 +25,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemPackaging> ItemPackagings => Set<ItemPackaging>();
+    public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
+    public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<WarehouseOperationalLocation> WarehouseOperationalLocations =>
         Set<WarehouseOperationalLocation>();
@@ -56,6 +58,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
         builder.ApplyConfiguration(new ItemConfiguration());
         builder.ApplyConfiguration(new ItemPackagingConfiguration());
+        builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
+        builder.ApplyConfiguration(new ItemUnitConversionConfiguration());
         builder.ApplyConfiguration(new WarehouseConfiguration());
         builder.ApplyConfiguration(new WarehouseOperationalLocationConfiguration());
         builder.ApplyConfiguration(new WarehouseNumberSequenceConfiguration());

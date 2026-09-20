@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
+using Wms.Application.Units;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -17,7 +18,8 @@ public record PickItemDto(
     string? OrderNumber = null,
     string? LotNumber = null,
     string? SerialNumber = null,
-    string? Notes = null
+    string? Notes = null,
+    string? UnitOfMeasure = null
 );
 
 public record PickResultDto(
@@ -41,17 +43,20 @@ public class PickOrderUseCase : IPickOrderUseCase
     private readonly IStockMovementService _stockMovementService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
+    private readonly IItemQuantityConversionService? _quantityConversionService;
 
     public PickOrderUseCase(
         IUnitOfWork unitOfWork,
         IStockMovementService stockMovementService,
         ILogger<PickOrderUseCase> logger,
-        IWarehouseAccessService warehouseAccessService)
+        IWarehouseAccessService warehouseAccessService,
+        IItemQuantityConversionService? quantityConversionService = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
+        _quantityConversionService = quantityConversionService;
     }
 
     public async Task<Result<PickResultDto>> ExecuteAsync(PickItemDto request, string userId,
@@ -114,7 +119,17 @@ public class PickOrderUseCase : IPickOrderUseCase
                     "stock.not_found",
                     $"No stock found for item '{request.ItemSku}' in location '{request.FromLocationCode}'."));
 
-            var requestedQuantity = new Quantity(request.Quantity);
+            var quantityResult = await ConvertToBaseAsync(
+                item,
+                request.Quantity,
+                request.UnitOfMeasure ?? item.SalesUnit,
+                cancellationToken);
+            if (quantityResult.IsFailure)
+            {
+                return quantityResult.ToFailure<PickResultDto>();
+            }
+
+            var requestedQuantity = quantityResult.Value;
             if (stock.GetAvailableQuantity() < requestedQuantity)
                 return Result.Failure<PickResultDto>(WmsErrors.BusinessRule(
                     "stock.insufficient",
@@ -157,5 +172,26 @@ public class PickOrderUseCase : IPickOrderUseCase
                 failure.Code);
             return Result.Failure<PickResultDto>(failure);
         }
+    }
+
+    private async Task<Result<Quantity>> ConvertToBaseAsync(
+        Wms.Domain.Entities.Item item,
+        decimal quantity,
+        string unitOfMeasure,
+        CancellationToken cancellationToken)
+    {
+        if (_quantityConversionService is null)
+        {
+            return Result.Success(new Quantity(quantity));
+        }
+
+        var result = await _quantityConversionService.ConvertToBaseAsync(
+            item.Id,
+            quantity,
+            unitOfMeasure,
+            cancellationToken: cancellationToken);
+        return result.IsFailure
+            ? result.ToFailure<Quantity>()
+            : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));
     }
 }

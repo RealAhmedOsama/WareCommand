@@ -5,6 +5,7 @@ using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
+using Wms.Application.Units;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
@@ -24,17 +25,20 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     private readonly IStockMovementService _stockMovementService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
+    private readonly IItemQuantityConversionService? _quantityConversionService;
 
     public ReceiveItemUseCase(
         IUnitOfWork unitOfWork,
         IStockMovementService stockMovementService,
         ILogger<ReceiveItemUseCase> logger,
-        IWarehouseAccessService warehouseAccessService)
+        IWarehouseAccessService warehouseAccessService,
+        IItemQuantityConversionService? quantityConversionService = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
+        _quantityConversionService = quantityConversionService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
@@ -110,7 +114,17 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                     $"Item '{request.ItemSku}' requires a serial number."));
 
             // Create the receipt movement
-            var quantity = new Quantity(request.Quantity);
+            var quantityResult = await ConvertToBaseAsync(
+                item,
+                request.Quantity,
+                request.UnitOfMeasure ?? item.PurchaseUnit,
+                cancellationToken);
+            if (quantityResult.IsFailure)
+            {
+                return quantityResult.ToFailure<ReceiptResultDto>();
+            }
+
+            var quantity = quantityResult.Value;
             var movement = await _stockMovementService.ReceiveAsync(
                 item.Id, location.Id, quantity, userId, lotId,
                 request.SerialNumber, request.ReferenceNumber, request.Notes, cancellationToken);
@@ -146,6 +160,27 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 failure.Code);
             return Result.Failure<ReceiptResultDto>(failure);
         }
+    }
+
+    private async Task<Result<Quantity>> ConvertToBaseAsync(
+        Item item,
+        decimal quantity,
+        string unitOfMeasure,
+        CancellationToken cancellationToken)
+    {
+        if (_quantityConversionService is null)
+        {
+            return Result.Success(new Quantity(quantity));
+        }
+
+        var result = await _quantityConversionService.ConvertToBaseAsync(
+            item.Id,
+            quantity,
+            unitOfMeasure,
+            cancellationToken: cancellationToken);
+        return result.IsFailure
+            ? result.ToFailure<Quantity>()
+            : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));
     }
 
     private static Task<Lot> GetOrCreateLotAsync(int itemId, string lotNumber,

@@ -5,6 +5,7 @@ using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
+using Wms.Application.Units;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -17,7 +18,8 @@ public record StockAdjustmentDto(
     decimal NewQuantity,
     string Reason,
     string? LotNumber = null,
-    string? SerialNumber = null
+    string? SerialNumber = null,
+    string? UnitOfMeasure = null
 );
 
 public interface IStockAdjustmentUseCase
@@ -32,17 +34,20 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
     private readonly IStockMovementService _stockMovementService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
+    private readonly IItemQuantityConversionService? _quantityConversionService;
 
     public StockAdjustmentUseCase(
         IUnitOfWork unitOfWork,
         IStockMovementService stockMovementService,
         ILogger<StockAdjustmentUseCase> logger,
-        IWarehouseAccessService warehouseAccessService)
+        IWarehouseAccessService warehouseAccessService,
+        IItemQuantityConversionService? quantityConversionService = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
+        _quantityConversionService = quantityConversionService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(StockAdjustmentDto request, string userId,
@@ -98,7 +103,17 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                     "Adjustment reason is required."));
 
             // Create the adjustment
-            var newQuantity = new Quantity(request.NewQuantity);
+            var quantityResult = await ConvertToBaseAsync(
+                item,
+                request.NewQuantity,
+                request.UnitOfMeasure ?? item.UnitOfMeasure,
+                cancellationToken);
+            if (quantityResult.IsFailure)
+            {
+                return quantityResult.ToFailure<ReceiptResultDto>();
+            }
+
+            var newQuantity = quantityResult.Value;
             var movement = await _stockMovementService.AdjustAsync(
                 item.Id, location.Id, newQuantity, userId, request.Reason,
                 null, request.SerialNumber, cancellationToken);
@@ -135,5 +150,26 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                 failure.Code);
             return Result.Failure<ReceiptResultDto>(failure);
         }
+    }
+
+    private async Task<Result<Quantity>> ConvertToBaseAsync(
+        Wms.Domain.Entities.Item item,
+        decimal quantity,
+        string unitOfMeasure,
+        CancellationToken cancellationToken)
+    {
+        if (_quantityConversionService is null)
+        {
+            return Result.Success(new Quantity(quantity));
+        }
+
+        var result = await _quantityConversionService.ConvertToBaseAsync(
+            item.Id,
+            quantity,
+            unitOfMeasure,
+            cancellationToken: cancellationToken);
+        return result.IsFailure
+            ? result.ToFailure<Quantity>()
+            : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));
     }
 }

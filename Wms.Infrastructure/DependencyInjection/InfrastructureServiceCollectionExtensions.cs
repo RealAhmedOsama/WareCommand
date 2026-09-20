@@ -9,6 +9,7 @@ using Wms.Application.Items;
 using Wms.Application.Jobs;
 using Wms.Application.Locations;
 using Wms.Application.Settings;
+using Wms.Application.Units;
 using Wms.Application.Warehouses;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
@@ -24,6 +25,7 @@ using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
 using Wms.Infrastructure.Settings;
 using Wms.Infrastructure.Telemetry;
+using Wms.Infrastructure.Units;
 using Wms.Infrastructure.Warehouses;
 
 namespace Wms.Infrastructure.DependencyInjection;
@@ -65,6 +67,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IWarehouseManagementService, WarehouseManagementService>();
         services.AddScoped<ILocationManagementService, LocationManagementService>();
         services.AddScoped<IItemManagementService, ItemManagementService>();
+        services.AddScoped<IUnitOfMeasureManagementService, UnitOfMeasureService>();
+        services.AddScoped<IItemQuantityConversionService, UnitOfMeasureService>();
         services.AddScoped<WmsAuthorizationBootstrapper>();
         services.AddDatabaseInitialization();
         services.AddSingleton<WmsDbCommandMetricsInterceptor>();

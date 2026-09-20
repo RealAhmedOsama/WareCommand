@@ -48,8 +48,36 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .HasConversion(
                 v => v.Value,
                 v => new Quantity(v))
-            .HasColumnType("decimal(18,4)")
+            .HasColumnType("decimal(28,12)")
             .IsRequired();
+
+        builder.Property(e => e.EnteredQuantity)
+            .HasColumnType("decimal(28,12)")
+            .IsRequired();
+        builder.Property(e => e.EnteredUnitOfMeasure)
+            .IsRequired()
+            .HasMaxLength(20);
+        builder.Property(e => e.BaseUnitOfMeasure)
+            .IsRequired()
+            .HasMaxLength(20);
+        builder.Property(e => e.ConversionFactorToBase)
+            .HasColumnType("decimal(28,12)")
+            .IsRequired();
+        builder.Property(e => e.ConversionPrecision)
+            .IsRequired();
+        builder.Property(e => e.ConversionRoundingMode)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+        builder.Property(e => e.ConversionRoundingDelta)
+            .HasColumnType("decimal(28,12)")
+            .IsRequired();
+        builder.Property(e => e.ConversionPath)
+            .IsRequired()
+            .HasMaxLength(500);
+        builder.Property(e => e.ConversionRuleIds)
+            .IsRequired()
+            .HasMaxLength(500);
 
         // Relationships
         builder.HasOne(e => e.Item)

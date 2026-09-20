@@ -16,6 +16,11 @@ public static class WmsAuditActions
     public const string ItemDeleted = "master.item.deleted";
     public const string ItemDuplicated = "master.item.duplicated";
     public const string ItemBulkImported = "master.item.bulk_imported";
+    public const string UnitOfMeasureCreated = "master.uom.created";
+    public const string UnitOfMeasureUpdated = "master.uom.updated";
+    public const string UnitOfMeasureActivated = "master.uom.activated";
+    public const string UnitOfMeasureDeactivated = "master.uom.deactivated";
+    public const string ItemUnitsAssigned = "master.item.units_assigned";
     public const string LocationCreated = "master.location.created";
     public const string LocationUpdated = "master.location.updated";
     public const string LocationActivated = "master.location.activated";
@@ -54,6 +59,11 @@ public static class WmsAuditActions
         ItemDeleted,
         ItemDuplicated,
         ItemBulkImported,
+        UnitOfMeasureCreated,
+        UnitOfMeasureUpdated,
+        UnitOfMeasureActivated,
+        UnitOfMeasureDeactivated,
+        ItemUnitsAssigned,
         LocationCreated,
         LocationUpdated,
         LocationActivated,
@@ -86,6 +96,7 @@ public static class WmsAuditEntityTypes
     public const string User = "User";
     public const string AccessAssignment = "AccessAssignment";
     public const string Item = "Item";
+    public const string UnitOfMeasure = "UnitOfMeasure";
     public const string Location = "Location";
     public const string Warehouse = "Warehouse";
     public const string Stock = "Stock";

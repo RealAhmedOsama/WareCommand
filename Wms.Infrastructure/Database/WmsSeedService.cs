@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Wms.Application.Context;
 using Wms.Application.Settings;
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
@@ -92,10 +93,27 @@ public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) :
         new("CABLE-001", "Z001-A001", 100.0m)
     ];
 
+    private static readonly SeedUnit[] StandardUnits =
+    [
+        new("EA", UnitOfMeasureCategory.Count, 0, "ea", "Each", "قطعة"),
+        new("PCS", UnitOfMeasureCategory.Count, 0, "pcs", "Pieces", "قطع"),
+        new("CASE", UnitOfMeasureCategory.Count, 0, "case", "Case", "كرتونة"),
+        new("PALLET", UnitOfMeasureCategory.Count, 0, "pallet", "Pallet", "طبالي"),
+        new("KG", UnitOfMeasureCategory.Weight, 3, "kg", "Kilogram", "كيلوجرام"),
+        new("G", UnitOfMeasureCategory.Weight, 3, "g", "Gram", "جرام"),
+        new("LB", UnitOfMeasureCategory.Weight, 3, "lb", "Pound", "رطل"),
+        new("M", UnitOfMeasureCategory.Length, 4, "m", "Meter", "متر"),
+        new("CM", UnitOfMeasureCategory.Length, 2, "cm", "Centimeter", "سنتيمتر"),
+        new("MM", UnitOfMeasureCategory.Length, 1, "mm", "Millimeter", "ملليمتر"),
+        new("L", UnitOfMeasureCategory.Volume, 3, "L", "Liter", "لتر"),
+        new("ML", UnitOfMeasureCategory.Volume, 3, "ml", "Milliliter", "ملليلتر")
+    ];
+
     public async Task SeedAsync(
         WmsSeedProfile profile,
         CancellationToken cancellationToken = default)
     {
+        await EnsureUnitOfMeasureCatalogAsync(cancellationToken);
         if (profile == WmsSeedProfile.None)
         {
             await EnsureGlobalSettingsAsync(null, cancellationToken);
@@ -115,6 +133,53 @@ public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) :
         locations = await EnsureLocationsAsync(warehouse, DemoLocations, cancellationToken, locations);
         var items = await EnsureItemsAsync(cancellationToken);
         await EnsureStockAsync(items, locations, cancellationToken);
+    }
+
+    private async Task EnsureUnitOfMeasureCatalogAsync(CancellationToken cancellationToken)
+    {
+        var definitions = StandardUnits.ToDictionary(unit => unit.Code, StringComparer.Ordinal);
+        var items = await context.Items
+            .Include(item => item.Packagings)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+        foreach (var code in items
+                     .SelectMany(item => new[]
+                     {
+                         item.UnitOfMeasure,
+                         item.PurchaseUnit,
+                         item.SalesUnit
+                     }.Concat(item.Packagings.Select(packaging => packaging.UnitOfMeasure)))
+                     .Where(code => !string.IsNullOrWhiteSpace(code))
+                     .Select(code => code.Trim().ToUpperInvariant())
+                     .Distinct(StringComparer.Ordinal))
+        {
+            definitions.TryAdd(
+                code,
+                new SeedUnit(code, UnitOfMeasureCategory.Count, 4, code, code, code));
+        }
+
+        var existing = await context.UnitOfMeasures
+            .ToDictionaryAsync(unit => unit.Code, StringComparer.Ordinal, cancellationToken);
+        foreach (var definition in definitions.Values)
+        {
+            if (existing.ContainsKey(definition.Code))
+            {
+                continue;
+            }
+
+            context.UnitOfMeasures.Add(new UnitOfMeasure(
+                definition.Code,
+                definition.Category,
+                definition.Precision,
+                definition.Symbol,
+                definition.Name,
+                definition.LocalizedName));
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private async Task EnsureGlobalSettingsAsync(
@@ -328,4 +393,12 @@ public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) :
         IReadOnlyList<string> Barcodes);
 
     private sealed record SeedStock(string Sku, string LocationCode, decimal Quantity);
+
+    private sealed record SeedUnit(
+        string Code,
+        UnitOfMeasureCategory Category,
+        int Precision,
+        string Symbol,
+        string Name,
+        string LocalizedName);
 }

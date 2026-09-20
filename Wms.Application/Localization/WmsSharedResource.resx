@@ -700,4 +700,48 @@
   <data name="Warehouses.Role.Damaged" xml:space="preserve"><value>Damaged</value></data>
   <data name="Warehouses.Role.Returns" xml:space="preserve"><value>Returns</value></data>
   <data name="Warehouses.Role.Transit" xml:space="preserve"><value>Transit</value></data>
+  <data name="Nav.UnitsOfMeasure" xml:space="preserve"><value>Units of measure</value></data>
+  <data name="Items.AllowFractionalQuantity" xml:space="preserve"><value>Allow fractional quantities</value></data>
+  <data name="Uom.Title" xml:space="preserve"><value>Units of measure</value></data>
+  <data name="Uom.Create" xml:space="preserve"><value>Create unit of measure</value></data>
+  <data name="Uom.Edit" xml:space="preserve"><value>Edit unit of measure</value></data>
+  <data name="Uom.Search" xml:space="preserve"><value>Search units</value></data>
+  <data name="Uom.SearchPlaceholder" xml:space="preserve"><value>Search code, name, or symbol</value></data>
+  <data name="Uom.Category" xml:space="preserve"><value>Category</value></data>
+  <data name="Uom.IncludeInactive" xml:space="preserve"><value>Include inactive</value></data>
+  <data name="Uom.Code" xml:space="preserve"><value>Code</value></data>
+  <data name="Uom.Name" xml:space="preserve"><value>Name</value></data>
+  <data name="Uom.LocalizedName" xml:space="preserve"><value>Localized name</value></data>
+  <data name="Uom.Symbol" xml:space="preserve"><value>Symbol</value></data>
+  <data name="Uom.Precision" xml:space="preserve"><value>Precision</value></data>
+  <data name="Uom.Active" xml:space="preserve"><value>Active</value></data>
+  <data name="Uom.Inactive" xml:space="preserve"><value>Inactive</value></data>
+  <data name="Uom.Activated" xml:space="preserve"><value>Unit of measure activated.</value></data>
+  <data name="Uom.Deactivated" xml:space="preserve"><value>Unit of measure deactivated.</value></data>
+  <data name="Uom.Activate" xml:space="preserve"><value>Activate</value></data>
+  <data name="Uom.Deactivate" xml:space="preserve"><value>Deactivate</value></data>
+  <data name="Uom.NoUnits" xml:space="preserve"><value>No units of measure found.</value></data>
+  <data name="Uom.Created" xml:space="preserve"><value>Unit '{0}' was created.</value></data>
+  <data name="Uom.Updated" xml:space="preserve"><value>Unit '{0}' was updated.</value></data>
+  <data name="Uom.ItemAssignment" xml:space="preserve"><value>Item unit assignment</value></data>
+  <data name="Uom.BackToItem" xml:space="preserve"><value>Back to item</value></data>
+  <data name="Uom.BaseUnit" xml:space="preserve"><value>Canonical base unit</value></data>
+  <data name="Uom.BaseUnitHelp" xml:space="preserve"><value>Stock ledger quantities are stored in this unit.</value></data>
+  <data name="Uom.PurchaseUnit" xml:space="preserve"><value>Purchase unit</value></data>
+  <data name="Uom.SalesUnit" xml:space="preserve"><value>Sales unit</value></data>
+  <data name="Uom.AllowFractional" xml:space="preserve"><value>Allow fractional quantities</value></data>
+  <data name="Uom.Conversions" xml:space="preserve"><value>Conversion rules</value></data>
+  <data name="Uom.ConversionHelp" xml:space="preserve"><value>One rule per line: FROM|TO|FACTOR|PRECISION|ROUNDING. Example: PALLET|CASE|10|0|Reject.</value></data>
+  <data name="Uom.History" xml:space="preserve"><value>Conversion history</value></data>
+  <data name="Uom.UsedByHistory" xml:space="preserve"><value>used by history</value></data>
+  <data name="Uom.EnterCode" xml:space="preserve"><value>Enter a unit code, for example EA or CASE</value></data>
+  <data name="Uom.OptionalOperationUnit" xml:space="preserve"><value>Leave blank to use the operation default unit.</value></data>
+  <data name="Uom.ItemAssignmentSaved" xml:space="preserve"><value>Unit assignment for '{0}' was saved.</value></data>
+  <data name="Uom.Category.Count" xml:space="preserve"><value>Count</value></data>
+  <data name="Uom.Category.Weight" xml:space="preserve"><value>Weight</value></data>
+  <data name="Uom.Category.Length" xml:space="preserve"><value>Length</value></data>
+  <data name="Uom.Category.Area" xml:space="preserve"><value>Area</value></data>
+  <data name="Uom.Category.Volume" xml:space="preserve"><value>Volume</value></data>
+  <data name="Uom.Category.Time" xml:space="preserve"><value>Time</value></data>
+  <data name="Uom.Category.Other" xml:space="preserve"><value>Other</value></data>
 </root>

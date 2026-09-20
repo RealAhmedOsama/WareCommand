@@ -221,12 +221,32 @@ public sealed class ItemManagementService(
                     "The requested item was not found."));
             }
 
+            var hasTransactionalHistory = await HasTransactionalHistoryAsync(item.Id, cancellationToken);
             var trackingChanged = TrackingPolicyChanged(item, request.Tracking);
-            if (trackingChanged && await HasTransactionalHistoryAsync(item.Id, cancellationToken))
+            if (trackingChanged && hasTransactionalHistory)
             {
                 return Result.Failure<ItemDto>(WmsErrors.Conflict(
                     "item.tracking_policy_locked",
                     "Lot, serial, expiry, and FEFO controls cannot be changed after stock or history exists."));
+            }
+
+            if (hasTransactionalHistory &&
+                !string.Equals(
+                    item.UnitOfMeasure,
+                    request.Measurements.BaseUnit,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return Result.Failure<ItemDto>(WmsErrors.Conflict(
+                    "item.base_unit_locked",
+                    "The canonical base unit cannot change after stock or transaction history exists."));
+            }
+
+            if (hasTransactionalHistory &&
+                item.AllowFractionalQuantity != request.Tracking.AllowFractionalQuantity)
+            {
+                return Result.Failure<ItemDto>(WmsErrors.Conflict(
+                    "item.fraction_policy_locked",
+                    "The fractional-quantity policy cannot change after stock or transaction history exists."));
             }
 
             var barcodeValues = ValidateBarcodes(request.Barcodes);
@@ -441,7 +461,8 @@ public sealed class ItemManagementService(
                 LeadTimeDays: source.LeadTimeDays,
                 ShelfLifeDays: source.ShelfLifeDays,
                 RequiresLot: source.RequiresLot,
-                RequiresSerial: source.RequiresSerial));
+                RequiresSerial: source.RequiresSerial,
+                AllowFractionalQuantity: source.AllowFractionalQuantity));
 
             if (request.CopyPackagings)
             {
@@ -458,6 +479,17 @@ public sealed class ItemManagementService(
                         packaging.HeightCm,
                         packaging.IsDefault));
                 }
+            }
+
+            foreach (var conversion in source.UnitConversions.Where(conversion => conversion.IsActive))
+            {
+                item.AddUnitConversion(new ItemUnitConversion(
+                    item.Id,
+                    conversion.FromUnitOfMeasure,
+                    conversion.ToUnitOfMeasure,
+                    conversion.ConversionFactor,
+                    conversion.ResultPrecision,
+                    conversion.RoundingMode));
             }
 
             await context.Items.AddAsync(item, cancellationToken);
@@ -650,6 +682,7 @@ public sealed class ItemManagementService(
     {
         return await context.Items
             .Include(item => item.Packagings)
+            .Include(item => item.UnitConversions)
             .SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
     }
 
@@ -767,11 +800,13 @@ public sealed class ItemManagementService(
             LeadTimeDays: planning.LeadTimeDays,
             ShelfLifeDays: tracking.ShelfLifeDays,
             RequiresLot: tracking.RequiresLot,
-            RequiresSerial: tracking.RequiresSerial);
+            RequiresSerial: tracking.RequiresSerial,
+            AllowFractionalQuantity: tracking.AllowFractionalQuantity);
 
     private static bool TrackingPolicyChanged(Item item, ItemTrackingRequest request) =>
         item.RequiresLot != request.RequiresLot ||
         item.RequiresSerial != request.RequiresSerial ||
+        item.AllowFractionalQuantity != request.AllowFractionalQuantity ||
         item.RequiresExpiry != request.RequiresExpiry ||
         item.UseFefo != request.UseFefo ||
         item.ShelfLifeDays != request.ShelfLifeDays;
@@ -935,6 +970,7 @@ public sealed class ItemManagementService(
         ["isActive"] = item.IsActive,
         ["requiresLot"] = item.RequiresLot,
         ["requiresSerial"] = item.RequiresSerial,
+        ["allowFractionalQuantity"] = item.AllowFractionalQuantity,
         ["requiresExpiry"] = item.RequiresExpiry,
         ["shelfLifeDays"] = item.ShelfLifeDays,
         ["barcodeCount"] = item.Barcodes.Count,
@@ -968,6 +1004,7 @@ public sealed class ItemManagementService(
             PurchaseUnit = item.PurchaseUnit,
             SalesUnit = item.SalesUnit,
             RequiresExpiry = item.RequiresExpiry,
+            AllowFractionalQuantity = item.AllowFractionalQuantity,
             UseFefo = item.UseFefo,
             QualityInspectionRequired = item.QualityInspectionRequired,
             IsHazardous = item.IsHazardous,

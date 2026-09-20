@@ -30,6 +30,7 @@ public record ItemDto(
     public string PurchaseUnit { get; init; } = string.Empty;
     public string SalesUnit { get; init; } = string.Empty;
     public bool RequiresExpiry { get; init; }
+    public bool AllowFractionalQuantity { get; init; } = true;
     public bool UseFefo { get; init; }
     public bool QualityInspectionRequired { get; init; }
     public bool IsHazardous { get; init; }

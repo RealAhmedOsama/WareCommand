@@ -11,7 +11,8 @@ public record ReceiveItemDto(
     string? ReferenceNumber = null,
     string? Notes = null,
     DateTime? ExpiryDate = null,
-    DateTime? ManufacturedDate = null
+    DateTime? ManufacturedDate = null,
+    string? UnitOfMeasure = null
 );
 
 public record PutawayDto(
@@ -21,7 +22,8 @@ public record PutawayDto(
     decimal Quantity,
     string? LotNumber = null,
     string? SerialNumber = null,
-    string? Notes = null
+    string? Notes = null,
+    string? UnitOfMeasure = null
 );
 
 public record ReceiptResultDto(

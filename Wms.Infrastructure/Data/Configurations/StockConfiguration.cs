@@ -30,14 +30,14 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
             .HasConversion(
                 v => v.Value,
                 v => new Quantity(v))
-            .HasColumnType("decimal(18,4)")
+            .HasColumnType("decimal(28,12)")
             .IsRequired();
 
         builder.Property(e => e.QuantityReserved)
             .HasConversion(
                 v => v.Value,
                 v => new Quantity(v))
-            .HasColumnType("decimal(18,4)")
+            .HasColumnType("decimal(28,12)")
             .IsRequired();
 
         // Relationships

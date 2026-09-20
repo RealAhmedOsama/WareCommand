@@ -700,4 +700,48 @@
   <data name="Warehouses.Role.Damaged" xml:space="preserve"><value>التالف</value></data>
   <data name="Warehouses.Role.Returns" xml:space="preserve"><value>المرتجعات</value></data>
   <data name="Warehouses.Role.Transit" xml:space="preserve"><value>العبور</value></data>
+  <data name="Nav.UnitsOfMeasure" xml:space="preserve"><value>وحدات القياس</value></data>
+  <data name="Items.AllowFractionalQuantity" xml:space="preserve"><value>السماح بالكميات الكسرية</value></data>
+  <data name="Uom.Title" xml:space="preserve"><value>وحدات القياس</value></data>
+  <data name="Uom.Create" xml:space="preserve"><value>إنشاء وحدة قياس</value></data>
+  <data name="Uom.Edit" xml:space="preserve"><value>تعديل وحدة القياس</value></data>
+  <data name="Uom.Search" xml:space="preserve"><value>بحث في الوحدات</value></data>
+  <data name="Uom.SearchPlaceholder" xml:space="preserve"><value>ابحث بالكود أو الاسم أو الرمز</value></data>
+  <data name="Uom.Category" xml:space="preserve"><value>الفئة</value></data>
+  <data name="Uom.IncludeInactive" xml:space="preserve"><value>تضمين غير النشطة</value></data>
+  <data name="Uom.Code" xml:space="preserve"><value>الكود</value></data>
+  <data name="Uom.Name" xml:space="preserve"><value>الاسم</value></data>
+  <data name="Uom.LocalizedName" xml:space="preserve"><value>الاسم المحلي</value></data>
+  <data name="Uom.Symbol" xml:space="preserve"><value>الرمز</value></data>
+  <data name="Uom.Precision" xml:space="preserve"><value>الدقة</value></data>
+  <data name="Uom.Active" xml:space="preserve"><value>نشطة</value></data>
+  <data name="Uom.Inactive" xml:space="preserve"><value>غير نشطة</value></data>
+  <data name="Uom.Activated" xml:space="preserve"><value>تم تفعيل وحدة القياس.</value></data>
+  <data name="Uom.Deactivated" xml:space="preserve"><value>تم تعطيل وحدة القياس.</value></data>
+  <data name="Uom.Activate" xml:space="preserve"><value>تفعيل</value></data>
+  <data name="Uom.Deactivate" xml:space="preserve"><value>تعطيل</value></data>
+  <data name="Uom.NoUnits" xml:space="preserve"><value>لم يتم العثور على وحدات قياس.</value></data>
+  <data name="Uom.Created" xml:space="preserve"><value>تم إنشاء الوحدة '{0}'.</value></data>
+  <data name="Uom.Updated" xml:space="preserve"><value>تم تحديث الوحدة '{0}'.</value></data>
+  <data name="Uom.ItemAssignment" xml:space="preserve"><value>تعيين وحدات الصنف</value></data>
+  <data name="Uom.BackToItem" xml:space="preserve"><value>العودة إلى الصنف</value></data>
+  <data name="Uom.BaseUnit" xml:space="preserve"><value>وحدة الأساس المعتمدة</value></data>
+  <data name="Uom.BaseUnitHelp" xml:space="preserve"><value>يتم تخزين كميات دفتر المخزون بهذه الوحدة.</value></data>
+  <data name="Uom.PurchaseUnit" xml:space="preserve"><value>وحدة الشراء</value></data>
+  <data name="Uom.SalesUnit" xml:space="preserve"><value>وحدة البيع</value></data>
+  <data name="Uom.AllowFractional" xml:space="preserve"><value>السماح بالكميات الكسرية</value></data>
+  <data name="Uom.Conversions" xml:space="preserve"><value>قواعد التحويل</value></data>
+  <data name="Uom.ConversionHelp" xml:space="preserve"><value>قاعدة واحدة في كل سطر: FROM|TO|FACTOR|PRECISION|ROUNDING. مثال: PALLET|CASE|10|0|Reject.</value></data>
+  <data name="Uom.History" xml:space="preserve"><value>سجل التحويلات</value></data>
+  <data name="Uom.UsedByHistory" xml:space="preserve"><value>مستخدمة في السجل التاريخي</value></data>
+  <data name="Uom.EnterCode" xml:space="preserve"><value>أدخل كود الوحدة مثل EA أو CASE</value></data>
+  <data name="Uom.OptionalOperationUnit" xml:space="preserve"><value>اتركه فارغاً لاستخدام وحدة العملية الافتراضية.</value></data>
+  <data name="Uom.ItemAssignmentSaved" xml:space="preserve"><value>تم حفظ تعيين الوحدات للصنف '{0}'.</value></data>
+  <data name="Uom.Category.Count" xml:space="preserve"><value>عدد</value></data>
+  <data name="Uom.Category.Weight" xml:space="preserve"><value>وزن</value></data>
+  <data name="Uom.Category.Length" xml:space="preserve"><value>طول</value></data>
+  <data name="Uom.Category.Area" xml:space="preserve"><value>مساحة</value></data>
+  <data name="Uom.Category.Volume" xml:space="preserve"><value>حجم</value></data>
+  <data name="Uom.Category.Time" xml:space="preserve"><value>زمن</value></data>
+  <data name="Uom.Category.Other" xml:space="preserve"><value>أخرى</value></data>
 </root>
