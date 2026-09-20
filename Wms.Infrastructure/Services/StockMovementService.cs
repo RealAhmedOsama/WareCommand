@@ -54,7 +54,8 @@ public class StockMovementService : IStockMovementService
 
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
-        string? notes = null, CancellationToken cancellationToken = default)
+        string? notes = null, CancellationToken cancellationToken = default,
+        int? licensePlateId = null)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -70,6 +71,13 @@ public class StockMovementService : IStockMovementService
             location?.WarehouseId);
         try
         {
+            await EnsureActiveItemAsync(itemId, cancellationToken);
+            EnsureReceivingLocation(location);
+            await ValidateLicensePlateAsync(
+                licensePlateId,
+                location!.WarehouseId,
+                locationId,
+                cancellationToken);
             await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: false, cancellationToken);
             var serial = await ResolveSerialForReceiptAsync(
                 itemId,
@@ -88,13 +96,15 @@ public class StockMovementService : IStockMovementService
                 serial?.Number ?? serialNumber,
                 serial?.Id,
                 inboundStatusId,
+                licensePlateId,
                 cancellationToken);
             await EnsureInboundCapacityAsync(
                 location,
                 itemId,
                 lotId,
                 quantity,
-                cancellationToken);
+                cancellationToken,
+                incomingLicensePlateId: licensePlateId);
             var quantityBefore = existingStock?.QuantityAvailable.Value ?? 0m;
 
             // Create receipt movement
@@ -105,7 +115,8 @@ public class StockMovementService : IStockMovementService
                 notes,
                 _clock.UtcNow.UtcDateTime,
                 serial?.Id,
-                inboundStatusId);
+                inboundStatusId,
+                toLicensePlateId: licensePlateId);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -124,7 +135,8 @@ public class StockMovementService : IStockMovementService
                     lotId,
                     serial?.Number ?? serialNumber,
                     serial?.Id,
-                    inboundStatusId);
+                    inboundStatusId,
+                    licensePlateId);
                 await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
             }
 
@@ -143,7 +155,8 @@ public class StockMovementService : IStockMovementService
                     lotId,
                     referenceNumber,
                     item.QualityInspectionRequired,
-                    _clock.UtcNow.UtcDateTime);
+                    _clock.UtcNow.UtcDateTime,
+                    licensePlateId);
                 await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
             }
 
@@ -164,7 +177,7 @@ public class StockMovementService : IStockMovementService
                                 lotId,
                                 serial?.Id,
                                 serial?.Number ?? serialNumber,
-                                null,
+                                licensePlateId,
                                 inboundStatusId,
                                 item.UnitOfMeasure),
                             quantity.Value,
@@ -229,7 +242,8 @@ public class StockMovementService : IStockMovementService
 
     public async Task<Movement> PutawayAsync(int itemId, int fromLocationId, int toLocationId,
         Quantity quantity, string userId, int? lotId = null, string? serialNumber = null,
-        string? referenceNumber = null, string? notes = null, CancellationToken cancellationToken = default)
+        string? referenceNumber = null, string? notes = null, CancellationToken cancellationToken = default,
+        int? licensePlateId = null)
     {
         var fromLocation = await _unitOfWork.Locations.GetByIdAsync(fromLocationId, cancellationToken);
         var toLocation = await _unitOfWork.Locations.GetByIdAsync(toLocationId, cancellationToken);
@@ -246,6 +260,13 @@ public class StockMovementService : IStockMovementService
             fromLocation?.WarehouseId ?? toLocation?.WarehouseId);
         try
         {
+            await EnsureActiveItemAsync(itemId, cancellationToken);
+            EnsurePutawayLocations(fromLocation, toLocation);
+            var licensePlate = await ValidateLicensePlateAsync(
+                licensePlateId,
+                fromLocation!.WarehouseId,
+                fromLocationId,
+                cancellationToken);
             await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: true, cancellationToken);
             var serial = await ResolveSerialForMovementAsync(
                 itemId,
@@ -263,6 +284,7 @@ public class StockMovementService : IStockMovementService
                 serial?.Number ?? serialNumber,
                 serial?.Id,
                 statusId: null,
+                licensePlateId,
                 cancellationToken);
 
             if (sourceStock == null)
@@ -295,14 +317,27 @@ public class StockMovementService : IStockMovementService
                 serial?.Number ?? serialNumber,
                 serial?.Id,
                 destinationStatusId,
+                licensePlateId,
                 cancellationToken);
             await EnsureInboundCapacityAsync(
                 toLocation,
                 itemId,
                 lotId,
                 quantity,
-                cancellationToken);
+                cancellationToken,
+                incomingLicensePlateId: licensePlateId);
             var destinationQuantityBefore = destinationStock?.QuantityAvailable.Value ?? 0m;
+
+            if (licensePlate is not null)
+            {
+                await MoveWholeLicensePlateForPutawayAsync(
+                    licensePlate,
+                    fromLocationId,
+                    toLocation,
+                    sourceStock,
+                    quantity,
+                    cancellationToken);
+            }
 
             // Create putaway movement
             var movement = Movement.CreatePutaway(itemId, fromLocationId, toLocationId, quantity, userId,
@@ -312,7 +347,9 @@ public class StockMovementService : IStockMovementService
                 notes,
                 _clock.UtcNow.UtcDateTime,
                 serial?.Id,
-                destinationStatusId);
+                destinationStatusId,
+                fromLicensePlateId: licensePlateId,
+                toLicensePlateId: licensePlateId);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -335,7 +372,8 @@ public class StockMovementService : IStockMovementService
                     lotId,
                     serial?.Number ?? serialNumber,
                     serial?.Id,
-                    destinationStatusId);
+                    destinationStatusId,
+                    licensePlateId);
                 await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
             }
 
@@ -350,7 +388,8 @@ public class StockMovementService : IStockMovementService
                     toLocation.WarehouseId,
                     toLocation.Id,
                     licensePlate: null,
-                    _clock.UtcNow.UtcDateTime);
+                    _clock.UtcNow.UtcDateTime,
+                    licensePlateId);
                 await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
             }
 
@@ -366,7 +405,7 @@ public class StockMovementService : IStockMovementService
                     lotId,
                     serial?.Id,
                     serial?.Number ?? serialNumber,
-                    sourceStock.LicensePlateId,
+                    licensePlateId,
                     sourceStock.InventoryStatusId,
                     item.UnitOfMeasure);
                 var destinationKey = new InventoryBalanceKey(
@@ -376,7 +415,7 @@ public class StockMovementService : IStockMovementService
                     lotId,
                     serial?.Id,
                     serial?.Number ?? serialNumber,
-                    destinationStock?.LicensePlateId,
+                    licensePlateId,
                     destinationStatusId,
                     item.UnitOfMeasure);
                 await _inventoryLedgerService.RecordAsync(
@@ -461,7 +500,8 @@ public class StockMovementService : IStockMovementService
 
     public async Task<Movement> PickAsync(int itemId, int fromLocationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
-        string? notes = null, CancellationToken cancellationToken = default)
+        string? notes = null, CancellationToken cancellationToken = default,
+        int? licensePlateId = null)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(fromLocationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -477,6 +517,13 @@ public class StockMovementService : IStockMovementService
             location?.WarehouseId);
         try
         {
+            await EnsureActiveItemAsync(itemId, cancellationToken);
+            EnsurePickingLocation(location);
+            await ValidateLicensePlateAsync(
+                licensePlateId,
+                location!.WarehouseId,
+                fromLocationId,
+                cancellationToken);
             await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: true, cancellationToken);
             var serial = await ResolveSerialForMovementAsync(
                 itemId,
@@ -494,6 +541,7 @@ public class StockMovementService : IStockMovementService
                 serial?.Number ?? serialNumber,
                 serial?.Id,
                 statusId: null,
+                licensePlateId,
                 cancellationToken);
 
             if (sourceStock == null)
@@ -521,7 +569,8 @@ public class StockMovementService : IStockMovementService
                 notes,
                 _clock.UtcNow.UtcDateTime,
                 serial?.Id,
-                sourceStock.InventoryStatusId);
+                sourceStock.InventoryStatusId,
+                fromLicensePlateId: licensePlateId);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -616,7 +665,8 @@ public class StockMovementService : IStockMovementService
     }
 
     public async Task<Movement> AdjustAsync(int itemId, int locationId, Quantity newQuantity, string userId,
-        string reason, int? lotId = null, string? serialNumber = null, CancellationToken cancellationToken = default)
+        string reason, int? lotId = null, string? serialNumber = null,
+        CancellationToken cancellationToken = default, int? licensePlateId = null)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -632,6 +682,13 @@ public class StockMovementService : IStockMovementService
             location?.WarehouseId);
         try
         {
+            await EnsureActiveItemAsync(itemId, cancellationToken);
+            EnsureAdjustmentLocation(location, reason);
+            await ValidateLicensePlateAsync(
+                licensePlateId,
+                location!.WarehouseId,
+                locationId,
+                cancellationToken);
             await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: false, cancellationToken);
             var serial = await ResolveSerialForAdjustmentAsync(
                 itemId,
@@ -647,12 +704,14 @@ public class StockMovementService : IStockMovementService
                 serial?.Number ?? serialNumber,
                 serial?.Id,
                 statusId: null,
+                licensePlateId,
                 cancellationToken);
             var adjustmentStatusId = stock?.InventoryStatusId ?? await ResolveInboundStatusIdAsync(
                 location,
                 itemId,
                 cancellationToken);
-            var quantityBefore = stock?.QuantityAvailable.Value;
+            var quantityBefore = stock?.QuantityAvailable.Value ?? 0m;
+            var adjustmentDelta = newQuantity.Value - quantityBefore;
 
             if (stock == null)
             {
@@ -664,7 +723,8 @@ public class StockMovementService : IStockMovementService
                         itemId,
                         lotId,
                         newQuantity,
-                        cancellationToken);
+                        cancellationToken,
+                        incomingLicensePlateId: licensePlateId);
                     var newStock = new Stock(
                         itemId,
                         locationId,
@@ -672,7 +732,8 @@ public class StockMovementService : IStockMovementService
                         lotId,
                         serial?.Number ?? serialNumber,
                         serial?.Id,
-                        adjustmentStatusId);
+                        adjustmentStatusId,
+                        licensePlateId);
                     await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
                 }
             }
@@ -686,7 +747,8 @@ public class StockMovementService : IStockMovementService
                         itemId,
                         lotId,
                         new Quantity(delta, newQuantity.ConversionSnapshot),
-                        cancellationToken);
+                        cancellationToken,
+                        incomingLicensePlateId: licensePlateId);
                 }
                 stock.AdjustQuantity(newQuantity, reason);
                 await _unitOfWork.Stock.UpdateAsync(stock, cancellationToken);
@@ -699,7 +761,11 @@ public class StockMovementService : IStockMovementService
                 notes: reason,
                 timestampUtc: _clock.UtcNow.UtcDateTime,
                 serialNumberId: serial?.Id,
-                inventoryStatusId: adjustmentStatusId);
+                inventoryStatusId: adjustmentStatusId,
+                licensePlateId: licensePlateId,
+                adjustmentBeforeQuantity: quantityBefore,
+                adjustmentDelta: adjustmentDelta,
+                adjustmentAfterQuantity: newQuantity.Value);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -723,7 +789,8 @@ public class StockMovementService : IStockMovementService
                         lotId,
                         referenceNumber: null,
                         quarantine: item.QualityInspectionRequired,
-                        timestampUtc: _clock.UtcNow.UtcDateTime);
+                        timestampUtc: _clock.UtcNow.UtcDateTime,
+                        licensePlateId: licensePlateId);
                 }
                 else
                 {
@@ -731,7 +798,8 @@ public class StockMovementService : IStockMovementService
                         location.WarehouseId,
                         location.Id,
                         licensePlate: null,
-                        _clock.UtcNow.UtcDateTime);
+                        _clock.UtcNow.UtcDateTime,
+                        licensePlateId);
                 }
 
                 await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
@@ -742,7 +810,6 @@ public class StockMovementService : IStockMovementService
                 var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
                     ?? throw new InvalidOperationException($"Item {itemId} was not found.");
                 var transactionGroupId = $"movement:{Guid.NewGuid():N}";
-                var quantityBeforeForLedger = quantityBefore ?? 0m;
                 await _inventoryLedgerService.RecordAsync(
                     new[]
                     {
@@ -755,10 +822,10 @@ public class StockMovementService : IStockMovementService
                                 lotId,
                                 serial?.Id,
                                 serial?.Number ?? serialNumber,
-                                stock?.LicensePlateId,
+                                licensePlateId,
                                 adjustmentStatusId,
                                 item.UnitOfMeasure),
-                            newQuantity.Value - quantityBeforeForLedger,
+                            adjustmentDelta,
                             ActorUserId: userId,
                             ReferenceType: "Movement",
                             ReferenceId: $"{itemId}:{locationId}",
@@ -785,6 +852,7 @@ public class StockMovementService : IStockMovementService
                     After: new Dictionary<string, object?>
                     {
                         ["quantityAvailable"] = newQuantity.Value,
+                        ["delta"] = adjustmentDelta,
                         ["reason"] = reason
                     },
                     ActorUserId: userId),
@@ -976,6 +1044,180 @@ public class StockMovementService : IStockMovementService
         }
     }
 
+    private async Task<Item> EnsureActiveItemAsync(
+        int itemId,
+        CancellationToken cancellationToken)
+    {
+        var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
+            ?? throw new InvalidOperationException($"Item {itemId} was not found.");
+        if (!item.IsActive)
+        {
+            throw new InvalidOperationException($"Item '{item.Sku}' is inactive.");
+        }
+
+        return item;
+    }
+
+    private static void EnsureReceivingLocation(Location? location)
+    {
+        if (location is null)
+        {
+            throw new InvalidOperationException("Receipt location was not found.");
+        }
+
+        if (!location.IsActive)
+        {
+            throw new InvalidOperationException($"Location '{location.Code}' is inactive.");
+        }
+
+        if (!location.IsReceivable || !location.SupportsReceiving)
+        {
+            throw new InvalidOperationException($"Location '{location.Code}' is not receivable.");
+        }
+    }
+
+    private static void EnsurePutawayLocations(Location? fromLocation, Location? toLocation)
+    {
+        if (fromLocation is null)
+        {
+            throw new InvalidOperationException("Putaway source location was not found.");
+        }
+
+        if (toLocation is null)
+        {
+            throw new InvalidOperationException("Putaway destination was not found.");
+        }
+
+        if (!fromLocation.IsActive)
+        {
+            throw new InvalidOperationException($"Location '{fromLocation.Code}' is inactive.");
+        }
+
+        if (!toLocation.IsActive)
+        {
+            throw new InvalidOperationException($"Location '{toLocation.Code}' is inactive.");
+        }
+
+        if (fromLocation.WarehouseId != toLocation.WarehouseId)
+        {
+            throw new InvalidOperationException(
+                "Putaway source and destination must belong to the same warehouse.");
+        }
+
+        if (!toLocation.IsReceivable || !toLocation.SupportsReceiving)
+        {
+            throw new InvalidOperationException($"Location '{toLocation.Code}' is not receivable.");
+        }
+    }
+
+    private static void EnsurePickingLocation(Location? location)
+    {
+        if (location is null)
+        {
+            throw new InvalidOperationException("Pick source location was not found.");
+        }
+
+        if (!location.IsActive)
+        {
+            throw new InvalidOperationException($"Location '{location.Code}' is inactive.");
+        }
+
+        if (!location.IsPickable || !location.SupportsPicking)
+        {
+            throw new InvalidOperationException($"Location '{location.Code}' is not pickable.");
+        }
+    }
+
+    private static void EnsureAdjustmentLocation(Location? location, string reason)
+    {
+        if (location is null)
+        {
+            throw new InvalidOperationException("Adjustment location was not found.");
+        }
+
+        if (!location.IsActive)
+        {
+            throw new InvalidOperationException($"Location '{location.Code}' is inactive.");
+        }
+
+        if (!location.IsCountable)
+        {
+            throw new InvalidOperationException($"Location '{location.Code}' is not countable.");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new InvalidOperationException("Adjustment reason is required.");
+        }
+    }
+
+    private async Task<LicensePlate?> ValidateLicensePlateAsync(
+        int? licensePlateId,
+        int warehouseId,
+        int locationId,
+        CancellationToken cancellationToken)
+    {
+        if (!licensePlateId.HasValue)
+        {
+            return null;
+        }
+
+        var licensePlate = await _unitOfWork.LicensePlates.GetByIdAsync(
+            licensePlateId.Value,
+            cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"License plate {licensePlateId.Value} was not found.");
+
+        if (!licensePlate.IsActive ||
+            licensePlate.Status is not (LicensePlateStatus.Open or LicensePlateStatus.Returned))
+        {
+            throw new InvalidOperationException(
+                $"License plate '{licensePlate.Number}' is not available for inventory movement.");
+        }
+
+        if (licensePlate.WarehouseId != warehouseId)
+        {
+            throw new InvalidOperationException(
+                $"License plate '{licensePlate.Number}' belongs to another warehouse.");
+        }
+
+        if (licensePlate.CurrentLocationId != locationId)
+        {
+            throw new InvalidOperationException(
+                $"License plate '{licensePlate.Number}' is not at the requested location.");
+        }
+
+        return licensePlate;
+    }
+
+    private async Task MoveWholeLicensePlateForPutawayAsync(
+        LicensePlate licensePlate,
+        int sourceLocationId,
+        Location destinationLocation,
+        Stock sourceStock,
+        Quantity quantity,
+        CancellationToken cancellationToken)
+    {
+        var contents = (await _unitOfWork.Stock.GetByLicensePlateIdAsync(
+                licensePlate.Id,
+                cancellationToken))
+            .Where(stock => stock.LocationId == sourceLocationId &&
+                            (stock.QuantityAvailable.Value > 0 || stock.QuantityReserved.Value > 0))
+            .ToArray();
+
+        if (contents.Length != 1 ||
+            contents[0].Id != sourceStock.Id ||
+            sourceStock.QuantityReserved.Value != 0m ||
+            sourceStock.QuantityAvailable.Value != quantity.Value)
+        {
+            throw new InvalidOperationException(
+                "Putaway of an LPN must move its complete unreserved contents in one operation.");
+        }
+
+        licensePlate.MoveTo(destinationLocation.WarehouseId, destinationLocation.Id);
+        await _unitOfWork.LicensePlates.UpdateAsync(licensePlate, cancellationToken);
+    }
+
     private async Task<Stock?> FindStockAsync(
         int itemId,
         int locationId,
@@ -983,6 +1225,7 @@ public class StockMovementService : IStockMovementService
         string? serialNumber,
         int? serialNumberId,
         int? statusId,
+        int? licensePlateId,
         CancellationToken cancellationToken)
     {
         if (_inventoryStatusService is null)
@@ -993,7 +1236,8 @@ public class StockMovementService : IStockMovementService
                 lotId,
                 serialNumber,
                 serialNumberId,
-                cancellationToken);
+                cancellationToken,
+                licensePlateId);
         }
 
         var candidates = (await _unitOfWork.Stock.GetByLocationIdAsync(
@@ -1003,7 +1247,8 @@ public class StockMovementService : IStockMovementService
             .Where(stock => HasSerialIdentity(
                 stock,
                 serialNumber,
-                serialNumberId));
+                serialNumberId))
+            .Where(stock => stock.LicensePlateId == licensePlateId);
         if (statusId.HasValue)
         {
             candidates = candidates.Where(stock => stock.InventoryStatusId == statusId.Value);
@@ -1119,7 +1364,8 @@ public class StockMovementService : IStockMovementService
         int itemId,
         int? lotId,
         Quantity incomingQuantity,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? incomingLicensePlateId = null)
     {
         if (location is null)
         {
@@ -1154,8 +1400,17 @@ public class StockMovementService : IStockMovementService
         var currentCapacity = new LocationCapacitySnapshot(
             occupiedStock.Sum(stock => stock.QuantityAvailable.Value),
             occupiedStock.Sum(stock => stock.QuantityAvailable.Value * (stock.Item.NetWeightKg ?? 0m)),
-            occupiedStock.Sum(stock => stock.QuantityAvailable.Value * (stock.Item.VolumeCubicMeters ?? 0m)));
-        var incomingCapacity = CalculateIncomingCapacity(incomingQuantity, item);
+            occupiedStock.Sum(stock => stock.QuantityAvailable.Value * (stock.Item.VolumeCubicMeters ?? 0m)),
+            Lpns: occupiedStock
+                .Where(stock => stock.LicensePlateId.HasValue)
+                .Select(stock => stock.LicensePlateId!.Value)
+                .Distinct()
+                .Count());
+        var incomingCapacity = CalculateIncomingCapacity(
+            incomingQuantity,
+            item,
+            incomingLicensePlateId.HasValue &&
+            occupiedStock.All(stock => stock.LicensePlateId != incomingLicensePlateId));
         var violation = location.ValidateCapacity(currentCapacity, incomingCapacity);
         if (violation is not null)
         {
@@ -1217,7 +1472,10 @@ public class StockMovementService : IStockMovementService
         return lot;
     }
 
-    private static LocationCapacitySnapshot CalculateIncomingCapacity(Quantity quantity, Item? item)
+    private static LocationCapacitySnapshot CalculateIncomingCapacity(
+        Quantity quantity,
+        Item? item,
+        bool addsLicensePlate = false)
     {
         var conversion = quantity.ConversionSnapshot;
         var packaging = conversion?.PackagingSnapshot;
@@ -1226,7 +1484,8 @@ public class StockMovementService : IStockMovementService
             return new LocationCapacitySnapshot(
                 quantity.Value,
                 quantity.Value * (item?.NetWeightKg ?? 0m),
-                quantity.Value * (item?.VolumeCubicMeters ?? 0m));
+                quantity.Value * (item?.VolumeCubicMeters ?? 0m),
+                Lpns: addsLicensePlate ? 1 : 0);
         }
 
         var packageCount = conversion!.ConversionFactorToBase <= 0
@@ -1239,6 +1498,7 @@ public class StockMovementService : IStockMovementService
             quantity.Value,
             (packaging.GrossWeightKg ?? item?.NetWeightKg * packaging.UnitsPerPackage ?? 0m) * packageCount,
             (packaging.VolumeCubicMeters ?? item?.VolumeCubicMeters * packaging.UnitsPerPackage ?? 0m) * packageCount,
-            pallets);
+            pallets,
+            Lpns: addsLicensePlate ? 1 : 0);
     }
 }

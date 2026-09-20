@@ -50,7 +50,8 @@ public class SerialNumber : Entity
         int? lotId,
         string? referenceNumber,
         bool quarantine,
-        DateTime timestampUtc)
+        DateTime timestampUtc,
+        int? licensePlateId = null)
     {
         if (Id != 0 &&
             Status != SerialStatus.Returned &&
@@ -63,7 +64,7 @@ public class SerialNumber : Entity
         LotId = lotId;
         CurrentWarehouseId = warehouseId;
         CurrentLocationId = locationId;
-        CurrentLicensePlateId = null;
+        CurrentLicensePlateId = licensePlateId;
         CurrentLicensePlate = null;
         ReceiptReference = NormalizeOptional(referenceNumber, 100);
         ShipmentReference = null;

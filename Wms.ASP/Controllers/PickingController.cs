@@ -29,7 +29,7 @@ public class PickingController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Pick(
-        [Bind("ItemSku,LocationCode,Quantity,UnitOfMeasure,PackagingCode,OrderNumber,LotNumber,SerialNumber,Notes")]
+        [Bind("ItemSku,LocationCode,Quantity,UnitOfMeasure,PackagingCode,OrderNumber,LotNumber,LicensePlateId,SerialNumber,Notes")]
         PickingViewModel model,
         CancellationToken cancellationToken = default)
     {
@@ -47,7 +47,8 @@ public class PickingController : Controller
             model.SerialNumber,
             model.Notes,
             UnitOfMeasure: model.UnitOfMeasure,
-            PackagingCode: model.PackagingCode
+            PackagingCode: model.PackagingCode,
+            LicensePlateId: model.LicensePlateId
         );
 
         var result = await _pickOrderUseCase.ExecuteAsync(

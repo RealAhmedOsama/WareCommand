@@ -94,7 +94,7 @@ public class InventoryController : Controller
     [HttpPost]
     [Authorize(Policy = WmsPermissions.InventoryAdjust)]
     public async Task<IActionResult> Adjust(
-        [Bind("ItemSku,LocationCode,LotNumber,NewQuantity,UnitOfMeasure,PackagingCode,Reason")] StockAdjustmentViewModel model,
+        [Bind("ItemSku,LocationCode,LotNumber,LicensePlateId,NewQuantity,UnitOfMeasure,PackagingCode,Reason")] StockAdjustmentViewModel model,
         CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
@@ -109,7 +109,8 @@ public class InventoryController : Controller
             model.Reason,
             model.LotNumber,
             UnitOfMeasure: model.UnitOfMeasure,
-            PackagingCode: model.PackagingCode
+            PackagingCode: model.PackagingCode,
+            LicensePlateId: model.LicensePlateId
         );
 
         var result = await _stockAdjustmentUseCase.ExecuteAsync(

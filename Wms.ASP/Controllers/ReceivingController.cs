@@ -36,7 +36,7 @@ public class ReceivingController : Controller
     [ValidateAntiForgeryToken]
     [Authorize(Policy = WmsPermissions.ReceivingExecute)]
     public async Task<IActionResult> Receive(
-        [Bind("ItemSku,LocationCode,Quantity,UnitOfMeasure,PackagingCode,LotNumber,ManufacturedDate,ExpiryDate,SerialNumber,ReferenceNumber,Notes")]
+        [Bind("ItemSku,LocationCode,Quantity,UnitOfMeasure,PackagingCode,LotNumber,LicensePlateId,ManufacturedDate,ExpiryDate,SerialNumber,ReferenceNumber,Notes")]
         ReceivingViewModel model,
         CancellationToken cancellationToken = default)
     {
@@ -56,7 +56,8 @@ public class ReceivingController : Controller
             ExpiryDate: model.ExpiryDate,
             ManufacturedDate: model.ManufacturedDate,
             UnitOfMeasure: model.UnitOfMeasure,
-            PackagingCode: model.PackagingCode
+            PackagingCode: model.PackagingCode,
+            LicensePlateId: model.LicensePlateId
         );
 
         var result = await _receiveItemUseCase.ExecuteAsync(
@@ -86,7 +87,7 @@ public class ReceivingController : Controller
     [ValidateAntiForgeryToken]
     [Authorize(Policy = WmsPermissions.PutawayExecute)]
     public async Task<IActionResult> Putaway(
-        [Bind("ItemSku,FromLocationCode,ToLocationCode,Quantity,UnitOfMeasure,PackagingCode,LotNumber,SerialNumber,Notes")]
+        [Bind("ItemSku,FromLocationCode,ToLocationCode,Quantity,UnitOfMeasure,PackagingCode,LotNumber,LicensePlateId,SerialNumber,Notes")]
         PutawayViewModel model,
         CancellationToken cancellationToken = default)
     {
@@ -104,7 +105,8 @@ public class ReceivingController : Controller
             model.SerialNumber,
             model.Notes,
             UnitOfMeasure: model.UnitOfMeasure,
-            PackagingCode: model.PackagingCode
+            PackagingCode: model.PackagingCode,
+            LicensePlateId: model.LicensePlateId
         );
 
         var result = await _putawayUseCase.ExecuteAsync(

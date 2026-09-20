@@ -164,7 +164,8 @@ public class PutawayUseCase : IPutawayUseCase
                 fromLocation.Id,
                 lotId,
                 request.SerialNumber,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                licensePlateId: request.LicensePlateId);
 
             if (stock == null)
                 return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
@@ -188,12 +189,13 @@ public class PutawayUseCase : IPutawayUseCase
                     "stock.insufficient",
                     $"Insufficient stock. Available: {stock.GetAvailableQuantity()}, Requested: {requestedQuantity}."));
 
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            transactionStarted = true;
+
             InventoryCommandIdempotencyLease? idempotencyLease = null;
             if (_idempotencyService is not null &&
                 !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
             {
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-                transactionStarted = true;
                 var idempotencyResult = await _idempotencyService.BeginAsync(
                     new InventoryCommandIdempotencyRequest(
                         "inventory.putaway",
@@ -226,7 +228,9 @@ public class PutawayUseCase : IPutawayUseCase
             // Create the putaway movement
             var movement = await _stockMovementService.PutawayAsync(
                 item.Id, fromLocation.Id, toLocation.Id, requestedQuantity, userId,
-                lotId ?? stock.LotId, request.SerialNumber, notes: request.Notes, cancellationToken: cancellationToken);
+                lotId ?? stock.LotId, request.SerialNumber, notes: request.Notes,
+                cancellationToken: cancellationToken,
+                licensePlateId: request.LicensePlateId);
 
             var result = new ReceiptResultDto(
                 movement.Id,

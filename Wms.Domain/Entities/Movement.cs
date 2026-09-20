@@ -24,7 +24,10 @@ public class Movement : Entity
         InventoryStatusMovementLeg? statusChangeLeg = null,
         int? licensePlateId = null,
         int? fromLicensePlateId = null,
-        int? toLicensePlateId = null)
+        int? toLicensePlateId = null,
+        decimal? adjustmentBeforeQuantity = null,
+        decimal? adjustmentDelta = null,
+        decimal? adjustmentAfterQuantity = null)
     {
         if (string.IsNullOrWhiteSpace(userId))
             throw new ArgumentException("User ID is required", nameof(userId));
@@ -43,6 +46,9 @@ public class Movement : Entity
         LicensePlateId = licensePlateId;
         FromLicensePlateId = fromLicensePlateId;
         ToLicensePlateId = toLicensePlateId;
+        AdjustmentBeforeQuantity = adjustmentBeforeQuantity;
+        AdjustmentDelta = adjustmentDelta;
+        AdjustmentAfterQuantity = adjustmentAfterQuantity;
         Quantity = quantity;
         UserId = userId.Trim();
         ReferenceNumber = referenceNumber?.Trim();
@@ -92,6 +98,9 @@ public class Movement : Entity
     public int? LicensePlateId { get; private set; }
     public int? FromLicensePlateId { get; private set; }
     public int? ToLicensePlateId { get; private set; }
+    public decimal? AdjustmentBeforeQuantity { get; private set; }
+    public decimal? AdjustmentDelta { get; private set; }
+    public decimal? AdjustmentAfterQuantity { get; private set; }
     public string? SerialNumber { get; private set; }
     public Quantity Quantity { get; private set; } = Quantity.Zero;
     public decimal EnteredQuantity { get; private set; }
@@ -219,7 +228,10 @@ public class Movement : Entity
         DateTime? timestampUtc = null,
         int? serialNumberId = null,
         int inventoryStatusId = InventoryStatusSystemIds.Available,
-        int? licensePlateId = null)
+        int? licensePlateId = null,
+        decimal? adjustmentBeforeQuantity = null,
+        decimal? adjustmentDelta = null,
+        decimal? adjustmentAfterQuantity = null)
     {
         return new Movement(MovementType.Adjustment, itemId, quantity, userId,
             toLocationId: locationId, lotId: lotId, serialNumber: serialNumber,
@@ -229,7 +241,10 @@ public class Movement : Entity
             serialNumberId: serialNumberId,
             inventoryStatusId: inventoryStatusId,
             licensePlateId: licensePlateId,
-            toLicensePlateId: licensePlateId);
+            toLicensePlateId: licensePlateId,
+            adjustmentBeforeQuantity: adjustmentBeforeQuantity,
+            adjustmentDelta: adjustmentDelta,
+            adjustmentAfterQuantity: adjustmentAfterQuantity);
     }
 
     public static Movement CreateTransfer(

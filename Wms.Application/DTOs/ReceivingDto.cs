@@ -13,7 +13,8 @@ public record ReceiveItemDto(
     DateTime? ExpiryDate = null,
     DateTime? ManufacturedDate = null,
     string? UnitOfMeasure = null,
-    string? PackagingCode = null
+    string? PackagingCode = null,
+    int? LicensePlateId = null
 );
 
 public record PutawayDto(
@@ -25,7 +26,8 @@ public record PutawayDto(
     string? SerialNumber = null,
     string? Notes = null,
     string? UnitOfMeasure = null,
-    string? PackagingCode = null
+    string? PackagingCode = null,
+    int? LicensePlateId = null
 );
 
 public record ReceiptResultDto(

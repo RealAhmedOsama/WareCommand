@@ -65,6 +65,8 @@ public class StockAdjustmentViewModel
     [StringLength(100)]
     public string? LotNumber { get; set; }
 
+    public int? LicensePlateId { get; set; }
+
     public decimal CurrentQuantity { get; set; }
 
     [Range(typeof(decimal), "0", "1000000000")]
@@ -248,6 +250,8 @@ public class ReceivingViewModel
     [StringLength(100)]
     public string? LotNumber { get; set; }
 
+    public int? LicensePlateId { get; set; }
+
     [DataType(DataType.Date)]
     public DateTime? ManufacturedDate { get; set; }
 
@@ -289,6 +293,8 @@ public class PickingViewModel
     [StringLength(100)]
     public string? LotNumber { get; set; }
 
+    public int? LicensePlateId { get; set; }
+
     [StringLength(100)]
     public string? SerialNumber { get; set; }
 
@@ -321,6 +327,8 @@ public class PutawayViewModel
 
     [StringLength(100)]
     public string? LotNumber { get; set; }
+
+    public int? LicensePlateId { get; set; }
 
     [StringLength(100)]
     public string? SerialNumber { get; set; }

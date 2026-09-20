@@ -5,6 +5,9 @@ using Wms.Domain.ValueObjects;
 
 namespace Wms.Domain.Repositories;
 
+// Keep the new selector after the existing CancellationToken parameter so
+// existing positional callers remain source-compatible.
+#pragma warning disable CA1068
 public interface IStockRepository : IRepository<Stock>
 {
     Task<IEnumerable<Stock>> GetByItemIdAsync(int itemId, CancellationToken cancellationToken = default);
@@ -12,13 +15,14 @@ public interface IStockRepository : IRepository<Stock>
 
     Task<Stock?> GetByItemAndLocationAsync(int itemId, int locationId, int? lotId = null,
         string? serialNumber = null, int? serialNumberId = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, int? licensePlateId = null);
 
     Task<IEnumerable<Stock>> GetByItemAndLocationCandidatesAsync(
         int itemId,
         int locationId,
         string? serialNumber = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        int? licensePlateId = null);
 
     Task<IEnumerable<Stock>> GetByLotIdAsync(
         int lotId,
@@ -35,3 +39,4 @@ public interface IStockRepository : IRepository<Stock>
     Task<IEnumerable<Stock>> GetAvailableStockAsync(int itemId, CancellationToken cancellationToken = default);
     Task<Quantity> GetTotalQuantityAsync(int itemId, CancellationToken cancellationToken = default);
 }
+#pragma warning restore CA1068

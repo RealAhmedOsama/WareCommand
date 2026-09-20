@@ -27,7 +27,8 @@ public record PickItemDto(
     string? SerialNumber = null,
     string? Notes = null,
     string? UnitOfMeasure = null,
-    string? PackagingCode = null
+    string? PackagingCode = null,
+    int? LicensePlateId = null
 );
 
 public record PickResultDto(
@@ -172,7 +173,8 @@ public class PickOrderUseCase : IPickOrderUseCase
                     location.Id,
                     lotId,
                     request.SerialNumber,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken,
+                    licensePlateId: request.LicensePlateId);
             }
             else if (_lotService is not null && item.RequiresLot && item.UseFefo)
             {
@@ -180,7 +182,8 @@ public class PickOrderUseCase : IPickOrderUseCase
                     item.Id,
                     location.Id,
                     request.SerialNumber,
-                    cancellationToken);
+                    cancellationToken,
+                    request.LicensePlateId);
                 var businessDate = GetBusinessDate(location);
                 stock = candidates.FirstOrDefault(candidate =>
                     (candidate.InventoryStatus is null ||
@@ -211,7 +214,8 @@ public class PickOrderUseCase : IPickOrderUseCase
                     location.Id,
                     null,
                     request.SerialNumber,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellationToken,
+                    licensePlateId: request.LicensePlateId);
             }
 
             if (stock == null)
@@ -245,12 +249,13 @@ public class PickOrderUseCase : IPickOrderUseCase
                     "stock.insufficient",
                     $"Insufficient stock. Available: {stock.GetAvailableQuantity()}, Requested: {requestedQuantity}."));
 
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            transactionStarted = true;
+
             InventoryCommandIdempotencyLease? idempotencyLease = null;
             if (_idempotencyService is not null &&
                 !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
             {
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-                transactionStarted = true;
                 var idempotencyResult = await _idempotencyService.BeginAsync(
                     new InventoryCommandIdempotencyRequest(
                         "inventory.pick",
@@ -285,7 +290,9 @@ public class PickOrderUseCase : IPickOrderUseCase
             // Create the pick movement
             var movement = await _stockMovementService.PickAsync(
                 item.Id, location.Id, requestedQuantity, userId,
-                lotId ?? stock.LotId, request.SerialNumber, request.OrderNumber, request.Notes, cancellationToken);
+                lotId ?? stock.LotId, request.SerialNumber, request.OrderNumber, request.Notes,
+                cancellationToken: cancellationToken,
+                licensePlateId: request.LicensePlateId);
 
             var result = new PickResultDto(
                 movement.Id,

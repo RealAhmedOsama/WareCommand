@@ -35,6 +35,13 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.Property(e => e.FromLicensePlateId);
         builder.Property(e => e.ToLicensePlateId);
 
+        builder.Property(e => e.AdjustmentBeforeQuantity)
+            .HasColumnType("decimal(28,12)");
+        builder.Property(e => e.AdjustmentDelta)
+            .HasColumnType("decimal(28,12)");
+        builder.Property(e => e.AdjustmentAfterQuantity)
+            .HasColumnType("decimal(28,12)");
+
         builder.Property(e => e.FromInventoryStatusId);
         builder.Property(e => e.ToInventoryStatusId);
         builder.Property(e => e.StatusChangeLeg)

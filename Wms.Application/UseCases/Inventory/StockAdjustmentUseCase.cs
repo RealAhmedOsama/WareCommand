@@ -25,7 +25,8 @@ public record StockAdjustmentDto(
     string? LotNumber = null,
     string? SerialNumber = null,
     string? UnitOfMeasure = null,
-    string? PackagingCode = null
+    string? PackagingCode = null,
+    int? LicensePlateId = null
 );
 
 public interface IStockAdjustmentUseCase
@@ -162,12 +163,13 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
             }
 
             var newQuantity = quantityResult.Value;
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            transactionStarted = true;
+
             InventoryCommandIdempotencyLease? idempotencyLease = null;
             if (_idempotencyService is not null &&
                 !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
             {
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-                transactionStarted = true;
                 var idempotencyResult = await _idempotencyService.BeginAsync(
                     new InventoryCommandIdempotencyRequest(
                         "inventory.adjustment",
@@ -201,7 +203,9 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
 
             var movement = await _stockMovementService.AdjustAsync(
                 item.Id, location.Id, newQuantity, userId, request.Reason,
-                lotId, request.SerialNumber, cancellationToken);
+                lotId, request.SerialNumber,
+                cancellationToken: cancellationToken,
+                licensePlateId: request.LicensePlateId);
 
             var result = new ReceiptResultDto(
                 movement.Id,

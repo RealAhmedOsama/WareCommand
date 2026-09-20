@@ -74,10 +74,12 @@ public class StockMovementServiceTests : IDisposable
         // Setup test data
         _warehouse = new Warehouse("TEST", "Test Warehouse");
         _item = new Item("WIDGET-001", "Widget A", "EA");
-        _location = new Location("Z001", "Zone 1", _warehouse.Id);
 
         _context.Warehouses.Add(_warehouse);
         _context.Items.Add(_item);
+        _context.SaveChanges();
+
+        _location = new Location("Z001", "Zone 1", _warehouse.Id);
         _context.Locations.Add(_location);
         _context.SaveChanges();
     }
@@ -265,6 +267,88 @@ public class StockMovementServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task PutawayAsync_RejectsCrossWarehouseDestinationBeforeMutation()
+    {
+        var otherWarehouse = new Warehouse("OTHER", "Other Warehouse");
+        _context.Warehouses.Add(otherWarehouse);
+        await _context.SaveChangesAsync();
+
+        var otherLocation = new Location("O001", "Other Zone", otherWarehouse.Id);
+        _context.Locations.Add(otherLocation);
+        _context.Stock.Add(new Stock(_item.Id, _location.Id, new Quantity(3m)));
+        await _context.SaveChangesAsync();
+
+        var act = () => _service.PutawayAsync(
+            _item.Id,
+            _location.Id,
+            otherLocation.Id,
+            new Quantity(1m),
+            "USER1");
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*same warehouse*");
+        (await _context.Movements.CountAsync()).Should().Be(0);
+        (await _context.Stock.SingleAsync(stock => stock.LocationId == _location.Id))
+            .QuantityAvailable.Value.Should().Be(3m);
+    }
+
+    [Fact]
+    public async Task LpnMovement_PreservesIdentityAcrossReceiptPutawayAndPick()
+    {
+        var licensePlate = new LicensePlate(
+            "LP-001",
+            LicensePlateType.Pallet,
+            _warehouse.Id,
+            _location.Id);
+        _context.LicensePlates.Add(licensePlate);
+        await _context.SaveChangesAsync();
+
+        var receipt = await _service.ReceiveAsync(
+            _item.Id,
+            _location.Id,
+            new Quantity(5m),
+            "USER1",
+            licensePlateId: licensePlate.Id);
+        await _context.SaveChangesAsync();
+
+        receipt.LicensePlateId.Should().Be(licensePlate.Id);
+        receipt.ToLicensePlateId.Should().Be(licensePlate.Id);
+        (await _context.Stock.SingleAsync(stock => stock.LicensePlateId == licensePlate.Id))
+            .QuantityAvailable.Value.Should().Be(5m);
+
+        var destination = new Location("Z002", "Zone 2", _warehouse.Id);
+        _context.Locations.Add(destination);
+        await _context.SaveChangesAsync();
+
+        var putaway = await _service.PutawayAsync(
+            _item.Id,
+            _location.Id,
+            destination.Id,
+            new Quantity(5m),
+            "USER1",
+            licensePlateId: licensePlate.Id);
+        await _context.SaveChangesAsync();
+
+        putaway.FromLicensePlateId.Should().Be(licensePlate.Id);
+        putaway.ToLicensePlateId.Should().Be(licensePlate.Id);
+        licensePlate.CurrentLocationId.Should().Be(destination.Id);
+
+        var pick = await _service.PickAsync(
+            _item.Id,
+            destination.Id,
+            new Quantity(2m),
+            "USER1",
+            licensePlateId: licensePlate.Id);
+        await _context.SaveChangesAsync();
+
+        pick.LicensePlateId.Should().Be(licensePlate.Id);
+        pick.FromLicensePlateId.Should().Be(licensePlate.Id);
+        (await _context.Stock.SingleAsync(stock =>
+                stock.LicensePlateId == licensePlate.Id && stock.LocationId == destination.Id))
+            .QuantityAvailable.Value.Should().Be(3m);
+    }
+
+    [Fact]
     public async Task PickAsync_WithSufficientStock_ReducesStockQuantity()
     {
         // Arrange
@@ -329,6 +413,9 @@ public class StockMovementServiceTests : IDisposable
         movement.ToLocationId.Should().Be(_location.Id);
         movement.Quantity.Should().Be(newQuantity); // Adjustment movement shows the new quantity
         movement.Notes.Should().Be(reason);
+        movement.AdjustmentBeforeQuantity.Should().Be(8.0m);
+        movement.AdjustmentDelta.Should().Be(4.0m);
+        movement.AdjustmentAfterQuantity.Should().Be(12.0m);
 
         var stock = await _context.Stock.FirstOrDefaultAsync(s => s.ItemId == _item.Id && s.LocationId == _location.Id);
         stock!.QuantityAvailable.Should().Be(newQuantity);
@@ -351,6 +438,9 @@ public class StockMovementServiceTests : IDisposable
 
         // Assert
         movement.Quantity.Should().Be(newQuantity); // Adjustment movement shows the new quantity, not the difference
+        movement.AdjustmentBeforeQuantity.Should().Be(10.0m);
+        movement.AdjustmentDelta.Should().Be(-4.0m);
+        movement.AdjustmentAfterQuantity.Should().Be(6.0m);
 
         var stock = await _context.Stock.FirstOrDefaultAsync(s => s.ItemId == _item.Id && s.LocationId == _location.Id);
         stock!.QuantityAvailable.Should().Be(newQuantity);

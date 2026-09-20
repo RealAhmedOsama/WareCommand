@@ -87,7 +87,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
 
     public async Task<Stock?> GetByItemAndLocationAsync(int itemId, int locationId, int? lotId = null,
         string? serialNumber = null, int? serialNumberId = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, int? licensePlateId = null)
     {
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = DbSet
@@ -124,6 +124,10 @@ public class StockRepository : Repository<Stock>, IStockRepository
             query = query.Where(s => s.SerialNumber == null);
         }
 
+        query = licensePlateId.HasValue
+            ? query.Where(s => s.LicensePlateId == licensePlateId.Value)
+            : query.Where(s => s.LicensePlateId == null);
+
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -131,7 +135,8 @@ public class StockRepository : Repository<Stock>, IStockRepository
         int itemId,
         int locationId,
         string? serialNumber = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? licensePlateId = null)
     {
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = DbSet
@@ -148,6 +153,10 @@ public class StockRepository : Repository<Stock>, IStockRepository
         query = string.IsNullOrWhiteSpace(serialNumber)
             ? query.Where(stock => stock.SerialNumber == null)
             : query.Where(stock => stock.SerialNumber == serialNumber.Trim());
+
+        query = licensePlateId.HasValue
+            ? query.Where(stock => stock.LicensePlateId == licensePlateId.Value)
+            : query.Where(stock => stock.LicensePlateId == null);
 
         return await query
             .OrderBy(stock => stock.Lot == null ? 1 : 0)

@@ -198,16 +198,16 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             }
 
             var quantity = quantityResult.Value;
+            if (!lotTransactionStarted)
+            {
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                lotTransactionStarted = true;
+            }
+
             InventoryCommandIdempotencyLease? idempotencyLease = null;
             if (_idempotencyService is not null &&
                 !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
             {
-                if (!lotTransactionStarted)
-                {
-                    await _unitOfWork.BeginTransactionAsync(cancellationToken);
-                    lotTransactionStarted = true;
-                }
-
                 var idempotencyResult = await _idempotencyService.BeginAsync(
                     new InventoryCommandIdempotencyRequest(
                         "inventory.receipt",
@@ -241,7 +241,9 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
 
             var movement = await _stockMovementService.ReceiveAsync(
                 item.Id, location.Id, quantity, userId, lotId,
-                request.SerialNumber, request.ReferenceNumber, request.Notes, cancellationToken);
+                request.SerialNumber, request.ReferenceNumber, request.Notes,
+                cancellationToken: cancellationToken,
+                licensePlateId: request.LicensePlateId);
 
             var result = new ReceiptResultDto(
                 movement.Id,
