@@ -13,6 +13,8 @@ public sealed class WmsRequestContext(string defaultSourceClient = "Application"
 
     public string SourceClient { get; private set; } = NormalizeSource(defaultSourceClient);
 
+    public string? IdempotencyKey { get; private set; }
+
     public string? RemoteIpAddress { get; private set; }
 
     public string? UserAgent { get; private set; }
@@ -21,10 +23,12 @@ public sealed class WmsRequestContext(string defaultSourceClient = "Application"
         string? correlationId,
         string sourceClient,
         string? remoteIpAddress = null,
-        string? userAgent = null)
+        string? userAgent = null,
+        string? idempotencyKey = null)
     {
         CorrelationId = WmsExecutionIdentifiers.Normalize(correlationId);
         SourceClient = NormalizeSource(sourceClient);
+        IdempotencyKey = WmsExecutionIdentifiers.NormalizeOptional(idempotencyKey, 250);
         RemoteIpAddress = Trim(remoteIpAddress, 64);
         UserAgent = Trim(userAgent, 512);
     }

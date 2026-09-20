@@ -11,6 +11,8 @@ public interface IRequestContext
 
     string SourceClient { get; }
 
+    string? IdempotencyKey { get; }
+
     string? RemoteIpAddress { get; }
 
     string? UserAgent { get; }
@@ -19,7 +21,8 @@ public interface IRequestContext
         string? correlationId,
         string sourceClient,
         string? remoteIpAddress = null,
-        string? userAgent = null);
+        string? userAgent = null,
+        string? idempotencyKey = null);
 }
 
 public interface IWarehouseContext
@@ -98,6 +101,7 @@ public static class WmsOperationContextPropagation
     public const string CorrelationIdHeader = "X-Correlation-ID";
     public const string OperationIdHeader = "X-Operation-ID";
     public const string ReferenceIdHeader = "X-Reference-ID";
+    public const string IdempotencyKeyHeader = "Idempotency-Key";
 
     public static IReadOnlyDictionary<string, string> ToHeaders(WmsOperationContext context)
     {

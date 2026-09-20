@@ -12,6 +12,7 @@ public interface IUnitOfWork : IDisposable
     ILicensePlateRepository LicensePlates { get; }
     IInventoryBalanceRepository InventoryBalances { get; }
     IInventoryTransactionRepository InventoryTransactions { get; }
+    IInventoryCommandIdempotencyRepository InventoryCommandIdempotencies { get; }
     IStockRepository Stock { get; }
     IMovementRepository Movements { get; }
 

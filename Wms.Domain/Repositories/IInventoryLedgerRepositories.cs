@@ -51,3 +51,23 @@ public interface IInventoryTransactionRepository
         InventoryTransaction transaction,
         CancellationToken cancellationToken = default);
 }
+
+public interface IInventoryCommandIdempotencyRepository
+{
+    Task<InventoryCommandIdempotency?> GetAsync(
+        string callerScope,
+        string commandKey,
+        CancellationToken cancellationToken = default);
+
+    Task<InventoryCommandIdempotency?> GetByIdAsync(
+        int id,
+        CancellationToken cancellationToken = default);
+
+    Task<InventoryCommandIdempotency> AddAsync(
+        InventoryCommandIdempotency command,
+        CancellationToken cancellationToken = default);
+
+    Task<int> PruneAsync(
+        DateTimeOffset beforeUtc,
+        CancellationToken cancellationToken = default);
+}

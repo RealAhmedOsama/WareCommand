@@ -1,15 +1,17 @@
 // Wms.Application/UseCases/Picking/PickOrderUseCase.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.Context;
+using Wms.Application.Idempotency;
 using Wms.Application.Identity;
 using Wms.Application.InventoryStatuses;
 using Wms.Application.Logging;
 using Wms.Application.Lots;
 using Wms.Application.Time;
-using Wms.Domain.Entities;
 using Wms.Application.Units;
+using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -54,6 +56,8 @@ public class PickOrderUseCase : IPickOrderUseCase
     private readonly ILotService? _lotService;
     private readonly IClock? _clock;
     private readonly IInventoryStatusService? _inventoryStatusService;
+    private readonly IInventoryCommandIdempotencyService? _idempotencyService;
+    private readonly IRequestContext? _requestContext;
 
     public PickOrderUseCase(
         IUnitOfWork unitOfWork,
@@ -63,7 +67,9 @@ public class PickOrderUseCase : IPickOrderUseCase
         IItemQuantityConversionService? quantityConversionService = null,
         ILotService? lotService = null,
         IClock? clock = null,
-        IInventoryStatusService? inventoryStatusService = null)
+        IInventoryStatusService? inventoryStatusService = null,
+        IInventoryCommandIdempotencyService? idempotencyService = null,
+        IRequestContext? requestContext = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
@@ -73,11 +79,14 @@ public class PickOrderUseCase : IPickOrderUseCase
         _lotService = lotService;
         _clock = clock;
         _inventoryStatusService = inventoryStatusService;
+        _idempotencyService = idempotencyService;
+        _requestContext = requestContext;
     }
 
     public async Task<Result<PickResultDto>> ExecuteAsync(PickItemDto request, string userId,
         CancellationToken cancellationToken = default)
     {
+        var transactionStarted = false;
         try
         {
             var authorization = await _warehouseAccessService.AuthorizeAsync(
@@ -236,33 +245,103 @@ public class PickOrderUseCase : IPickOrderUseCase
                     "stock.insufficient",
                     $"Insufficient stock. Available: {stock.GetAvailableQuantity()}, Requested: {requestedQuantity}."));
 
+            InventoryCommandIdempotencyLease? idempotencyLease = null;
+            if (_idempotencyService is not null &&
+                !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
+            {
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                transactionStarted = true;
+                var idempotencyResult = await _idempotencyService.BeginAsync(
+                    new InventoryCommandIdempotencyRequest(
+                        "inventory.pick",
+                        _requestContext.IdempotencyKey!,
+                        InventoryCommandIdempotencyScope.For(
+                            _requestContext,
+                            userId,
+                            location.WarehouseId),
+                        InventoryCommandRequestHasher.Compute("inventory.pick", request),
+                        _requestContext.CorrelationId,
+                        userId,
+                        location.WarehouseId),
+                    cancellationToken);
+                if (idempotencyResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    transactionStarted = false;
+                    return idempotencyResult.ToFailure<PickResultDto>();
+                }
+
+                if (idempotencyResult.Value.IsReplay)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    transactionStarted = false;
+                    return InventoryCommandJson.DeserializeResult<PickResultDto>(
+                        idempotencyResult.Value);
+                }
+
+                idempotencyLease = idempotencyResult.Value.Lease;
+            }
+
             // Create the pick movement
             var movement = await _stockMovementService.PickAsync(
                 item.Id, location.Id, requestedQuantity, userId,
                 lotId ?? stock.LotId, request.SerialNumber, request.OrderNumber, request.Notes, cancellationToken);
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Item {ItemSku} picked: {Quantity} from {LocationCode} by {UserId} for order {OrderNumber}",
-                request.ItemSku, request.Quantity, request.FromLocationCode, userId, request.OrderNumber);
-
-            return Result.Success(new PickResultDto(
+            var result = new PickResultDto(
                 movement.Id,
                 request.ItemSku,
                 request.FromLocationCode,
                 request.Quantity,
                 request.OrderNumber,
                 movement.Timestamp,
-                resolvedLotNumber
-            ));
+                resolvedLotNumber);
+            if (idempotencyLease is not null)
+            {
+                await _idempotencyService!.CompleteAsync(
+                    idempotencyLease,
+                    new InventoryCommandIdempotencyCompletion(
+                        nameof(PickResultDto),
+                        InventoryCommandJson.Serialize(result),
+                        movement.Id.ToString(CultureInfo.InvariantCulture)),
+                    cancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (transactionStarted)
+            {
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                transactionStarted = false;
+            }
+
+            _logger.LogInformation(
+                "Item {ItemSku} picked: {Quantity} from {LocationCode} by {UserId} for order {OrderNumber}",
+                request.ItemSku, request.Quantity, request.FromLocationCode, userId, request.OrderNumber);
+
+            return Result.Success(result);
         }
         catch (OperationCanceledException)
         {
+            if (transactionStarted)
+            {
+                await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            }
+
             throw;
         }
         catch (Exception ex)
         {
+            if (transactionStarted)
+            {
+                try
+                {
+                    await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+                }
+                catch (Exception rollbackException)
+                {
+                    _logger.LogError(rollbackException, "Picking transaction rollback failed");
+                }
+            }
+
             var failure = WmsErrors.FromException(ex,
                 "picking.failed",
                 "Error picking item. Please try again.");

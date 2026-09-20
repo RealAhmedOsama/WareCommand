@@ -1,9 +1,11 @@
 // Wms.Application/UseCases/Inventory/StockAdjustmentUseCase.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.DTOs;
+using Wms.Application.Idempotency;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
 using Wms.Application.Lots;
@@ -41,6 +43,8 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
     private readonly IItemQuantityConversionService? _quantityConversionService;
     private readonly ILotService? _lotService;
     private readonly IClock? _clock;
+    private readonly IInventoryCommandIdempotencyService? _idempotencyService;
+    private readonly IRequestContext? _requestContext;
 
     public StockAdjustmentUseCase(
         IUnitOfWork unitOfWork,
@@ -49,7 +53,9 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
         IWarehouseAccessService warehouseAccessService,
         IItemQuantityConversionService? quantityConversionService = null,
         ILotService? lotService = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IInventoryCommandIdempotencyService? idempotencyService = null,
+        IRequestContext? requestContext = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
@@ -58,11 +64,14 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
         _quantityConversionService = quantityConversionService;
         _lotService = lotService;
         _clock = clock;
+        _idempotencyService = idempotencyService;
+        _requestContext = requestContext;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(StockAdjustmentDto request, string userId,
         CancellationToken cancellationToken = default)
     {
+        var transactionStarted = false;
         try
         {
             var authorization = await _warehouseAccessService.AuthorizeAsync(
@@ -153,31 +162,101 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
             }
 
             var newQuantity = quantityResult.Value;
+            InventoryCommandIdempotencyLease? idempotencyLease = null;
+            if (_idempotencyService is not null &&
+                !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
+            {
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                transactionStarted = true;
+                var idempotencyResult = await _idempotencyService.BeginAsync(
+                    new InventoryCommandIdempotencyRequest(
+                        "inventory.adjustment",
+                        _requestContext.IdempotencyKey!,
+                        InventoryCommandIdempotencyScope.For(
+                            _requestContext,
+                            userId,
+                            location.WarehouseId),
+                        InventoryCommandRequestHasher.Compute("inventory.adjustment", request),
+                        _requestContext.CorrelationId,
+                        userId,
+                        location.WarehouseId),
+                    cancellationToken);
+                if (idempotencyResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    transactionStarted = false;
+                    return idempotencyResult.ToFailure<ReceiptResultDto>();
+                }
+
+                if (idempotencyResult.Value.IsReplay)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    transactionStarted = false;
+                    return InventoryCommandJson.DeserializeResult<ReceiptResultDto>(
+                        idempotencyResult.Value);
+                }
+
+                idempotencyLease = idempotencyResult.Value.Lease;
+            }
+
             var movement = await _stockMovementService.AdjustAsync(
                 item.Id, location.Id, newQuantity, userId, request.Reason,
                 lotId, request.SerialNumber, cancellationToken);
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Stock adjusted: Item {ItemSku} in {LocationCode} to {NewQuantity} by {UserId}. Reason: {Reason}",
-                request.ItemSku, request.LocationCode, request.NewQuantity, userId, request.Reason);
-
-            return Result.Success(new ReceiptResultDto(
+            var result = new ReceiptResultDto(
                 movement.Id,
                 request.ItemSku,
                 request.LocationCode,
                 request.NewQuantity,
                 resolvedLotNumber,
-                movement.Timestamp
-            ));
+                movement.Timestamp);
+            if (idempotencyLease is not null)
+            {
+                await _idempotencyService!.CompleteAsync(
+                    idempotencyLease,
+                    new InventoryCommandIdempotencyCompletion(
+                        nameof(ReceiptResultDto),
+                        InventoryCommandJson.Serialize(result),
+                        movement.Id.ToString(CultureInfo.InvariantCulture)),
+                    cancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (transactionStarted)
+            {
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                transactionStarted = false;
+            }
+
+            _logger.LogInformation(
+                "Stock adjusted: Item {ItemSku} in {LocationCode} to {NewQuantity} by {UserId}. Reason: {Reason}",
+                request.ItemSku, request.LocationCode, request.NewQuantity, userId, request.Reason);
+
+            return Result.Success(result);
         }
         catch (OperationCanceledException)
         {
+            if (transactionStarted)
+            {
+                await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            }
+
             throw;
         }
         catch (Exception ex)
         {
+            if (transactionStarted)
+            {
+                try
+                {
+                    await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+                }
+                catch (Exception rollbackException)
+                {
+                    _logger.LogError(rollbackException, "Adjustment transaction rollback failed");
+                }
+            }
+
             var failure = WmsErrors.FromException(ex,
                 "inventory.adjustment_failed",
                 "Error adjusting stock. Please try again.");

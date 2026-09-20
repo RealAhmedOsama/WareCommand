@@ -1,9 +1,11 @@
 // Wms.Application/UseCases/Receiving/PutawayUseCase.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
-using Wms.Application.DTOs;
 using Wms.Application.Context;
+using Wms.Application.DTOs;
+using Wms.Application.Idempotency;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
 using Wms.Application.Lots;
@@ -30,6 +32,8 @@ public class PutawayUseCase : IPutawayUseCase
     private readonly IItemQuantityConversionService? _quantityConversionService;
     private readonly ILotService? _lotService;
     private readonly IClock? _clock;
+    private readonly IInventoryCommandIdempotencyService? _idempotencyService;
+    private readonly IRequestContext? _requestContext;
 
     public PutawayUseCase(
         IUnitOfWork unitOfWork,
@@ -38,7 +42,9 @@ public class PutawayUseCase : IPutawayUseCase
         IWarehouseAccessService warehouseAccessService,
         IItemQuantityConversionService? quantityConversionService = null,
         ILotService? lotService = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IInventoryCommandIdempotencyService? idempotencyService = null,
+        IRequestContext? requestContext = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
@@ -47,11 +53,14 @@ public class PutawayUseCase : IPutawayUseCase
         _quantityConversionService = quantityConversionService;
         _lotService = lotService;
         _clock = clock;
+        _idempotencyService = idempotencyService;
+        _requestContext = requestContext;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(PutawayDto request, string userId,
         CancellationToken cancellationToken = default)
     {
+        var transactionStarted = false;
         try
         {
             var authorization = await _warehouseAccessService.AuthorizeAsync(
@@ -179,31 +188,99 @@ public class PutawayUseCase : IPutawayUseCase
                     "stock.insufficient",
                     $"Insufficient stock. Available: {stock.GetAvailableQuantity()}, Requested: {requestedQuantity}."));
 
+            InventoryCommandIdempotencyLease? idempotencyLease = null;
+            if (_idempotencyService is not null &&
+                !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
+            {
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                transactionStarted = true;
+                var idempotencyResult = await _idempotencyService.BeginAsync(
+                    new InventoryCommandIdempotencyRequest(
+                        "inventory.putaway",
+                        _requestContext.IdempotencyKey!,
+                        InventoryCommandIdempotencyScope.For(
+                            _requestContext,
+                            userId,
+                            fromLocation.WarehouseId),
+                        InventoryCommandRequestHasher.Compute("inventory.putaway", request),
+                        _requestContext.CorrelationId,
+                        userId,
+                        fromLocation.WarehouseId),
+                    cancellationToken);
+                if (idempotencyResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return idempotencyResult.ToFailure<ReceiptResultDto>();
+                }
+
+                if (idempotencyResult.Value.IsReplay)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return InventoryCommandJson.DeserializeResult<ReceiptResultDto>(
+                        idempotencyResult.Value);
+                }
+
+                idempotencyLease = idempotencyResult.Value.Lease;
+            }
+
             // Create the putaway movement
             var movement = await _stockMovementService.PutawayAsync(
                 item.Id, fromLocation.Id, toLocation.Id, requestedQuantity, userId,
                 lotId ?? stock.LotId, request.SerialNumber, notes: request.Notes, cancellationToken: cancellationToken);
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation("Item {ItemSku} putaway: {Quantity} from {FromLocation} to {ToLocation} by {UserId}",
-                request.ItemSku, request.Quantity, request.FromLocationCode, request.ToLocationCode, userId);
-
-            return Result.Success(new ReceiptResultDto(
+            var result = new ReceiptResultDto(
                 movement.Id,
                 request.ItemSku,
                 request.ToLocationCode,
                 request.Quantity,
                 resolvedLotNumber,
-                movement.Timestamp
-            ));
+                movement.Timestamp);
+            if (idempotencyLease is not null)
+            {
+                await _idempotencyService!.CompleteAsync(
+                    idempotencyLease,
+                    new InventoryCommandIdempotencyCompletion(
+                        nameof(ReceiptResultDto),
+                        InventoryCommandJson.Serialize(result),
+                        movement.Id.ToString(CultureInfo.InvariantCulture)),
+                    cancellationToken);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (transactionStarted)
+            {
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                transactionStarted = false;
+            }
+
+            _logger.LogInformation("Item {ItemSku} putaway: {Quantity} from {FromLocation} to {ToLocation} by {UserId}",
+                request.ItemSku, request.Quantity, request.FromLocationCode, request.ToLocationCode, userId);
+
+            return Result.Success(result);
         }
         catch (OperationCanceledException)
         {
+            if (transactionStarted)
+            {
+                await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            }
+
             throw;
         }
         catch (Exception ex)
         {
+            if (transactionStarted)
+            {
+                try
+                {
+                    await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+                }
+                catch (Exception rollbackException)
+                {
+                    _logger.LogError(rollbackException, "Putaway transaction rollback failed");
+                }
+            }
+
             var failure = WmsErrors.FromException(ex,
                 "putaway.failed",
                 "Error during putaway. Please try again.");

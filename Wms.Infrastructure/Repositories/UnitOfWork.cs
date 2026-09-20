@@ -24,6 +24,7 @@ public class UnitOfWork : IUnitOfWork
         LicensePlates = new LicensePlateRepository(context, warehouseAccessService);
         InventoryBalances = new InventoryBalanceRepository(context, warehouseAccessService);
         InventoryTransactions = new InventoryTransactionRepository(context, warehouseAccessService);
+        InventoryCommandIdempotencies = new InventoryCommandIdempotencyRepository(context);
         Stock = new StockRepository(context, warehouseAccessService);
         Movements = new MovementRepository(context, warehouseAccessService);
     }
@@ -36,6 +37,7 @@ public class UnitOfWork : IUnitOfWork
     public ILicensePlateRepository LicensePlates { get; }
     public IInventoryBalanceRepository InventoryBalances { get; }
     public IInventoryTransactionRepository InventoryTransactions { get; }
+    public IInventoryCommandIdempotencyRepository InventoryCommandIdempotencies { get; }
     public IStockRepository Stock { get; }
     public IMovementRepository Movements { get; }
 

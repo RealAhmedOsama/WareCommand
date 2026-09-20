@@ -46,6 +46,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<Movement> Movements => Set<Movement>();
     public DbSet<InventoryBalance> InventoryBalances => Set<InventoryBalance>();
     public DbSet<InventoryTransaction> InventoryTransactions => Set<InventoryTransaction>();
+    public DbSet<InventoryCommandIdempotency> InventoryCommandIdempotencies => Set<InventoryCommandIdempotency>();
     public DbSet<WmsIdentifier> WmsIdentifiers => Set<WmsIdentifier>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
@@ -87,6 +88,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new MovementConfiguration());
         builder.ApplyConfiguration(new InventoryBalanceConfiguration());
         builder.ApplyConfiguration(new InventoryTransactionConfiguration());
+        builder.ApplyConfiguration(new InventoryCommandIdempotencyConfiguration());
         builder.ApplyConfiguration(new WmsIdentifierConfiguration());
 
         builder.Entity<WmsUser>(entity =>

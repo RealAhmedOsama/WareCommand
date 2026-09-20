@@ -24,6 +24,11 @@ public static class WmsLogEvents
     public static readonly EventId InventoryPutawayCompleted = new(2001, nameof(InventoryPutawayCompleted));
     public static readonly EventId InventoryPickCompleted = new(2002, nameof(InventoryPickCompleted));
     public static readonly EventId InventoryAdjustmentCompleted = new(2003, nameof(InventoryAdjustmentCompleted));
+    public static readonly EventId InventoryCommandDuplicate = new(2004, nameof(InventoryCommandDuplicate));
+    public static readonly EventId InventoryCommandPayloadMismatch = new(2005, nameof(InventoryCommandPayloadMismatch));
+    public static readonly EventId InventoryCommandReplayed = new(2006, nameof(InventoryCommandReplayed));
+    public static readonly EventId InventoryCommandInProgress = new(2007, nameof(InventoryCommandInProgress));
+    public static readonly EventId InventoryCommandReclaimed = new(2008, nameof(InventoryCommandReclaimed));
     public static readonly EventId InventoryOperationFailed = new(2099, nameof(InventoryOperationFailed));
 
     public static readonly EventId JobStarted = new(3000, nameof(JobStarted));

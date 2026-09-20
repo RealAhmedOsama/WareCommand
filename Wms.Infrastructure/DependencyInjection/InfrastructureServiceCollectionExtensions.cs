@@ -6,6 +6,7 @@ using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Identification;
+using Wms.Application.Idempotency;
 using Wms.Application.InventoryStatuses;
 using Wms.Application.LicensePlates;
 using Wms.Application.Items;
@@ -163,6 +164,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ILicensePlateRepository, LicensePlateRepository>();
         services.AddScoped<IInventoryBalanceRepository, InventoryBalanceRepository>();
         services.AddScoped<IInventoryTransactionRepository, InventoryTransactionRepository>();
+        services.AddScoped<IInventoryCommandIdempotencyRepository, InventoryCommandIdempotencyRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IMovementRepository, MovementRepository>();
 
@@ -173,6 +175,7 @@ public static class InfrastructureServiceCollectionExtensions
     {
         services.AddScoped<IStockMovementService, StockMovementService>();
         services.AddScoped<IInventoryLedgerService, InventoryLedgerService>();
+        services.AddScoped<IInventoryCommandIdempotencyService, InventoryCommandIdempotencyService>();
         return services;
     }
 

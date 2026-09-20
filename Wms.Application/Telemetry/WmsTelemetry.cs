@@ -37,6 +37,9 @@ public static class WmsTelemetry
     private static readonly Counter<long> InventoryConflictCounter = Meter.CreateCounter<long>(
         "warecommand.inventory.conflicts",
         unit: "{conflict}");
+    private static readonly Counter<long> InventoryCommandDuplicateCounter = Meter.CreateCounter<long>(
+        "warecommand.inventory.idempotency.duplicates",
+        unit: "{duplicate}");
     private static readonly Counter<long> JobFailureCounter = Meter.CreateCounter<long>(
         "warecommand.jobs.failures",
         unit: "{failure}");
@@ -157,6 +160,19 @@ public static class WmsTelemetry
         BackupFailureCounter.Add(
             1,
             new TagList { { "backup_kind", NormalizeToken(backupKind, "unknown") } });
+    }
+
+    public static void RecordInventoryCommandDuplicate(
+        string operation = "unknown",
+        string outcome = "duplicate")
+    {
+        InventoryCommandDuplicateCounter.Add(
+            1,
+            new TagList
+            {
+                { "operation", NormalizeOperation(operation) },
+                { "outcome", NormalizeToken(outcome, "duplicate") }
+            });
     }
 
     public static string NormalizeOperation(string operation) => operation switch

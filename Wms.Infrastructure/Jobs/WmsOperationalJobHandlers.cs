@@ -6,6 +6,7 @@ using Wms.Application.Jobs;
 using Wms.Application.Lots;
 using Wms.Application.Settings;
 using Wms.Application.Time;
+using Wms.Application.Idempotency;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Jobs;
@@ -227,7 +228,8 @@ public sealed class WmsIntegrationRetryJob(
 public sealed class WmsCleanupJob(
     IWmsJobExecutionStore executionStore,
     IClock clock,
-    ILogger<WmsCleanupJob> logger) : IWmsJobHandler
+    ILogger<WmsCleanupJob> logger,
+    IInventoryCommandIdempotencyService? idempotencyService = null) : IWmsJobHandler
 {
     public string JobName => WmsJobNames.Cleanup;
 
@@ -241,8 +243,20 @@ public sealed class WmsCleanupJob(
             now.AddDays(-90),
             now.AddDays(-90),
             cancellationToken);
-        logger.LogInformation("Background-job cleanup pruned {RecordCount} records", removed);
-        return new WmsJobExecutionResult(removed, removed, $"Pruned {removed} records.");
+        var idempotencyRemoved = idempotencyService is null
+            ? 0
+            : await idempotencyService.PruneAsync(
+                now.AddDays(-90),
+                cancellationToken);
+        var totalRemoved = removed + idempotencyRemoved;
+        logger.LogInformation(
+            "Background-job cleanup pruned {RecordCount} records, including {InventoryCommandRecordCount} inventory command records",
+            totalRemoved,
+            idempotencyRemoved);
+        return new WmsJobExecutionResult(
+            totalRemoved,
+            totalRemoved,
+            $"Pruned {totalRemoved} records.");
     }
 }
 

@@ -16,7 +16,8 @@ public sealed class WmsRequestContextMiddleware(RequestDelegate next)
                 httpContext.Request.Headers[WmsOperationContextPropagation.CorrelationIdHeader].ToString()),
             "Web",
             httpContext.Connection.RemoteIpAddress?.ToString(),
-            httpContext.Request.Headers.UserAgent.ToString());
+            httpContext.Request.Headers.UserAgent.ToString(),
+            httpContext.Request.Headers[WmsOperationContextPropagation.IdempotencyKeyHeader].ToString());
 
         var operationContext = new WmsOperationContext(
             requestContext.CorrelationId,

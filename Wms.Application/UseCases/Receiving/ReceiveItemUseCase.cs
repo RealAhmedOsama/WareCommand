@@ -1,8 +1,11 @@
 // Wms.Application/UseCases/Receiving/ReceiveItemUseCase.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
+using Wms.Application.Context;
 using Wms.Application.DTOs;
+using Wms.Application.Idempotency;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
 using Wms.Application.Lots;
@@ -28,6 +31,8 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     private readonly IWarehouseAccessService _warehouseAccessService;
     private readonly IItemQuantityConversionService? _quantityConversionService;
     private readonly ILotService? _lotService;
+    private readonly IInventoryCommandIdempotencyService? _idempotencyService;
+    private readonly IRequestContext? _requestContext;
 
     public ReceiveItemUseCase(
         IUnitOfWork unitOfWork,
@@ -35,7 +40,9 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         ILogger<ReceiveItemUseCase> logger,
         IWarehouseAccessService warehouseAccessService,
         IItemQuantityConversionService? quantityConversionService = null,
-        ILotService? lotService = null)
+        ILotService? lotService = null,
+        IInventoryCommandIdempotencyService? idempotencyService = null,
+        IRequestContext? requestContext = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
@@ -43,6 +50,8 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         _warehouseAccessService = warehouseAccessService;
         _quantityConversionService = quantityConversionService;
         _lotService = lotService;
+        _idempotencyService = idempotencyService;
+        _requestContext = requestContext;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
@@ -189,9 +198,68 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             }
 
             var quantity = quantityResult.Value;
+            InventoryCommandIdempotencyLease? idempotencyLease = null;
+            if (_idempotencyService is not null &&
+                !string.IsNullOrWhiteSpace(_requestContext?.IdempotencyKey))
+            {
+                if (!lotTransactionStarted)
+                {
+                    await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                    lotTransactionStarted = true;
+                }
+
+                var idempotencyResult = await _idempotencyService.BeginAsync(
+                    new InventoryCommandIdempotencyRequest(
+                        "inventory.receipt",
+                        _requestContext.IdempotencyKey!,
+                        InventoryCommandIdempotencyScope.For(
+                            _requestContext,
+                            userId,
+                            location.WarehouseId),
+                        InventoryCommandRequestHasher.Compute("inventory.receipt", request),
+                        _requestContext.CorrelationId,
+                        userId,
+                        location.WarehouseId),
+                    cancellationToken);
+                if (idempotencyResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                    return idempotencyResult.ToFailure<ReceiptResultDto>();
+                }
+
+                if (idempotencyResult.Value.IsReplay)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                    return InventoryCommandJson.DeserializeResult<ReceiptResultDto>(
+                        idempotencyResult.Value);
+                }
+
+                idempotencyLease = idempotencyResult.Value.Lease;
+            }
+
             var movement = await _stockMovementService.ReceiveAsync(
                 item.Id, location.Id, quantity, userId, lotId,
                 request.SerialNumber, request.ReferenceNumber, request.Notes, cancellationToken);
+
+            var result = new ReceiptResultDto(
+                movement.Id,
+                request.ItemSku,
+                request.LocationCode,
+                request.Quantity,
+                request.LotNumber,
+                movement.Timestamp);
+            if (idempotencyLease is not null)
+            {
+                await _idempotencyService!.CompleteAsync(
+                    idempotencyLease,
+                    new InventoryCommandIdempotencyCompletion(
+                        nameof(ReceiptResultDto),
+                        InventoryCommandJson.Serialize(result),
+                        movement.Id.ToString(CultureInfo.InvariantCulture)),
+                    cancellationToken);
+            }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             if (lotTransactionStarted)
@@ -203,14 +271,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             _logger.LogInformation("Item {ItemSku} received: {Quantity} to {LocationCode} by {UserId}",
                 request.ItemSku, request.Quantity, request.LocationCode, userId);
 
-            return Result.Success(new ReceiptResultDto(
-                movement.Id,
-                request.ItemSku,
-                request.LocationCode,
-                request.Quantity,
-                request.LotNumber,
-                movement.Timestamp
-            ));
+            return Result.Success(result);
         }
         catch (OperationCanceledException)
         {
