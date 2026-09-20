@@ -37,7 +37,7 @@ try {
     }
 
     $initializer = Get-Content -LiteralPath 'Wms.Infrastructure/Database/WmsDatabaseInitializer.cs' -Raw
-    if ($initializer.Contains('Database.MigrateAsync', [StringComparison]::Ordinal)) {
+    if ($initializer.IndexOf('Database.MigrateAsync', [StringComparison]::Ordinal) -ge 0) {
         throw 'PostgreSQL application startup must not apply migrations implicitly.'
     }
 

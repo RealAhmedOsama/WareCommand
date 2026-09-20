@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.ASP.Identity;
 using Wms.ASP.Models;
@@ -15,6 +16,7 @@ public sealed class AccountController(
     IAccountDirectory accountDirectory,
     IUserAccessDirectory userAccessDirectory,
     ICurrentUser currentUser,
+    IClock clock,
     IAuthenticationAuditService auditService,
     IAccountNotificationSender notificationSender,
     ILogger<AccountController> logger) : Controller
@@ -80,7 +82,7 @@ public sealed class AccountController(
 
         if (signInResult.Succeeded)
         {
-            user.LastLoginAtUtc = DateTimeOffset.UtcNow;
+            user.LastLoginAtUtc = clock.UtcNow;
             var updateResult = await userManager.UpdateAsync(user);
             if (!updateResult.Succeeded)
             {
@@ -295,7 +297,7 @@ public sealed class AccountController(
                 DisplayName = user.DisplayName,
                 EmployeeCode = user.EmployeeCode,
                 IsActive = user.IsActive,
-                IsLockedOut = user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow,
+                IsLockedOut = user.LockoutEnd.HasValue && user.LockoutEnd > clock.UtcNow,
                 LastLoginAtUtc = user.LastLoginAtUtc
             })
             .ToList();

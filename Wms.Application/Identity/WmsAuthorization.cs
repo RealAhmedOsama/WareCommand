@@ -46,6 +46,7 @@ public static class WmsPermissions
     public const string AllocationManage = "allocation.manage";
     public const string CountingExecute = "counting.execute";
     public const string ReportsRead = "reports.read";
+    public const string AuditRead = "audit.read";
     public const string WarehouseManage = "warehouse.manage";
     public const string SettingsManage = "settings.manage";
     public const string AccessManage = "access.manage";
@@ -67,6 +68,7 @@ public static class WmsPermissions
         AllocationManage,
         CountingExecute,
         ReportsRead,
+        AuditRead,
         WarehouseManage,
         SettingsManage,
         AccessManage
@@ -90,6 +92,7 @@ public static class WmsPermissions
             [AllocationManage] = "Allocate and release outbound demand",
             [CountingExecute] = "Execute inventory counts",
             [ReportsRead] = "View operational reports",
+            [AuditRead] = "View immutable audit history",
             [WarehouseManage] = "Manage warehouse master data",
             [SettingsManage] = "Manage system and warehouse settings",
             [AccessManage] = "Manage users, roles, permissions, and warehouse access"
@@ -122,6 +125,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.AllocationManage,
                 WmsPermissions.CountingExecute,
                 WmsPermissions.ReportsRead,
+                WmsPermissions.AuditRead,
                 WmsPermissions.WarehouseManage
             ],
             [WmsRoleNames.Receiver] =
@@ -166,7 +170,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
-                WmsPermissions.ReportsRead
+                WmsPermissions.ReportsRead,
+                WmsPermissions.AuditRead
             ],
             [WmsRoleNames.Viewer] =
             [

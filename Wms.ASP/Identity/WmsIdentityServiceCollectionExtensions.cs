@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Infrastructure.Identity;
 
@@ -87,12 +88,13 @@ public static class WmsIdentityServiceCollectionExtensions
             options.Events.OnValidatePrincipal = async context =>
             {
                 var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<WmsUser>>();
+                var clock = context.HttpContext.RequestServices.GetRequiredService<IClock>();
                 var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
                 var user = string.IsNullOrWhiteSpace(userId)
                     ? null
                     : await userManager.FindByIdAsync(userId);
 
-                if (user is null || !user.IsActive || (user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow))
+                if (user is null || !user.IsActive || (user.LockoutEnd.HasValue && user.LockoutEnd > clock.UtcNow))
                 {
                     context.RejectPrincipal();
                 }

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Wms.Application.DependencyInjection;
 using Wms.ASP.Health;
 using Wms.ASP.Identity;
+using Wms.ASP.Middleware;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
 using Wms.Infrastructure.Identity;
@@ -69,6 +70,7 @@ public class Program
 
         app.UseStaticFiles();
         app.UseRouting();
+        app.UseMiddleware<WmsRequestContextMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
 

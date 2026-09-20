@@ -1,6 +1,8 @@
 // Wms.Application/UseCases/Items/CreateItemUseCase.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
@@ -51,15 +53,18 @@ public class CreateItemUseCase : ICreateItemUseCase
 {
     private readonly ILogger<CreateItemUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditWriter _auditWriter;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public CreateItemUseCase(
         IUnitOfWork unitOfWork,
         ILogger<CreateItemUseCase> logger,
+        IAuditWriter auditWriter,
         IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _auditWriter = auditWriter;
         _warehouseAccessService = warehouseAccessService;
     }
 
@@ -109,6 +114,22 @@ public class CreateItemUseCase : ICreateItemUseCase
             }
 
             await _unitOfWork.Items.AddAsync(item, cancellationToken);
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.ItemCreated,
+                    WmsAuditEntityTypes.Item,
+                    request.Sku,
+                    After: new Dictionary<string, object?>
+                    {
+                        ["sku"] = request.Sku,
+                        ["name"] = request.Name,
+                        ["unitOfMeasure"] = request.UnitOfMeasure,
+                        ["requiresLot"] = request.RequiresLot,
+                        ["requiresSerial"] = request.RequiresSerial,
+                        ["shelfLifeDays"] = request.ShelfLifeDays,
+                        ["barcodeCount"] = request.Barcodes?.Count ?? 0
+                    }),
+                cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Item created: {ItemSku} by {UserId}", request.Sku, userId);
@@ -145,15 +166,18 @@ public class UpdateItemUseCase : IUpdateItemUseCase
 {
     private readonly ILogger<UpdateItemUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditWriter _auditWriter;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public UpdateItemUseCase(
         IUnitOfWork unitOfWork,
         ILogger<UpdateItemUseCase> logger,
+        IAuditWriter auditWriter,
         IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _auditWriter = auditWriter;
         _warehouseAccessService = warehouseAccessService;
     }
 
@@ -173,6 +197,14 @@ public class UpdateItemUseCase : IUpdateItemUseCase
             var item = await _unitOfWork.Items.GetByIdAsync(request.Id, cancellationToken);
             if (item == null)
                 return Result.Failure<ItemDto>($"Item with ID {request.Id} not found");
+
+            var before = new Dictionary<string, object?>
+            {
+                ["name"] = item.Name,
+                ["description"] = item.Description,
+                ["shelfLifeDays"] = item.ShelfLifeDays,
+                ["barcodeCount"] = item.Barcodes.Count
+            };
 
             // Update item details
             item.UpdateDetails(request.Name, request.Description);
@@ -200,6 +232,20 @@ public class UpdateItemUseCase : IUpdateItemUseCase
             }
 
             await _unitOfWork.Items.UpdateAsync(item, cancellationToken);
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.ItemUpdated,
+                    WmsAuditEntityTypes.Item,
+                    item.Id.ToString(CultureInfo.InvariantCulture),
+                    Before: before,
+                    After: new Dictionary<string, object?>
+                    {
+                        ["name"] = item.Name,
+                        ["description"] = item.Description,
+                        ["shelfLifeDays"] = item.ShelfLifeDays,
+                        ["barcodeCount"] = item.Barcodes.Count
+                    }),
+                cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Item updated: {ItemSku} by {UserId}", item.Sku, userId);
@@ -236,15 +282,18 @@ public class DeleteItemUseCase : IDeleteItemUseCase
 {
     private readonly ILogger<DeleteItemUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditWriter _auditWriter;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public DeleteItemUseCase(
         IUnitOfWork unitOfWork,
         ILogger<DeleteItemUseCase> logger,
+        IAuditWriter auditWriter,
         IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _auditWriter = auditWriter;
         _warehouseAccessService = warehouseAccessService;
     }
 
@@ -273,8 +322,17 @@ public class DeleteItemUseCase : IDeleteItemUseCase
             }
 
             // Soft delete by deactivating
+            var before = new Dictionary<string, object?> { ["isActive"] = item.IsActive };
             item.Deactivate();
             await _unitOfWork.Items.UpdateAsync(item, cancellationToken);
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.ItemDeactivated,
+                    WmsAuditEntityTypes.Item,
+                    item.Id.ToString(CultureInfo.InvariantCulture),
+                    Before: before,
+                    After: new Dictionary<string, object?> { ["isActive"] = item.IsActive }),
+                cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Item deactivated: {ItemSku} by {UserId}", item.Sku, userId);

@@ -7,6 +7,7 @@
     var canInventory = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.InventoryRead)).Succeeded;
     var canItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsRead)).Succeeded;
     var canLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsRead)).Succeeded;
+    var canAudit = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AuditRead)).Succeeded;
     var canAccess = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AccessManage)).Succeeded;
 }
 @* Authorization checks are evaluated before rendering navigation. *@
@@ -90,7 +91,7 @@
                         </a>
                     </li>
                     }
-                    @if (canItems || canLocations)
+                    @if (canItems || canLocations || canAudit)
                     {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded-pill mx-1" href="#" id="managementDropdown" role="button"
@@ -112,6 +113,15 @@
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="Locations" asp-action="Index">
                                     <i class="bi bi-geo-alt me-2 text-danger"></i>Locations
+                                </a>
+                            </li>
+                            }
+                            @if (canAudit)
+                            {
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item py-2" asp-controller="Audit" asp-action="Index">
+                                    <i class="bi bi-shield-check me-2 text-secondary"></i>Audit log
                                 </a>
                             </li>
                             }

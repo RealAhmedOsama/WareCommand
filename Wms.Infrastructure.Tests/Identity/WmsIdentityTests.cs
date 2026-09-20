@@ -4,6 +4,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Identity;
 
@@ -70,6 +71,7 @@ public sealed class WmsIdentityTests : IAsyncLifetime, IDisposable
             userManager,
             session,
             audit,
+            new SystemClock(),
             NullLogger<DesktopAuthenticationService>.Instance);
 
         var result = await authentication.AuthenticateAsync("operator", ValidPassword);
@@ -96,6 +98,7 @@ public sealed class WmsIdentityTests : IAsyncLifetime, IDisposable
             userManager,
             session,
             new RecordingAuthenticationAuditService(),
+            new SystemClock(),
             NullLogger<DesktopAuthenticationService>.Instance);
 
         var result = await authentication.AuthenticateAsync("disabled", ValidPassword);
@@ -113,6 +116,7 @@ public sealed class WmsIdentityTests : IAsyncLifetime, IDisposable
             userManager,
             new DesktopUserSession(),
             new RecordingAuthenticationAuditService(),
+            new SystemClock(),
             NullLogger<DesktopAuthenticationService>.Instance);
 
         await authentication.AuthenticateAsync("lockout", "WrongPassword123!");

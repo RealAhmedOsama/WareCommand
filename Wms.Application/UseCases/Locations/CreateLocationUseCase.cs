@@ -1,6 +1,8 @@
 // Wms.Application/UseCases/Locations/CreateLocationUseCase.cs
 
+using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
@@ -49,15 +51,18 @@ public class CreateLocationUseCase : ICreateLocationUseCase
 {
     private readonly ILogger<CreateLocationUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditWriter _auditWriter;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public CreateLocationUseCase(
         IUnitOfWork unitOfWork,
         ILogger<CreateLocationUseCase> logger,
+        IAuditWriter auditWriter,
         IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _auditWriter = auditWriter;
         _warehouseAccessService = warehouseAccessService;
     }
 
@@ -108,6 +113,22 @@ public class CreateLocationUseCase : ICreateLocationUseCase
                 location.SetCapacity(request.Capacity);
 
             await _unitOfWork.Locations.AddAsync(location, cancellationToken);
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.LocationCreated,
+                    WmsAuditEntityTypes.Location,
+                    request.Code,
+                    request.WarehouseId,
+                    After: new Dictionary<string, object?>
+                    {
+                        ["code"] = request.Code,
+                        ["name"] = request.Name,
+                        ["isPickable"] = request.IsPickable,
+                        ["isReceivable"] = request.IsReceivable,
+                        ["capacity"] = request.Capacity,
+                        ["parentLocationId"] = request.ParentLocationId
+                    }),
+                cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Location created: {LocationCode} by {UserId}", request.Code, userId);
@@ -144,15 +165,18 @@ public class UpdateLocationUseCase : IUpdateLocationUseCase
 {
     private readonly ILogger<UpdateLocationUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditWriter _auditWriter;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public UpdateLocationUseCase(
         IUnitOfWork unitOfWork,
         ILogger<UpdateLocationUseCase> logger,
+        IAuditWriter auditWriter,
         IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _auditWriter = auditWriter;
         _warehouseAccessService = warehouseAccessService;
     }
 
@@ -174,6 +198,14 @@ public class UpdateLocationUseCase : IUpdateLocationUseCase
                 return Result.Failure<LocationDto>(authorization.Error);
             }
 
+            var before = new Dictionary<string, object?>
+            {
+                ["name"] = location.Name,
+                ["isPickable"] = location.IsPickable,
+                ["isReceivable"] = location.IsReceivable,
+                ["capacity"] = location.Capacity
+            };
+
             // Update location details
             location.UpdateDetails(request.Name);
             location.SetPickable(request.IsPickable);
@@ -183,6 +215,21 @@ public class UpdateLocationUseCase : IUpdateLocationUseCase
                 location.SetCapacity(request.Capacity);
 
             await _unitOfWork.Locations.UpdateAsync(location, cancellationToken);
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.LocationUpdated,
+                    WmsAuditEntityTypes.Location,
+                    location.Id.ToString(CultureInfo.InvariantCulture),
+                    location.WarehouseId,
+                    Before: before,
+                    After: new Dictionary<string, object?>
+                    {
+                        ["name"] = location.Name,
+                        ["isPickable"] = location.IsPickable,
+                        ["isReceivable"] = location.IsReceivable,
+                        ["capacity"] = location.Capacity
+                    }),
+                cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Location updated: {LocationCode} by {UserId}", location.Code, userId);
@@ -219,15 +266,18 @@ public class DeleteLocationUseCase : IDeleteLocationUseCase
 {
     private readonly ILogger<DeleteLocationUseCase> _logger;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IAuditWriter _auditWriter;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public DeleteLocationUseCase(
         IUnitOfWork unitOfWork,
         ILogger<DeleteLocationUseCase> logger,
+        IAuditWriter auditWriter,
         IWarehouseAccessService warehouseAccessService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
+        _auditWriter = auditWriter;
         _warehouseAccessService = warehouseAccessService;
     }
 
@@ -265,8 +315,18 @@ public class DeleteLocationUseCase : IDeleteLocationUseCase
             }
 
             // Soft delete by deactivating
+            var before = new Dictionary<string, object?> { ["isActive"] = location.IsActive };
             location.Deactivate();
             await _unitOfWork.Locations.UpdateAsync(location, cancellationToken);
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.LocationDeactivated,
+                    WmsAuditEntityTypes.Location,
+                    location.Id.ToString(CultureInfo.InvariantCulture),
+                    location.WarehouseId,
+                    Before: before,
+                    After: new Dictionary<string, object?> { ["isActive"] = location.IsActive }),
+                cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Location deactivated: {LocationCode} by {UserId}", location.Code, userId);

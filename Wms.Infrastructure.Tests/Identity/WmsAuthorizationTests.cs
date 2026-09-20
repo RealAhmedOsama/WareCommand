@@ -3,10 +3,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Wms.Application.Auditing;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
+using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Repositories;
@@ -44,6 +47,10 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
         services.AddScoped<IWarehouseAccessService, WarehouseAccessService>();
         services.AddScoped<IUserAccessDirectory, UserAccessDirectory>();
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
+        services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<IRequestContext, WmsRequestContext>();
+        services.AddScoped<IWarehouseContext, WmsWarehouseContext>();
+        services.AddScoped<IAuditWriter, AuditWriter>();
 
         _serviceProvider = services.BuildServiceProvider();
         _scope = _serviceProvider.CreateScope();

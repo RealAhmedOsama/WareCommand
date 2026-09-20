@@ -108,6 +108,22 @@ public sealed class WareCommandWebApplicationFactory : WebApplicationFactory<Wms
         await userManager.UpdateSecurityStampAsync(user);
     }
 
+    public async Task AssignRoleAsync(string userId, string roleName)
+    {
+        using var scope = Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<WmsUser>>();
+        var user = await userManager.FindByIdAsync(userId) ??
+                   throw new InvalidOperationException($"User '{userId}' was not found.");
+        var result = await userManager.AddToRoleAsync(user, roleName);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join("; ", result.Errors.Select(error => error.Description)));
+        }
+
+        await userManager.UpdateSecurityStampAsync(user);
+    }
+
     public async Task<WarehouseTestData> CreateWarehouseScenarioAsync(string userId)
     {
         using var scope = Services.CreateScope();

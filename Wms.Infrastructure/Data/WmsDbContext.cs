@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Wms.Domain.Entities;
+using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
 
@@ -23,6 +24,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<Movement> Movements => Set<Movement>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
+
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     public DbSet<WmsUserWarehouseAssignment> UserWarehouseAssignments => Set<WmsUserWarehouseAssignment>();
 
@@ -79,5 +82,66 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
             entity.HasIndex(auditEvent => auditEvent.OccurredAtUtc);
             entity.HasIndex(auditEvent => new { auditEvent.UserId, auditEvent.OccurredAtUtc });
         });
+
+        builder.Entity<AuditEntry>(entity =>
+        {
+            entity.ToTable("WmsAuditEntries");
+            entity.HasKey(entry => entry.Id);
+            entity.Property(entry => entry.Action).HasMaxLength(100).IsRequired();
+            entity.Property(entry => entry.EntityType).HasMaxLength(100).IsRequired();
+            entity.Property(entry => entry.OccurredAtUnixMilliseconds).IsRequired();
+            entity.Property(entry => entry.EntityId).HasMaxLength(200);
+            entity.Property(entry => entry.ActorUserId).HasMaxLength(450);
+            entity.Property(entry => entry.ActorUserName).HasMaxLength(256);
+            entity.Property(entry => entry.CorrelationId).HasMaxLength(100).IsRequired();
+            entity.Property(entry => entry.SourceClient).HasMaxLength(50).IsRequired();
+            entity.Property(entry => entry.RemoteIpAddress).HasMaxLength(64);
+            entity.Property(entry => entry.UserAgent).HasMaxLength(512);
+            entity.Property(entry => entry.Details).HasMaxLength(1_000);
+            entity.Property(entry => entry.BeforeJson).HasMaxLength(8_000);
+            entity.Property(entry => entry.AfterJson).HasMaxLength(8_000);
+            entity.HasIndex(entry => entry.OccurredAtUtc);
+            entity.HasIndex(entry => entry.OccurredAtUnixMilliseconds);
+            entity.HasIndex(entry => new { entry.ActorUserId, entry.OccurredAtUtc });
+            entity.HasIndex(entry => new { entry.WarehouseId, entry.OccurredAtUtc });
+            entity.HasIndex(entry => new { entry.Action, entry.OccurredAtUtc });
+            entity.HasIndex(entry => new { entry.EntityType, entry.EntityId, entry.OccurredAtUtc });
+        });
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        EnsureAuditEntriesAreAppendOnly();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override int SaveChanges()
+    {
+        EnsureAuditEntriesAreAppendOnly();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuditEntriesAreAppendOnly();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureAuditEntriesAreAppendOnly();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void EnsureAuditEntriesAreAppendOnly()
+    {
+        if (ChangeTracker.Entries<AuditEntry>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException("Audit entries are immutable and cannot be updated or deleted.");
+        }
     }
 }

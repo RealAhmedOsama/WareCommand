@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Context;
 
 namespace Wms.Infrastructure.Identity;
 
@@ -7,6 +8,7 @@ public sealed class DesktopAuthenticationService(
     UserManager<WmsUser> userManager,
     DesktopUserSession session,
     IAuthenticationAuditService auditService,
+    IClock clock,
     ILogger<DesktopAuthenticationService> logger) : IDesktopAuthenticationService
 {
     public async Task<DesktopAuthenticationResult> AuthenticateAsync(
@@ -74,7 +76,7 @@ public sealed class DesktopAuthenticationService(
         }
 
         await userManager.ResetAccessFailedCountAsync(user);
-        user.LastLoginAtUtc = DateTimeOffset.UtcNow;
+        user.LastLoginAtUtc = clock.UtcNow;
         var updateResult = await userManager.UpdateAsync(user);
         if (!updateResult.Succeeded)
         {

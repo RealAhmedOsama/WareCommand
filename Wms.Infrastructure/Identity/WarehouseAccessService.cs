@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Infrastructure.Data;
 
@@ -9,6 +10,7 @@ namespace Wms.Infrastructure.Identity;
 public sealed class WarehouseAccessService(
     WmsDbContext context,
     ICurrentUser currentUser,
+    IClock clock,
     ILogger<WarehouseAccessService> logger) : IWarehouseAccessService
 {
     public async Task<bool> HasPermissionAsync(
@@ -151,7 +153,7 @@ public sealed class WarehouseAccessService(
 
         if (user is null ||
             !user.IsActive ||
-            (user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow))
+            (user.LockoutEnd.HasValue && user.LockoutEnd > clock.UtcNow))
         {
             return null;
         }

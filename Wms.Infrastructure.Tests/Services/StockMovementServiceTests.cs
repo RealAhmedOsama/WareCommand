@@ -1,11 +1,15 @@
 // Wms.Infrastructure.Tests/Services/StockMovementServiceTests.cs
 
 using Microsoft.Extensions.Logging;
+using Wms.Application.Auditing;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
+using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
+using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
 
@@ -34,7 +38,16 @@ public class StockMovementServiceTests : IDisposable
             .Setup(service => service.GetScopeAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WarehouseAccessScope(true, new HashSet<int>()));
         var unitOfWork = new UnitOfWork(_context, warehouseAccessService.Object);
-        _service = new StockMovementService(unitOfWork, mockLogger.Object);
+        var auditWriter = new AuditWriter(
+            _context,
+            new DesktopUserSession(),
+            new SystemClock(),
+            new WmsRequestContext("Test"),
+            new WmsWarehouseContext());
+        _service = new StockMovementService(
+            unitOfWork,
+            mockLogger.Object,
+            auditWriter);
 
         // Setup test data
         _warehouse = new Warehouse("TEST", "Test Warehouse");
@@ -77,6 +90,9 @@ public class StockMovementServiceTests : IDisposable
         var stock = await _context.Stock.FirstOrDefaultAsync(s => s.ItemId == _item.Id && s.LocationId == _location.Id);
         stock.Should().NotBeNull();
         stock!.QuantityAvailable.Should().Be(quantity);
+        var auditEntry = await _context.AuditEntries.SingleAsync();
+        auditEntry.Action.Should().Be(WmsAuditActions.ReceiptRecorded);
+        auditEntry.ActorUserId.Should().Be(userId);
     }
 
     [Fact]

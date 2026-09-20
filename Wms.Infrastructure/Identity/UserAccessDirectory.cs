@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Wms.Application.Auditing;
 using Wms.Application.Common;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Infrastructure.Data;
 
@@ -11,7 +13,9 @@ public sealed class UserAccessDirectory(
     WmsDbContext context,
     UserManager<WmsUser> userManager,
     RoleManager<IdentityRole> roleManager,
-    IAuthenticationAuditService auditService) : IUserAccessDirectory
+    IAuthenticationAuditService auditService,
+    IAuditWriter auditWriter,
+    IClock clock) : IUserAccessDirectory
 {
     public async Task<WmsUserAccessProfile?> GetProfileAsync(
         string userId,
@@ -148,6 +152,13 @@ public sealed class UserAccessDirectory(
 
         var existingRoles = (await userManager.GetRolesAsync(target))
             .ToHashSet(StringComparer.Ordinal);
+        var existingPermissionClaims = (await userManager.GetClaimsAsync(target))
+            .Where(claim => claim.Type == WmsAuthorizationClaimTypes.Permission)
+            .Select(claim => claim.Value)
+            .ToArray();
+        var existingAssignments = await context.UserWarehouseAssignments
+            .Where(assignment => assignment.UserId == targetUserId)
+            .ToListAsync(cancellationToken);
         var isRemovingAdministrator = existingRoles.Contains(WmsRoleNames.Administrator) &&
                                       !normalizedRoles.Contains(WmsRoleNames.Administrator, StringComparer.Ordinal);
         if (isRemovingAdministrator)
@@ -190,12 +201,12 @@ public sealed class UserAccessDirectory(
             return IdentityFailure("Could not assign the selected roles", addRolesResult);
         }
 
-        var existingPermissionClaims = (await userManager.GetClaimsAsync(target))
+        var existingPermissionClaimObjects = (await userManager.GetClaimsAsync(target))
             .Where(claim => claim.Type == WmsAuthorizationClaimTypes.Permission)
             .ToArray();
-        if (existingPermissionClaims.Length > 0)
+        if (existingPermissionClaimObjects.Length > 0)
         {
-            var removeClaimsResult = await userManager.RemoveClaimsAsync(target, existingPermissionClaims);
+            var removeClaimsResult = await userManager.RemoveClaimsAsync(target, existingPermissionClaimObjects);
             if (!removeClaimsResult.Succeeded)
             {
                 return IdentityFailure("Could not remove the previous permission grants", removeClaimsResult);
@@ -214,9 +225,6 @@ public sealed class UserAccessDirectory(
             }
         }
 
-        var existingAssignments = await context.UserWarehouseAssignments
-            .Where(assignment => assignment.UserId == targetUserId)
-            .ToListAsync(cancellationToken);
         context.UserWarehouseAssignments.RemoveRange(existingAssignments);
         context.UserWarehouseAssignments.AddRange(normalizedWarehouseIds.Select(warehouseId =>
             new WmsUserWarehouseAssignment
@@ -224,7 +232,7 @@ public sealed class UserAccessDirectory(
                 UserId = targetUserId,
                 WarehouseId = warehouseId,
                 IsDefault = defaultWarehouseId == warehouseId,
-                AssignedAtUtc = DateTimeOffset.UtcNow
+                AssignedAtUtc = clock.UtcNow
             }));
 
         var stampResult = await userManager.UpdateSecurityStampAsync(target);
@@ -232,6 +240,33 @@ public sealed class UserAccessDirectory(
         {
             return IdentityFailure("Could not rotate the account security stamp", stampResult);
         }
+
+        await auditWriter.RecordAsync(
+            new AuditRecord(
+                WmsAuditActions.AccessChanged,
+                WmsAuditEntityTypes.AccessAssignment,
+                targetUserId,
+                Before: new Dictionary<string, object?>
+                {
+                    ["roles"] = existingRoles.ToArray(),
+                    ["permissions"] = existingPermissionClaims,
+                    ["warehouseIds"] = existingAssignments.Select(assignment => assignment.WarehouseId).ToArray(),
+                    ["defaultWarehouseId"] = existingAssignments
+                        .Where(assignment => assignment.IsDefault)
+                        .Select(assignment => (int?)assignment.WarehouseId)
+                        .FirstOrDefault()
+                },
+                After: new Dictionary<string, object?>
+                {
+                    ["roles"] = normalizedRoles,
+                    ["permissions"] = normalizedPermissions,
+                    ["warehouseIds"] = normalizedWarehouseIds,
+                    ["defaultWarehouseId"] = defaultWarehouseId
+                },
+                ActorUserId: actorUserId,
+                ActorUserName: actor.UserName,
+                Details: "User roles, direct permissions, and warehouse assignments changed."),
+            cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Wms.Application.Identity;
 using Xunit;
 
 namespace Wms.ASP.Tests;
@@ -54,6 +55,40 @@ public sealed class AuthorizationFlowTests(WareCommandWebApplicationFactory fact
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains(scenario.AssignedLocationCode, body, StringComparison.Ordinal);
         Assert.DoesNotContain(scenario.UnassignedLocationCode, body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AuditScreenRequiresPermissionAndRendersForAuditor()
+    {
+        var unprivilegedUser = await factory.CreateUserAsync();
+        using var deniedClient = CreateClient();
+        using var deniedLogin = await AuthenticationFlowTests.PostLoginAsync(
+            deniedClient,
+            unprivilegedUser.UserName!,
+            "ValidPassword123!");
+        Assert.Equal(HttpStatusCode.Redirect, deniedLogin.StatusCode);
+
+        using var denied = await deniedClient.GetAsync("/Audit");
+        Assert.Equal(HttpStatusCode.Redirect, denied.StatusCode);
+        Assert.Equal("/Account/AccessDenied", denied.Headers.Location?.AbsolutePath);
+
+        var auditor = await factory.CreateUserAsync(assignDefaultRole: false);
+        await factory.AssignRoleAsync(auditor.Id, WmsRoleNames.Auditor);
+        using var allowedClient = CreateClient();
+        using var allowedLogin = await AuthenticationFlowTests.PostLoginAsync(
+            allowedClient,
+            auditor.UserName!,
+            "ValidPassword123!");
+        Assert.Equal(HttpStatusCode.Redirect, allowedLogin.StatusCode);
+
+        using var allowed = await allowedClient.GetAsync("/Audit");
+        var body = await allowed.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        Assert.Contains("Audit log", body, StringComparison.Ordinal);
+
+        using var export = await allowedClient.GetAsync("/Audit/Export");
+        Assert.Equal(HttpStatusCode.OK, export.StatusCode);
+        Assert.Equal("text/csv", export.Content.Headers.ContentType?.MediaType);
     }
 
     private HttpClient CreateClient() => factory.CreateClient(new WebApplicationFactoryClientOptions

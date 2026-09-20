@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Wms.Application.Auditing;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
+using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.Identity;
@@ -28,6 +32,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IAccountDirectory, AccountDirectory>();
         services.AddScoped<IWarehouseAccessService, WarehouseAccessService>();
         services.AddScoped<IUserAccessDirectory, UserAccessDirectory>();
+        services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddScoped<IRequestContext, WmsRequestContext>();
+        services.TryAddScoped<IWarehouseContext, WmsWarehouseContext>();
+        services.AddScoped<IAuditWriter, AuditWriter>();
+        services.AddScoped<IAuditQueryService, AuditQueryService>();
         services.AddScoped<WmsAuthorizationBootstrapper>();
         services.AddDatabaseInitialization();
 
@@ -55,6 +64,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<DesktopUserSession>();
         services.AddSingleton<Wms.Application.Identity.ICurrentUser>(
             provider => provider.GetRequiredService<DesktopUserSession>());
+        services.AddScoped<IRequestContext>(_ => new WmsRequestContext("Desktop"));
         services.AddScoped<IDesktopAuthenticationService, DesktopAuthenticationService>();
         return services;
     }
