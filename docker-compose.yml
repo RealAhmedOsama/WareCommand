@@ -54,6 +54,13 @@ services:
       Authentication__CookieSecure: "${WARECOMMAND_AUTH_COOKIE_SECURE:-true}"
       Authentication__Bootstrap__Enabled: "${WARECOMMAND_AUTH_BOOTSTRAP_ENABLED:-false}"
       Host__ShutdownTimeoutSeconds: "${WARECOMMAND_SHUTDOWN_TIMEOUT_SECONDS:-30}"
+      Wms__Health__StoragePath: /var/lib/warecommand
+      Wms__Health__MinimumFreeBytes: "${WARECOMMAND_MINIMUM_FREE_BYTES:-1073741824}"
+      Wms__Jobs__Enabled: "${WARECOMMAND_JOBS_ENABLED:-false}"
+      Wms__Telemetry__Otlp__Enabled: "${WARECOMMAND_OTEL_ENABLED:-false}"
+      Wms__Telemetry__Otlp__Endpoint: "${WARECOMMAND_OTEL_ENDPOINT:-}"
+      Wms__Telemetry__Otlp__Protocol: "${WARECOMMAND_OTEL_PROTOCOL:-grpc}"
+      Wms__Telemetry__SamplingRatio: "${WARECOMMAND_OTEL_SAMPLING_RATIO:-0.25}"
     secrets:
       - postgres_password
     depends_on:

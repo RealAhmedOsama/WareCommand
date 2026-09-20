@@ -6,9 +6,16 @@ public enum WmsDatabaseProvider
     Sqlite
 }
 
-public sealed class WmsDatabaseOptions(WmsDatabaseProvider provider)
+public sealed class WmsDatabaseOptions(
+    WmsDatabaseProvider provider,
+    bool connectionStringConfigured = true)
 {
     public WmsDatabaseProvider Provider { get; } = provider;
+
+    /// <summary>
+    /// Indicates that the composition root resolved a usable connection string without exposing it.
+    /// </summary>
+    public bool ConnectionStringConfigured { get; } = connectionStringConfigured;
 }
 
 public static class WmsDatabaseProviderParser

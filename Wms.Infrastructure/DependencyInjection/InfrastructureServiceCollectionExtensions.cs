@@ -14,6 +14,7 @@ using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
+using Wms.Infrastructure.Telemetry;
 
 namespace Wms.Infrastructure.DependencyInjection;
 
@@ -41,6 +42,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IAuditQueryService, AuditQueryService>();
         services.AddScoped<WmsAuthorizationBootstrapper>();
         services.AddDatabaseInitialization();
+        services.AddSingleton<WmsDbCommandMetricsInterceptor>();
 
         return services;
     }
@@ -86,8 +88,11 @@ public static class InfrastructureServiceCollectionExtensions
             ? "Data Source=warehouse.db"
             : connectionString;
 
-        services.AddSingleton(new WmsDatabaseOptions(provider));
-        services.AddDbContext<WmsDbContext>(options =>
+        services.AddSingleton(new WmsDatabaseOptions(
+            provider,
+            connectionStringConfigured: provider == WmsDatabaseProvider.Sqlite ||
+                !string.IsNullOrWhiteSpace(connectionString)));
+        services.AddDbContext<WmsDbContext>((serviceProvider, options) =>
         {
             if (provider == WmsDatabaseProvider.PostgreSql)
             {
@@ -99,6 +104,9 @@ public static class InfrastructureServiceCollectionExtensions
             {
                 options.UseSqlite(resolvedConnectionString);
             }
+
+            options.AddInterceptors(
+                serviceProvider.GetRequiredService<WmsDbCommandMetricsInterceptor>());
         });
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IItemRepository, ItemRepository>();

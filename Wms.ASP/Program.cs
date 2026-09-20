@@ -8,11 +8,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Wms.Application.DependencyInjection;
+using Wms.Application.Telemetry;
 using Wms.ASP.Errors;
 using Wms.ASP.Health;
 using Wms.ASP.Identity;
 using Wms.ASP.Middleware;
 using Wms.ASP.Security;
+using Wms.ASP.Telemetry;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
 using Wms.Infrastructure.Identity;
@@ -58,18 +60,42 @@ public class Program
                 connectionString,
                 databaseProvider);
             builder.Services.AddWmsLogging(builder.Configuration);
+            builder.Services.AddWmsTelemetry(builder.Configuration, builder.Environment);
             builder.Services.AddWmsApplication();
             builder.Services.AddWareCommandIdentity(builder.Configuration, builder.Environment);
             builder.Services.AddWmsExceptionHandling();
+            builder.Services.AddSingleton<WmsApplicationHealthState>();
+            builder.Services.AddSingleton(WmsHealthOptions.From(
+                builder.Configuration,
+                builder.Environment));
             builder.Services
                 .AddHealthChecks()
                 .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
-                .AddCheck<WmsDatabaseHealthCheck>("database", tags: ["ready"]);
+                .AddCheck<WmsApplicationReadinessHealthCheck>("application-startup", tags: ["ready"])
+                .AddCheck<WmsDatabaseHealthCheck>("database", tags: ["ready"])
+                .AddCheck<WmsStorageHealthCheck>("storage", tags: ["ready"])
+                .AddCheck<WmsBackgroundJobStorageHealthCheck>(
+                    "background-job-storage",
+                    tags: ["ready"])
+                .AddCheck<WmsCriticalConfigurationHealthCheck>(
+                    "critical-configuration",
+                    tags: ["ready"]);
 
             var app = builder.Build();
 
-            await InitializeDatabaseAsync(app.Services, seedProfile);
-            await InitializeIdentityAsync(app.Services);
+            var applicationHealthState = app.Services.GetRequiredService<WmsApplicationHealthState>();
+            applicationHealthState.MarkStarting();
+            try
+            {
+                await InitializeDatabaseAsync(app.Services, seedProfile);
+                await InitializeIdentityAsync(app.Services);
+                applicationHealthState.MarkReady();
+            }
+            catch
+            {
+                applicationHealthState.MarkFailed();
+                throw;
+            }
 
             if (builder.Configuration.GetValue("ForwardedHeaders:Enabled", false))
             {
@@ -95,6 +121,7 @@ public class Program
             app.UseMiddleware<SecurityHeadersMiddleware>();
             app.UseStaticFiles();
             app.UseRouting();
+            app.UseMiddleware<WmsRequestMetricsMiddleware>();
             app.UseRateLimiter();
             app.UseAuthentication();
             app.UseMiddleware<WmsRequestLoggingMiddleware>();
@@ -104,14 +131,18 @@ public class Program
                 "/health/live",
                 new HealthCheckOptions
                 {
-                    Predicate = check => check.Tags.Contains("live")
-                });
+                    Predicate = check => check.Tags.Contains("live"),
+                    ResponseWriter = WmsHealthResponseWriter.WriteAsync
+                })
+                .AllowAnonymous();
             app.MapHealthChecks(
                 "/health/ready",
                 new HealthCheckOptions
                 {
-                    Predicate = check => check.Tags.Contains("ready")
-                });
+                    Predicate = check => check.Tags.Contains("ready"),
+                    ResponseWriter = WmsHealthResponseWriter.WriteAsync
+                })
+                .AllowAnonymous();
 
             app.MapControllerRoute(
                 "default",

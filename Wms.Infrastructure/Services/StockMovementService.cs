@@ -1,9 +1,11 @@
 // Wms.Infrastructure/Services/StockMovementService.cs
 
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.Logging;
+using Wms.Application.Telemetry;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
@@ -47,55 +49,77 @@ public class StockMovementService : IStockMovementService
             referenceNumber,
             userId,
             location?.WarehouseId);
-        var existingStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-            itemId, locationId, lotId, serialNumber, cancellationToken);
-        var quantityBefore = existingStock?.QuantityAvailable.Value ?? 0m;
-
-        // Create receipt movement
-        var movement = Movement.CreateReceipt(itemId, locationId, quantity, userId,
-            lotId, serialNumber, referenceNumber, notes);
-
-        await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
-
-        // Update or create stock record
-        if (existingStock != null)
+        using var telemetryScope = WmsTelemetry.BeginInventoryOperation(
+            "receipt",
+            location?.WarehouseId);
+        try
         {
-            existingStock.AddQuantity(quantity);
-            await _unitOfWork.Stock.UpdateAsync(existingStock, cancellationToken);
+            var existingStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+                itemId, locationId, lotId, serialNumber, cancellationToken);
+            var quantityBefore = existingStock?.QuantityAvailable.Value ?? 0m;
+
+            // Create receipt movement
+            var movement = Movement.CreateReceipt(itemId, locationId, quantity, userId,
+                lotId, serialNumber, referenceNumber, notes);
+
+            await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+
+            // Update or create stock record
+            if (existingStock != null)
+            {
+                existingStock.AddQuantity(quantity);
+                await _unitOfWork.Stock.UpdateAsync(existingStock, cancellationToken);
+            }
+            else
+            {
+                var newStock = new Stock(itemId, locationId, quantity, lotId, serialNumber);
+                await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
+            }
+
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.ReceiptRecorded,
+                    WmsAuditEntityTypes.Movement,
+                    $"{itemId}:{locationId}",
+                    location?.WarehouseId,
+                    Before: new Dictionary<string, object?>
+                    {
+                        ["quantityAvailable"] = quantityBefore
+                    },
+                    After: new Dictionary<string, object?>
+                    {
+                        ["quantity"] = quantity.Value,
+                        ["quantityAvailable"] = quantityBefore + quantity.Value,
+                        ["referenceNumber"] = referenceNumber
+                    },
+                    ActorUserId: userId),
+                cancellationToken);
+
+            _logger.LogInformation(
+                WmsLogEvents.InventoryReceiptCompleted,
+                "Inventory receipt completed for item {ItemId}, quantity {Quantity}, location {LocationId}",
+                itemId,
+                quantity.Value,
+                locationId);
+
+            telemetryScope.Complete(quantity.Value);
+            return movement;
         }
-        else
+        catch (OperationCanceledException)
         {
-            var newStock = new Stock(itemId, locationId, quantity, lotId, serialNumber);
-            await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
+            telemetryScope.Cancel();
+            throw;
         }
-
-        await _auditWriter.RecordAsync(
-            new AuditRecord(
-                WmsAuditActions.ReceiptRecorded,
-                WmsAuditEntityTypes.Movement,
-                $"{itemId}:{locationId}",
-                location?.WarehouseId,
-                Before: new Dictionary<string, object?>
-                {
-                    ["quantityAvailable"] = quantityBefore
-                },
-                After: new Dictionary<string, object?>
-                {
-                    ["quantity"] = quantity.Value,
-                    ["quantityAvailable"] = quantityBefore + quantity.Value,
-                    ["referenceNumber"] = referenceNumber
-                },
-                ActorUserId: userId),
-            cancellationToken);
-
-        _logger.LogInformation(
-            WmsLogEvents.InventoryReceiptCompleted,
-            "Inventory receipt completed for item {ItemId}, quantity {Quantity}, location {LocationId}",
-            itemId,
-            quantity.Value,
-            locationId);
-
-        return movement;
+        catch (DbUpdateConcurrencyException exception)
+        {
+            telemetryScope.Fail(exception, conflict: true);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            telemetryScope.Fail(exception);
+            throw;
+        }
     }
 
     public async Task<Movement> PutawayAsync(int itemId, int fromLocationId, int toLocationId,
@@ -112,69 +136,95 @@ public class StockMovementService : IStockMovementService
             referenceNumber,
             userId,
             fromLocation?.WarehouseId ?? toLocation?.WarehouseId);
-        // Validate source stock
-        var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-            itemId, fromLocationId, lotId, serialNumber, cancellationToken);
-
-        if (sourceStock == null)
-            throw new InvalidOperationException("Source stock not found");
-
-        if (sourceStock.GetAvailableQuantity() < quantity)
-            throw new InvalidOperationException("Insufficient available quantity");
-
-        var sourceQuantityBefore = sourceStock.QuantityAvailable.Value;
-        var destinationStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-            itemId, toLocationId, lotId, serialNumber, cancellationToken);
-        var destinationQuantityBefore = destinationStock?.QuantityAvailable.Value ?? 0m;
-
-        // Create putaway movement
-        var movement = Movement.CreatePutaway(itemId, fromLocationId, toLocationId, quantity, userId,
-            lotId, serialNumber, referenceNumber, notes);
-
-        await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
-
-        // Remove from source location
-        sourceStock.RemoveQuantity(quantity);
-        await _unitOfWork.Stock.UpdateAsync(sourceStock, cancellationToken);
-
-        // Add to destination location
-        if (destinationStock != null)
+        using var telemetryScope = WmsTelemetry.BeginInventoryOperation(
+            "putaway",
+            fromLocation?.WarehouseId ?? toLocation?.WarehouseId);
+        try
         {
-            destinationStock.AddQuantity(quantity);
-            await _unitOfWork.Stock.UpdateAsync(destinationStock, cancellationToken);
+            // Validate source stock
+            var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+                itemId, fromLocationId, lotId, serialNumber, cancellationToken);
+
+            if (sourceStock == null)
+            {
+                throw new InvalidOperationException("Source stock not found");
+            }
+
+            if (sourceStock.GetAvailableQuantity() < quantity)
+            {
+                throw new InvalidOperationException("Insufficient available quantity");
+            }
+
+            var sourceQuantityBefore = sourceStock.QuantityAvailable.Value;
+            var destinationStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+                itemId, toLocationId, lotId, serialNumber, cancellationToken);
+            var destinationQuantityBefore = destinationStock?.QuantityAvailable.Value ?? 0m;
+
+            // Create putaway movement
+            var movement = Movement.CreatePutaway(itemId, fromLocationId, toLocationId, quantity, userId,
+                lotId, serialNumber, referenceNumber, notes);
+
+            await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+
+            // Remove from source location
+            sourceStock.RemoveQuantity(quantity);
+            await _unitOfWork.Stock.UpdateAsync(sourceStock, cancellationToken);
+
+            // Add to destination location
+            if (destinationStock != null)
+            {
+                destinationStock.AddQuantity(quantity);
+                await _unitOfWork.Stock.UpdateAsync(destinationStock, cancellationToken);
+            }
+            else
+            {
+                var newStock = new Stock(itemId, toLocationId, quantity, lotId, serialNumber);
+                await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
+            }
+
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.PutawayCompleted,
+                    WmsAuditEntityTypes.Movement,
+                    $"{fromLocationId}:{toLocationId}",
+                    fromLocation?.WarehouseId ?? toLocation?.WarehouseId,
+                    Before: new Dictionary<string, object?>
+                    {
+                        ["sourceQuantityAvailable"] = sourceQuantityBefore,
+                        ["destinationQuantityAvailable"] = destinationQuantityBefore
+                    },
+                    After: new Dictionary<string, object?>
+                    {
+                        ["quantity"] = quantity.Value,
+                        ["sourceQuantityAvailable"] = sourceQuantityBefore - quantity.Value,
+                        ["destinationQuantityAvailable"] = destinationQuantityBefore + quantity.Value
+                    },
+                    ActorUserId: userId),
+                cancellationToken);
+
+            _logger.LogInformation(
+                WmsLogEvents.InventoryPutawayCompleted,
+                "Inventory putaway completed for item {ItemId}, quantity {Quantity}, from {FromLocationId} to {ToLocationId}",
+                itemId, quantity.Value, fromLocationId, toLocationId);
+
+            telemetryScope.Complete(quantity.Value);
+            return movement;
         }
-        else
+        catch (OperationCanceledException)
         {
-            var newStock = new Stock(itemId, toLocationId, quantity, lotId, serialNumber);
-            await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
+            telemetryScope.Cancel();
+            throw;
         }
-
-        await _auditWriter.RecordAsync(
-            new AuditRecord(
-                WmsAuditActions.PutawayCompleted,
-                WmsAuditEntityTypes.Movement,
-                $"{fromLocationId}:{toLocationId}",
-                fromLocation?.WarehouseId ?? toLocation?.WarehouseId,
-                Before: new Dictionary<string, object?>
-                {
-                    ["sourceQuantityAvailable"] = sourceQuantityBefore,
-                    ["destinationQuantityAvailable"] = destinationQuantityBefore
-                },
-                After: new Dictionary<string, object?>
-                {
-                    ["quantity"] = quantity.Value,
-                    ["sourceQuantityAvailable"] = sourceQuantityBefore - quantity.Value,
-                    ["destinationQuantityAvailable"] = destinationQuantityBefore + quantity.Value
-                },
-                ActorUserId: userId),
-            cancellationToken);
-
-        _logger.LogInformation(
-            WmsLogEvents.InventoryPutawayCompleted,
-            "Inventory putaway completed for item {ItemId}, quantity {Quantity}, from {FromLocationId} to {ToLocationId}",
-            itemId, quantity.Value, fromLocationId, toLocationId);
-
-        return movement;
+        catch (DbUpdateConcurrencyException exception)
+        {
+            telemetryScope.Fail(exception, conflict: true);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            telemetryScope.Fail(exception);
+            throw;
+        }
     }
 
     public async Task<Movement> PickAsync(int itemId, int fromLocationId, Quantity quantity, string userId,
@@ -190,55 +240,81 @@ public class StockMovementService : IStockMovementService
             referenceNumber,
             userId,
             location?.WarehouseId);
-        // Validate source stock
-        var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-            itemId, fromLocationId, lotId, serialNumber, cancellationToken);
+        using var telemetryScope = WmsTelemetry.BeginInventoryOperation(
+            "pick",
+            location?.WarehouseId);
+        try
+        {
+            // Validate source stock
+            var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+                itemId, fromLocationId, lotId, serialNumber, cancellationToken);
 
-        if (sourceStock == null)
-            throw new InvalidOperationException("Source stock not found");
+            if (sourceStock == null)
+            {
+                throw new InvalidOperationException("Source stock not found");
+            }
 
-        if (sourceStock.GetAvailableQuantity() < quantity)
-            throw new InvalidOperationException("Insufficient available quantity");
+            if (sourceStock.GetAvailableQuantity() < quantity)
+            {
+                throw new InvalidOperationException("Insufficient available quantity");
+            }
 
-        var sourceQuantityBefore = sourceStock.QuantityAvailable.Value;
+            var sourceQuantityBefore = sourceStock.QuantityAvailable.Value;
 
-        // Create pick movement
-        var movement = Movement.CreatePick(itemId, fromLocationId, quantity, userId,
-            lotId, serialNumber, referenceNumber, notes);
+            // Create pick movement
+            var movement = Movement.CreatePick(itemId, fromLocationId, quantity, userId,
+                lotId, serialNumber, referenceNumber, notes);
 
-        await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+            await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
-        // Remove from source location
-        sourceStock.RemoveQuantity(quantity);
-        await _unitOfWork.Stock.UpdateAsync(sourceStock, cancellationToken);
+            // Remove from source location
+            sourceStock.RemoveQuantity(quantity);
+            await _unitOfWork.Stock.UpdateAsync(sourceStock, cancellationToken);
 
-        await _auditWriter.RecordAsync(
-            new AuditRecord(
-                WmsAuditActions.PickCompleted,
-                WmsAuditEntityTypes.Movement,
-                $"{itemId}:{fromLocationId}",
-                location?.WarehouseId,
-                Before: new Dictionary<string, object?>
-                {
-                    ["quantityAvailable"] = sourceQuantityBefore
-                },
-                After: new Dictionary<string, object?>
-                {
-                    ["quantity"] = quantity.Value,
-                    ["quantityAvailable"] = sourceQuantityBefore - quantity.Value,
-                    ["referenceNumber"] = referenceNumber
-                },
-                ActorUserId: userId),
-            cancellationToken);
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.PickCompleted,
+                    WmsAuditEntityTypes.Movement,
+                    $"{itemId}:{fromLocationId}",
+                    location?.WarehouseId,
+                    Before: new Dictionary<string, object?>
+                    {
+                        ["quantityAvailable"] = sourceQuantityBefore
+                    },
+                    After: new Dictionary<string, object?>
+                    {
+                        ["quantity"] = quantity.Value,
+                        ["quantityAvailable"] = sourceQuantityBefore - quantity.Value,
+                        ["referenceNumber"] = referenceNumber
+                    },
+                    ActorUserId: userId),
+                cancellationToken);
 
-        _logger.LogInformation(
-            WmsLogEvents.InventoryPickCompleted,
-            "Inventory pick completed for item {ItemId}, quantity {Quantity}, from {FromLocationId}",
-            itemId,
-            quantity.Value,
-            fromLocationId);
+            _logger.LogInformation(
+                WmsLogEvents.InventoryPickCompleted,
+                "Inventory pick completed for item {ItemId}, quantity {Quantity}, from {FromLocationId}",
+                itemId,
+                quantity.Value,
+                fromLocationId);
 
-        return movement;
+            telemetryScope.Complete(quantity.Value);
+            return movement;
+        }
+        catch (OperationCanceledException)
+        {
+            telemetryScope.Cancel();
+            throw;
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            telemetryScope.Fail(exception, conflict: true);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            telemetryScope.Fail(exception);
+            throw;
+        }
     }
 
     public async Task<Movement> AdjustAsync(int itemId, int locationId, Quantity newQuantity, string userId,
@@ -253,56 +329,78 @@ public class StockMovementService : IStockMovementService
             $"{itemId}:{locationId}",
             userId,
             location?.WarehouseId);
-        var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-            itemId, locationId, lotId, serialNumber, cancellationToken);
-        var quantityBefore = stock?.QuantityAvailable.Value;
-
-        if (stock == null)
+        using var telemetryScope = WmsTelemetry.BeginInventoryOperation(
+            "adjustment",
+            location?.WarehouseId);
+        try
         {
-            // Create new stock if adjusting to positive quantity
-            if (newQuantity.Value > 0)
+            var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+                itemId, locationId, lotId, serialNumber, cancellationToken);
+            var quantityBefore = stock?.QuantityAvailable.Value;
+
+            if (stock == null)
             {
-                var newStock = new Stock(itemId, locationId, newQuantity, lotId, serialNumber);
-                await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
+                // Create new stock if adjusting to positive quantity
+                if (newQuantity.Value > 0)
+                {
+                    var newStock = new Stock(itemId, locationId, newQuantity, lotId, serialNumber);
+                    await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
+                }
             }
+            else
+            {
+                stock.AdjustQuantity(newQuantity, reason);
+                await _unitOfWork.Stock.UpdateAsync(stock, cancellationToken);
+            }
+
+            // Create adjustment movement
+            var movement = Movement.CreateAdjustment(itemId, locationId, newQuantity, userId,
+                lotId, serialNumber, notes: reason);
+
+            await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+
+            await _auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.StockAdjusted,
+                    WmsAuditEntityTypes.Stock,
+                    $"{itemId}:{locationId}",
+                    location?.WarehouseId,
+                    Before: new Dictionary<string, object?>
+                    {
+                        ["quantityAvailable"] = quantityBefore
+                    },
+                    After: new Dictionary<string, object?>
+                    {
+                        ["quantityAvailable"] = newQuantity.Value,
+                        ["reason"] = reason
+                    },
+                    ActorUserId: userId),
+                cancellationToken);
+
+            _logger.LogInformation(
+                WmsLogEvents.InventoryAdjustmentCompleted,
+                "Inventory adjustment completed for item {ItemId}, new quantity {Quantity}, location {LocationId}",
+                itemId,
+                newQuantity.Value,
+                locationId);
+
+            telemetryScope.Complete(newQuantity.Value);
+            return movement;
         }
-        else
+        catch (OperationCanceledException)
         {
-            stock.AdjustQuantity(newQuantity, reason);
-            await _unitOfWork.Stock.UpdateAsync(stock, cancellationToken);
+            telemetryScope.Cancel();
+            throw;
         }
-
-        // Create adjustment movement
-        var movement = Movement.CreateAdjustment(itemId, locationId, newQuantity, userId,
-            lotId, serialNumber, notes: reason);
-
-        await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
-
-        await _auditWriter.RecordAsync(
-            new AuditRecord(
-                WmsAuditActions.StockAdjusted,
-                WmsAuditEntityTypes.Stock,
-                $"{itemId}:{locationId}",
-                location?.WarehouseId,
-                Before: new Dictionary<string, object?>
-                {
-                    ["quantityAvailable"] = quantityBefore
-                },
-                After: new Dictionary<string, object?>
-                {
-                    ["quantityAvailable"] = newQuantity.Value,
-                    ["reason"] = reason
-                },
-                ActorUserId: userId),
-            cancellationToken);
-
-        _logger.LogInformation(
-            WmsLogEvents.InventoryAdjustmentCompleted,
-            "Inventory adjustment completed for item {ItemId}, new quantity {Quantity}, location {LocationId}",
-            itemId,
-            newQuantity.Value,
-            locationId);
-
-        return movement;
+        catch (DbUpdateConcurrencyException exception)
+        {
+            telemetryScope.Fail(exception, conflict: true);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            telemetryScope.Fail(exception);
+            throw;
+        }
     }
 }

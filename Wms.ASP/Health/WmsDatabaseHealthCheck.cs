@@ -1,10 +1,13 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Wms.Infrastructure.Data;
+using Wms.Infrastructure.Database;
 
 namespace Wms.ASP.Health;
 
 public sealed class WmsDatabaseHealthCheck(
-    IServiceScopeFactory scopeFactory) : IHealthCheck
+    IServiceScopeFactory scopeFactory,
+    WmsDatabaseOptions databaseOptions) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -15,20 +18,31 @@ public sealed class WmsDatabaseHealthCheck(
             await using var scope = scopeFactory.CreateAsyncScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<WmsDbContext>();
             var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
+            if (!canConnect)
+            {
+                return HealthCheckResult.Unhealthy(
+                    "The configured database dependency is not reachable.");
+            }
 
-            return canConnect
-                ? HealthCheckResult.Healthy("The PostgreSQL dependency is reachable.")
-                : HealthCheckResult.Unhealthy("The PostgreSQL dependency is not reachable.");
+            if (databaseOptions.Provider == WmsDatabaseProvider.PostgreSql &&
+                (await dbContext.Database
+                    .GetPendingMigrationsAsync(cancellationToken))
+                .Any())
+            {
+                return HealthCheckResult.Unhealthy(
+                    "The configured database schema is not current.");
+            }
+
+            return HealthCheckResult.Healthy("The configured database dependency is reachable.");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception)
         {
             return HealthCheckResult.Unhealthy(
-                "The PostgreSQL dependency health check failed.",
-                exception);
+                "The configured database dependency health check failed.");
         }
     }
 }
