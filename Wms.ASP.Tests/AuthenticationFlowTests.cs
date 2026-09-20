@@ -120,6 +120,31 @@ public sealed class AuthenticationFlowTests(WareCommandWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task CorrelationAndOperationHeadersPropagateThroughTheMvcBoundary()
+    {
+        using var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/ErrorProbe/Correlation");
+        request.Headers.Add("X-Correlation-ID", "workflow-correlation");
+        request.Headers.Add("X-Operation-ID", "workflow-operation");
+        request.Headers.Add("X-Reference-ID", "shipment:123");
+
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("workflow-correlation", response.Headers.GetValues("X-Correlation-ID").Single());
+        Assert.Equal("workflow-operation", response.Headers.GetValues("X-Operation-ID").Single());
+        Assert.Equal("shipment:123", response.Headers.GetValues("X-Reference-ID").Single());
+
+        using var document = JsonDocument.Parse(body);
+        Assert.Equal("workflow-correlation", document.RootElement.GetProperty("correlationId").GetString());
+        Assert.Equal("workflow-operation", document.RootElement.GetProperty("operation").GetString());
+        Assert.Equal("http.request", document.RootElement.GetProperty("operationName").GetString());
+        Assert.Equal("shipment:123", document.RootElement.GetProperty("reference").GetString());
+        Assert.Equal("Web", document.RootElement.GetProperty("sourceClient").GetString());
+    }
+
+    [Fact]
     public async Task ExternalLoginReturnUrlFallsBackToDashboard()
     {
         var user = await factory.CreateUserAsync();

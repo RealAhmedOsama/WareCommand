@@ -1,5 +1,5 @@
 using Wms.Application.Context;
-using Wms.ASP.Errors;
+using Wms.Infrastructure.Logging;
 
 namespace Wms.ASP.Middleware;
 
@@ -8,24 +8,41 @@ public sealed class WmsRequestContextMiddleware(RequestDelegate next)
     public async Task InvokeAsync(
         HttpContext httpContext,
         IRequestContext requestContext,
+        IWmsOperationContextAccessor operationContextAccessor,
         ILogger<WmsRequestContextMiddleware> logger)
     {
         requestContext.Initialize(
-            WmsErrorHandling.NormalizeCorrelationId(
-                httpContext.Request.Headers["X-Correlation-ID"].ToString()),
+            WmsExecutionIdentifiers.NormalizeOptional(
+                httpContext.Request.Headers[WmsOperationContextPropagation.CorrelationIdHeader].ToString()),
             "Web",
             httpContext.Connection.RemoteIpAddress?.ToString(),
             httpContext.Request.Headers.UserAgent.ToString());
 
-        using var loggingScope = logger.BeginScope(new Dictionary<string, object?>
-        {
-            ["CorrelationId"] = requestContext.CorrelationId,
-            ["SourceClient"] = requestContext.SourceClient
-        });
+        var operationContext = new WmsOperationContext(
+            requestContext.CorrelationId,
+            WmsExecutionIdentifiers.Normalize(
+                httpContext.Request.Headers[WmsOperationContextPropagation.OperationIdHeader].ToString()),
+            requestContext.SourceClient,
+            "http.request",
+            WmsExecutionIdentifiers.NormalizeOptional(
+                httpContext.Request.Headers[WmsOperationContextPropagation.ReferenceIdHeader].ToString()),
+            RequestId: httpContext.TraceIdentifier);
+        using var loggingScope = WmsLogging.BeginOperation(
+            logger,
+            operationContextAccessor,
+            operationContext);
 
         httpContext.Response.OnStarting(() =>
         {
-            httpContext.Response.Headers["X-Correlation-ID"] = requestContext.CorrelationId;
+            httpContext.Response.Headers[WmsOperationContextPropagation.CorrelationIdHeader] =
+                requestContext.CorrelationId;
+            httpContext.Response.Headers[WmsOperationContextPropagation.OperationIdHeader] =
+                operationContext.OperationId;
+            if (!string.IsNullOrWhiteSpace(operationContext.ReferenceId))
+            {
+                httpContext.Response.Headers[WmsOperationContextPropagation.ReferenceIdHeader] =
+                    operationContext.ReferenceId;
+            }
             return Task.CompletedTask;
         });
 

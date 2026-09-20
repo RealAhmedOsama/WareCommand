@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.Identity;
+using Wms.Application.Logging;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -145,10 +146,16 @@ public class PickOrderUseCase : IPickOrderUseCase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error picking item {ItemSku}", request.ItemSku);
-            return Result.Failure<PickResultDto>(WmsErrors.FromException(ex,
+            var failure = WmsErrors.FromException(ex,
                 "picking.failed",
-                "Error picking item. Please try again."));
+                "Error picking item. Please try again.");
+            _logger.LogError(
+                WmsLogEvents.InventoryOperationFailed,
+                ex,
+                "Inventory pick failed for item {ItemSku} with error code {ErrorCode}",
+                request.ItemSku,
+                failure.Code);
+            return Result.Failure<PickResultDto>(failure);
         }
     }
 }

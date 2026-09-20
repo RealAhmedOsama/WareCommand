@@ -10,6 +10,7 @@ using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
 
@@ -47,7 +48,9 @@ public class StockMovementServiceTests : IDisposable
         _service = new StockMovementService(
             unitOfWork,
             mockLogger.Object,
-            auditWriter);
+            auditWriter,
+            new WmsRequestContext("Test"),
+            new WmsOperationContextAccessor());
 
         // Setup test data
         _warehouse = new Warehouse("TEST", "Test Warehouse");

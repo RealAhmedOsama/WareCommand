@@ -9,7 +9,7 @@ public sealed class SystemClock : IClock
 
 public sealed class WmsRequestContext(string defaultSourceClient = "Application") : IRequestContext
 {
-    public string CorrelationId { get; private set; } = NewCorrelationId();
+    public string CorrelationId { get; private set; } = WmsExecutionIdentifiers.NewCorrelationId();
 
     public string SourceClient { get; private set; } = NormalizeSource(defaultSourceClient);
 
@@ -23,30 +23,14 @@ public sealed class WmsRequestContext(string defaultSourceClient = "Application"
         string? remoteIpAddress = null,
         string? userAgent = null)
     {
-        CorrelationId = NormalizeCorrelationId(correlationId);
+        CorrelationId = WmsExecutionIdentifiers.Normalize(correlationId);
         SourceClient = NormalizeSource(sourceClient);
         RemoteIpAddress = Trim(remoteIpAddress, 64);
         UserAgent = Trim(userAgent, 512);
     }
 
-    private static string NormalizeCorrelationId(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return NewCorrelationId();
-        }
-
-        var normalized = new string(value
-            .Trim()
-            .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')
-            .ToArray());
-        return normalized.Length is 0 or > 100 ? NewCorrelationId() : normalized;
-    }
-
     private static string NormalizeSource(string? value) =>
         Trim(value, 50) ?? "Application";
-
-    private static string NewCorrelationId() => Guid.NewGuid().ToString("N");
 
     private static string? Trim(string? value, int maximumLength)
     {

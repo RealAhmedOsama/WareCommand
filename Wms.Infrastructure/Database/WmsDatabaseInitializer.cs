@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Logging;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Database;
@@ -16,6 +17,12 @@ public sealed class WmsDatabaseInitializer(
     {
         try
         {
+            logger.LogInformation(
+                WmsLogEvents.DatabaseMigrationStarted,
+                "Database initialization started for {DatabaseProvider} with {SeedProfile} seed profile",
+                databaseOptions.Provider,
+                profile);
+
             if (databaseOptions.Provider == WmsDatabaseProvider.PostgreSql)
             {
                 var pendingMigrations = (await context.Database
@@ -35,7 +42,11 @@ public sealed class WmsDatabaseInitializer(
 
             await seedService.SeedAsync(profile, cancellationToken);
 
-            logger.LogInformation("Database initialized successfully using {SeedProfile} seed profile", profile);
+            logger.LogInformation(
+                WmsLogEvents.DatabaseMigrationCompleted,
+                "Database initialization completed for {DatabaseProvider} using {SeedProfile} seed profile",
+                databaseOptions.Provider,
+                profile);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -43,7 +54,12 @@ public sealed class WmsDatabaseInitializer(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred while initializing the database using {SeedProfile}", profile);
+            logger.LogError(
+                WmsLogEvents.DatabaseMigrationFailed,
+                ex,
+                "Database initialization failed for {DatabaseProvider} using {SeedProfile} seed profile",
+                databaseOptions.Provider,
+                profile);
             throw;
         }
     }

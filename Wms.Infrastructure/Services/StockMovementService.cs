@@ -2,10 +2,13 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.Auditing;
+using Wms.Application.Context;
+using Wms.Application.Logging;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
+using Wms.Infrastructure.Logging;
 
 namespace Wms.Infrastructure.Services;
 
@@ -13,16 +16,22 @@ public class StockMovementService : IStockMovementService
 {
     private readonly IAuditWriter _auditWriter;
     private readonly ILogger<StockMovementService> _logger;
+    private readonly IWmsOperationContextAccessor _operationContextAccessor;
+    private readonly IRequestContext _requestContext;
     private readonly IUnitOfWork _unitOfWork;
 
     public StockMovementService(
         IUnitOfWork unitOfWork,
         ILogger<StockMovementService> logger,
-        IAuditWriter auditWriter)
+        IAuditWriter auditWriter,
+        IRequestContext requestContext,
+        IWmsOperationContextAccessor operationContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _auditWriter = auditWriter;
+        _requestContext = requestContext;
+        _operationContextAccessor = operationContextAccessor;
     }
 
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
@@ -30,6 +39,14 @@ public class StockMovementService : IStockMovementService
         string? notes = null, CancellationToken cancellationToken = default)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
+        using var operationScope = WmsLogging.BeginOperation(
+            _logger,
+            _operationContextAccessor,
+            _requestContext,
+            "inventory.receipt",
+            referenceNumber,
+            userId,
+            location?.WarehouseId);
         var existingStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
             itemId, locationId, lotId, serialNumber, cancellationToken);
         var quantityBefore = existingStock?.QuantityAvailable.Value ?? 0m;
@@ -71,8 +88,12 @@ public class StockMovementService : IStockMovementService
                 ActorUserId: userId),
             cancellationToken);
 
-        _logger.LogInformation("Receipt processed: Item {ItemId}, Quantity {Quantity}, Location {LocationId}",
-            itemId, quantity.Value, locationId);
+        _logger.LogInformation(
+            WmsLogEvents.InventoryReceiptCompleted,
+            "Inventory receipt completed for item {ItemId}, quantity {Quantity}, location {LocationId}",
+            itemId,
+            quantity.Value,
+            locationId);
 
         return movement;
     }
@@ -83,6 +104,14 @@ public class StockMovementService : IStockMovementService
     {
         var fromLocation = await _unitOfWork.Locations.GetByIdAsync(fromLocationId, cancellationToken);
         var toLocation = await _unitOfWork.Locations.GetByIdAsync(toLocationId, cancellationToken);
+        using var operationScope = WmsLogging.BeginOperation(
+            _logger,
+            _operationContextAccessor,
+            _requestContext,
+            "inventory.putaway",
+            referenceNumber,
+            userId,
+            fromLocation?.WarehouseId ?? toLocation?.WarehouseId);
         // Validate source stock
         var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
             itemId, fromLocationId, lotId, serialNumber, cancellationToken);
@@ -141,7 +170,8 @@ public class StockMovementService : IStockMovementService
             cancellationToken);
 
         _logger.LogInformation(
-            "Putaway processed: Item {ItemId}, Quantity {Quantity}, From {FromLocationId} to {ToLocationId}",
+            WmsLogEvents.InventoryPutawayCompleted,
+            "Inventory putaway completed for item {ItemId}, quantity {Quantity}, from {FromLocationId} to {ToLocationId}",
             itemId, quantity.Value, fromLocationId, toLocationId);
 
         return movement;
@@ -152,6 +182,14 @@ public class StockMovementService : IStockMovementService
         string? notes = null, CancellationToken cancellationToken = default)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(fromLocationId, cancellationToken);
+        using var operationScope = WmsLogging.BeginOperation(
+            _logger,
+            _operationContextAccessor,
+            _requestContext,
+            "inventory.pick",
+            referenceNumber,
+            userId,
+            location?.WarehouseId);
         // Validate source stock
         var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
             itemId, fromLocationId, lotId, serialNumber, cancellationToken);
@@ -193,8 +231,12 @@ public class StockMovementService : IStockMovementService
                 ActorUserId: userId),
             cancellationToken);
 
-        _logger.LogInformation("Pick processed: Item {ItemId}, Quantity {Quantity}, From {FromLocationId}",
-            itemId, quantity.Value, fromLocationId);
+        _logger.LogInformation(
+            WmsLogEvents.InventoryPickCompleted,
+            "Inventory pick completed for item {ItemId}, quantity {Quantity}, from {FromLocationId}",
+            itemId,
+            quantity.Value,
+            fromLocationId);
 
         return movement;
     }
@@ -203,6 +245,14 @@ public class StockMovementService : IStockMovementService
         string reason, int? lotId = null, string? serialNumber = null, CancellationToken cancellationToken = default)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
+        using var operationScope = WmsLogging.BeginOperation(
+            _logger,
+            _operationContextAccessor,
+            _requestContext,
+            "inventory.adjustment",
+            $"{itemId}:{locationId}",
+            userId,
+            location?.WarehouseId);
         var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
             itemId, locationId, lotId, serialNumber, cancellationToken);
         var quantityBefore = stock?.QuantityAvailable.Value;
@@ -247,8 +297,11 @@ public class StockMovementService : IStockMovementService
             cancellationToken);
 
         _logger.LogInformation(
-            "Adjustment processed: Item {ItemId}, New Quantity {Quantity}, Location {LocationId}, Reason: {Reason}",
-            itemId, newQuantity.Value, locationId, reason);
+            WmsLogEvents.InventoryAdjustmentCompleted,
+            "Inventory adjustment completed for item {ItemId}, new quantity {Quantity}, location {LocationId}",
+            itemId,
+            newQuantity.Value,
+            locationId);
 
         return movement;
     }

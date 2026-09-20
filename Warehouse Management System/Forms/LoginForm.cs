@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Wms.Application.Logging;
 using Wms.Infrastructure.Identity;
 
 namespace Wms.WinForms.Forms;
@@ -5,14 +7,18 @@ namespace Wms.WinForms.Forms;
 public sealed class LoginForm : Form
 {
     private readonly IDesktopAuthenticationService _authenticationService;
+    private readonly ILogger<LoginForm> _logger;
     private readonly Button _signInButton = new();
     private readonly Label _errorLabel = new();
     private readonly TextBox _passwordTextBox = new();
     private readonly TextBox _userNameTextBox = new();
 
-    public LoginForm(IDesktopAuthenticationService authenticationService)
+    public LoginForm(
+        IDesktopAuthenticationService authenticationService,
+        ILogger<LoginForm> logger)
     {
         _authenticationService = authenticationService;
+        _logger = logger;
         Text = "WareCommand - Sign in";
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -101,7 +107,10 @@ public sealed class LoginForm : Form
         catch (Exception exception)
         {
             _errorLabel.Text = "Sign-in could not be completed. Check the application log.";
-            System.Diagnostics.Debug.WriteLine(exception);
+            _logger.LogError(
+                WmsLogEvents.AuthenticationFailed,
+                exception,
+                "Desktop sign-in failed");
         }
         finally
         {

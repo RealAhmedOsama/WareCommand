@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Serilog;
 using Wms.Application.DependencyInjection;
 using Wms.ASP.Errors;
 using Wms.ASP.Health;
@@ -15,6 +16,7 @@ using Wms.ASP.Security;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.Logging;
 
 namespace Wms.ASP;
 
@@ -22,91 +24,111 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        if (args.Any(argument => string.Equals(argument, "--healthcheck", StringComparison.OrdinalIgnoreCase)))
+        Log.Logger = WmsLogging.CreateBootstrapLogger("Unknown").CreateLogger();
+        try
         {
-            return await RunHealthProbeAsync();
-        }
-
-        var builder = WebApplication.CreateBuilder(args);
-        var databaseProvider = WmsDatabaseProviderParser.Parse(
-            builder.Configuration["Wms:DatabaseProvider"]);
-        var seedProfile = WmsSeedProfileResolver.Resolve(
-            builder.Configuration["Wms:SeedProfile"],
-            builder.Environment.IsDevelopment());
-        var connectionString = ResolveConnectionString(builder.Configuration);
-
-        ConfigureHost(builder);
-        ConfigureDataProtection(builder);
-        ConfigureForwardedHeaders(builder);
-        builder.AddWmsSecurity();
-
-        builder.Services.AddControllersWithViews(options =>
-        {
-            options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
-        });
-        builder.Services.AddWmsInfrastructure(
-            connectionString,
-            databaseProvider);
-        builder.Services.AddWmsApplication();
-        builder.Services.AddWareCommandIdentity(builder.Configuration, builder.Environment);
-        builder.Services.AddWmsExceptionHandling();
-        builder.Services
-            .AddHealthChecks()
-            .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
-            .AddCheck<WmsDatabaseHealthCheck>("database", tags: ["ready"]);
-
-        var app = builder.Build();
-
-        await InitializeDatabaseAsync(app.Services, seedProfile);
-        await InitializeIdentityAsync(app.Services);
-
-        if (builder.Configuration.GetValue("ForwardedHeaders:Enabled", false))
-        {
-            app.UseForwardedHeaders();
-        }
-
-        app.UseMiddleware<WmsRequestContextMiddleware>();
-
-        if (!app.Environment.IsDevelopment())
-        {
-            app.UseExceptionHandler(new ExceptionHandlerOptions
+            if (args.Any(argument => string.Equals(argument, "--healthcheck", StringComparison.OrdinalIgnoreCase)))
             {
-                ExceptionHandlingPath = "/Home/Error"
-            });
-            app.UseHsts();
-        }
+                return await RunHealthProbeAsync();
+            }
 
-        if (builder.Configuration.GetValue("HttpsRedirection:Enabled", true))
+            var builder = WebApplication.CreateBuilder(args);
+            builder.Host.UseSerilog((context, loggerConfiguration) =>
+                WmsLogging.Configure(
+                    loggerConfiguration,
+                    context.Configuration,
+                    context.HostingEnvironment));
+            var databaseProvider = WmsDatabaseProviderParser.Parse(
+                builder.Configuration["Wms:DatabaseProvider"]);
+            var seedProfile = WmsSeedProfileResolver.Resolve(
+                builder.Configuration["Wms:SeedProfile"],
+                builder.Environment.IsDevelopment());
+            var connectionString = ResolveConnectionString(builder.Configuration);
+
+            ConfigureHost(builder);
+            ConfigureDataProtection(builder);
+            ConfigureForwardedHeaders(builder);
+            builder.AddWmsSecurity();
+
+            builder.Services.AddControllersWithViews(options =>
+            {
+                options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+            });
+            builder.Services.AddWmsInfrastructure(
+                connectionString,
+                databaseProvider);
+            builder.Services.AddWmsLogging(builder.Configuration);
+            builder.Services.AddWmsApplication();
+            builder.Services.AddWareCommandIdentity(builder.Configuration, builder.Environment);
+            builder.Services.AddWmsExceptionHandling();
+            builder.Services
+                .AddHealthChecks()
+                .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
+                .AddCheck<WmsDatabaseHealthCheck>("database", tags: ["ready"]);
+
+            var app = builder.Build();
+
+            await InitializeDatabaseAsync(app.Services, seedProfile);
+            await InitializeIdentityAsync(app.Services);
+
+            if (builder.Configuration.GetValue("ForwardedHeaders:Enabled", false))
+            {
+                app.UseForwardedHeaders();
+            }
+
+            app.UseMiddleware<WmsRequestContextMiddleware>();
+
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseExceptionHandler(new ExceptionHandlerOptions
+                {
+                    ExceptionHandlingPath = "/Home/Error"
+                });
+                app.UseHsts();
+            }
+
+            if (builder.Configuration.GetValue("HttpsRedirection:Enabled", true))
+            {
+                app.UseHttpsRedirection();
+            }
+
+            app.UseMiddleware<SecurityHeadersMiddleware>();
+            app.UseStaticFiles();
+            app.UseRouting();
+            app.UseRateLimiter();
+            app.UseAuthentication();
+            app.UseMiddleware<WmsRequestLoggingMiddleware>();
+            app.UseAuthorization();
+
+            app.MapHealthChecks(
+                "/health/live",
+                new HealthCheckOptions
+                {
+                    Predicate = check => check.Tags.Contains("live")
+                });
+            app.MapHealthChecks(
+                "/health/ready",
+                new HealthCheckOptions
+                {
+                    Predicate = check => check.Tags.Contains("ready")
+                });
+
+            app.MapControllerRoute(
+                "default",
+                "{controller=Dashboard}/{action=Index}/{id?}");
+
+            app.Run();
+            return 0;
+        }
+        catch (Exception exception)
         {
-            app.UseHttpsRedirection();
+            Log.Fatal(exception, "WareCommand host terminated unexpectedly");
+            return 1;
         }
-
-        app.UseMiddleware<SecurityHeadersMiddleware>();
-        app.UseStaticFiles();
-        app.UseRouting();
-        app.UseRateLimiter();
-        app.UseAuthentication();
-        app.UseAuthorization();
-
-        app.MapHealthChecks(
-            "/health/live",
-            new HealthCheckOptions
-            {
-                Predicate = check => check.Tags.Contains("live")
-            });
-        app.MapHealthChecks(
-            "/health/ready",
-            new HealthCheckOptions
-            {
-                Predicate = check => check.Tags.Contains("ready")
-            });
-
-        app.MapControllerRoute(
-            "default",
-            "{controller=Dashboard}/{action=Index}/{id?}");
-
-        app.Run();
-        return 0;
+        finally
+        {
+            Log.CloseAndFlush();
+        }
     }
 
     private static void ConfigureHost(WebApplicationBuilder builder)

@@ -157,7 +157,7 @@ public partial class ReceivingForm : Form
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing barcode {Barcode}", txtBarcode.Text);
+            _logger.LogError(ex, "Error processing barcode input");
             PlayErrorSound();
             ModernUIHelper.ShowModernError($"Error processing barcode: {ex.Message}");
         }

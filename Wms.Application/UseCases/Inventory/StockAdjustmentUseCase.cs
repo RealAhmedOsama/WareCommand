@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
+using Wms.Application.Logging;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -118,10 +119,16 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error adjusting stock for item {ItemSku}", request.ItemSku);
-            return Result.Failure<ReceiptResultDto>(WmsErrors.FromException(ex,
+            var failure = WmsErrors.FromException(ex,
                 "inventory.adjustment_failed",
-                "Error adjusting stock. Please try again."));
+                "Error adjusting stock. Please try again.");
+            _logger.LogError(
+                WmsLogEvents.InventoryOperationFailed,
+                ex,
+                "Inventory adjustment failed for item {ItemSku} with error code {ErrorCode}",
+                request.ItemSku,
+                failure.Code);
+            return Result.Failure<ReceiptResultDto>(failure);
         }
     }
 }

@@ -1,12 +1,14 @@
-using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using Wms.Application.Context;
 using Wms.Application.DependencyInjection;
+using Wms.Application.Identity;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.Logging;
 using Wms.WinForms.Forms;
 
 namespace Wms.WinForms;
@@ -21,12 +23,7 @@ internal static class Program
     [STAThread]
     private static async Task Main()
     {
-        Log.Logger = new LoggerConfiguration()
-            .WriteTo.File(
-                "logs/wms-.txt",
-                formatProvider: CultureInfo.InvariantCulture,
-                rollingInterval: RollingInterval.Day)
-            .CreateLogger();
+        Log.Logger = WmsLogging.CreateBootstrapLogger("Desktop").CreateLogger();
 
         try
         {
@@ -44,6 +41,22 @@ internal static class Program
                 return;
             }
 
+            var logger = _host.Services
+                .GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>()
+                .CreateLogger("Wms.WinForms.Program");
+            var currentUser = _host.Services.GetRequiredService<ICurrentUser>();
+            var operationContextAccessor = _host.Services
+                .GetRequiredService<IWmsOperationContextAccessor>();
+            using var desktopScope = WmsLogging.BeginOperation(
+                logger,
+                operationContextAccessor,
+                new WmsOperationContext(
+                    WmsExecutionIdentifiers.NewCorrelationId(),
+                    WmsExecutionIdentifiers.NewOperationId(),
+                    "Desktop",
+                    "desktop.session",
+                    UserId: currentUser.UserId));
+
             var mainForm = _host.Services.GetRequiredService<MainForm>();
             System.Windows.Forms.Application.Run(mainForm);
         }
@@ -60,10 +73,15 @@ internal static class Program
     private static IHostBuilder CreateHostBuilder()
     {
         return Host.CreateDefaultBuilder()
-            .UseSerilog()
+            .UseSerilog((context, loggerConfiguration) =>
+                WmsLogging.Configure(
+                    loggerConfiguration,
+                    context.Configuration,
+                    context.HostingEnvironment))
             .ConfigureAppConfiguration((_, config) => config.AddJsonFile("appsettings.json", false, true))
             .ConfigureServices((context, services) =>
             {
+                services.AddWmsLogging(context.Configuration);
                 var databaseProvider = WmsDatabaseProviderParser.Parse(
                     context.Configuration["Wms:DatabaseProvider"]);
                 services.AddWmsInfrastructure(

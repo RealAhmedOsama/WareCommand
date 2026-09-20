@@ -11,6 +11,7 @@ using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
 
@@ -33,6 +34,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IWarehouseAccessService, WarehouseAccessService>();
         services.AddScoped<IUserAccessDirectory, UserAccessDirectory>();
         services.TryAddSingleton<IClock, SystemClock>();
+        services.TryAddSingleton<IWmsOperationContextAccessor, WmsOperationContextAccessor>();
         services.TryAddScoped<IRequestContext, WmsRequestContext>();
         services.TryAddScoped<IWarehouseContext, WmsWarehouseContext>();
         services.AddScoped<IAuditWriter, AuditWriter>();

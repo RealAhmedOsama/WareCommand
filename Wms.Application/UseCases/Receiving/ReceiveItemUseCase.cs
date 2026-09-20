@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
+using Wms.Application.Logging;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
@@ -134,10 +135,16 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error receiving item {ItemSku}", request.ItemSku);
-            return Result.Failure<ReceiptResultDto>(WmsErrors.FromException(ex,
+            var failure = WmsErrors.FromException(ex,
                 "receiving.failed",
-                "Error receiving item. Please try again."));
+                "Error receiving item. Please try again.");
+            _logger.LogError(
+                WmsLogEvents.InventoryOperationFailed,
+                ex,
+                "Inventory receipt failed for item {ItemSku} with error code {ErrorCode}",
+                request.ItemSku,
+                failure.Code);
+            return Result.Failure<ReceiptResultDto>(failure);
         }
     }
 

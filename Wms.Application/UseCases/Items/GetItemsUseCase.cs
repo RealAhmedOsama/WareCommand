@@ -161,7 +161,7 @@ public class GetItemsUseCase : IGetItemsUseCase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving item by barcode {Barcode}", barcode);
+            _logger.LogError(ex, "Error retrieving item by barcode input");
             return Result.Failure<ItemDto>(WmsErrors.FromException(ex,
                 "item.read_failed",
                 "Error retrieving item. Please try again."));
