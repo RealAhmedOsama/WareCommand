@@ -34,6 +34,8 @@ public static class WmsPermissions
     public const string DashboardView = "dashboard.view";
     public const string ItemsRead = "items.read";
     public const string ItemsManage = "items.manage";
+    public const string SuppliersRead = "suppliers.read";
+    public const string SuppliersManage = "suppliers.manage";
     public const string LocationsRead = "locations.read";
     public const string LocationsManage = "locations.manage";
     public const string InventoryRead = "inventory.read";
@@ -56,6 +58,8 @@ public static class WmsPermissions
         DashboardView,
         ItemsRead,
         ItemsManage,
+        SuppliersRead,
+        SuppliersManage,
         LocationsRead,
         LocationsManage,
         InventoryRead,
@@ -80,6 +84,8 @@ public static class WmsPermissions
             [DashboardView] = "View operational dashboard",
             [ItemsRead] = "View item master data",
             [ItemsManage] = "Create and update item master data",
+            [SuppliersRead] = "View supplier master data",
+            [SuppliersManage] = "Create and update supplier master data",
             [LocationsRead] = "View warehouse locations",
             [LocationsManage] = "Create and update warehouse locations",
             [InventoryRead] = "View inventory and availability",
@@ -113,6 +119,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.DashboardView,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.ItemsManage,
+                WmsPermissions.SuppliersRead,
+                WmsPermissions.SuppliersManage,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.LocationsManage,
                 WmsPermissions.InventoryRead,
@@ -132,6 +140,7 @@ public static class WmsRolePermissionCatalog
             [
                 WmsPermissions.DashboardView,
                 WmsPermissions.ItemsRead,
+                WmsPermissions.SuppliersRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.ReceivingExecute,
@@ -185,6 +194,7 @@ public static class WmsRolePermissionCatalog
             [
                 WmsPermissions.DashboardView,
                 WmsPermissions.ItemsRead,
+                WmsPermissions.SuppliersRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.ReceivingExecute,

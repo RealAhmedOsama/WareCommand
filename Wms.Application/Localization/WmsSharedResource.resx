@@ -749,4 +749,68 @@
   <data name="Uom.Category.Volume" xml:space="preserve"><value>Volume</value></data>
   <data name="Uom.Category.Time" xml:space="preserve"><value>Time</value></data>
   <data name="Uom.Category.Other" xml:space="preserve"><value>Other</value></data>
+  <data name="Nav.Suppliers" xml:space="preserve"><value>Suppliers</value></data>
+  <data name="Suppliers.Title" xml:space="preserve"><value>Suppliers</value></data>
+  <data name="Suppliers.Subtitle" xml:space="preserve"><value>Manage supplier identity, receiving defaults, and vendor item mappings.</value></data>
+  <data name="Suppliers.Create" xml:space="preserve"><value>Create supplier</value></data>
+  <data name="Suppliers.Edit" xml:space="preserve"><value>Edit supplier</value></data>
+  <data name="Suppliers.Details" xml:space="preserve"><value>Supplier details</value></data>
+  <data name="Suppliers.Add" xml:space="preserve"><value>Add supplier</value></data>
+  <data name="Suppliers.Import" xml:space="preserve"><value>Import suppliers</value></data>
+  <data name="Suppliers.Export" xml:space="preserve"><value>Export CSV</value></data>
+  <data name="Suppliers.Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Suppliers.SearchPlaceholder" xml:space="preserve"><value>Code, name, ERP ID, vendor SKU or barcode</value></data>
+  <data name="Suppliers.WarehouseFilter" xml:space="preserve"><value>Preferred warehouse</value></data>
+  <data name="Suppliers.PageSize" xml:space="preserve"><value>Rows</value></data>
+  <data name="Suppliers.IncludeInactive" xml:space="preserve"><value>Include inactive</value></data>
+  <data name="Suppliers.List" xml:space="preserve"><value>Supplier list</value></data>
+  <data name="Suppliers.Total" xml:space="preserve"><value>total</value></data>
+  <data name="Suppliers.NoSuppliers" xml:space="preserve"><value>No suppliers match the current filters.</value></data>
+  <data name="Suppliers.PageOf" xml:space="preserve"><value>Page {0} of {1}</value></data>
+  <data name="Suppliers.Code" xml:space="preserve"><value>Supplier code</value></data>
+  <data name="Suppliers.LegalName" xml:space="preserve"><value>Legal name</value></data>
+  <data name="Suppliers.LocalizedName" xml:space="preserve"><value>Localized name</value></data>
+  <data name="Suppliers.TaxRegistration" xml:space="preserve"><value>Tax / registration reference</value></data>
+  <data name="Suppliers.ExternalErp" xml:space="preserve"><value>External ERP identifier</value></data>
+  <data name="Suppliers.Contact" xml:space="preserve"><value>Contact name</value></data>
+  <data name="Suppliers.ContactEmail" xml:space="preserve"><value>Contact email</value></data>
+  <data name="Suppliers.ContactPhone" xml:space="preserve"><value>Contact phone</value></data>
+  <data name="Suppliers.Address" xml:space="preserve"><value>Address</value></data>
+  <data name="Suppliers.AddressLine1" xml:space="preserve"><value>Address line 1</value></data>
+  <data name="Suppliers.AddressLine2" xml:space="preserve"><value>Address line 2</value></data>
+  <data name="Suppliers.City" xml:space="preserve"><value>City</value></data>
+  <data name="Suppliers.State" xml:space="preserve"><value>State / province</value></data>
+  <data name="Suppliers.PostalCode" xml:space="preserve"><value>Postal code</value></data>
+  <data name="Suppliers.Country" xml:space="preserve"><value>Country code</value></data>
+  <data name="Suppliers.ReceivingDefaults" xml:space="preserve"><value>Receiving defaults</value></data>
+  <data name="Suppliers.Warehouse" xml:space="preserve"><value>Preferred warehouse</value></data>
+  <data name="Suppliers.Dock" xml:space="preserve"><value>Preferred dock</value></data>
+  <data name="Suppliers.DockId" xml:space="preserve"><value>Preferred dock ID</value></data>
+  <data name="Suppliers.DockHelp" xml:space="preserve"><value>Use an active receivable location ID from the selected warehouse.</value></data>
+  <data name="Suppliers.LeadTime" xml:space="preserve"><value>Lead time (days)</value></data>
+  <data name="Suppliers.OverTolerance" xml:space="preserve"><value>Over-delivery tolerance %</value></data>
+  <data name="Suppliers.UnderTolerance" xml:space="preserve"><value>Under-delivery tolerance %</value></data>
+  <data name="Suppliers.LotRequired" xml:space="preserve"><value>Lot required</value></data>
+  <data name="Suppliers.ExpiryRequired" xml:space="preserve"><value>Expiry required</value></data>
+  <data name="Suppliers.QualityProfile" xml:space="preserve"><value>Quality profile</value></data>
+  <data name="Suppliers.LabelRule" xml:space="preserve"><value>Label rule</value></data>
+  <data name="Suppliers.Currency" xml:space="preserve"><value>Default currency</value></data>
+  <data name="Suppliers.Notes" xml:space="preserve"><value>Notes</value></data>
+  <data name="Suppliers.ItemReferences" xml:space="preserve"><value>Supplier item references</value></data>
+  <data name="Suppliers.NoItemReferences" xml:space="preserve"><value>No supplier item references are configured.</value></data>
+  <data name="Suppliers.VendorSku" xml:space="preserve"><value>Vendor SKU</value></data>
+  <data name="Suppliers.VendorBarcode" xml:space="preserve"><value>Vendor barcode</value></data>
+  <data name="Suppliers.ItemReferencesFormat" xml:space="preserve"><value>One mapping per line</value></data>
+  <data name="Suppliers.ItemReferencesHelp" xml:space="preserve"><value>ITEM_ID|VENDOR_SKU|VENDOR_BARCODE|PACKAGING_ID|VENDOR_PACKAGING|UNITS_PER_PACKAGE|MINIMUM_ORDER_QUANTITY|LEAD_TIME_DAYS|ACTIVE</value></data>
+  <data name="Suppliers.ImportHelp" xml:space="preserve"><value>Import creates new suppliers atomically. Repeat the supplier master columns for each item-reference row.</value></data>
+  <data name="Suppliers.ImportFile" xml:space="preserve"><value>CSV file</value></data>
+  <data name="Suppliers.PasteCsv" xml:space="preserve"><value>Paste CSV</value></data>
+  <data name="Suppliers.DeleteConfirm" xml:space="preserve"><value>Delete this supplier? Referenced suppliers must be deactivated instead.</value></data>
+  <data name="Suppliers.Created" xml:space="preserve"><value>Supplier '{0}' was created.</value></data>
+  <data name="Suppliers.Updated" xml:space="preserve"><value>Supplier '{0}' was updated.</value></data>
+  <data name="Suppliers.Activated" xml:space="preserve"><value>Supplier activated.</value></data>
+  <data name="Suppliers.Deactivated" xml:space="preserve"><value>Supplier deactivated.</value></data>
+  <data name="Suppliers.Deleted" xml:space="preserve"><value>Supplier deleted.</value></data>
+  <data name="Suppliers.Imported" xml:space="preserve"><value>Imported {0} suppliers and {1} item references.</value></data>
+  <data name="Suppliers.ImportRequired" xml:space="preserve"><value>Provide a CSV file or paste CSV content.</value></data>
 </root>

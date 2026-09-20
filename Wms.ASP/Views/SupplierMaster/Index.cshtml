@@ -1,0 +1,134 @@
+@model SupplierListViewModel
+@{
+    ViewData["Title"] = T["Suppliers.Title"];
+    var canManage = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SuppliersManage)).Succeeded;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-truck me-2 text-primary"></i>@T["Suppliers.Title"]</h2>
+        <p class="text-muted mb-0">@T["Suppliers.Subtitle"]</p>
+    </div>
+    <div class="d-flex gap-2">
+        @if (canManage)
+        {
+            <a asp-action="Import" class="btn btn-outline-primary"><i class="bi bi-upload me-1"></i>@T["Suppliers.Import"]</a>
+        }
+        <a asp-action="Export" asp-route-searchTerm="@Model.SearchTerm" asp-route-includeInactive="@Model.IncludeInactive" asp-route-preferredWarehouseId="@Model.PreferredWarehouseId" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>@T["Suppliers.Export"]</a>
+        @if (canManage)
+        {
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>@T["Suppliers.Add"]</a>
+        }
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form asp-action="Index" method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="searchTerm" class="form-label">@T["Suppliers.Search"]</label>
+                <input type="text" class="form-control" id="searchTerm" name="searchTerm" value="@Model.SearchTerm" placeholder="@T["Suppliers.SearchPlaceholder"]" />
+            </div>
+            <div class="col-md-3">
+                <label for="preferredWarehouseId" class="form-label">@T["Suppliers.WarehouseFilter"]</label>
+                <select class="form-select" id="preferredWarehouseId" name="preferredWarehouseId">
+                    <option value="">@T["Common.All"]</option>
+                    @foreach (var warehouse in Model.Warehouses)
+                    {
+                        <option value="@warehouse.Id" selected="@(Model.PreferredWarehouseId == warehouse.Id)">@warehouse.Code - @warehouse.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="pageSize" class="form-label">@T["Suppliers.PageSize"]</label>
+                <select class="form-select" id="pageSize" name="pageSize">
+                    @foreach (var size in new[] { 25, 50, 100 })
+                    {
+                        <option value="@size" selected="@(Model.PageSize == size)">@size</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="includeInactive" name="includeInactive" value="true" checked="@Model.IncludeInactive" />
+                    <label class="form-check-label" for="includeInactive">@T["Suppliers.IncludeInactive"]</label>
+                </div>
+                <input type="hidden" name="includeInactive" value="false" />
+            </div>
+            <div class="col-md-1 d-grid">
+                <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>@T["Suppliers.List"]</h5>
+        <span class="text-muted">@Model.TotalCount @T["Suppliers.Total"]</span>
+    </div>
+    @if (Model.Suppliers.Count == 0)
+    {
+        <div class="card-body text-center text-muted py-5">
+            <i class="bi bi-truck fs-1 d-block mb-3"></i>
+            <p class="mb-0">@T["Suppliers.NoSuppliers"]</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>@T["Suppliers.Code"]</th><th>@T["Suppliers.LegalName"]</th><th>@T["Suppliers.Warehouse"]</th><th>@T["Suppliers.ItemReferences"]</th><th>@T["Field.Status"]</th><th>@T["Common.Actions"]</th></tr></thead>
+                <tbody>
+                @foreach (var supplier in Model.Suppliers)
+                {
+                    <tr>
+                        <td class="fw-semibold"><a asp-action="Details" asp-route-id="@supplier.Id">@supplier.Code</a></td>
+                        <td>@supplier.LegalName<br /><small class="text-muted">@supplier.LocalizedName</small></td>
+                        <td>@(supplier.PreferredWarehouseCode ?? T["Common.NotSet"])</td>
+                        <td>@supplier.ItemReferences.Count</td>
+                        <td><span class="badge @(supplier.IsActive ? "bg-success" : "bg-secondary")">@(supplier.IsActive ? T["Common.Active"] : T["Common.Inactive"])</span></td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a asp-action="Details" asp-route-id="@supplier.Id" class="btn btn-outline-secondary" title="@T["Common.View"]"><i class="bi bi-eye"></i></a>
+                                @if (canManage)
+                                {
+                                    <a asp-action="Edit" asp-route-id="@supplier.Id" class="btn btn-outline-primary" title="@T["Common.Edit"]"><i class="bi bi-pencil"></i></a>
+                                    <form asp-action="SetActive" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@supplier.Id" />
+                                        <input type="hidden" name="active" value="@(!supplier.IsActive)" />
+                                        <button type="submit" class="btn @(supplier.IsActive ? "btn-outline-warning" : "btn-outline-success")" title="@(supplier.IsActive ? T["Suppliers.Deactivate"] : T["Suppliers.Activate"])"><i class="bi @(supplier.IsActive ? "bi-pause-circle" : "bi-play-circle")"></i></button>
+                                    </form>
+                                    @if (supplier.CanDelete)
+                                    {
+                                        <form asp-action="Delete" method="post" class="d-inline" onsubmit="return confirm('@T["Suppliers.DeleteConfirm"]');">
+                                            <input type="hidden" name="id" value="@supplier.Id" />
+                                            <button type="submit" class="btn btn-outline-danger" title="@T["Common.Delete"]"><i class="bi bi-trash"></i></button>
+                                        </form>
+                                    }
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                <span class="text-muted">@T["Suppliers.PageOf", Model.Page, Model.TotalPages]</span>
+                <div class="btn-group">
+                    @if (Model.Page > 1)
+                    {
+                        <a asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize" asp-route-searchTerm="@Model.SearchTerm" asp-route-includeInactive="@Model.IncludeInactive" asp-route-preferredWarehouseId="@Model.PreferredWarehouseId" class="btn btn-outline-secondary">@T["Common.Previous"]</a>
+                    }
+                    @if (Model.Page < Model.TotalPages)
+                    {
+                        <a asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize" asp-route-searchTerm="@Model.SearchTerm" asp-route-includeInactive="@Model.IncludeInactive" asp-route-preferredWarehouseId="@Model.PreferredWarehouseId" class="btn btn-outline-secondary">@T["Common.Next"]</a>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>

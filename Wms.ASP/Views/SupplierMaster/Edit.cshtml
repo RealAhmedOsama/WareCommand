@@ -1,0 +1,9 @@
+@model SupplierFormViewModel
+@{ ViewData["Title"] = T["Suppliers.Edit"]; }
+<div class="d-flex justify-content-between align-items-center mb-4"><h2 class="mb-0"><i class="bi bi-pencil-square me-2 text-primary"></i>@T["Suppliers.Edit"]</h2><a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">@T["Common.Cancel"]</a></div>
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
+    <input asp-for="Id" type="hidden" />
+    <partial name="_Form" model="Model" />
+    <div class="d-flex justify-content-end gap-2 mt-4"><a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">@T["Common.Cancel"]</a><button type="submit" class="btn btn-primary">@T["Common.Save"]</button></div>
+</form>

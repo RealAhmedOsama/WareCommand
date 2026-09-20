@@ -1,0 +1,41 @@
+@model SupplierFormViewModel
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0 mb-4"><div class="card-header bg-white"><h5 class="mb-0">@T["Suppliers.Profile"]</h5></div><div class="card-body row g-3">
+            <div class="col-md-4"><label asp-for="Code" class="form-label">@T["Suppliers.Code"]</label><input asp-for="Code" class="form-control text-uppercase" readonly="@(Model.Id > 0)" /><span asp-validation-for="Code" class="text-danger"></span></div>
+            <div class="col-md-8"><label asp-for="LegalName" class="form-label">@T["Suppliers.LegalName"]</label><input asp-for="LegalName" class="form-control" /><span asp-validation-for="LegalName" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="LocalizedName" class="form-label">@T["Suppliers.LocalizedName"]</label><input asp-for="LocalizedName" class="form-control" dir="auto" /></div>
+            <div class="col-md-6"><label asp-for="TaxRegistrationNumber" class="form-label">@T["Suppliers.TaxRegistration"]</label><input asp-for="TaxRegistrationNumber" class="form-control" /></div>
+            <div class="col-md-6"><label asp-for="ExternalErpIdentifier" class="form-label">@T["Suppliers.ExternalErp"]</label><input asp-for="ExternalErpIdentifier" class="form-control" /></div>
+            <div class="col-md-6"><label asp-for="ContactName" class="form-label">@T["Suppliers.Contact"]</label><input asp-for="ContactName" class="form-control" /></div>
+            <div class="col-md-6"><label asp-for="ContactEmail" class="form-label">@T["Suppliers.ContactEmail"]</label><input asp-for="ContactEmail" class="form-control" /></div>
+            <div class="col-md-6"><label asp-for="ContactPhone" class="form-label">@T["Suppliers.ContactPhone"]</label><input asp-for="ContactPhone" class="form-control" /></div>
+            <div class="col-md-6"><label asp-for="AddressLine1" class="form-label">@T["Suppliers.AddressLine1"]</label><input asp-for="AddressLine1" class="form-control" /></div>
+            <div class="col-md-6"><label asp-for="AddressLine2" class="form-label">@T["Suppliers.AddressLine2"]</label><input asp-for="AddressLine2" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="City" class="form-label">@T["Suppliers.City"]</label><input asp-for="City" class="form-control" /></div>
+            <div class="col-md-4"><label asp-for="StateOrProvince" class="form-label">@T["Suppliers.State"]</label><input asp-for="StateOrProvince" class="form-control" /></div>
+            <div class="col-md-2"><label asp-for="PostalCode" class="form-label">@T["Suppliers.PostalCode"]</label><input asp-for="PostalCode" class="form-control" /></div>
+            <div class="col-md-2"><label asp-for="CountryCode" class="form-label">@T["Suppliers.Country"]</label><input asp-for="CountryCode" class="form-control text-uppercase" maxlength="2" /></div>
+            <div class="col-12"><label asp-for="Notes" class="form-label">@T["Suppliers.Notes"]</label><textarea asp-for="Notes" class="form-control" rows="3"></textarea></div>
+        </div></div>
+        <div class="card shadow-sm border-0"><div class="card-header bg-white"><h5 class="mb-0">@T["Suppliers.ItemReferences"]</h5></div><div class="card-body">
+            <label asp-for="ItemReferencesText" class="form-label">@T["Suppliers.ItemReferencesFormat"]</label>
+            <textarea asp-for="ItemReferencesText" class="form-control font-monospace" rows="7" dir="ltr"></textarea>
+            <div class="form-text">@T["Suppliers.ItemReferencesHelp"]</div>
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card shadow-sm border-0 mb-4"><div class="card-header bg-white"><h5 class="mb-0">@T["Suppliers.ReceivingDefaults"]</h5></div><div class="card-body row g-3">
+            <div class="col-12"><label asp-for="PreferredWarehouseId" class="form-label">@T["Suppliers.Warehouse"]</label><select asp-for="PreferredWarehouseId" class="form-select"><option value="">@T["Common.NotSet"]</option>@foreach (var warehouse in Model.Warehouses){<option value="@warehouse.Id">@warehouse.Code - @warehouse.Name</option>}</select></div>
+            <div class="col-12"><label asp-for="PreferredDockLocationId" class="form-label">@T["Suppliers.DockId"]</label><input asp-for="PreferredDockLocationId" class="form-control" /><div class="form-text">@T["Suppliers.DockHelp"]</div></div>
+            <div class="col-md-6"><label asp-for="DefaultLeadTimeDays" class="form-label">@T["Suppliers.LeadTime"]</label><input asp-for="DefaultLeadTimeDays" class="form-control" type="number" min="0" max="3650" /></div>
+            <div class="col-md-6"><label asp-for="DefaultCurrencyCode" class="form-label">@T["Suppliers.Currency"]</label><input asp-for="DefaultCurrencyCode" class="form-control text-uppercase" maxlength="3" /></div>
+            <div class="col-md-6"><label asp-for="OverDeliveryTolerancePercent" class="form-label">@T["Suppliers.OverTolerance"]</label><input asp-for="OverDeliveryTolerancePercent" class="form-control" type="number" min="0" max="100" step="0.01" /></div>
+            <div class="col-md-6"><label asp-for="UnderDeliveryTolerancePercent" class="form-label">@T["Suppliers.UnderTolerance"]</label><input asp-for="UnderDeliveryTolerancePercent" class="form-control" type="number" min="0" max="100" step="0.01" /></div>
+            <div class="col-md-6"><label asp-for="QualityProfile" class="form-label">@T["Suppliers.QualityProfile"]</label><input asp-for="QualityProfile" class="form-control" /></div>
+            <div class="col-md-6"><label asp-for="LabelRule" class="form-label">@T["Suppliers.LabelRule"]</label><input asp-for="LabelRule" class="form-control" /></div>
+            <div class="col-12"><div class="form-check"><input asp-for="RequiresLot" class="form-check-input" /><label asp-for="RequiresLot" class="form-check-label">@T["Suppliers.LotRequired"]</label></div><div class="form-check"><input asp-for="RequiresExpiry" class="form-check-input" /><label asp-for="RequiresExpiry" class="form-check-label">@T["Suppliers.ExpiryRequired"]</label></div><div class="form-check"><input asp-for="IsActive" class="form-check-input" /><label asp-for="IsActive" class="form-check-label">@T["Common.Active"]</label></div></div>
+        </div></div>
+    </div>
+</div>

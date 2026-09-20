@@ -749,4 +749,68 @@
   <data name="Uom.Category.Volume" xml:space="preserve"><value>حجم</value></data>
   <data name="Uom.Category.Time" xml:space="preserve"><value>زمن</value></data>
   <data name="Uom.Category.Other" xml:space="preserve"><value>أخرى</value></data>
+  <data name="Nav.Suppliers" xml:space="preserve"><value>الموردون</value></data>
+  <data name="Suppliers.Title" xml:space="preserve"><value>الموردون</value></data>
+  <data name="Suppliers.Subtitle" xml:space="preserve"><value>إدارة بيانات الموردين وإعدادات الاستلام وربط أصناف الموردين.</value></data>
+  <data name="Suppliers.Create" xml:space="preserve"><value>إنشاء مورد</value></data>
+  <data name="Suppliers.Edit" xml:space="preserve"><value>تعديل المورد</value></data>
+  <data name="Suppliers.Details" xml:space="preserve"><value>تفاصيل المورد</value></data>
+  <data name="Suppliers.Add" xml:space="preserve"><value>إضافة مورد</value></data>
+  <data name="Suppliers.Import" xml:space="preserve"><value>استيراد الموردين</value></data>
+  <data name="Suppliers.Export" xml:space="preserve"><value>تصدير CSV</value></data>
+  <data name="Suppliers.Search" xml:space="preserve"><value>بحث</value></data>
+  <data name="Suppliers.SearchPlaceholder" xml:space="preserve"><value>الكود أو الاسم أو معرف ERP أو SKU أو الباركود</value></data>
+  <data name="Suppliers.WarehouseFilter" xml:space="preserve"><value>المستودع المفضل</value></data>
+  <data name="Suppliers.PageSize" xml:space="preserve"><value>الصفوف</value></data>
+  <data name="Suppliers.IncludeInactive" xml:space="preserve"><value>تضمين غير النشط</value></data>
+  <data name="Suppliers.List" xml:space="preserve"><value>قائمة الموردين</value></data>
+  <data name="Suppliers.Total" xml:space="preserve"><value>إجمالي</value></data>
+  <data name="Suppliers.NoSuppliers" xml:space="preserve"><value>لا يوجد موردون يطابقون المرشحات الحالية.</value></data>
+  <data name="Suppliers.PageOf" xml:space="preserve"><value>صفحة {0} من {1}</value></data>
+  <data name="Suppliers.Code" xml:space="preserve"><value>كود المورد</value></data>
+  <data name="Suppliers.LegalName" xml:space="preserve"><value>الاسم القانوني</value></data>
+  <data name="Suppliers.LocalizedName" xml:space="preserve"><value>الاسم المحلي</value></data>
+  <data name="Suppliers.TaxRegistration" xml:space="preserve"><value>الرقم الضريبي أو المرجع</value></data>
+  <data name="Suppliers.ExternalErp" xml:space="preserve"><value>معرف ERP الخارجي</value></data>
+  <data name="Suppliers.Contact" xml:space="preserve"><value>اسم جهة الاتصال</value></data>
+  <data name="Suppliers.ContactEmail" xml:space="preserve"><value>بريد جهة الاتصال</value></data>
+  <data name="Suppliers.ContactPhone" xml:space="preserve"><value>هاتف جهة الاتصال</value></data>
+  <data name="Suppliers.Address" xml:space="preserve"><value>العنوان</value></data>
+  <data name="Suppliers.AddressLine1" xml:space="preserve"><value>العنوان 1</value></data>
+  <data name="Suppliers.AddressLine2" xml:space="preserve"><value>العنوان 2</value></data>
+  <data name="Suppliers.City" xml:space="preserve"><value>المدينة</value></data>
+  <data name="Suppliers.State" xml:space="preserve"><value>المحافظة</value></data>
+  <data name="Suppliers.PostalCode" xml:space="preserve"><value>الرمز البريدي</value></data>
+  <data name="Suppliers.Country" xml:space="preserve"><value>رمز الدولة</value></data>
+  <data name="Suppliers.ReceivingDefaults" xml:space="preserve"><value>إعدادات الاستلام الافتراضية</value></data>
+  <data name="Suppliers.Warehouse" xml:space="preserve"><value>المستودع المفضل</value></data>
+  <data name="Suppliers.Dock" xml:space="preserve"><value>رصيف الاستلام المفضل</value></data>
+  <data name="Suppliers.DockId" xml:space="preserve"><value>معرف الرصيف المفضل</value></data>
+  <data name="Suppliers.DockHelp" xml:space="preserve"><value>استخدم معرف موقع استقبال نشط من المستودع المحدد.</value></data>
+  <data name="Suppliers.LeadTime" xml:space="preserve"><value>مدة التوريد بالأيام</value></data>
+  <data name="Suppliers.OverTolerance" xml:space="preserve"><value>نسبة السماح بالزيادة</value></data>
+  <data name="Suppliers.UnderTolerance" xml:space="preserve"><value>نسبة السماح بالنقص</value></data>
+  <data name="Suppliers.LotRequired" xml:space="preserve"><value>يتطلب رقم تشغيلة</value></data>
+  <data name="Suppliers.ExpiryRequired" xml:space="preserve"><value>يتطلب تاريخ صلاحية</value></data>
+  <data name="Suppliers.QualityProfile" xml:space="preserve"><value>ملف الجودة</value></data>
+  <data name="Suppliers.LabelRule" xml:space="preserve"><value>قاعدة الملصق</value></data>
+  <data name="Suppliers.Currency" xml:space="preserve"><value>العملة الافتراضية</value></data>
+  <data name="Suppliers.Notes" xml:space="preserve"><value>ملاحظات</value></data>
+  <data name="Suppliers.ItemReferences" xml:space="preserve"><value>مراجع أصناف المورد</value></data>
+  <data name="Suppliers.NoItemReferences" xml:space="preserve"><value>لم تتم إضافة مراجع أصناف للمورد.</value></data>
+  <data name="Suppliers.VendorSku" xml:space="preserve"><value>SKU المورد</value></data>
+  <data name="Suppliers.VendorBarcode" xml:space="preserve"><value>باركود المورد</value></data>
+  <data name="Suppliers.ItemReferencesFormat" xml:space="preserve"><value>ربط واحد في كل سطر</value></data>
+  <data name="Suppliers.ItemReferencesHelp" xml:space="preserve"><value>ITEM_ID|VENDOR_SKU|VENDOR_BARCODE|PACKAGING_ID|VENDOR_PACKAGING|UNITS_PER_PACKAGE|MINIMUM_ORDER_QUANTITY|LEAD_TIME_DAYS|ACTIVE</value></data>
+  <data name="Suppliers.ImportHelp" xml:space="preserve"><value>الاستيراد ينشئ الموردين بشكل ذري. كرر أعمدة المورد لكل صف مرجع صنف.</value></data>
+  <data name="Suppliers.ImportFile" xml:space="preserve"><value>ملف CSV</value></data>
+  <data name="Suppliers.PasteCsv" xml:space="preserve"><value>لصق CSV</value></data>
+  <data name="Suppliers.DeleteConfirm" xml:space="preserve"><value>هل تريد حذف هذا المورد؟ المورد المرتبط يجب تعطيله بدلاً من حذفه.</value></data>
+  <data name="Suppliers.Created" xml:space="preserve"><value>تم إنشاء المورد '{0}'.</value></data>
+  <data name="Suppliers.Updated" xml:space="preserve"><value>تم تحديث المورد '{0}'.</value></data>
+  <data name="Suppliers.Activated" xml:space="preserve"><value>تم تفعيل المورد.</value></data>
+  <data name="Suppliers.Deactivated" xml:space="preserve"><value>تم تعطيل المورد.</value></data>
+  <data name="Suppliers.Deleted" xml:space="preserve"><value>تم حذف المورد.</value></data>
+  <data name="Suppliers.Imported" xml:space="preserve"><value>تم استيراد {0} مورد و {1} مرجع صنف.</value></data>
+  <data name="Suppliers.ImportRequired" xml:space="preserve"><value>قدم ملف CSV أو الصق محتوى CSV.</value></data>
 </root>

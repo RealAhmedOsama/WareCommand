@@ -1,0 +1,15 @@
+@model SupplierImportViewModel
+@{ ViewData["Title"] = T["Suppliers.Import"]; }
+<div class="d-flex justify-content-between align-items-center mb-4"><h2 class="mb-0"><i class="bi bi-upload me-2 text-primary"></i>@T["Suppliers.Import"]</h2><a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Cancel"]</a></div>
+<div class="card shadow-sm border-0"><div class="card-body">
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <p class="text-muted">@T["Suppliers.ImportHelp"]</p>
+    <p class="small font-monospace text-break">CODE,LEGAL_NAME,LOCALIZED_NAME,TAX_REGISTRATION_NUMBER,EXTERNAL_ERP_IDENTIFIER,ADDRESS_LINE_1,ADDRESS_LINE_2,CITY,STATE_OR_PROVINCE,POSTAL_CODE,COUNTRY_CODE,CONTACT_NAME,CONTACT_EMAIL,CONTACT_PHONE,IS_ACTIVE,PREFERRED_WAREHOUSE_CODE,PREFERRED_DOCK_CODE,DEFAULT_LEAD_TIME_DAYS,OVER_DELIVERY_TOLERANCE_PERCENT,UNDER_DELIVERY_TOLERANCE_PERCENT,REQUIRES_LOT,REQUIRES_EXPIRY,QUALITY_PROFILE,LABEL_RULE,DEFAULT_CURRENCY_CODE,NOTES,ITEM_SKU,VENDOR_SKU,VENDOR_BARCODE,ITEM_PACKAGING_CODE,VENDOR_PACKAGING,UNITS_PER_PURCHASE_PACKAGE,MINIMUM_ORDER_QUANTITY,REFERENCE_LEAD_TIME_DAYS,REFERENCE_ACTIVE</p>
+    <form asp-action="Import" method="post" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
+        <div class="mb-3"><label asp-for="File" class="form-label">@T["Suppliers.ImportFile"]</label><input asp-for="File" class="form-control" type="file" accept=".csv,text/csv" /></div>
+        <div class="text-center text-muted mb-3">@T["Common.Or"]</div>
+        <div class="mb-3"><label asp-for="Csv" class="form-label">@T["Suppliers.PasteCsv"]</label><textarea asp-for="Csv" class="form-control font-monospace" rows="10" dir="ltr"></textarea></div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>@T["Suppliers.Import"]</button>
+    </form>
+</div></div>

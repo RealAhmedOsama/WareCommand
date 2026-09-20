@@ -26,6 +26,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<Item> Items => Set<Item>();
     public DbSet<ItemPackaging> ItemPackagings => Set<ItemPackaging>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<SupplierItemReference> SupplierItemReferences => Set<SupplierItemReference>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -77,6 +79,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
         builder.ApplyConfiguration(new ItemConfiguration());
         builder.ApplyConfiguration(new ItemPackagingConfiguration());
+        builder.ApplyConfiguration(new SupplierConfiguration());
+        builder.ApplyConfiguration(new SupplierItemReferenceConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());
         builder.ApplyConfiguration(new WarehouseConfiguration());
