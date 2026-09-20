@@ -7,6 +7,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Identification;
 using Wms.Application.Idempotency;
+using Wms.Application.Inventory;
 using Wms.Application.InventoryStatuses;
 using Wms.Application.LicensePlates;
 using Wms.Application.Items;
@@ -178,6 +179,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryLedgerService, InventoryLedgerService>();
         services.AddScoped<IInventoryReservationService, InventoryReservationService>();
         services.AddScoped<IInventoryCommandIdempotencyService, InventoryCommandIdempotencyService>();
+        services.AddScoped<IInventoryInquiryService, InventoryInquiryService>();
         return services;
     }
 

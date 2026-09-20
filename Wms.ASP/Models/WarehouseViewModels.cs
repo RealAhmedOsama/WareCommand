@@ -30,6 +30,10 @@ public class InventoryViewModel
     public List<StockSummaryDto> StockSummary { get; set; } = new();
     public string? SearchTerm { get; set; }
     public bool ShowSummary { get; set; }
+    public int StockPage { get; set; } = 1;
+    public int StockPageSize { get; set; } = 50;
+    public int StockTotalCount { get; set; }
+    public int StockTotalPages { get; set; }
 }
 
 public class ItemManagementViewModel

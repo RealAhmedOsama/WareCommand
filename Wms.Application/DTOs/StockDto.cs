@@ -26,7 +26,12 @@ public record StockDto(
     bool IsPickable = false,
     bool IsShippable = false,
     int? LicensePlateId = null,
-    string? LicensePlateNumber = null
+    string? LicensePlateNumber = null,
+    decimal? AvailableToPromiseQuantity = null,
+    decimal? HeldQuantity = null,
+    decimal? InTransitQuantity = null,
+    decimal? OrderedQuantity = null,
+    DateTime? ExpiryDate = null
 );
 
 public record StockSummaryDto(

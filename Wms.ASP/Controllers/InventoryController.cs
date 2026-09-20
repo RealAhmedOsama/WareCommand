@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Identity;
+using Wms.Application.Inventory;
 using Wms.Application.UseCases.Inventory;
 using Wms.ASP.Extensions;
 using Wms.ASP.Models;
@@ -13,15 +14,15 @@ namespace Wms.ASP.Controllers;
 public class InventoryController : Controller
 {
     private readonly ICurrentUser _currentUser;
-    private readonly IGetStockUseCase _getStockUseCase;
+    private readonly IInventoryInquiryService _inventoryInquiryService;
     private readonly IStockAdjustmentUseCase _stockAdjustmentUseCase;
 
     public InventoryController(
-        IGetStockUseCase getStockUseCase,
+        IInventoryInquiryService inventoryInquiryService,
         IStockAdjustmentUseCase stockAdjustmentUseCase,
         ICurrentUser currentUser)
     {
-        _getStockUseCase = getStockUseCase;
+        _inventoryInquiryService = inventoryInquiryService;
         _stockAdjustmentUseCase = stockAdjustmentUseCase;
         _currentUser = currentUser;
     }
@@ -30,6 +31,8 @@ public class InventoryController : Controller
     public async Task<IActionResult> Index(
         string? searchTerm,
         bool showSummary = false,
+        int page = 1,
+        int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
         var model = new InventoryViewModel
@@ -40,32 +43,30 @@ public class InventoryController : Controller
 
         if (showSummary)
         {
-            var summaryResult = await _getStockUseCase.GetStockSummaryAsync(cancellationToken);
+            var summaryResult = await _inventoryInquiryService.SummarizeAsync(
+                new InventoryInquiryQuery(SearchTerm: searchTerm),
+                cancellationToken);
             if (summaryResult.IsSuccess)
             {
-                model.StockSummary = summaryResult.Value.OrderBy(s => s.ItemSku).ToList();
+                model.StockSummary = summaryResult.Value.ToList();
             }
         }
         else
         {
-            var result = await _getStockUseCase.GetAllStockAsync(cancellationToken);
+            var result = await _inventoryInquiryService.QueryAsync(
+                new InventoryInquiryQuery(
+                    SearchTerm: searchTerm,
+                    AvailableOnly: true,
+                    Page: page,
+                    PageSize: pageSize),
+                cancellationToken);
             if (result.IsSuccess)
             {
-                var stockItems = result.Value.Where(s => s.QuantityAvailable > 0);
-
-                if (!string.IsNullOrWhiteSpace(searchTerm))
-                {
-                    stockItems = stockItems.Where(s =>
-                        s.ItemSku.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        s.ItemName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        s.LocationCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        (s.LicensePlateNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        (s.LotNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        s.InventoryStatusCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        s.InventoryStatusName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
-                }
-
-                model.StockItems = stockItems.ToList();
+                model.StockItems = result.Value.Items.ToList();
+                model.StockPage = result.Value.Page;
+                model.StockPageSize = result.Value.PageSize;
+                model.StockTotalCount = result.Value.TotalCount;
+                model.StockTotalPages = result.Value.TotalPages;
             }
         }
 
