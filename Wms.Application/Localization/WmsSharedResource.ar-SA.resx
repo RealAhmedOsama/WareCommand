@@ -1,0 +1,480 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="App.Name" xml:space="preserve"><value>نظام إدارة المستودعات</value></data>
+  <data name="App.ShortName" xml:space="preserve"><value>نظام المستودعات</value></data>
+  <data name="Language.English" xml:space="preserve"><value>الإنجليزية</value></data>
+  <data name="Language.Arabic" xml:space="preserve"><value>العربية</value></data>
+  <data name="Language.Label" xml:space="preserve"><value>اللغة</value></data>
+  <data name="Language.Switch" xml:space="preserve"><value>تغيير اللغة</value></data>
+  <data name="Language.SystemDefault" xml:space="preserve"><value>إعداد النظام</value></data>
+  <data name="Language.Saved" xml:space="preserve"><value>تم حفظ تفضيل اللغة.</value></data>
+  <data name="Language.Invalid" xml:space="preserve"><value>اختر لغة مدعومة.</value></data>
+  <data name="Common.Success" xml:space="preserve"><value>تم بنجاح!</value></data>
+  <data name="Common.Error" xml:space="preserve"><value>خطأ!</value></data>
+  <data name="Common.Information" xml:space="preserve"><value>معلومات</value></data>
+  <data name="Common.Close" xml:space="preserve"><value>إغلاق</value></data>
+  <data name="Common.Save" xml:space="preserve"><value>حفظ</value></data>
+  <data name="Common.Cancel" xml:space="preserve"><value>إلغاء</value></data>
+  <data name="Common.Clear" xml:space="preserve"><value>مسح</value></data>
+  <data name="Common.Search" xml:space="preserve"><value>بحث</value></data>
+  <data name="Common.ExportCsv" xml:space="preserve"><value>تصدير CSV</value></data>
+  <data name="Common.Back" xml:space="preserve"><value>رجوع</value></data>
+  <data name="Common.Create" xml:space="preserve"><value>إنشاء</value></data>
+  <data name="Common.Edit" xml:space="preserve"><value>تعديل</value></data>
+  <data name="Common.ManageAccess" xml:space="preserve"><value>إدارة الصلاحيات</value></data>
+  <data name="Common.Active" xml:space="preserve"><value>نشط</value></data>
+  <data name="Common.Inactive" xml:space="preserve"><value>غير نشط</value></data>
+  <data name="Common.Disabled" xml:space="preserve"><value>معطل</value></data>
+  <data name="Common.Locked" xml:space="preserve"><value>مقفل</value></data>
+  <data name="Common.All" xml:space="preserve"><value>الكل</value></data>
+  <data name="Common.View" xml:space="preserve"><value>عرض</value></data>
+  <data name="Common.Actions" xml:space="preserve"><value>الإجراءات</value></data>
+  <data name="Common.Optional" xml:space="preserve"><value>اختياري</value></data>
+  <data name="Common.Required" xml:space="preserve"><value>مطلوب</value></data>
+  <data name="Common.NoData" xml:space="preserve"><value>لا توجد بيانات.</value></data>
+  <data name="Common.TryAdjust" xml:space="preserve"><value>حاول تعديل معايير البحث.</value></data>
+  <data name="Common.GetStarted" xml:space="preserve"><value>ابدأ بإضافة أول صنف.</value></data>
+  <data name="Common.Unlimited" xml:space="preserve"><value>غير محدود</value></data>
+  <data name="Common.SelectWarehouse" xml:space="preserve"><value>اختر مستودعاً</value></data>
+  <data name="Common.None" xml:space="preserve"><value>لا يوجد</value></data>
+  <data name="Common.Current" xml:space="preserve"><value>الحالي</value></data>
+  <data name="Common.New" xml:space="preserve"><value>الجديد</value></data>
+  <data name="Common.Adjustment" xml:space="preserve"><value>التسوية</value></data>
+  <data name="Common.Refresh" xml:space="preserve"><value>تحديث</value></data>
+  <data name="Common.Entries" xml:space="preserve"><value>السجلات</value></data>
+  <data name="Common.Before" xml:space="preserve"><value>قبل</value></data>
+  <data name="Common.After" xml:space="preserve"><value>بعد</value></data>
+  <data name="Common.Total" xml:space="preserve"><value>الإجمالي</value></data>
+  <data name="Common.System" xml:space="preserve"><value>النظام</value></data>
+  <data name="Common.Delete" xml:space="preserve"><value>حذف</value></data>
+  <data name="Nav.Dashboard" xml:space="preserve"><value>لوحة التحكم</value></data>
+  <data name="Nav.Operations" xml:space="preserve"><value>العمليات</value></data>
+  <data name="Nav.Receiving" xml:space="preserve"><value>الاستلام</value></data>
+  <data name="Nav.Putaway" xml:space="preserve"><value>الإيداع</value></data>
+  <data name="Nav.Picking" xml:space="preserve"><value>التجهيز</value></data>
+  <data name="Nav.Inventory" xml:space="preserve"><value>المخزون</value></data>
+  <data name="Nav.Management" xml:space="preserve"><value>الإدارة</value></data>
+  <data name="Nav.Items" xml:space="preserve"><value>الأصناف</value></data>
+  <data name="Nav.Locations" xml:space="preserve"><value>المواقع</value></data>
+  <data name="Nav.AuditLog" xml:space="preserve"><value>سجل التدقيق</value></data>
+  <data name="Nav.Settings" xml:space="preserve"><value>الإعدادات</value></data>
+  <data name="Nav.Accounts" xml:space="preserve"><value>الحسابات</value></data>
+  <data name="Nav.SignOut" xml:space="preserve"><value>تسجيل الخروج</value></data>
+  <data name="Nav.SignIn" xml:space="preserve"><value>تسجيل الدخول</value></data>
+  <data name="Dashboard.Title" xml:space="preserve"><value>لوحة التحكم</value></data>
+  <data name="Dashboard.Refresh" xml:space="preserve"><value>تحديث</value></data>
+  <data name="Dashboard.TotalItems" xml:space="preserve"><value>إجمالي الأصناف</value></data>
+  <data name="Dashboard.TotalSkus" xml:space="preserve"><value>إجمالي رموز الأصناف</value></data>
+  <data name="Dashboard.InStock" xml:space="preserve"><value>متوفر بالمخزون</value></data>
+  <data name="Dashboard.TotalUnits" xml:space="preserve"><value>إجمالي الوحدات</value></data>
+  <data name="Dashboard.StockLocations" xml:space="preserve"><value>مواقع المخزون</value></data>
+  <data name="Dashboard.Active" xml:space="preserve"><value>نشط</value></data>
+  <data name="Dashboard.RecentMovements" xml:space="preserve"><value>آخر الحركات</value></data>
+  <data name="Dashboard.LastDays" xml:space="preserve"><value>آخر {0} أيام</value></data>
+  <data name="Dashboard.NoRecentMovements" xml:space="preserve"><value>لا توجد حركات حديثة</value></data>
+  <data name="Dashboard.LowStockAlerts" xml:space="preserve"><value>تنبيهات انخفاض المخزون</value></data>
+  <data name="Dashboard.AllItemsWellStocked" xml:space="preserve"><value>مستويات جميع الأصناف جيدة!</value></data>
+  <data name="Dashboard.Refreshing" xml:space="preserve"><value>جارٍ التحديث...</value></data>
+  <data name="Dashboard.RefreshFailed" xml:space="preserve"><value>فشل التحديث. حاول مرة أخرى.</value></data>
+  <data name="Dashboard.Refreshed" xml:space="preserve"><value>تم تحديث لوحة التحكم</value></data>
+  <data name="Movement.Type" xml:space="preserve"><value>النوع</value></data>
+  <data name="Movement.Sku" xml:space="preserve"><value>رمز الصنف</value></data>
+  <data name="Movement.Quantity" xml:space="preserve"><value>الكمية</value></data>
+  <data name="Movement.Time" xml:space="preserve"><value>الوقت</value></data>
+  <data name="Movement.User" xml:space="preserve"><value>المستخدم</value></data>
+  <data name="Movement.Receipt" xml:space="preserve"><value>استلام</value></data>
+  <data name="Movement.Putaway" xml:space="preserve"><value>إيداع</value></data>
+  <data name="Movement.Pick" xml:space="preserve"><value>تجهيز</value></data>
+  <data name="Movement.Ship" xml:space="preserve"><value>شحن</value></data>
+  <data name="Movement.Adjustment" xml:space="preserve"><value>تسوية</value></data>
+  <data name="Movement.CycleCount" xml:space="preserve"><value>جرد دوري</value></data>
+  <data name="Movement.Transfer" xml:space="preserve"><value>نقل</value></data>
+  <data name="Field.ItemSku" xml:space="preserve"><value>رمز الصنف</value></data>
+  <data name="Field.Location" xml:space="preserve"><value>الموقع</value></data>
+  <data name="Field.ReceivingLocation" xml:space="preserve"><value>موقع الاستلام</value></data>
+  <data name="Field.FromLocation" xml:space="preserve"><value>من الموقع</value></data>
+  <data name="Field.ToLocation" xml:space="preserve"><value>إلى الموقع</value></data>
+  <data name="Field.Quantity" xml:space="preserve"><value>الكمية</value></data>
+  <data name="Field.LotNumber" xml:space="preserve"><value>رقم التشغيلة</value></data>
+  <data name="Field.SerialNumber" xml:space="preserve"><value>الرقم التسلسلي</value></data>
+  <data name="Field.Notes" xml:space="preserve"><value>ملاحظات</value></data>
+  <data name="Field.OrderNumber" xml:space="preserve"><value>رقم الطلب</value></data>
+  <data name="Field.Reason" xml:space="preserve"><value>سبب التسوية</value></data>
+  <data name="Field.Description" xml:space="preserve"><value>الوصف</value></data>
+  <data name="Field.Name" xml:space="preserve"><value>الاسم</value></data>
+  <data name="Field.Code" xml:space="preserve"><value>الرمز</value></data>
+  <data name="Field.Warehouse" xml:space="preserve"><value>المستودع</value></data>
+  <data name="Field.Capacity" xml:space="preserve"><value>السعة</value></data>
+  <data name="Field.Barcode" xml:space="preserve"><value>الباركود</value></data>
+  <data name="Field.UnitOfMeasure" xml:space="preserve"><value>وحدة القياس</value></data>
+  <data name="Field.CurrentQuantity" xml:space="preserve"><value>الكمية الحالية</value></data>
+  <data name="Field.NewQuantity" xml:space="preserve"><value>الكمية الجديدة</value></data>
+  <data name="Field.Available" xml:space="preserve"><value>المتاح</value></data>
+  <data name="Field.Reserved" xml:space="preserve"><value>المحجوز</value></data>
+  <data name="Field.NetAvailable" xml:space="preserve"><value>الصافي المتاح</value></data>
+  <data name="Field.TotalQuantity" xml:space="preserve"><value>إجمالي الكمية</value></data>
+  <data name="Field.Pickable" xml:space="preserve"><value>قابل للتجهيز</value></data>
+  <data name="Field.Receivable" xml:space="preserve"><value>قابل للاستلام</value></data>
+  <data name="Field.Status" xml:space="preserve"><value>الحالة</value></data>
+  <data name="Field.Type" xml:space="preserve"><value>النوع</value></data>
+  <data name="Items.Title" xml:space="preserve"><value>إدارة الأصناف</value></data>
+  <data name="Items.Search" xml:space="preserve"><value>بحث في الأصناف</value></data>
+  <data name="Items.SearchPlaceholder" xml:space="preserve"><value>ابحث بالرمز أو الاسم أو الوصف</value></data>
+  <data name="Items.Create" xml:space="preserve"><value>إنشاء صنف جديد</value></data>
+  <data name="Items.List" xml:space="preserve"><value>الأصناف</value></data>
+  <data name="Items.LotTracking" xml:space="preserve"><value>تتبع التشغيلات</value></data>
+  <data name="Items.SerialTracking" xml:space="preserve"><value>تتبع الأرقام التسلسلية</value></data>
+  <data name="Items.NoItems" xml:space="preserve"><value>لم يتم العثور على أصناف</value></data>
+  <data name="Items.TrackingRequirements" xml:space="preserve"><value>متطلبات التتبع</value></data>
+  <data name="Items.RequiresLot" xml:space="preserve"><value>يتطلب تتبع التشغيلة</value></data>
+  <data name="Items.RequiresSerial" xml:space="preserve"><value>يتطلب تتبع الرقم التسلسلي</value></data>
+  <data name="Items.SkuImmutable" xml:space="preserve"><value>لا يمكن تغيير رمز الصنف بعد إنشائه</value></data>
+  <data name="Items.TrackingWarning" xml:space="preserve"><value>قد يؤثر تغيير متطلبات التتبع على سجلات المخزون الحالية.</value></data>
+  <data name="Items.Created" xml:space="preserve"><value>تم إنشاء الصنف '{0}' بنجاح!</value></data>
+  <data name="Items.Updated" xml:space="preserve"><value>تم تحديث الصنف '{0}' بنجاح!</value></data>
+  <data name="Items.Add" xml:space="preserve"><value>إضافة صنف جديد</value></data>
+  <data name="Items.Information" xml:space="preserve"><value>بيانات الصنف</value></data>
+  <data name="Items.EnterSku" xml:space="preserve"><value>أدخل رمز الصنف</value></data>
+  <data name="Items.UniqueIdentifier" xml:space="preserve"><value>معرّف فريد لهذا الصنف</value></data>
+  <data name="Items.EnterName" xml:space="preserve"><value>أدخل اسم الصنف</value></data>
+  <data name="Items.EnterDescription" xml:space="preserve"><value>أدخل وصف الصنف (اختياري)</value></data>
+  <data name="Items.EnterBarcode" xml:space="preserve"><value>أدخل الباركود (اختياري)</value></data>
+  <data name="Items.BarcodeList" xml:space="preserve"><value>الباركود: {0}</value></data>
+  <data name="Items.NoDescription" xml:space="preserve"><value>لا يوجد وصف</value></data>
+  <data name="Items.Edit" xml:space="preserve"><value>تعديل الصنف</value></data>
+  <data name="Items.Update" xml:space="preserve"><value>تحديث الصنف</value></data>
+  <data name="Items.ViewStock" xml:space="preserve"><value>عرض المخزون</value></data>
+  <data name="Items.ViewStockLevels" xml:space="preserve"><value>عرض مستويات المخزون</value></data>
+  <data name="Items.MovementHistory" xml:space="preserve"><value>سجل الحركات</value></data>
+  <data name="Items.AdditionalInformation" xml:space="preserve"><value>معلومات إضافية</value></data>
+  <data name="Items.Each" xml:space="preserve"><value>قطعة (EA)</value></data>
+  <data name="Items.Kilogram" xml:space="preserve"><value>كيلوغرام (KG)</value></data>
+  <data name="Items.Pound" xml:space="preserve"><value>رطل (LB)</value></data>
+  <data name="Items.Liter" xml:space="preserve"><value>لتر (L)</value></data>
+  <data name="Items.Meter" xml:space="preserve"><value>متر (M)</value></data>
+  <data name="Items.Feet" xml:space="preserve"><value>قدم (FT)</value></data>
+  <data name="Items.Box" xml:space="preserve"><value>صندوق</value></data>
+  <data name="Items.Case" xml:space="preserve"><value>كرتونة</value></data>
+  <data name="Items.Pallet" xml:space="preserve"><value>منصة</value></data>
+  <data name="Inventory.Title" xml:space="preserve"><value>إدارة المخزون</value></data>
+  <data name="Inventory.Search" xml:space="preserve"><value>بحث في المخزون</value></data>
+  <data name="Inventory.SearchPlaceholder" xml:space="preserve"><value>ابحث بالرمز أو الاسم أو الموقع</value></data>
+  <data name="Inventory.ShowSummary" xml:space="preserve"><value>عرض الملخص</value></data>
+  <data name="Inventory.Summary" xml:space="preserve"><value>ملخص المخزون</value></data>
+  <data name="Inventory.StockItems" xml:space="preserve"><value>أصناف المخزون</value></data>
+  <data name="Inventory.NoSummary" xml:space="preserve"><value>لا تتوفر بيانات ملخص المخزون</value></data>
+  <data name="Inventory.NoStock" xml:space="preserve"><value>لم يتم العثور على أصناف مخزون</value></data>
+  <data name="Inventory.Adjustment" xml:space="preserve"><value>تسوية المخزون</value></data>
+  <data name="Inventory.Adjusted" xml:space="preserve"><value>تمت تسوية المخزون بنجاح! رقم الحركة: {0}</value></data>
+  <data name="Receiving.Title" xml:space="preserve"><value>استلام الأصناف</value></data>
+  <data name="Receiving.CardTitle" xml:space="preserve"><value>استلام المخزون</value></data>
+  <data name="Receiving.ScanSku" xml:space="preserve"><value>امسح الرمز أو أدخله</value></data>
+  <data name="Receiving.EnterLocation" xml:space="preserve"><value>أدخل رمز الموقع</value></data>
+  <data name="Receiving.EnterLot" xml:space="preserve"><value>أدخل رقم التشغيلة (اختياري)</value></data>
+  <data name="Receiving.EnterSerial" xml:space="preserve"><value>أدخل الرقم التسلسلي (اختياري)</value></data>
+  <data name="Receiving.ClearForm" xml:space="preserve"><value>مسح (F2)</value></data>
+  <data name="Receiving.Submit" xml:space="preserve"><value>استلام (F1)</value></data>
+  <data name="Receiving.Help" xml:space="preserve"><value>امسح الصنف أو أدخل رمزه، ثم أدخل الكمية وموقع الاستلام.</value></data>
+  <data name="Receiving.Completed" xml:space="preserve"><value>تم استلام الصنف بنجاح! رقم الحركة: {0}</value></data>
+  <data name="Putaway.Title" xml:space="preserve"><value>عمليات الإيداع</value></data>
+  <data name="Putaway.CardTitle" xml:space="preserve"><value>نقل المخزون إلى التخزين</value></data>
+  <data name="Putaway.Source" xml:space="preserve"><value>الموقع المصدر</value></data>
+  <data name="Putaway.Destination" xml:space="preserve"><value>الموقع الوجهة</value></data>
+  <data name="Putaway.EnterNotes" xml:space="preserve"><value>أدخل ملاحظات حول عملية الإيداع (اختياري)</value></data>
+  <data name="Putaway.Submit" xml:space="preserve"><value>إتمام الإيداع (F1)</value></data>
+  <data name="Putaway.Completed" xml:space="preserve"><value>تم إتمام الإيداع بنجاح! رقم الحركة: {0}</value></data>
+  <data name="Picking.Title" xml:space="preserve"><value>عمليات التجهيز</value></data>
+  <data name="Picking.CardTitle" xml:space="preserve"><value>تجهيز المخزون</value></data>
+  <data name="Picking.EnterOrder" xml:space="preserve"><value>أدخل رقم الطلب</value></data>
+  <data name="Picking.OrderHelp" xml:space="preserve"><value>أدخل رقم الطلب أو المرجع لهذه العملية</value></data>
+  <data name="Picking.Quantity" xml:space="preserve"><value>الكمية المطلوب تجهيزها</value></data>
+  <data name="Picking.EnterLocation" xml:space="preserve"><value>أدخل رمز الموقع</value></data>
+  <data name="Picking.EnterLot" xml:space="preserve"><value>أدخل رقم التشغيلة (عند الحاجة)</value></data>
+  <data name="Picking.EnterSerial" xml:space="preserve"><value>أدخل الرقم التسلسلي (عند الحاجة)</value></data>
+  <data name="Picking.EnterNotes" xml:space="preserve"><value>أدخل ملاحظات حول عملية التجهيز (اختياري)</value></data>
+  <data name="Picking.Submit" xml:space="preserve"><value>إتمام التجهيز (F1)</value></data>
+  <data name="Picking.Completed" xml:space="preserve"><value>تم إتمام التجهيز بنجاح! رقم الحركة: {0}</value></data>
+  <data name="Locations.Title" xml:space="preserve"><value>إدارة المواقع</value></data>
+  <data name="Locations.Search" xml:space="preserve"><value>بحث في المواقع</value></data>
+  <data name="Locations.SearchPlaceholder" xml:space="preserve"><value>ابحث بالرمز أو الاسم</value></data>
+  <data name="Locations.Create" xml:space="preserve"><value>إنشاء موقع جديد</value></data>
+  <data name="Locations.Properties" xml:space="preserve"><value>خصائص الموقع</value></data>
+  <data name="Locations.NoLocations" xml:space="preserve"><value>لم يتم العثور على مواقع</value></data>
+  <data name="Locations.Created" xml:space="preserve"><value>تم إنشاء الموقع '{0}' بنجاح!</value></data>
+  <data name="Locations.PickableHelp" xml:space="preserve"><value>السماح بعمليات التجهيز من هذا الموقع</value></data>
+  <data name="Locations.ReceivableHelp" xml:space="preserve"><value>السماح بعمليات الاستلام إلى هذا الموقع</value></data>
+  <data name="Locations.Add" xml:space="preserve"><value>إضافة موقع جديد</value></data>
+  <data name="Locations.Information" xml:space="preserve"><value>بيانات الموقع</value></data>
+  <data name="Locations.Code" xml:space="preserve"><value>رمز الموقع</value></data>
+  <data name="Locations.Name" xml:space="preserve"><value>اسم الموقع</value></data>
+  <data name="Locations.EnterCode" xml:space="preserve"><value>أدخل رمز الموقع</value></data>
+  <data name="Locations.EnterName" xml:space="preserve"><value>أدخل اسم الموقع</value></data>
+  <data name="Locations.UniqueIdentifier" xml:space="preserve"><value>معرّف فريد لهذا الموقع</value></data>
+  <data name="Locations.SelectWarehouse" xml:space="preserve"><value>اختر مستودعاً</value></data>
+  <data name="Locations.CapacityPlaceholder" xml:space="preserve"><value>0 (غير محدودة)</value></data>
+  <data name="Locations.CapacityHelp" xml:space="preserve"><value>اتركها 0 لسعة غير محدودة</value></data>
+  <data name="Locations.Pickable" xml:space="preserve"><value>موقع قابل للتجهيز</value></data>
+  <data name="Locations.Receivable" xml:space="preserve"><value>موقع قابل للاستلام</value></data>
+  <data name="Locations.SubLocation" xml:space="preserve"><value>موقع فرعي</value></data>
+  <data name="Locations.MainLocation" xml:space="preserve"><value>موقع رئيسي</value></data>
+  <data name="Locations.NotPickable" xml:space="preserve"><value>غير قابل للتجهيز</value></data>
+  <data name="Locations.NotReceivable" xml:space="preserve"><value>غير قابل للاستلام</value></data>
+  <data name="Locations.Edit" xml:space="preserve"><value>تعديل الموقع</value></data>
+  <data name="Locations.ViewStock" xml:space="preserve"><value>عرض المخزون</value></data>
+  <data name="Locations.NoSearchResults" xml:space="preserve"><value>حاول تعديل معايير البحث</value></data>
+  <data name="Locations.FirstLocation" xml:space="preserve"><value>ابدأ بإضافة أول موقع</value></data>
+  <data name="Audit.Title" xml:space="preserve"><value>سجل التدقيق</value></data>
+  <data name="Audit.Subtitle" xml:space="preserve"><value>سجل غير قابل للتعديل لأمن المستودع ونشاطه</value></data>
+  <data name="Audit.AllWarehouses" xml:space="preserve"><value>كل المستودعات المتاحة</value></data>
+  <data name="Audit.AllActions" xml:space="preserve"><value>كل الإجراءات</value></data>
+  <data name="Audit.AllEntities" xml:space="preserve"><value>كل الكيانات</value></data>
+  <data name="Audit.NoEntries" xml:space="preserve"><value>لا توجد سجلات تدقيق تطابق عوامل التصفية.</value></data>
+  <data name="Audit.UtcTime" xml:space="preserve"><value>وقت UTC</value></data>
+  <data name="Audit.Actor" xml:space="preserve"><value>المنفذ</value></data>
+  <data name="Audit.Action" xml:space="preserve"><value>الإجراء</value></data>
+  <data name="Audit.Entity" xml:space="preserve"><value>الكيان</value></data>
+  <data name="Audit.Warehouse" xml:space="preserve"><value>المستودع</value></data>
+  <data name="Audit.Source" xml:space="preserve"><value>المصدر</value></data>
+  <data name="Audit.Correlation" xml:space="preserve"><value>الارتباط</value></data>
+  <data name="Audit.Changes" xml:space="preserve"><value>التغييرات</value></data>
+  <data name="Audit.FromDate" xml:space="preserve"><value>من تاريخ</value></data>
+  <data name="Audit.ToDate" xml:space="preserve"><value>إلى تاريخ</value></data>
+  <data name="Audit.UserId" xml:space="preserve"><value>معرّف المستخدم</value></data>
+  <data name="Audit.WarehouseFilter" xml:space="preserve"><value>المستودع</value></data>
+  <data name="Audit.Pages" xml:space="preserve"><value>صفحات التدقيق</value></data>
+  <data name="Account.SignIn" xml:space="preserve"><value>تسجيل الدخول</value></data>
+  <data name="Account.SignInTitle" xml:space="preserve"><value>تسجيل الدخول إلى WareCommand</value></data>
+  <data name="Account.SignInHelp" xml:space="preserve"><value>استخدم الحساب الذي أنشأه مسؤول المستودع.</value></data>
+  <data name="Account.ForgotPassword" xml:space="preserve"><value>هل نسيت كلمة المرور؟</value></data>
+  <data name="Account.SignOut" xml:space="preserve"><value>تسجيل الخروج</value></data>
+  <data name="Account.Settings" xml:space="preserve"><value>إعدادات الحساب</value></data>
+  <data name="Account.ChangePasswordHelp" xml:space="preserve"><value>غيّر كلمة المرور. كلمة المرور الحالية مطلوبة.</value></data>
+  <data name="Account.ChangePassword" xml:space="preserve"><value>تغيير كلمة المرور</value></data>
+  <data name="Account.Language" xml:space="preserve"><value>تفضيل اللغة</value></data>
+  <data name="Account.SaveLanguage" xml:space="preserve"><value>حفظ اللغة</value></data>
+  <data name="Account.WarehouseAccounts" xml:space="preserve"><value>حسابات المستودع</value></data>
+  <data name="Account.AccountsHelp" xml:space="preserve"><value>أنشئ حسابات الموظفين وعطّل الوصول دون حذف سجل التدقيق.</value></data>
+  <data name="Account.CreateAccount" xml:space="preserve"><value>إنشاء حساب</value></data>
+  <data name="Account.DisplayName" xml:space="preserve"><value>الاسم الظاهر</value></data>
+  <data name="Account.Username" xml:space="preserve"><value>اسم المستخدم</value></data>
+  <data name="Account.EmployeeCode" xml:space="preserve"><value>رمز الموظف</value></data>
+  <data name="Account.LastLogin" xml:space="preserve"><value>آخر تسجيل دخول (UTC)</value></data>
+  <data name="Account.ManageAccess" xml:space="preserve"><value>إدارة الصلاحيات</value></data>
+  <data name="Account.CreateTitle" xml:space="preserve"><value>إنشاء حساب مستودع</value></data>
+  <data name="Account.CreateHelp" xml:space="preserve"><value>عيّن بيانات اعتماد أولية عبر اتصال محمي. يمكن للمستخدم تغييرها من إعدادات الحساب.</value></data>
+  <data name="Account.AccessDenied" xml:space="preserve"><value>الوصول مرفوض</value></data>
+  <data name="Account.AccessDeniedHelp" xml:space="preserve"><value>تم تسجيل دخول حسابك، لكنه لا يملك صلاحية لهذه الصفحة.</value></data>
+  <data name="Account.ReturnDashboard" xml:space="preserve"><value>العودة إلى لوحة التحكم</value></data>
+  <data name="Account.ReturnSignIn" xml:space="preserve"><value>العودة إلى تسجيل الدخول</value></data>
+  <data name="Account.InvalidCredentials" xml:space="preserve"><value>اسم المستخدم أو كلمة المرور غير صحيحة.</value></data>
+  <data name="Account.Locked" xml:space="preserve"><value>هذا الحساب مقفل مؤقتاً. حاول لاحقاً.</value></data>
+  <data name="Account.SignInFailed" xml:space="preserve"><value>تعذر إكمال تسجيل الدخول. حاول مرة أخرى.</value></data>
+  <data name="Account.PasswordChanged" xml:space="preserve"><value>تم تغيير كلمة المرور بنجاح.</value></data>
+  <data name="Account.Roles" xml:space="preserve"><value>الأدوار</value></data>
+  <data name="Account.PermissionGrants" xml:space="preserve"><value>الصلاحيات المباشرة</value></data>
+  <data name="Account.WarehouseAssignments" xml:space="preserve"><value>تعيينات المستودعات</value></data>
+  <data name="Account.NoWarehouses" xml:space="preserve"><value>لا توجد مستودعات نشطة.</value></data>
+  <data name="Account.DefaultWarehouse" xml:space="preserve"><value>المستودع الافتراضي (اختياري)</value></data>
+  <data name="Account.NoDefaultWarehouse" xml:space="preserve"><value>لا يوجد مستودع افتراضي</value></data>
+  <data name="Account.SaveAccess" xml:space="preserve"><value>حفظ تعيينات الصلاحيات</value></data>
+  <data name="Account.RoleHelp" xml:space="preserve"><value>توفر الأدوار مصفوفة الصلاحيات الافتراضية.</value></data>
+  <data name="Account.PermissionHelp" xml:space="preserve"><value>الصلاحيات المباشرة إضافية؛ وتظل صلاحيات الدور هي الأساس.</value></data>
+  <data name="Account.DefaultWarehouseHelp" xml:space="preserve"><value>الافتراضي تفضيل فقط؛ كل عملية تتحقق من التعيين على الخادم.</value></data>
+  <data name="Account.Email" xml:space="preserve"><value>البريد الإلكتروني</value></data>
+  <data name="Account.Password" xml:space="preserve"><value>كلمة المرور</value></data>
+  <data name="Account.CurrentPassword" xml:space="preserve"><value>كلمة المرور الحالية</value></data>
+  <data name="Account.NewPassword" xml:space="preserve"><value>كلمة المرور الجديدة</value></data>
+  <data name="Account.ConfirmPassword" xml:space="preserve"><value>تأكيد كلمة المرور</value></data>
+  <data name="Account.ForgotPasswordTitle" xml:space="preserve"><value>إعادة تعيين كلمة المرور</value></data>
+  <data name="Account.ForgotPasswordHelp" xml:space="preserve"><value>أدخل بريد حسابك. إذا كان مسجلاً، سيرسل WareCommand رابط إعادة التعيين.</value></data>
+  <data name="Account.SendResetLink" xml:space="preserve"><value>إرسال رابط إعادة التعيين</value></data>
+  <data name="Account.ResetPassword" xml:space="preserve"><value>إعادة تعيين كلمة المرور</value></data>
+  <data name="Account.PasswordUpdated" xml:space="preserve"><value>تم تحديث كلمة المرور</value></data>
+  <data name="Account.Disabled" xml:space="preserve"><value>معطّل</value></data>
+  <data name="Account.Active" xml:space="preserve"><value>نشط</value></data>
+  <data name="Account.CreateUser" xml:space="preserve"><value>إنشاء حساب مستودع</value></data>
+  <data name="Account.Disable" xml:space="preserve"><value>تعطيل</value></data>
+  <data name="Account.Enable" xml:space="preserve"><value>تفعيل</value></data>
+  <data name="Account.BackAccounts" xml:space="preserve"><value>العودة إلى الحسابات</value></data>
+  <data name="Account.Cancel" xml:space="preserve"><value>إلغاء</value></data>
+  <data name="Account.ChangePasswordPage" xml:space="preserve"><value>إعدادات الحساب</value></data>
+  <data name="Account.PasswordUpdatedHelp" xml:space="preserve"><value>تم تغيير كلمة المرور بنجاح.</value></data>
+  <data name="Account.UsernameOrEmail" xml:space="preserve"><value>اسم المستخدم أو البريد الإلكتروني</value></data>
+  <data name="Account.RememberMe" xml:space="preserve"><value>تذكرني</value></data>
+  <data name="Account.ResetLinkRequested" xml:space="preserve"><value>تم طلب رابط إعادة التعيين</value></data>
+  <data name="Account.ResetLinkInfo" xml:space="preserve"><value>إذا كان هناك حساب نشط بهذا البريد، فقد أُرسل رابط إعادة تعيين كلمة المرور. تنتهي صلاحية الرابط وفق سياسة رموز Identity المهيأة.</value></data>
+  <data name="Account.ChooseNewPassword" xml:space="preserve"><value>اختر كلمة مرور جديدة</value></data>
+  <data name="Account.SignInErrorHelp" xml:space="preserve"><value>تعذر إكمال تسجيل الدخول. تحقق من بياناتك وحاول مرة أخرى.</value></data>
+  <data name="Account.LockedStatus" xml:space="preserve"><value>مقفل</value></data>
+  <data name="Account.Never" xml:space="preserve"><value>أبداً</value></data>
+  <data name="Account.GivenByRole" xml:space="preserve"><value>ممنوح من الدور المحدد</value></data>
+  <data name="Account.SaveAssignments" xml:space="preserve"><value>حفظ تعيينات الصلاحيات</value></data>
+  <data name="Account.AccessHelp" xml:space="preserve"><value>إدارة الأدوار والصلاحيات المباشرة وتعيينات المستودعات لهذا الحساب.</value></data>
+  <data name="Account.Created" xml:space="preserve"><value>تم إنشاء الحساب '{0}'.</value></data>
+  <data name="Account.CannotDisable" xml:space="preserve"><value>لا يمكنك تعطيل الحساب المستخدم حالياً.</value></data>
+  <data name="Account.Enabled" xml:space="preserve"><value>تم تفعيل الحساب '{0}'.</value></data>
+  <data name="Account.DisabledByAdmin" xml:space="preserve"><value>تم تعطيل الحساب '{0}'.</value></data>
+  <data name="Account.AccessUpdated" xml:space="preserve"><value>تم تحديث تعيينات الصلاحيات لـ '{0}'.</value></data>
+  <data name="Settings.Title" xml:space="preserve"><value>الإعدادات</value></data>
+  <data name="Settings.Global" xml:space="preserve"><value>إعدادات التطبيق العامة</value></data>
+  <data name="Settings.WarehouseOverride" xml:space="preserve"><value>تخصيص المستودع</value></data>
+  <data name="Settings.Effective" xml:space="preserve"><value>القيم الفعلية</value></data>
+  <data name="Settings.ImportExport" xml:space="preserve"><value>استيراد وتصدير غير سري</value></data>
+  <data name="Settings.Export" xml:space="preserve"><value>تصدير الإعدادات</value></data>
+  <data name="Settings.Import" xml:space="preserve"><value>استيراد الإعدادات</value></data>
+  <data name="Settings.SaveGlobal" xml:space="preserve"><value>حفظ الإعدادات العامة</value></data>
+  <data name="Settings.SaveOverride" xml:space="preserve"><value>حفظ تخصيص المستودع</value></data>
+  <data name="Settings.Inherit" xml:space="preserve"><value>استخدام القيمة العامة</value></data>
+  <data name="Settings.LiveReload" xml:space="preserve"><value>تحديث مباشر</value></data>
+  <data name="Settings.RestartRequired" xml:space="preserve"><value>يتطلب إعادة التشغيل</value></data>
+  <data name="Settings.GlobalSaved" xml:space="preserve"><value>تم حفظ الإعدادات العامة. القيم ذات التحديث المباشر فعّالة فوراً؛ أما القيم التي تتطلب إعادة تشغيل فموضحة أدناه.</value></data>
+  <data name="Settings.OverrideSaved" xml:space="preserve"><value>تم حفظ تخصيص إعدادات المستودع وإبطال ذاكرة التخزين المؤقت.</value></data>
+  <data name="Settings.Imported" xml:space="preserve"><value>تم استيراد الإعدادات وتدقيقها وإتاحتها فوراً عبر ذاكرة التخزين المؤقت.</value></data>
+  <data name="Settings.InvalidJson" xml:space="preserve"><value>ملف الاستيراد ليس JSON صالحاً لمخطط إعدادات WareCommand.</value></data>
+  <data name="Settings.EmptyImport" xml:space="preserve"><value>مستند الاستيراد فارغ.</value></data>
+  <data name="Settings.ConfigurationBoundary" xml:space="preserve"><value>حدود الإعدادات</value></data>
+  <data name="Settings.ConfigurationBoundaryText" xml:space="preserve"><value>توجد قواعد العمل هنا؛ ولا تُخزّن أسرار النشر وبيانات الاعتماد أو تُعرض في هذه الشاشة.</value></data>
+  <data name="Settings.ReloadText" xml:space="preserve"><value>تُعاد قراءة إعدادات لوحة التحكم والماسح والمواقع فور الحفظ. تبقى إعدادات اتصال قاعدة البيانات وحماية البيانات وموفر الأسرار ضمن إعدادات النشر وتتطلب إعادة التشغيل عند تغييرها.</value></data>
+  <data name="Settings.Scope" xml:space="preserve"><value>نطاق الإعدادات</value></data>
+  <data name="Settings.GlobalDefaults" xml:space="preserve"><value>القيم العامة الافتراضية</value></data>
+  <data name="Settings.LoadScope" xml:space="preserve"><value>تحميل النطاق</value></data>
+  <data name="Settings.ScopeHelp" xml:space="preserve"><value>تتجاوز قيم المستودع الحقول التي تملؤها فقط؛ وتستخدم الحقول الفارغة القيم العامة.</value></data>
+  <data name="Settings.CompanyWarehouseDefaults" xml:space="preserve"><value>افتراضيات الشركة والمستودع</value></data>
+  <data name="Settings.NumberingDashboard" xml:space="preserve"><value>الترقيم ولوحة التحكم</value></data>
+  <data name="Settings.InventoryScanner" xml:space="preserve"><value>قواعد المخزون والانتهاء والماسح</value></data>
+  <data name="Settings.LabelsReportsLocalization" xml:space="preserve"><value>الملصقات والتقارير والتعريب والتكاملات</value></data>
+  <data name="Settings.WarehouseOverrides" xml:space="preserve"><value>تخصيصات المستودع</value></data>
+  <data name="Settings.BlankInherits" xml:space="preserve"><value>الفارغ يستخدم القيمة العامة</value></data>
+  <data name="Settings.NotConfigured" xml:space="preserve"><value>غير مهيأ</value></data>
+  <data name="Settings.Locale" xml:space="preserve"><value>اللغة</value></data>
+  <data name="Settings.TimeZone" xml:space="preserve"><value>المنطقة الزمنية</value></data>
+  <data name="Settings.Currency" xml:space="preserve"><value>رمز العملة</value></data>
+  <data name="Settings.ImportLabel" xml:space="preserve"><value>JSON إعدادات WareCommand</value></data>
+  <data name="Settings.ImportPlaceholder" xml:space="preserve"><value>ألصق تصديراً أنشأته هذه الشاشة</value></data>
+  <data name="Settings.ImportHelp" xml:space="preserve"><value>يستبدل الاستيراد الملف العام الصريح وتخصيصات المستودعات. يُتحقق من التغيير ويدقق كمعاملة واحدة.</value></data>
+  <data name="Settings.ValidateImport" xml:space="preserve"><value>تحقق واستيراد</value></data>
+  <data name="Settings.LowStockThreshold" xml:space="preserve"><value>حد انخفاض المخزون</value></data>
+  <data name="Settings.RefreshInterval" xml:space="preserve"><value>فاصل التحديث</value></data>
+  <data name="Settings.ReceivingLocation" xml:space="preserve"><value>موقع الاستلام</value></data>
+  <data name="Settings.ExpiryWarning" xml:space="preserve"><value>تحذير الانتهاء</value></data>
+  <data name="Settings.Seconds" xml:space="preserve"><value>ثانية</value></data>
+  <data name="Settings.Days" xml:space="preserve"><value>يوم</value></data>
+  <data name="Settings.CompanyName" xml:space="preserve"><value>اسم الشركة</value></data>
+  <data name="Settings.CompanyCode" xml:space="preserve"><value>رمز الشركة</value></data>
+  <data name="Settings.DefaultWarehouse" xml:space="preserve"><value>المستودع الافتراضي</value></data>
+  <data name="Settings.ReceivingLocationCode" xml:space="preserve"><value>موقع الاستلام الافتراضي</value></data>
+  <data name="Settings.ShippingLocationCode" xml:space="preserve"><value>موقع الشحن الافتراضي</value></data>
+  <data name="Settings.ReceivingPrefix" xml:space="preserve"><value>بادئة الاستلام</value></data>
+  <data name="Settings.NextReceivingNumber" xml:space="preserve"><value>رقم الاستلام التالي</value></data>
+  <data name="Settings.ShippingPrefix" xml:space="preserve"><value>بادئة الشحن</value></data>
+  <data name="Settings.NextShippingNumber" xml:space="preserve"><value>رقم الشحن التالي</value></data>
+  <data name="Settings.AdjustmentPrefix" xml:space="preserve"><value>بادئة التسوية</value></data>
+  <data name="Settings.NextAdjustmentNumber" xml:space="preserve"><value>رقم التسوية التالي</value></data>
+  <data name="Settings.LowStockAlertLimit" xml:space="preserve"><value>حد تنبيه انخفاض المخزون</value></data>
+  <data name="Settings.RecentMovementLimit" xml:space="preserve"><value>حد الحركات الأخيرة</value></data>
+  <data name="Settings.RefreshIntervalSeconds" xml:space="preserve"><value>فاصل التحديث (بالثواني)</value></data>
+  <data name="Settings.AllowNegativeStock" xml:space="preserve"><value>السماح بالمخزون السالب</value></data>
+  <data name="Settings.RequireLocationForAdjustment" xml:space="preserve"><value>طلب الموقع عند التسوية</value></data>
+  <data name="Settings.MaximumAdjustmentQuantity" xml:space="preserve"><value>الحد الأقصى لكمية التسوية</value></data>
+  <data name="Settings.ExpiryWarningDays" xml:space="preserve"><value>تحذير الانتهاء (بالأيام)</value></data>
+  <data name="Settings.BlockExpiredReceipt" xml:space="preserve"><value>حظر استلام المنتهي</value></data>
+  <data name="Settings.ScannerTimeoutMilliseconds" xml:space="preserve"><value>مهلة الماسح (بالملي ثانية)</value></data>
+  <data name="Settings.MinimumBarcodeLength" xml:space="preserve"><value>الحد الأدنى لطول الباركود</value></data>
+  <data name="Settings.MaximumBarcodeLength" xml:space="preserve"><value>الحد الأقصى لطول الباركود</value></data>
+  <data name="Settings.EnableAudioFeedback" xml:space="preserve"><value>صوت الماسح</value></data>
+  <data name="Settings.LabelTemplateName" xml:space="preserve"><value>اسم قالب الملصق</value></data>
+  <data name="Settings.LabelPaperSize" xml:space="preserve"><value>حجم ورق الملصق</value></data>
+  <data name="Settings.IncludeCompanyNameOnLabels" xml:space="preserve"><value>تضمين اسم الشركة على الملصقات</value></data>
+  <data name="Settings.DefaultReportPeriodDays" xml:space="preserve"><value>فترة التقرير الافتراضية (بالأيام)</value></data>
+  <data name="Settings.MaximumReportRows" xml:space="preserve"><value>الحد الأقصى لصفوف التقرير</value></data>
+  <data name="Settings.IntegrationsEnabled" xml:space="preserve"><value>التكاملات مفعلة</value></data>
+  <data name="Settings.IntegrationEndpointUrl" xml:space="preserve"><value>عنوان نقطة التكامل</value></data>
+  <data name="Settings.IntegrationTimeoutSeconds" xml:space="preserve"><value>مهلة التكامل (بالثواني)</value></data>
+  <data name="Settings.ShippingLocation" xml:space="preserve"><value>موقع الشحن</value></data>
+  <data name="Settings.LowStockAlert" xml:space="preserve"><value>حد تنبيه انخفاض المخزون</value></data>
+  <data name="Settings.ReportPeriod" xml:space="preserve"><value>فترة التقرير (بالأيام)</value></data>
+  <data name="Settings.ReportRows" xml:space="preserve"><value>صفوف التقرير</value></data>
+  <data name="Settings.ExpiredReceiptBehavior" xml:space="preserve"><value>سلوك الاستلام المنتهي</value></data>
+  <data name="Settings.ScannerAudio" xml:space="preserve"><value>صوت الماسح</value></data>
+  <data name="Settings.Enabled" xml:space="preserve"><value>مفعّل</value></data>
+  <data name="Settings.Disabled" xml:space="preserve"><value>معطّل</value></data>
+  <data name="Settings.AllowExpiredReceipt" xml:space="preserve"><value>السماح باستلام المنتهي</value></data>
+  <data name="Desktop.WarehouseSystem" xml:space="preserve"><value>نظام إدارة المستودعات</value></data>
+  <data name="Desktop.DashboardStatus" xml:space="preserve"><value>لوحة التحكم - نظرة عامة على عمليات المستودع</value></data>
+  <data name="Desktop.ReceivingStatus" xml:space="preserve"><value>الاستلام - امسح الأصناف لإضافتها إلى المخزون</value></data>
+  <data name="Desktop.PutawayStatus" xml:space="preserve"><value>الإيداع - نقل الأصناف إلى مواقع التخزين</value></data>
+  <data name="Desktop.InventoryStatus" xml:space="preserve"><value>المخزون - عرض وإدارة مستويات المخزون</value></data>
+  <data name="Desktop.PickingStatus" xml:space="preserve"><value>التجهيز - تجهيز الأصناف للطلبات</value></data>
+  <data name="Desktop.ItemsStatus" xml:space="preserve"><value>إدارة الأصناف - إدارة بيانات الأصناف</value></data>
+  <data name="Desktop.LocationsStatus" xml:space="preserve"><value>إدارة المواقع - إدارة مواقع المستودع</value></data>
+  <data name="Desktop.ReportsStatus" xml:space="preserve"><value>التقارير - إنشاء وتصدير تقارير الحركات</value></data>
+  <data name="Desktop.RefreshHotkey" xml:space="preserve"><value>تحديث (F5)</value></data>
+  <data name="Desktop.SearchHotkey" xml:space="preserve"><value>بحث (Enter)</value></data>
+  <data name="Desktop.AddHotkey" xml:space="preserve"><value>إضافة (F1)</value></data>
+  <data name="Desktop.EditHotkey" xml:space="preserve"><value>تعديل (F2)</value></data>
+  <data name="Desktop.DeleteHotkey" xml:space="preserve"><value>حذف (Del)</value></data>
+  <data name="Desktop.SaveHotkey" xml:space="preserve"><value>حفظ (F1)</value></data>
+  <data name="Desktop.ClearHotkey" xml:space="preserve"><value>مسح (F2)</value></data>
+  <data name="Desktop.Ready" xml:space="preserve"><value>جاهز</value></data>
+  <data name="Desktop.Loading" xml:space="preserve"><value>جار التحميل...</value></data>
+  <data name="Desktop.Searching" xml:space="preserve"><value>جار البحث...</value></data>
+  <data name="Desktop.DataError" xml:space="preserve"><value>خطأ في تحميل البيانات</value></data>
+  <data name="Desktop.LastRefreshed" xml:space="preserve"><value>آخر تحديث: --</value></data>
+  <data name="Desktop.LastRefreshedAt" xml:space="preserve"><value>آخر تحديث: {0}</value></data>
+  <data name="Desktop.TotalStockQty" xml:space="preserve"><value>إجمالي كمية المخزون</value></data>
+  <data name="Desktop.SkusWithStock" xml:space="preserve"><value>الأصناف ذات المخزون</value></data>
+  <data name="Desktop.ActiveLocations" xml:space="preserve"><value>المواقع النشطة</value></data>
+  <data name="Desktop.LowStockAlerts" xml:space="preserve"><value>تنبيهات انخفاض المخزون</value></data>
+  <data name="Desktop.RecentMovements" xml:space="preserve"><value>الحركات الأخيرة</value></data>
+  <data name="Desktop.ItemName" xml:space="preserve"><value>اسم الصنف</value></data>
+  <data name="Desktop.LocationName" xml:space="preserve"><value>اسم الموقع</value></data>
+  <data name="Desktop.FullPath" xml:space="preserve"><value>المسار الكامل</value></data>
+  <data name="Desktop.TotalQty" xml:space="preserve"><value>إجمالي الكمية</value></data>
+  <data name="Desktop.Locations" xml:space="preserve"><value>المواقع</value></data>
+  <data name="Desktop.Item" xml:space="preserve"><value>الصنف</value></data>
+  <data name="Desktop.Qty" xml:space="preserve"><value>الكمية</value></data>
+  <data name="Desktop.ConfirmDelete" xml:space="preserve"><value>تأكيد الحذف</value></data>
+  <data name="Desktop.DeleteLocationPrompt" xml:space="preserve"><value>هل أنت متأكد من رغبتك في حذف هذا الموقع؟</value></data>
+  <data name="Reports.Title" xml:space="preserve"><value>التقارير</value></data>
+  <data name="Home.Welcome" xml:space="preserve"><value>مرحباً</value></data>
+  <data name="Home.Learn" xml:space="preserve"><value>تعرّف على بناء تطبيقات الويب باستخدام ASP.NET Core.</value></data>
+  <data name="Home.Title" xml:space="preserve"><value>الرئيسية</value></data>
+  <data name="Home.Privacy" xml:space="preserve"><value>سياسة الخصوصية</value></data>
+  <data name="Home.PrivacyText" xml:space="preserve"><value>استخدم هذه الصفحة لتوضيح سياسة الخصوصية لموقعك.</value></data>
+  <data name="Error.InvalidCredentials" xml:space="preserve"><value>اسم المستخدم أو كلمة المرور غير صحيحة.</value></data>
+  <data name="Error.AccountLocked" xml:space="preserve"><value>هذا الحساب مقفل مؤقتاً. حاول لاحقاً.</value></data>
+  <data name="Error.NotFound" xml:space="preserve"><value>لم يتم العثور على السجل المطلوب.</value></data>
+  <data name="Error.OperationFailed" xml:space="preserve"><value>تعذر إكمال العملية.</value></data>
+  <data name="Error.DataConflict" xml:space="preserve"><value>التغيير المطلوب يتعارض مع بيانات موجودة.</value></data>
+  <data name="Error.DataDependency" xml:space="preserve"><value>تعذر على خدمة البيانات إكمال الطلب. حاول مرة أخرى.</value></data>
+  <data name="Error.Concurrency" xml:space="preserve"><value>تغير السجل أثناء عملك. أعد تحميله وحاول مرة أخرى.</value></data>
+  <data name="Error.Title" xml:space="preserve"><value>خطأ</value></data>
+  <data name="Error.Processing" xml:space="preserve"><value>حدث خطأ أثناء معالجة طلبك.</value></data>
+  <data name="Error.Reference" xml:space="preserve"><value>مرجع الخطأ</value></data>
+  <data name="Error.RequestId" xml:space="preserve"><value>معرّف الطلب</value></data>
+  <data name="Error.Retry" xml:space="preserve"><value>أعد المحاولة. إذا استمر الخطأ، زوّد الدعم بمرجع الخطأ.</value></data>
+  <data name="Error.Validation" xml:space="preserve"><value>صحح القيم المحددة وحاول مرة أخرى.</value></data>
+  <data name="Error.Conflict" xml:space="preserve"><value>يتعارض التغيير المطلوب مع بيانات موجودة.</value></data>
+  <data name="Error.Forbidden" xml:space="preserve"><value>ليس لديك صلاحية لتنفيذ هذه العملية.</value></data>
+  <data name="Error.Unauthorized" xml:space="preserve"><value>يلزم وجود مستخدم نشط ومسجل الدخول.</value></data>
+  <data name="Error.Dependency" xml:space="preserve"><value>تعذر على خدمة البيانات إكمال الطلب. حاول مرة أخرى.</value></data>
+  <data name="Error.Unexpected" xml:space="preserve"><value>تعذر إكمال العملية.</value></data>
+  <data name="The {0} field is required." xml:space="preserve"><value>الحقل {0} مطلوب.</value></data>
+  <data name="The field {0} must be a string with a maximum length of {1}." xml:space="preserve"><value>يجب ألا يتجاوز الحقل {0} الطول {1}.</value></data>
+  <data name="The field {0} must be between {1} and {2}." xml:space="preserve"><value>يجب أن تكون قيمة الحقل {0} بين {1} و{2}.</value></data>
+  <data name="The field {0} and {1} do not match." xml:space="preserve"><value>الحقلان {0} و{1} غير متطابقين.</value></data>
+  <data name="The field {0} must be a valid e-mail address." xml:space="preserve"><value>يجب أن يحتوي الحقل {0} على بريد إلكتروني صحيح.</value></data>
+  <data name="The Username or email field is required." xml:space="preserve"><value>حقل اسم المستخدم أو البريد الإلكتروني مطلوب.</value></data>
+  <data name="The Password field is required." xml:space="preserve"><value>حقل كلمة المرور مطلوب.</value></data>
+  <data name="The Remember me field is required." xml:space="preserve"><value>حقل تذكرني مطلوب.</value></data>
+  <data name="The Email field is required." xml:space="preserve"><value>حقل البريد الإلكتروني مطلوب.</value></data>
+  <data name="The Display name field is required." xml:space="preserve"><value>حقل الاسم الظاهر مطلوب.</value></data>
+  <data name="The Employee code field is required." xml:space="preserve"><value>حقل رمز الموظف مطلوب.</value></data>
+  <data name="The Locale field is required." xml:space="preserve"><value>حقل اللغة مطلوب.</value></data>
+  <data name="The TimeZone field is required." xml:space="preserve"><value>حقل المنطقة الزمنية مطلوب.</value></data>
+  <data name="The field Username or email must be a string with a maximum length of 256." xml:space="preserve"><value>يجب ألا يتجاوز حقل اسم المستخدم أو البريد الإلكتروني 256 حرفاً.</value></data>
+</root>

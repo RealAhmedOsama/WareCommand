@@ -45,7 +45,7 @@ public sealed class SettingsFlowTests(WareCommandWebApplicationFactory factory)
         var pageBody = await page.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         Assert.Contains("Global settings", pageBody, StringComparison.Ordinal);
-        Assert.Contains("business rules live here", pageBody, StringComparison.Ordinal);
+        Assert.Contains("Business rules live here", pageBody, StringComparison.Ordinal);
         Assert.DoesNotContain("Password", pageBody, StringComparison.OrdinalIgnoreCase);
 
         using var export = await client.GetAsync("/Settings/Export");

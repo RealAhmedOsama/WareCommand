@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Logging;
 using Wms.Infrastructure.Identity;
+using Wms.WinForms.Common;
 
 namespace Wms.WinForms.Forms;
 
@@ -19,7 +20,7 @@ public sealed class LoginForm : Form
     {
         _authenticationService = authenticationService;
         _logger = logger;
-        Text = "WareCommand - Sign in";
+        Text = $"{WmsDesktopLocalization.Get("App.ShortName")} - {WmsDesktopLocalization.Get("Account.SignIn")}";
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
@@ -31,20 +32,20 @@ public sealed class LoginForm : Form
         {
             AutoSize = true,
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Text = "Sign in to WareCommand"
+            Text = WmsDesktopLocalization.Get("Account.SignInTitle")
         };
         var instructionLabel = new Label
         {
             AutoSize = true,
-            Text = "Use the warehouse account provided by an administrator."
+            Text = WmsDesktopLocalization.Get("Account.SignInHelp")
         };
 
         _userNameTextBox.Dock = DockStyle.Fill;
-        _userNameTextBox.AccessibleName = "Username or email";
+        _userNameTextBox.AccessibleName = WmsDesktopLocalization.Get("Account.UsernameOrEmail");
         _passwordTextBox.Dock = DockStyle.Fill;
-        _passwordTextBox.AccessibleName = "Password";
+        _passwordTextBox.AccessibleName = WmsDesktopLocalization.Get("Account.Password");
         _passwordTextBox.UseSystemPasswordChar = true;
-        _signInButton.Text = "Sign in";
+        _signInButton.Text = WmsDesktopLocalization.Get("Account.SignIn");
         _signInButton.AutoSize = true;
         _signInButton.Click += SignInButton_Click;
         AcceptButton = _signInButton;
@@ -73,14 +74,15 @@ public sealed class LoginForm : Form
         layout.SetColumnSpan(titleLabel, 2);
         layout.Controls.Add(instructionLabel, 0, 1);
         layout.SetColumnSpan(instructionLabel, 2);
-        layout.Controls.Add(new Label { Text = "Username or email", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
+        layout.Controls.Add(new Label { Text = WmsDesktopLocalization.Get("Account.UsernameOrEmail"), AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
         layout.Controls.Add(_userNameTextBox, 1, 3);
-        layout.Controls.Add(new Label { Text = "Password", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 4);
+        layout.Controls.Add(new Label { Text = WmsDesktopLocalization.Get("Account.Password"), AutoSize = true, Anchor = AnchorStyles.Left }, 0, 4);
         layout.Controls.Add(_passwordTextBox, 1, 4);
         layout.Controls.Add(_errorLabel, 0, 5);
         layout.SetColumnSpan(_errorLabel, 2);
         layout.Controls.Add(_signInButton, 1, 6);
         Controls.Add(layout);
+        WmsDesktopLocalization.Apply(this);
     }
 
     private async void SignInButton_Click(object? sender, EventArgs e)
@@ -100,13 +102,19 @@ public sealed class LoginForm : Form
                 return;
             }
 
-            _errorLabel.Text = result.Message;
+            _errorLabel.Text = result.Message switch
+            {
+                "Invalid username or password." => WmsDesktopLocalization.Get("Account.InvalidCredentials"),
+                "This account is disabled." => WmsDesktopLocalization.Get("Account.AccessDenied"),
+                "This account is temporarily locked." => WmsDesktopLocalization.Get("Account.Locked"),
+                _ => result.Message
+            };
             _passwordTextBox.SelectAll();
             _passwordTextBox.Focus();
         }
         catch (Exception exception)
         {
-            _errorLabel.Text = "Sign-in could not be completed. Check the application log.";
+            _errorLabel.Text = WmsDesktopLocalization.Get("Account.SignInFailed");
             _logger.LogError(
                 WmsLogEvents.AuthenticationFailed,
                 exception,

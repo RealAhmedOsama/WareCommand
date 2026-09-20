@@ -63,11 +63,11 @@ public class ReceivingController : Controller
         if (result.IsFailure)
         {
             this.AddToModelState(result);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return View(model);
         }
 
-        TempData["SuccessMessage"] = $"Item received successfully! Movement ID: {result.Value.MovementId}";
+        TempData["SuccessMessage"] = this.Localize("Receiving.Completed", result.Value.MovementId);
         return View(new ReceivingViewModel()); // Clear form for next entry
     }
 
@@ -109,11 +109,11 @@ public class ReceivingController : Controller
         if (result.IsFailure)
         {
             this.AddToModelState(result);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return View(model);
         }
 
-        TempData["SuccessMessage"] = $"Putaway completed successfully! Movement ID: {result.Value.MovementId}";
+        TempData["SuccessMessage"] = this.Localize("Putaway.Completed", result.Value.MovementId);
         return View(new PutawayViewModel()); // Clear form for next entry
     }
 }

@@ -37,5 +37,6 @@ public static class WmsAuthenticationEventTypes
     public const string AccountDisabledByAdmin = "AccountDisabledByAdmin";
     public const string AccountEnabledByAdmin = "AccountEnabledByAdmin";
     public const string AuthorizationChanged = "AuthorizationChanged";
+    public const string ProfileChanged = "ProfileChanged";
     public const string BootstrapAdminCreated = "BootstrapAdminCreated";
 }

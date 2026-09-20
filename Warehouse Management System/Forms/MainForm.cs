@@ -17,6 +17,7 @@ public partial class MainForm : Form
         _logger = logger;
         _serviceProvider = serviceProvider;
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
     }
@@ -113,7 +114,7 @@ public partial class MainForm : Form
     private void ShowDashboard()
     {
         ShowChildFormInPanel<DashboardForm>();
-        lblStatus.Text = "Dashboard - Overview of warehouse operations";
+        lblStatus.Text = WmsDesktopLocalization.Get("Desktop.DashboardStatus");
     }
 
     private void MainForm_KeyDown(object? sender, KeyEventArgs e)
@@ -158,42 +159,42 @@ public partial class MainForm : Form
     private void BtnReceiving_Click(object? sender, EventArgs e)
     {
         ShowDialogForm<ReceivingForm>();
-        lblStatus.Text = "Receiving - Scan items to receive into inventory";
+        lblStatus.Text = WmsDesktopLocalization.Get("Desktop.ReceivingStatus");
     }
 
     private void BtnPutaway_Click(object? sender, EventArgs e)
     {
         ShowDialogForm<PutawayForm>();
-        lblStatus.Text = "Putaway - Move items to storage locations";
+        lblStatus.Text = WmsDesktopLocalization.Get("Desktop.PutawayStatus");
     }
 
     private void BtnInventory_Click(object? sender, EventArgs e)
     {
         ShowChildFormInPanel<InventoryForm>();
-        lblStatus.Text = "Inventory - View and manage stock levels";
+        lblStatus.Text = WmsDesktopLocalization.Get("Desktop.InventoryStatus");
     }
 
     private void BtnPicking_Click(object? sender, EventArgs e)
     {
         ShowDialogForm<PickingForm>();
-        lblStatus.Text = "Picking - Pick items for orders";
+        lblStatus.Text = WmsDesktopLocalization.Get("Desktop.PickingStatus");
     }
 
     private void BtnItemManagement_Click(object? sender, EventArgs e)
     {
         ShowChildFormInPanel<ItemManagementForm>();
-        lblStatus.Text = "Item Management - Manage item master data";
+        lblStatus.Text = WmsDesktopLocalization.Get("Desktop.ItemsStatus");
     }
 
     private void BtnLocationManagement_Click(object? sender, EventArgs e)
     {
         ShowChildFormInPanel<LocationManagementForm>();
-        lblStatus.Text = "Location Management - Manage warehouse locations";
+        lblStatus.Text = WmsDesktopLocalization.Get("Desktop.LocationsStatus");
     }
 
     private void BtnReports_Click(object? sender, EventArgs e)
     {
         ShowDialogForm<ReportsForm>();
-        lblStatus.Text = "Reports - Generate and export movement reports";
+        lblStatus.Text = WmsDesktopLocalization.Get("Desktop.ReportsStatus");
     }
 }

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Wms.Application.Localization;
 
 namespace Wms.ASP.Models;
 
@@ -50,6 +51,8 @@ public sealed class ResetPasswordViewModel
 
 public sealed class ChangePasswordViewModel
 {
+    public string Locale { get; set; } = WmsLocaleCatalog.DefaultLocale;
+
     [Required]
     [DataType(DataType.Password)]
     [Display(Name = "Current password")]
@@ -66,6 +69,14 @@ public sealed class ChangePasswordViewModel
     [Compare(nameof(NewPassword))]
     [Display(Name = "Confirm password")]
     public string ConfirmPassword { get; set; } = string.Empty;
+}
+
+public sealed class LanguagePreferenceViewModel
+{
+    [Required, StringLength(20)]
+    public string Locale { get; set; } = WmsLocaleCatalog.DefaultLocale;
+
+    public string? ReturnUrl { get; set; }
 }
 
 public sealed class CreateUserViewModel

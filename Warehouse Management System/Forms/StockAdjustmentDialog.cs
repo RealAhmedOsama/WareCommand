@@ -22,6 +22,7 @@ public partial class StockAdjustmentDialog : Form
         }
 
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
     }

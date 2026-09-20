@@ -20,6 +20,7 @@ public partial class ReportsForm : Form
         _movementReportUseCase = movementReportUseCase;
         _logger = logger;
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
     }

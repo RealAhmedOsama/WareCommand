@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Auditing;
 using Wms.Application.Identity;
+using Wms.ASP.Extensions;
 using Wms.ASP.Models;
 using Wms.ASP.Security;
 
@@ -41,7 +42,7 @@ public sealed class AuditController(
         if (result.IsFailure)
         {
             logger.LogWarning("Audit search was denied or failed: {Error}", result.Error);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return View(model);
         }
 
@@ -71,7 +72,7 @@ public sealed class AuditController(
             if (result.IsFailure)
             {
                 logger.LogWarning("Audit export was denied or failed: {Error}", result.Error);
-                TempData["ErrorMessage"] = result.Error;
+                TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
                 return RedirectToAction(nameof(Index));
             }
 

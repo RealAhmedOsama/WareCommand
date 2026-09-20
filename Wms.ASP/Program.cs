@@ -3,15 +3,18 @@ using System.Net;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Wms.Application.DependencyInjection;
+using Wms.Application.Localization;
 using Wms.Application.Telemetry;
 using Wms.ASP.Errors;
 using Wms.ASP.Health;
 using Wms.ASP.Identity;
+using Wms.ASP.Localization;
 using Wms.ASP.Middleware;
 using Wms.ASP.Security;
 using Wms.ASP.Telemetry;
@@ -52,9 +55,30 @@ public class Program
             ConfigureForwardedHeaders(builder);
             builder.AddWmsSecurity();
 
-            builder.Services.AddControllersWithViews(options =>
+            builder.Services.AddLocalization();
+            builder.Services
+                .AddControllersWithViews(options =>
+                {
+                    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+                })
+                .AddViewLocalization()
+                .AddDataAnnotationsLocalization(options =>
+                {
+                    options.DataAnnotationLocalizerProvider = (_, factory) =>
+                        factory.Create(typeof(WmsSharedResource));
+                });
+            builder.Services.Configure<RequestLocalizationOptions>(options =>
             {
-                options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+                options.DefaultRequestCulture = new RequestCulture(WmsLocaleCatalog.DefaultLocale);
+                options.SupportedCultures = WmsLocaleCatalog.SupportedCultures.ToList();
+                options.SupportedUICultures = WmsLocaleCatalog.SupportedCultures.ToList();
+                options.RequestCultureProviders =
+                [
+                    new QueryStringRequestCultureProvider(),
+                    new WmsUserRequestCultureProvider(),
+                    new CookieRequestCultureProvider(),
+                    new WmsSettingsRequestCultureProvider()
+                ];
             });
             builder.Services.AddWmsInfrastructure(
                 connectionString,
@@ -124,6 +148,7 @@ public class Program
             app.UseMiddleware<WmsRequestMetricsMiddleware>();
             app.UseRateLimiter();
             app.UseAuthentication();
+            app.UseRequestLocalization();
             app.UseMiddleware<WmsRequestLoggingMiddleware>();
             app.UseAuthorization();
 

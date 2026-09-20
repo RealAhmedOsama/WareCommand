@@ -5,10 +5,13 @@ using Serilog;
 using Wms.Application.Context;
 using Wms.Application.DependencyInjection;
 using Wms.Application.Identity;
+using Wms.Application.Localization;
+using Wms.Application.Settings;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.DependencyInjection;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Logging;
+using Wms.WinForms.Common;
 using Wms.WinForms.Forms;
 
 namespace Wms.WinForms;
@@ -29,6 +32,7 @@ internal static class Program
         {
             _host = CreateHostBuilder().Build();
             await InitializeDatabaseAsync();
+            await InitializeCultureAsync();
 
             System.Windows.Forms.Application.SetHighDpiMode(HighDpiMode.SystemAware);
             System.Windows.Forms.Application.EnableVisualStyles();
@@ -40,6 +44,9 @@ internal static class Program
             {
                 return;
             }
+
+            var desktopSession = _host.Services.GetRequiredService<DesktopUserSession>();
+            WmsDesktopLocalization.SetCulture(desktopSession.Locale);
 
             var logger = _host.Services
                 .GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>()
@@ -119,5 +126,16 @@ internal static class Program
         var authorizationBootstrapper = scope.ServiceProvider
             .GetRequiredService<WmsAuthorizationBootstrapper>();
         await authorizationBootstrapper.EnsureRolesAndPermissionsAsync();
+    }
+
+    private static async Task InitializeCultureAsync()
+    {
+        await using var scope = _host!.Services.CreateAsyncScope();
+        var settingsService = scope.ServiceProvider.GetRequiredService<IWmsSettingsService>();
+        var result = await settingsService.GetAsync();
+        WmsDesktopLocalization.SetCulture(
+            result.IsSuccess
+                ? result.Value.Values.Localization.Locale
+                : WmsLocaleCatalog.DefaultLocale);
     }
 }

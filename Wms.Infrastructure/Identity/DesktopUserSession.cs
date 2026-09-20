@@ -12,11 +12,14 @@ public sealed class DesktopUserSession : ICurrentUser
 
     public string? DisplayName { get; private set; }
 
+    public string Locale { get; private set; } = "en-US";
+
     public void SignIn(WmsUser user)
     {
         UserId = user.Id;
         UserName = user.UserName;
         DisplayName = user.DisplayName;
+        Locale = user.Locale;
     }
 
     public void SignOut()
@@ -24,5 +27,6 @@ public sealed class DesktopUserSession : ICurrentUser
         UserId = null;
         UserName = null;
         DisplayName = null;
+        Locale = "en-US";
     }
 }

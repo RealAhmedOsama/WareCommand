@@ -24,6 +24,30 @@ body {
   color: #212529;
 }
 
+html[dir="rtl"] body {
+  font-family: 'Cairo', Tahoma, 'Segoe UI', sans-serif;
+}
+
+html[dir="rtl"] .navbar-brand,
+html[dir="rtl"] .btn,
+html[dir="rtl"] .form-control,
+html[dir="rtl"] .form-select,
+html[dir="rtl"] .table {
+  font-family: 'Cairo', Tahoma, 'Segoe UI', sans-serif;
+}
+
+.wms-identifier,
+.wms-barcode,
+.wms-number {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: start;
+}
+
+.language-form .form-select {
+  min-width: 7.5rem;
+}
+
 /* Container Improvements */
 .container {
   max-width: 1200px;

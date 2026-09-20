@@ -56,11 +56,11 @@ public class PickingController : Controller
         if (result.IsFailure)
         {
             this.AddToModelState(result);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return View("Index", model);
         }
 
-        TempData["SuccessMessage"] = $"Pick completed successfully! Movement ID: {result.Value.MovementId}";
+        TempData["SuccessMessage"] = this.Localize("Picking.Completed", result.Value.MovementId);
         return View("Index", new PickingViewModel()); // Clear form for next entry
     }
 }

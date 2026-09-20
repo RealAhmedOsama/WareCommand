@@ -21,6 +21,7 @@ public partial class ItemManagementForm : Form
         _logger = logger;
         _currentUser = currentUser;
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
         _ = LoadItemsAsync();

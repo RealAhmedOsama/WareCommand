@@ -49,7 +49,7 @@ public sealed class SettingsController(
             return View(nameof(Index), await BuildGlobalPageAsync(model, cancellationToken));
         }
 
-        TempData["SuccessMessage"] = "Global settings saved. Changes marked live-reload are active immediately; restart-required settings are documented below.";
+        TempData["SuccessMessage"] = this.Localize("Settings.GlobalSaved");
         return RedirectToAction(nameof(Index));
     }
 
@@ -74,7 +74,7 @@ public sealed class SettingsController(
             return View(nameof(Index), await BuildOverridePageAsync(model, cancellationToken));
         }
 
-        TempData["SuccessMessage"] = "Warehouse settings override saved and cache invalidated.";
+        TempData["SuccessMessage"] = this.Localize("Settings.OverrideSaved");
         return RedirectToAction(nameof(Index), new { warehouseId = model.WarehouseId });
     }
 
@@ -85,7 +85,7 @@ public sealed class SettingsController(
         var result = await settingsService.ExportAsync(cancellationToken);
         if (result.IsFailure)
         {
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return RedirectToAction(nameof(Index));
         }
 
@@ -114,13 +114,13 @@ public sealed class SettingsController(
         }
         catch (JsonException)
         {
-            ModelState.AddModelError(nameof(model.ImportJson), "The import is not valid JSON for the WareCommand settings schema.");
+            ModelState.AddModelError(nameof(model.ImportJson), this.Localize("Settings.InvalidJson"));
             return View(nameof(Index), await BuildPageAsync(null, cancellationToken));
         }
 
         if (document is null)
         {
-            ModelState.AddModelError(nameof(model.ImportJson), "The import document is empty.");
+            ModelState.AddModelError(nameof(model.ImportJson), this.Localize("Settings.EmptyImport"));
             return View(nameof(Index), await BuildPageAsync(null, cancellationToken));
         }
 
@@ -131,7 +131,7 @@ public sealed class SettingsController(
             return View(nameof(Index), await BuildPageAsync(null, cancellationToken));
         }
 
-        TempData["SuccessMessage"] = "Settings imported, audited, and made available through the cache immediately.";
+        TempData["SuccessMessage"] = this.Localize("Settings.Imported");
         return RedirectToAction(nameof(Index));
     }
 
@@ -147,7 +147,7 @@ public sealed class SettingsController(
                 cancellationToken);
             if (authorization.IsFailure)
             {
-                TempData["ErrorMessage"] = authorization.Error;
+                TempData["ErrorMessage"] = this.LocalizeError(authorization.FirstError!);
                 return new SettingsIndexViewModel
                 {
                     WarehouseId = warehouseId,
@@ -160,7 +160,7 @@ public sealed class SettingsController(
         if (result.IsFailure)
         {
             logger.LogWarning("Settings page could not load: {ErrorCode}", result.ErrorCode);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return new SettingsIndexViewModel
             {
                 WarehouseId = warehouseId,

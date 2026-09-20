@@ -32,6 +32,7 @@ public partial class ItemEditDialog : Form
         _itemId = itemId;
 
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
 

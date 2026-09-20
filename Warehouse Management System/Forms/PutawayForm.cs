@@ -33,6 +33,7 @@ public partial class PutawayForm : Form
         _settingsService = settingsService;
         _logger = logger;
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
     }

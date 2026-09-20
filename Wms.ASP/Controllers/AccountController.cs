@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.Localization;
 using Wms.ASP.Extensions;
 using Wms.ASP.Identity;
 using Wms.ASP.Models;
@@ -58,7 +60,7 @@ public sealed class AccountController(
                 false,
                 userName: model.UserName,
                 cancellationToken: cancellationToken);
-            ModelState.AddModelError(string.Empty, "Invalid username or password.");
+            ModelState.AddModelError(string.Empty, this.Localize("Account.InvalidCredentials"));
             return View(model);
         }
 
@@ -70,7 +72,7 @@ public sealed class AccountController(
                 user,
                 details: "Sign-in rejected for a disabled account.",
                 cancellationToken: cancellationToken);
-            ModelState.AddModelError(string.Empty, "Invalid username or password.");
+            ModelState.AddModelError(string.Empty, this.Localize("Account.InvalidCredentials"));
             return View(model);
         }
 
@@ -82,7 +84,7 @@ public sealed class AccountController(
                 user,
                 details: "Sign-in rejected while the account was locked.",
                 cancellationToken: cancellationToken);
-            ModelState.AddModelError(string.Empty, "This account is temporarily locked. Try again later.");
+            ModelState.AddModelError(string.Empty, this.Localize("Account.Locked"));
             return View(model);
         }
 
@@ -109,7 +111,7 @@ public sealed class AccountController(
                     user,
                     details: "Sign-in was rolled back because account metadata could not be persisted.",
                     cancellationToken: cancellationToken);
-                ModelState.AddModelError(string.Empty, "Sign-in could not be completed. Please try again.");
+                ModelState.AddModelError(string.Empty, this.Localize("Account.SignInFailed"));
                 return View(model);
             }
 
@@ -128,7 +130,7 @@ public sealed class AccountController(
                 false,
                 user,
                 cancellationToken: cancellationToken);
-            ModelState.AddModelError(string.Empty, "This account is temporarily locked. Try again later.");
+            ModelState.AddModelError(string.Empty, this.Localize("Account.Locked"));
         }
         else
         {
@@ -137,13 +139,13 @@ public sealed class AccountController(
                 false,
                 user,
                 cancellationToken: cancellationToken);
-            ModelState.AddModelError(string.Empty, "Invalid username or password.");
+            ModelState.AddModelError(string.Empty, this.Localize("Account.InvalidCredentials"));
         }
 
         return View(model);
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken = default)
@@ -295,7 +297,14 @@ public sealed class AccountController(
 
     [Authorize]
     [HttpGet]
-    public IActionResult Manage() => View(new ChangePasswordViewModel());
+    public async Task<IActionResult> Manage()
+    {
+        var user = await userManager.GetUserAsync(User);
+        return View(new ChangePasswordViewModel
+        {
+            Locale = WmsLocaleCatalog.Normalize(user?.Locale)
+        });
+    }
 
     [Authorize]
     [HttpPost]
@@ -332,8 +341,61 @@ public sealed class AccountController(
             true,
             user,
             cancellationToken: cancellationToken);
-        TempData["SuccessMessage"] = "Your password was changed successfully.";
+        TempData["SuccessMessage"] = this.Localize("Account.PasswordChanged");
         return RedirectToAction(nameof(Manage));
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetLocale(
+        [Bind("Locale,ReturnUrl")] LanguagePreferenceViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        if (!WmsLocaleCatalog.IsSupported(model.Locale))
+        {
+            ModelState.AddModelError(nameof(model.Locale), this.Localize("Language.Invalid"));
+            return View(nameof(Manage), new ChangePasswordViewModel
+            {
+                Locale = WmsLocaleCatalog.Normalize(model.Locale)
+            });
+        }
+
+        var user = await userManager.GetUserAsync(User);
+        if (user is not null)
+        {
+            user.Locale = WmsLocaleCatalog.Normalize(model.Locale);
+            var updateResult = await userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                AddIdentityErrors(updateResult);
+                return View(nameof(Manage), new ChangePasswordViewModel { Locale = user.Locale });
+            }
+
+            await signInManager.RefreshSignInAsync(user);
+        }
+        var locale = WmsLocaleCatalog.Normalize(model.Locale);
+        Response.Cookies.Append(
+            CookieRequestCultureProvider.DefaultCookieName,
+            CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(locale)),
+            new CookieOptions
+            {
+                Expires = DateTimeOffset.UtcNow.AddYears(1),
+                IsEssential = true,
+                SameSite = SameSiteMode.Lax,
+                Secure = Request.IsHttps
+            });
+        if (user is not null)
+        {
+            await AuditAsync(
+                WmsAuthenticationEventTypes.ProfileChanged,
+                true,
+                user,
+                details: "User language preference changed.",
+                cancellationToken: cancellationToken);
+        }
+        TempData["SuccessMessage"] = this.Localize("Language.Saved");
+        return RedirectToLocal(model.ReturnUrl);
     }
 
     [Authorize(Roles = WmsRoles.Administrator)]
@@ -375,6 +437,12 @@ public sealed class AccountController(
             return View(model);
         }
 
+        if (!WmsLocaleCatalog.IsSupported(model.Locale))
+        {
+            ModelState.AddModelError(nameof(model.Locale), this.Localize("Language.Invalid"));
+            return View(model);
+        }
+
         var user = new WmsUser
         {
             UserName = model.UserName.Trim(),
@@ -409,7 +477,7 @@ public sealed class AccountController(
             true,
             user,
             cancellationToken: cancellationToken);
-        TempData["SuccessMessage"] = $"Account '{user.UserName}' was created.";
+        TempData["SuccessMessage"] = this.Localize("Account.Created", user.UserName ?? string.Empty);
         return RedirectToAction(nameof(Users));
     }
 
@@ -427,7 +495,7 @@ public sealed class AccountController(
 
         if (currentUser?.Id == user.Id && user.IsActive)
         {
-            TempData["ErrorMessage"] = "You cannot disable the account currently in use.";
+            TempData["ErrorMessage"] = this.Localize("Account.CannotDisable");
             return RedirectToAction(nameof(Users));
         }
 
@@ -448,8 +516,8 @@ public sealed class AccountController(
             user,
             cancellationToken: cancellationToken);
         TempData["SuccessMessage"] = user.IsActive
-            ? $"Account '{user.UserName}' was enabled."
-            : $"Account '{user.UserName}' was disabled.";
+            ? this.Localize("Account.Enabled", user.UserName ?? string.Empty)
+            : this.Localize("Account.DisabledByAdmin", user.UserName ?? string.Empty);
         return RedirectToAction(nameof(Users));
     }
 
@@ -498,7 +566,7 @@ public sealed class AccountController(
             return View(model);
         }
 
-        TempData["SuccessMessage"] = $"Access assignments for '{profile.UserName}' were updated.";
+        TempData["SuccessMessage"] = this.Localize("Account.AccessUpdated", profile.UserName);
         return RedirectToAction(nameof(Users));
     }
 

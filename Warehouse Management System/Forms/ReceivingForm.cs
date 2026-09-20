@@ -34,6 +34,7 @@ public partial class ReceivingForm : Form
         _settingsService = settingsService;
         _logger = logger;
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
     }

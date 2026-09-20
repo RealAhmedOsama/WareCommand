@@ -27,6 +27,7 @@ public partial class PickingForm : Form
         _currentUser = currentUser;
         _logger = logger;
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
     }

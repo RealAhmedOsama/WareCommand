@@ -4,6 +4,36 @@
 // Write your JavaScript code.
 
 document.addEventListener('DOMContentLoaded', function () {
+  const language = (document.documentElement.lang || '').toLowerCase();
+  if (language.startsWith('ar') && window.jQuery?.validator) {
+    const $ = window.jQuery;
+    const messages = {
+      required: 'هذا الحقل مطلوب.',
+      email: 'أدخل بريداً إلكترونياً صحيحاً.',
+      maxlength: 'القيمة أطول من الحد المسموح.',
+      minlength: 'القيمة أقصر من الحد المسموح.',
+      range: 'القيمة خارج النطاق المسموح.',
+      equalTo: 'القيمتان غير متطابقتين.'
+    };
+    $.extend($.validator.messages, messages);
+
+    document.querySelectorAll('form').forEach(function (form) {
+      const validation = $(form).data('unobtrusiveValidation');
+      const formMessages = validation?.options?.messages;
+      if (!formMessages) {
+        return;
+      }
+
+      Object.keys(formMessages).forEach(function (fieldName) {
+        Object.keys(formMessages[fieldName]).forEach(function (ruleName) {
+          if (messages[ruleName]) {
+            formMessages[fieldName][ruleName] = messages[ruleName];
+          }
+        });
+      });
+    });
+  }
+
   document.querySelectorAll('[data-clear-form]').forEach(function (button) {
     button.addEventListener('click', function () {
       const form = button.closest('form');

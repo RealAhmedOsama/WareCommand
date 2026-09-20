@@ -1,58 +1,64 @@
 @model Wms.ASP.Models.CreateUserViewModel
 @{
-    ViewData["Title"] = "Create warehouse account";
+    ViewData["Title"] = T["Account.CreateTitle"];
 }
 
 <div class="row">
     <div class="col-md-8 col-lg-7">
-        <h1 class="h3 mb-3">Create warehouse account</h1>
-        <p class="text-muted">Set an initial credential over a protected connection. The user can rotate it from Account settings.</p>
+        <h1 class="h3 mb-3">@T["Account.CreateTitle"]</h1>
+        <p class="text-muted">@T["Account.CreateHelp"]</p>
         <form asp-action="CreateUser" method="post">
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label asp-for="DisplayName" class="form-label"></label>
+                    <label asp-for="DisplayName" class="form-label">@T["Account.DisplayName"]</label>
                     <input asp-for="DisplayName" class="form-control" autocomplete="name" />
                     <span asp-validation-for="DisplayName" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label asp-for="EmployeeCode" class="form-label"></label>
+                    <label asp-for="EmployeeCode" class="form-label">@T["Account.EmployeeCode"]</label>
                     <input asp-for="EmployeeCode" class="form-control" />
                     <span asp-validation-for="EmployeeCode" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label asp-for="UserName" class="form-label"></label>
+                    <label asp-for="UserName" class="form-label">@T["Account.Username"]</label>
                     <input asp-for="UserName" class="form-control" autocomplete="username" />
                     <span asp-validation-for="UserName" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label asp-for="Email" class="form-label"></label>
+                    <label asp-for="Email" class="form-label">@T["Account.Email"]</label>
                     <input asp-for="Email" class="form-control" autocomplete="email" />
                     <span asp-validation-for="Email" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label asp-for="Locale" class="form-label"></label>
-                    <input asp-for="Locale" class="form-control" />
+                    <label asp-for="Locale" class="form-label">@T["Account.Language"]</label>
+                    <select asp-for="Locale" class="form-select">
+                        @foreach (var locale in WmsLocaleCatalog.SupportedLocaleNames)
+                        {
+                            var languageKey = locale == WmsLocaleCatalog.Arabic ? "Language.Arabic" : "Language.English";
+                            <option value="@locale">@T[languageKey]</option>
+                        }
+                    </select>
                     <span asp-validation-for="Locale" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label asp-for="TimeZone" class="form-label"></label>
+                    <label asp-for="TimeZone" class="form-label">@T["Settings.TimeZone"]</label>
                     <input asp-for="TimeZone" class="form-control" />
                     <span asp-validation-for="TimeZone" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label asp-for="Password" class="form-label"></label>
+                    <label asp-for="Password" class="form-label">@T["Account.Password"]</label>
                     <input asp-for="Password" class="form-control" autocomplete="new-password" />
                     <span asp-validation-for="Password" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
-                    <label asp-for="ConfirmPassword" class="form-label"></label>
+                    <label asp-for="ConfirmPassword" class="form-label">@T["Account.ConfirmPassword"]</label>
                     <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
                     <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
                 </div>
             </div>
-            <button type="submit" class="btn btn-primary">Create account</button>
-            <a asp-action="Users" class="btn btn-link">Cancel</a>
+            <button type="submit" class="btn btn-primary">@T["Account.CreateAccount"]</button>
+            <a asp-action="Users" class="btn btn-link">@T["Account.Cancel"]</a>
         </form>
     </div>
 </div>

@@ -1,16 +1,16 @@
 @model CreateLocationViewModel
 @{
-    ViewData["Title"] = "Create New Location";
+    ViewData["Title"] = T["Locations.Create"];
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">
         <i class="bi bi-plus-circle me-2 text-primary"></i>
-        Create New Location
+        @T["Locations.Create"]
     </h2>
     <a asp-action="Index" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>
-        Back to Locations
+        @T["Common.Back"]
     </a>
 </div>
 
@@ -20,7 +20,7 @@
             <div class="card-header bg-primary bg-opacity-10 border-bottom">
                 <h5 class="card-title mb-0 text-primary">
                     <i class="bi bi-geo-alt me-2"></i>
-                    Location Information
+                    @T["Locations.Information"]
                 </h5>
             </div>
             <div class="card-body">
@@ -29,36 +29,36 @@
                     <div class="row g-3">
                         <!-- Basic Information -->
                         <div class="col-md-6">
-                            <label for="Code" class="form-label">Location Code <span class="text-danger">*</span></label>
+                            <label for="Code" class="form-label">@T["Locations.Code"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-qr-code"></i>
                                 </span>
-                                <input asp-for="Code" class="form-control" placeholder="Enter location code" required/>
+                                <input asp-for="Code" class="form-control wms-identifier" placeholder="@T["Locations.EnterCode"]" required/>
                             </div>
                             <span asp-validation-for="Code" class="text-danger"></span>
-                            <div class="form-text">Unique identifier for this location</div>
+                            <div class="form-text">@T["Locations.UniqueIdentifier"]</div>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="Name" class="form-label">Location Name <span class="text-danger">*</span></label>
+                            <label for="Name" class="form-label">@T["Locations.Name"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-tag"></i>
                                 </span>
-                                <input asp-for="Name" class="form-control" placeholder="Enter location name" required/>
+                                <input asp-for="Name" class="form-control" placeholder="@T["Locations.EnterName"]" required/>
                             </div>
                             <span asp-validation-for="Name" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="WarehouseId" class="form-label">Warehouse</label>
+                            <label for="WarehouseId" class="form-label">@T["Field.Warehouse"]</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-building"></i>
                                 </span>
                                 <select asp-for="WarehouseId" class="form-select">
-                                    <option value="">Select a warehouse</option>
+                                    <option value="">@T["Locations.SelectWarehouse"]</option>
                                     @foreach (var warehouse in Model.Warehouses)
                                     {
                                         <option value="@warehouse.Id">@warehouse.Code — @warehouse.Name</option>
@@ -69,21 +69,21 @@
                         </div>
 
                         <div class="col-md-6">
-                            <label for="Capacity" class="form-label">Capacity</label>
+                            <label for="Capacity" class="form-label">@T["Field.Capacity"]</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-box-seam"></i>
                                 </span>
-                                <input asp-for="Capacity" class="form-control" type="number" min="0" placeholder="0 (unlimited)"/>
+                                <input asp-for="Capacity" class="form-control" type="number" min="0" placeholder="@T["Locations.CapacityPlaceholder"]"/>
                             </div>
                             <span asp-validation-for="Capacity" class="text-danger"></span>
-                            <div class="form-text">Leave as 0 for unlimited capacity</div>
+                            <div class="form-text">@T["Locations.CapacityHelp"]</div>
                         </div>
 
                         <!-- Divider -->
                         <div class="col-12">
                             <hr class="my-4">
-                            <h6 class="text-muted">Location Properties</h6>
+                            <h6 class="text-muted">@T["Locations.Properties"]</h6>
                         </div>
 
                         <div class="col-md-6">
@@ -91,10 +91,10 @@
                                 <input asp-for="IsPickable" class="form-check-input" type="checkbox"/>
                                 <label class="form-check-label" for="IsPickable">
                                     <i class="bi bi-box-arrow-up me-1"></i>
-                                    Pickable Location
+                                    @T["Locations.Pickable"]
                                 </label>
                             </div>
-                            <div class="form-text">Allow picking operations from this location</div>
+                            <div class="form-text">@T["Locations.PickableHelp"]</div>
                         </div>
 
                         <div class="col-md-6">
@@ -102,10 +102,10 @@
                                 <input asp-for="IsReceivable" class="form-check-input" type="checkbox"/>
                                 <label class="form-check-label" for="IsReceivable">
                                     <i class="bi bi-box-arrow-in-down me-1"></i>
-                                    Receivable Location
+                                    @T["Locations.Receivable"]
                                 </label>
                             </div>
-                            <div class="form-text">Allow receiving operations to this location</div>
+                            <div class="form-text">@T["Locations.ReceivableHelp"]</div>
                         </div>
 
                         <!-- Action Buttons -->
@@ -113,11 +113,11 @@
                             <div class="d-flex gap-2 justify-content-end">
                                 <a asp-action="Index" class="btn btn-outline-secondary">
                                     <i class="bi bi-x-circle me-1"></i>
-                                    Cancel
+                                    @T["Common.Cancel"]
                                 </a>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-check-circle me-1"></i>
-                                    Create Location
+                                    @T["Common.Create"]
                                 </button>
                             </div>
                         </div>

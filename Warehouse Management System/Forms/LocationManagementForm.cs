@@ -25,6 +25,7 @@ public partial class LocationManagementForm : Form
         _currentUser = currentUser;
         _logger = logger;
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
         _ = LoadLocationsAsync();

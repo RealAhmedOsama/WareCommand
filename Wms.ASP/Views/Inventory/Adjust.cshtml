@@ -1,16 +1,16 @@
 @model StockAdjustmentViewModel
 @{
-    ViewData["Title"] = "Stock Adjustment";
+    ViewData["Title"] = T["Inventory.Adjustment"];
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">
         <i class="bi bi-pencil-square me-2 text-warning"></i>
-        Stock Adjustment
+        @T["Inventory.Adjustment"]
     </h2>
     <a asp-action="Index" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>
-        Back to Inventory
+        @T["Common.Back"] @T["Nav.Inventory"]
     </a>
 </div>
 
@@ -20,7 +20,7 @@
             <div class="card-header bg-warning bg-opacity-10 border-bottom">
                 <h5 class="card-title mb-0 text-warning">
                     <i class="bi bi-exclamation-triangle me-2"></i>
-                    Adjust Stock Quantity
+                    @T["Inventory.Adjustment"]
                 </h5>
             </div>
             <div class="card-body">
@@ -29,13 +29,13 @@
                     <div class="row g-3">
                         <!-- Item Information -->
                         <div class="col-md-6">
-                            <label for="ItemSku" class="form-label">Item SKU</label>
+                            <label for="ItemSku" class="form-label">@T["Field.ItemSku"]</label>
                             <input asp-for="ItemSku" class="form-control" readonly/>
                             <span asp-validation-for="ItemSku" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="LocationCode" class="form-label">Location</label>
+                            <label for="LocationCode" class="form-label">@T["Field.Location"]</label>
                             <input asp-for="LocationCode" class="form-control" readonly/>
                             <span asp-validation-for="LocationCode" class="text-danger"></span>
                         </div>
@@ -44,13 +44,13 @@
                         <div class="col-12">
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle me-2"></i>
-                                <strong>Current Quantity:</strong> @Model.CurrentQuantity.ToString("N2")
+                                <strong>@T["Field.CurrentQuantity"]:</strong> @Model.CurrentQuantity.ToString("N2")
                             </div>
                         </div>
 
                         <!-- New Quantity Input -->
                         <div class="col-12">
-                            <label for="NewQuantity" class="form-label">New Quantity <span class="text-danger">*</span></label>
+                            <label for="NewQuantity" class="form-label">@T["Field.NewQuantity"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-123"></i>
@@ -59,7 +59,7 @@
                             </div>
                             <span asp-validation-for="NewQuantity" class="text-danger"></span>
                             <div class="form-text">
-                                Enter the new quantity for this stock item.
+                                @T["Field.NewQuantity"]
                             </div>
                         </div>
 
@@ -69,15 +69,15 @@
                                 <div class="card-body py-2">
                                     <div class="row text-center">
                                         <div class="col-4">
-                                            <small class="text-muted">Current</small>
+                                            <small class="text-muted">@T["Common.Current"]</small>
                                             <div class="fw-bold" id="currentQty">@Model.CurrentQuantity.ToString("N2")</div>
                                         </div>
                                         <div class="col-4">
-                                            <small class="text-muted">New</small>
+                                            <small class="text-muted">@T["Common.New"]</small>
                                             <div class="fw-bold text-primary" id="newQty">@Model.NewQuantity.ToString("N2")</div>
                                         </div>
                                         <div class="col-4">
-                                            <small class="text-muted">Adjustment</small>
+                                            <small class="text-muted">@T["Common.Adjustment"]</small>
                                             <div class="fw-bold" id="adjustment">@((Model.NewQuantity - Model.CurrentQuantity).ToString("+0.00;-0.00;0.00"))</div>
                                         </div>
                                     </div>
@@ -87,8 +87,8 @@
 
                         <!-- Reason -->
                         <div class="col-12">
-                            <label for="Reason" class="form-label">Reason for Adjustment <span class="text-danger">*</span></label>
-                            <textarea asp-for="Reason" class="form-control" rows="3" placeholder="Enter reason for this stock adjustment..." required></textarea>
+                            <label for="Reason" class="form-label">@T["Field.Reason"] <span class="text-danger">*</span></label>
+                            <textarea asp-for="Reason" class="form-control" rows="3" placeholder="@T["Field.Reason"]" required></textarea>
                             <span asp-validation-for="Reason" class="text-danger"></span>
                         </div>
 
@@ -97,11 +97,11 @@
                             <div class="d-flex gap-2 justify-content-end">
                                 <a asp-action="Index" class="btn btn-outline-secondary">
                                     <i class="bi bi-x-circle me-1"></i>
-                                    Cancel
+                                    @T["Common.Cancel"]
                                 </a>
                                 <button type="submit" class="btn btn-warning">
                                     <i class="bi bi-check-circle me-1"></i>
-                                    Adjust Stock
+                                    @T["Inventory.Adjustment"]
                                 </button>
                             </div>
                         </div>

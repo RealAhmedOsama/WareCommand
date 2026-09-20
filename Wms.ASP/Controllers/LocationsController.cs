@@ -55,7 +55,7 @@ public class LocationsController : Controller
         }
         else
         {
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
         }
 
         return View(model);
@@ -101,12 +101,12 @@ public class LocationsController : Controller
         if (result.IsFailure)
         {
             this.AddToModelState(result);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             await PopulateWarehouseOptionsAsync(model, cancellationToken);
             return View(model);
         }
 
-        TempData["SuccessMessage"] = $"Location '{model.Name}' created successfully!";
+        TempData["SuccessMessage"] = this.Localize("Locations.Created", model.Name);
         return RedirectToAction(nameof(Index));
     }
 

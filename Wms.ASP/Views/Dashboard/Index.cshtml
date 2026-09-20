@@ -1,20 +1,20 @@
 @model DashboardViewModel
 @{
-    ViewData["Title"] = "Dashboard";
+    ViewData["Title"] = T["Dashboard.Title"];
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">
         <i class="bi bi-speedometer2 me-2 text-primary"></i>
-        Warehouse Dashboard
+        @T["Dashboard.Title"]
     </h2>
     <div>
         <button type="button" class="btn btn-outline-primary" id="refreshBtn">
             <i class="bi bi-arrow-clockwise me-1"></i>
-            Refresh
+            @T["Dashboard.Refresh"]
         </button>
         <small class="text-muted ms-3">
-            Last updated: @Model.LastRefresh.ToString("MM/dd/yyyy HH:mm:ss")
+            @Model.LastRefresh.ToString("g")
         </small>
     </div>
 </div>
@@ -30,8 +30,8 @@
                     </div>
                 </div>
                 <h3 class="mb-1">@Model.TotalItems.ToString("N0")</h3>
-                <h6 class="text-muted mb-0">Total Items</h6>
-                <small class="text-success">@Model.ActiveItems.ToString("N0") Active</small>
+                <h6 class="text-muted mb-0">@T["Dashboard.TotalItems"]</h6>
+                <small class="text-success">@Model.ActiveItems.ToString("N0") @T["Dashboard.Active"]</small>
             </div>
         </div>
     </div>
@@ -45,8 +45,8 @@
                     </div>
                 </div>
                 <h3 class="mb-1">@Model.TotalSKUs.ToString("N0")</h3>
-                <h6 class="text-muted mb-0">Total SKUs</h6>
-                <small class="text-info">In Stock</small>
+                <h6 class="text-muted mb-0">@T["Dashboard.TotalSkus"]</h6>
+                <small class="text-info">@T["Dashboard.InStock"]</small>
             </div>
         </div>
     </div>
@@ -60,8 +60,8 @@
                     </div>
                 </div>
                 <h3 class="mb-1">@Model.TotalStockValue.ToString("N0")</h3>
-                <h6 class="text-muted mb-0">Total Units</h6>
-                <small class="text-warning">In Stock</small>
+                <h6 class="text-muted mb-0">@T["Dashboard.TotalUnits"]</h6>
+                <small class="text-warning">@T["Dashboard.InStock"]</small>
             </div>
         </div>
     </div>
@@ -75,8 +75,8 @@
                     </div>
                 </div>
                 <h3 class="mb-1">@Model.StockLocations.ToString("N0")</h3>
-                <h6 class="text-muted mb-0">Stock Locations</h6>
-                <small class="text-info">Active</small>
+                <h6 class="text-muted mb-0">@T["Dashboard.StockLocations"]</h6>
+                <small class="text-info">@T["Dashboard.Active"]</small>
             </div>
         </div>
     </div>
@@ -90,7 +90,7 @@
             <div class="card-header bg-white border-bottom">
                 <h5 class="card-title mb-0">
                     <i class="bi bi-clock-history me-2 text-primary"></i>
-                    Recent Movements (Last @Model.RecentMovementPeriodDays Days)
+                    @T["Dashboard.LastDays", Model.RecentMovementPeriodDays]
                 </h5>
             </div>
             <div class="card-body p-0">
@@ -100,11 +100,11 @@
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
                             <tr>
-                                <th>Type</th>
-                                <th>SKU</th>
-                                <th class="text-end">Quantity</th>
-                                <th>Time</th>
-                                <th>User</th>
+                                <th>@T["Movement.Type"]</th>
+                                <th>@T["Movement.Sku"]</th>
+                                <th class="text-end">@T["Movement.Quantity"]</th>
+                                <th>@T["Movement.Time"]</th>
+                                <th>@T["Movement.User"]</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -113,12 +113,12 @@
                                 <tr>
                                     <td>
                                         <span class="badge bg-@(GetMovementTypeColor(movement.Type))">
-                                            @movement.Type
+                                            @T[$"Movement.{movement.Type}"]
                                         </span>
                                     </td>
-                                    <td class="fw-medium">@movement.ItemSku</td>
-                                    <td class="text-end">@movement.Quantity.ToString("N1")</td>
-                                    <td class="text-muted">@movement.Timestamp.ToString("MM/dd HH:mm")</td>
+                                    <td class="fw-medium wms-identifier">@movement.ItemSku</td>
+                                    <td class="text-end wms-number">@movement.Quantity.ToString("N1")</td>
+                                    <td class="text-muted">@movement.Timestamp.ToString("g")</td>
                                     <td class="text-muted">@movement.UserId</td>
                                 </tr>
                             }
@@ -130,7 +130,7 @@
                 {
                     <div class="text-center py-5 text-muted">
                         <i class="bi bi-inbox fs-1 mb-3"></i>
-                        <p class="mb-0">No recent movements</p>
+                        <p class="mb-0">@T["Dashboard.NoRecentMovements"]</p>
                     </div>
                 }
             </div>
@@ -143,7 +143,7 @@
             <div class="card-header bg-white border-bottom">
                 <h5 class="card-title mb-0">
                     <i class="bi bi-exclamation-triangle text-warning me-2"></i>
-                    Low Stock Alerts
+                    @T["Dashboard.LowStockAlerts"]
                 </h5>
             </div>
             <div class="card-body p-0">
@@ -155,7 +155,7 @@
                             <div class="list-group-item border-0 py-3">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div class="flex-grow-1">
-                                        <h6 class="mb-1 fw-medium">@item.ItemSku</h6>
+                                        <h6 class="mb-1 fw-medium wms-identifier">@item.ItemSku</h6>
                                         <p class="mb-1 text-muted small">@item.ItemName</p>
                                         <small class="text-muted">@item.LocationCode</small>
                                     </div>
@@ -171,7 +171,7 @@
                     <div class="card-footer bg-light text-center">
                         <a asp-controller="Inventory" asp-action="Index" class="btn btn-sm btn-outline-warning">
                             <i class="bi bi-eye me-1"></i>
-                            View All Inventory
+                            @T["Nav.Inventory"]
                         </a>
                     </div>
                 }
@@ -179,7 +179,7 @@
                 {
                     <div class="text-center py-5 text-success">
                         <i class="bi bi-check-circle fs-1 mb-3"></i>
-                        <p class="mb-0">All items well stocked!</p>
+                        <p class="mb-0">@T["Dashboard.AllItemsWellStocked"]</p>
                     </div>
                 }
             </div>

@@ -1,30 +1,48 @@
 @model Wms.ASP.Models.ChangePasswordViewModel
 @{
-    ViewData["Title"] = "Account settings";
+    ViewData["Title"] = T["Account.Settings"];
 }
 
 <div class="row">
     <div class="col-md-7 col-lg-6">
-        <h1 class="h3 mb-3">Account settings</h1>
-        <p class="text-muted">Change your password. Your current password is required.</p>
+        <h1 class="h3 mb-3">@T["Account.Settings"]</h1>
+        <p class="text-muted">@T["Account.ChangePasswordHelp"]</p>
         <form asp-action="Manage" method="post">
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
             <div class="mb-3">
-                <label asp-for="CurrentPassword" class="form-label"></label>
+                <label asp-for="CurrentPassword" class="form-label">@T["Account.CurrentPassword"]</label>
                 <input asp-for="CurrentPassword" class="form-control" autocomplete="current-password" />
                 <span asp-validation-for="CurrentPassword" class="text-danger"></span>
             </div>
             <div class="mb-3">
-                <label asp-for="NewPassword" class="form-label"></label>
+                <label asp-for="NewPassword" class="form-label">@T["Account.NewPassword"]</label>
                 <input asp-for="NewPassword" class="form-control" autocomplete="new-password" />
                 <span asp-validation-for="NewPassword" class="text-danger"></span>
             </div>
             <div class="mb-3">
-                <label asp-for="ConfirmPassword" class="form-label"></label>
+                <label asp-for="ConfirmPassword" class="form-label">@T["Account.ConfirmPassword"]</label>
                 <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
                 <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
             </div>
-            <button type="submit" class="btn btn-primary">Change password</button>
+            <button type="submit" class="btn btn-primary">@T["Account.ChangePassword"]</button>
+        </form>
+        <hr class="my-4" />
+        <h2 class="h5">@T["Account.Language"]</h2>
+        <form asp-action="SetLocale" method="post" class="row g-2 align-items-end">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="ReturnUrl" value="@Context.Request.Path" />
+            <div class="col-sm-8">
+                <label for="Locale" class="form-label">@T["Language.Label"]</label>
+                <select id="Locale" name="Locale" class="form-select">
+                    @foreach (var locale in WmsLocaleCatalog.SupportedLocaleNames)
+                    {
+                        var languageKey = locale == WmsLocaleCatalog.Arabic ? "Language.Arabic" : "Language.English";
+                        <option value="@locale" selected="@(string.Equals(Model.Locale, locale, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@T[languageKey]</option>
+                    }
+                </select>
+                <span asp-validation-for="Locale" class="text-danger"></span>
+            </div>
+            <div class="col-sm-4"><button type="submit" class="btn btn-outline-primary">@T["Account.SaveLanguage"]</button></div>
         </form>
     </div>
 </div>

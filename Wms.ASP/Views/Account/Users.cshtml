@@ -1,25 +1,25 @@
 @model IReadOnlyList<Wms.ASP.Models.AccountUserViewModel>
 @{
-    ViewData["Title"] = "Warehouse accounts";
+    ViewData["Title"] = T["Account.WarehouseAccounts"];
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h1 class="h3 mb-1">Warehouse accounts</h1>
-        <p class="text-muted mb-0">Create staff accounts and disable access without deleting audit history.</p>
+        <h1 class="h3 mb-1">@T["Account.WarehouseAccounts"]</h1>
+        <p class="text-muted mb-0">@T["Account.AccountsHelp"]</p>
     </div>
-    <a asp-action="CreateUser" class="btn btn-primary">Create account</a>
+    <a asp-action="CreateUser" class="btn btn-primary">@T["Account.CreateAccount"]</a>
 </div>
 
 <div class="table-responsive">
     <table class="table table-striped align-middle">
         <thead>
         <tr>
-            <th>Display name</th>
-            <th>Username</th>
-            <th>Employee code</th>
-            <th>Status</th>
-            <th>Last login (UTC)</th>
+            <th>@T["Account.DisplayName"]</th>
+            <th>@T["Account.Username"]</th>
+            <th>@T["Account.EmployeeCode"]</th>
+            <th>@T["Field.Status"]</th>
+            <th>@T["Account.LastLogin"]</th>
             <th></th>
         </tr>
         </thead>
@@ -33,25 +33,25 @@
                 <td>
                     @if (!user.IsActive)
                     {
-                        <span class="badge text-bg-secondary">Disabled</span>
+                        <span class="badge text-bg-secondary">@T["Account.Disabled"]</span>
                     }
                     else if (user.IsLockedOut)
                     {
-                        <span class="badge text-bg-warning">Locked</span>
+                        <span class="badge text-bg-warning">@T["Account.LockedStatus"]</span>
                     }
                     else
                     {
-                        <span class="badge text-bg-success">Active</span>
+                        <span class="badge text-bg-success">@T["Account.Active"]</span>
                     }
                 </td>
-                <td>@(user.LastLoginAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
+                <td>@(user.LastLoginAtUtc?.ToString("g") ?? T["Account.Never"])</td>
                 <td class="text-end">
-                    <a asp-action="Access" asp-route-id="@user.Id" class="btn btn-sm btn-outline-primary">Manage access</a>
+                    <a asp-action="Access" asp-route-id="@user.Id" class="btn btn-sm btn-outline-primary">@T["Account.ManageAccess"]</a>
                     <form asp-action="ToggleActive" method="post">
                         <input type="hidden" name="id" value="@user.Id" />
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-sm @(user.IsActive ? "btn-outline-danger" : "btn-outline-success")">
-                            @(user.IsActive ? "Disable" : "Enable")
+                            @(user.IsActive ? T["Account.Disable"] : T["Account.Enable"])
                         </button>
                     </form>
                 </td>

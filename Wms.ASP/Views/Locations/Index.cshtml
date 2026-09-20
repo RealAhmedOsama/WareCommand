@@ -1,19 +1,19 @@
 @model LocationManagementViewModel
 @{
-    ViewData["Title"] = "Location Management";
+    ViewData["Title"] = T["Locations.Title"];
     var canManageLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsManage)).Succeeded;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">
         <i class="bi bi-geo-alt me-2 text-primary"></i>
-        Location Management
+        @T["Locations.Title"]
     </h2>
     @if (canManageLocations)
     {
         <a asp-action="Create" class="btn btn-primary">
             <i class="bi bi-plus-circle me-1"></i>
-            Add New Location
+            @T["Locations.Add"]
         </a>
     }
 </div>
@@ -23,24 +23,24 @@
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end">
             <div class="col-md-6">
-                <label for="searchTerm" class="form-label">Search Locations</label>
+                <label for="searchTerm" class="form-label">@T["Locations.Search"]</label>
                 <div class="input-group">
                     <span class="input-group-text">
                         <i class="bi bi-search"></i>
                     </span>
                     <input type="text" class="form-control" id="searchTerm" name="searchTerm"
-                           value="@Model.SearchTerm" placeholder="Search by code or name">
+                           value="@Model.SearchTerm" placeholder="@T["Locations.SearchPlaceholder"]">
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-search me-1"></i>
-                        Search
+                        @T["Common.Search"]
                     </button>
                     <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
                         <i class="bi bi-x-circle me-1"></i>
-                        Clear
+                        @T["Common.Clear"]
                     </a>
                 </div>
             </div>
@@ -53,7 +53,7 @@
     <div class="card-header bg-white border-bottom">
         <h5 class="card-title mb-0">
             <i class="bi bi-list-ul me-2 text-primary"></i>
-            Locations (@Model.Locations.Count)
+            @T["Locations.Title"] (@Model.Locations.Count)
         </h5>
     </div>
     <div class="card-body p-0">
@@ -63,14 +63,14 @@
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
                     <tr>
-                        <th>Code</th>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th class="text-center">Pickable</th>
-                        <th class="text-center">Receivable</th>
-                        <th class="text-end">Capacity</th>
-                        <th class="text-center">Status</th>
-                        <th class="text-center">Actions</th>
+                        <th>@T["Field.Code"]</th>
+                        <th>@T["Field.Name"]</th>
+                        <th>@T["Field.Type"]</th>
+                        <th class="text-center">@T["Field.Pickable"]</th>
+                        <th class="text-center">@T["Field.Receivable"]</th>
+                        <th class="text-end">@T["Field.Capacity"]</th>
+                        <th class="text-center">@T["Field.Status"]</th>
+                        <th class="text-center">@T["Common.Actions"]</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -78,7 +78,7 @@
                     {
                         <tr class="@(location.IsActive ? "" : "table-secondary")">
                             <td class="fw-medium">
-                                <code>@location.Code</code>
+                                <code class="wms-identifier">@location.Code</code>
                             </td>
                             <td>
                                 <div class="fw-medium">@location.Name</div>
@@ -88,26 +88,26 @@
                                 }
                             </td>
                             <td>
-                                <span class="badge bg-info">@(location.ParentLocationId.HasValue ? "Sub-Location" : "Main Location")</span>
+                                <span class="badge bg-info">@(location.ParentLocationId.HasValue ? T["Locations.SubLocation"] : T["Locations.MainLocation"])</span>
                             </td>
                             <td class="text-center">
                                 @if (location.IsPickable)
                                 {
-                                    <i class="bi bi-check-circle text-success" title="Pickable"></i>
+                                    <i class="bi bi-check-circle text-success" title="@T["Field.Pickable"]"></i>
                                 }
                                 else
                                 {
-                                    <i class="bi bi-x-circle text-muted" title="Not Pickable"></i>
+                                    <i class="bi bi-x-circle text-muted" title="@T["Locations.NotPickable"]"></i>
                                 }
                             </td>
                             <td class="text-center">
                                 @if (location.IsReceivable)
                                 {
-                                    <i class="bi bi-check-circle text-success" title="Receivable"></i>
+                                    <i class="bi bi-check-circle text-success" title="@T["Field.Receivable"]"></i>
                                 }
                                 else
                                 {
-                                    <i class="bi bi-x-circle text-muted" title="Not Receivable"></i>
+                                    <i class="bi bi-x-circle text-muted" title="@T["Locations.NotReceivable"]"></i>
                                 }
                             </td>
                             <td class="text-end">
@@ -117,26 +117,26 @@
                                 }
                                 else
                                 {
-                                    <span class="text-muted">Unlimited</span>
+                                    <span class="text-muted">@T["Common.Unlimited"]</span>
                                 }
                             </td>
                             <td class="text-center">
                                 @if (location.IsActive)
                                 {
-                                    <span class="badge bg-success">Active</span>
+                                    <span class="badge bg-success">@T["Common.Active"]</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-secondary">Inactive</span>
+                                    <span class="badge bg-secondary">@T["Common.Inactive"]</span>
                                 }
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" title="Edit Location">
+                                    <button type="button" class="btn btn-outline-primary" title="@T["Locations.Edit"]">
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <a asp-controller="Inventory" asp-action="Index" asp-route-searchTerm="@location.Code"
-                                       class="btn btn-outline-info" title="View Stock">
+                                       class="btn btn-outline-info" title="@T["Locations.ViewStock"]">
                                         <i class="bi bi-stack"></i>
                                     </a>
                                 </div>
@@ -151,19 +151,19 @@
         {
             <div class="text-center py-5 text-muted">
                 <i class="bi bi-geo-alt fs-1 mb-3"></i>
-                <p class="mb-0">No locations found</p>
+                <p class="mb-0">@T["Locations.NoLocations"]</p>
                 @if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
                 {
-                    <p>Try adjusting your search criteria</p>
+                    <p>@T["Locations.NoSearchResults"]</p>
                 }
                 else
                 {
-                    <p>Get started by adding your first location</p>
+                    <p>@T["Locations.FirstLocation"]</p>
                     @if (canManageLocations)
                     {
                         <a asp-action="Create" class="btn btn-primary mt-2">
                             <i class="bi bi-plus-circle me-1"></i>
-                            Add New Location
+                            @T["Locations.Add"]
                         </a>
                     }
                 }

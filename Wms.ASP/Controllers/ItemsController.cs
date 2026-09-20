@@ -44,7 +44,7 @@ public class ItemsController : Controller
         }
         else
         {
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
         }
 
         return View(model);
@@ -92,11 +92,11 @@ public class ItemsController : Controller
         if (result.IsFailure)
         {
             this.AddToModelState(result);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return View(model);
         }
 
-        TempData["SuccessMessage"] = $"Item '{model.Name}' created successfully!";
+        TempData["SuccessMessage"] = this.Localize("Items.Created", model.Name);
         return RedirectToAction(nameof(Index));
     }
 
@@ -109,14 +109,14 @@ public class ItemsController : Controller
         if (result.IsFailure)
         {
             this.AddToModelState(result);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return RedirectToAction(nameof(Index));
         }
 
         var item = result.Value.FirstOrDefault(i => i.Id == id);
         if (item == null)
         {
-            TempData["ErrorMessage"] = "Item not found.";
+            TempData["ErrorMessage"] = this.Localize("Error.NotFound");
             return RedirectToAction(nameof(Index));
         }
 
@@ -165,11 +165,12 @@ public class ItemsController : Controller
 
         if (result.IsFailure)
         {
-            TempData["ErrorMessage"] = result.Error;
+            this.AddToModelState(result);
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return View(model);
         }
 
-        TempData["SuccessMessage"] = $"Item '{model.Name}' updated successfully!";
+        TempData["SuccessMessage"] = this.Localize("Items.Updated", model.Name);
         return RedirectToAction(nameof(Index));
     }
 }

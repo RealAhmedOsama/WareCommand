@@ -1,14 +1,14 @@
 @model Wms.ASP.Models.ManageAccessViewModel
 @{
-    ViewData["Title"] = "Manage access";
+    ViewData["Title"] = T["Account.ManageAccess"];
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h1 class="h3 mb-1">Manage access</h1>
-        <p class="text-muted mb-0">@Model.UserName</p>
+        <h1 class="h3 mb-1">@T["Account.ManageAccess"]</h1>
+        <p class="text-muted mb-0 wms-identifier">@Model.UserName</p>
     </div>
-    <a asp-action="Users" class="btn btn-outline-secondary">Back to accounts</a>
+    <a asp-action="Users" class="btn btn-outline-secondary">@T["Account.BackAccounts"]</a>
 </div>
 
 <form asp-action="Access" method="post">
@@ -19,7 +19,7 @@
     <div class="row g-4">
         <div class="col-lg-4">
             <section class="card h-100 shadow-sm">
-                <div class="card-header">Roles</div>
+                <div class="card-header">@T["Account.Roles"]</div>
                 <div class="card-body">
                     @foreach (var role in Model.AvailableRoles)
                     {
@@ -30,14 +30,14 @@
                             <label class="form-check-label" for="role-@role.Name">@role.Name</label>
                         </div>
                     }
-                    <div class="form-text">Roles provide the default permission matrix.</div>
+                    <div class="form-text">@T["Account.RoleHelp"]</div>
                 </div>
             </section>
         </div>
 
         <div class="col-lg-8">
             <section class="card h-100 shadow-sm">
-                <div class="card-header">Direct permission grants</div>
+                <div class="card-header">@T["Account.PermissionGrants"]</div>
                 <div class="card-body">
                     <div class="row row-cols-1 row-cols-md-2 g-2">
                         @foreach (var permission in Model.AvailablePermissions)
@@ -52,24 +52,24 @@
                                     </label>
                                     @if (permission.IsGrantedByRole)
                                     {
-                                        <small class="d-block text-muted">Granted by selected role</small>
+                                        <small class="d-block text-muted">@T["Account.GivenByRole"]</small>
                                     }
                                 </div>
                             </div>
                         }
                     </div>
-                    <div class="form-text mt-3">Direct grants are additive; role permissions remain authoritative.</div>
+                    <div class="form-text mt-3">@T["Account.PermissionHelp"]</div>
                 </div>
             </section>
         </div>
 
         <div class="col-12">
             <section class="card shadow-sm">
-                <div class="card-header">Warehouse assignments</div>
+                <div class="card-header">@T["Account.WarehouseAssignments"]</div>
                 <div class="card-body">
                     @if (Model.AvailableWarehouses.Count == 0)
                     {
-                        <p class="text-muted mb-0">No active warehouses are available.</p>
+                        <p class="text-muted mb-0">@T["Account.NoWarehouses"]</p>
                     }
                     else
                     {
@@ -83,16 +83,16 @@
                                                id="warehouse-@warehouse.Id"
                                                @(warehouse.IsSelected ? "checked" : null) />
                                         <label class="form-check-label" for="warehouse-@warehouse.Id">
-                                            <strong>@warehouse.Code</strong> — @warehouse.Name
+                                            <strong class="wms-identifier">@warehouse.Code</strong> — @warehouse.Name
                                         </label>
                                     </div>
                                 </div>
                             }
                         </div>
                         <div class="mt-3">
-                            <label for="DefaultWarehouseId" class="form-label">Default warehouse (optional)</label>
+                            <label for="DefaultWarehouseId" class="form-label">@T["Account.DefaultWarehouse"]</label>
                             <select asp-for="DefaultWarehouseId" class="form-select">
-                                <option value="">No default warehouse</option>
+                                <option value="">@T["Account.NoDefaultWarehouse"]</option>
                                 @foreach (var warehouse in Model.AvailableWarehouses)
                                 {
                                     <option value="@warehouse.Id" selected="@(warehouse.IsDefault ? "selected" : null)">
@@ -100,7 +100,7 @@
                                     </option>
                                 }
                             </select>
-                            <div class="form-text">The default is a preference; every operation still checks assignment server-side.</div>
+                            <div class="form-text">@T["Account.DefaultWarehouseHelp"]</div>
                         </div>
                     }
                 </div>
@@ -109,8 +109,8 @@
     </div>
 
     <div class="mt-4">
-        <button type="submit" class="btn btn-primary">Save access assignments</button>
-        <a asp-action="Users" class="btn btn-link">Cancel</a>
+        <button type="submit" class="btn btn-primary">@T["Account.SaveAssignments"]</button>
+        <a asp-action="Users" class="btn btn-link">@T["Account.Cancel"]</a>
     </div>
 </form>
 

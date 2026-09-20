@@ -32,6 +32,7 @@ public partial class DashboardForm : Form
         _settingsService = settingsService;
         _logger = logger;
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupForm();
         SetupRefreshTimer();
         _ = LoadDashboardDataAsync();
@@ -71,7 +72,9 @@ public partial class DashboardForm : Form
                     settingsResult.ErrorCode);
             }
 
-            lblLastRefresh.Text = $"Last Refreshed: {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            lblLastRefresh.Text = WmsDesktopLocalization.Get(
+                "Desktop.LastRefreshedAt",
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture));
 
             // Load KPI data
             await LoadKpiDataAsync();
@@ -100,7 +103,7 @@ public partial class DashboardForm : Form
                 var totalItems = itemsResult.Value.Count();
                 var activeItems = itemsResult.Value.Count(i => i.IsActive);
                 lblTotalItems.Text = totalItems.ToString("N0", CultureInfo.CurrentCulture);
-                lblActiveItems.Text = $"{activeItems:N0} Active";
+                lblActiveItems.Text = $"{activeItems:N0} {WmsDesktopLocalization.Get("Common.Active")}";
             }
 
             // Stock Summary
@@ -146,6 +149,7 @@ public partial class DashboardForm : Form
 
                 dgvRecentMovements.DataSource = recentMovements;
                 ConfigureRecentMovementsGrid();
+                WmsDesktopLocalization.Apply(this);
             }
         }
         catch (Exception ex)
@@ -169,6 +173,7 @@ public partial class DashboardForm : Form
 
                 dgvLowStock.DataSource = lowStockItems;
                 ConfigureLowStockGrid();
+                WmsDesktopLocalization.Apply(this);
 
                 lblLowStockCount.Text = lowStockItems.Count.ToString(CultureInfo.CurrentCulture);
 

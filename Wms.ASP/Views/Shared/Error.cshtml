@@ -1,23 +1,23 @@
 ﻿@model ErrorViewModel
 @{
-    ViewData["Title"] = "Error";
+    ViewData["Title"] = T["Error.Title"];
 }
 
-<h1 class="text-danger">Error.</h1>
-<h2 class="text-danger">An error occurred while processing your request.</h2>
+<h1 class="text-danger">@T["Error.Title"]</h1>
+<h2 class="text-danger">@T["Error.Processing"]</h2>
 
 @if (Model.ShowErrorReference)
 {
     <p>
-        <strong>Error reference:</strong> <code>@Model.ErrorReference</code>
+        <strong>@T["Error.Reference"]:</strong> <code class="wms-identifier">@Model.ErrorReference</code>
     </p>
 }
 
 @if (Model.ShowRequestId)
 {
     <p>
-        <strong>Request ID:</strong> <code>@Model.RequestId</code>
+        <strong>@T["Error.RequestId"]:</strong> <code class="wms-identifier">@Model.RequestId</code>
     </p>
 }
 
-<p>Please retry the operation. If it continues to fail, provide the error reference to support.</p>
+<p>@T["Error.Retry"]</p>

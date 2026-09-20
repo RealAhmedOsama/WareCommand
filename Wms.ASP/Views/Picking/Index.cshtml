@@ -1,12 +1,12 @@
 @model PickingViewModel
 @{
-    ViewData["Title"] = "Picking Operations";
+    ViewData["Title"] = T["Picking.Title"];
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">
         <i class="bi bi-box-arrow-up me-2 text-primary"></i>
-        Picking Operations
+        @T["Picking.Title"]
     </h2>
 </div>
 
@@ -16,7 +16,7 @@
             <div class="card-header bg-primary bg-opacity-10 border-bottom">
                 <h5 class="card-title mb-0 text-primary">
                     <i class="bi bi-box-arrow-up me-2"></i>
-                    Pick Items for Orders
+                    @T["Picking.CardTitle"]
                 </h5>
             </div>
             <div class="card-body">
@@ -25,31 +25,31 @@
                     <div class="row g-3">
                         <!-- Order Information -->
                         <div class="col-12">
-                            <label for="OrderNumber" class="form-label">Order Number <span class="text-danger">*</span></label>
+                            <label for="OrderNumber" class="form-label">@T["Field.OrderNumber"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-receipt"></i>
                                 </span>
-                                <input asp-for="OrderNumber" class="form-control" placeholder="Enter order number" required autofocus/>
+                                <input asp-for="OrderNumber" class="form-control" placeholder="@T["Picking.EnterOrder"]" required autofocus/>
                             </div>
                             <span asp-validation-for="OrderNumber" class="text-danger"></span>
-                            <div class="form-text">Enter the order or reference number for this pick</div>
+                            <div class="form-text">@T["Picking.OrderHelp"]</div>
                         </div>
 
                         <!-- Item Information -->
                         <div class="col-md-6">
-                            <label for="ItemSku" class="form-label">Item SKU <span class="text-danger">*</span></label>
+                            <label for="ItemSku" class="form-label">@T["Field.ItemSku"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-upc-scan"></i>
                                 </span>
-                                <input asp-for="ItemSku" class="form-control" placeholder="Scan or enter SKU" required/>
+                                <input asp-for="ItemSku" class="form-control" placeholder="@T["Receiving.ScanSku"]" required/>
                             </div>
                             <span asp-validation-for="ItemSku" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="Quantity" class="form-label">Quantity to Pick <span class="text-danger">*</span></label>
+                            <label for="Quantity" class="form-label">@T["Picking.Quantity"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-123"></i>
@@ -60,42 +60,42 @@
                         </div>
 
                         <div class="col-12">
-                            <label for="LocationCode" class="form-label">Pick From Location <span class="text-danger">*</span></label>
+                            <label for="LocationCode" class="form-label">@T["Field.FromLocation"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-geo-alt"></i>
                                 </span>
-                                <input asp-for="LocationCode" class="form-control" placeholder="Enter location code" required/>
+                                <input asp-for="LocationCode" class="form-control" placeholder="@T["Picking.EnterLocation"]" required/>
                             </div>
                             <span asp-validation-for="LocationCode" class="text-danger"></span>
                         </div>
 
                         <!-- Optional Fields -->
                         <div class="col-md-6">
-                            <label for="LotNumber" class="form-label">Lot Number</label>
+                            <label for="LotNumber" class="form-label">@T["Field.LotNumber"]</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-tag"></i>
                                 </span>
-                                <input asp-for="LotNumber" class="form-control" placeholder="Enter lot number (if required)"/>
+                                <input asp-for="LotNumber" class="form-control" placeholder="@T["Picking.EnterLot"]"/>
                             </div>
                             <span asp-validation-for="LotNumber" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="SerialNumber" class="form-label">Serial Number</label>
+                            <label for="SerialNumber" class="form-label">@T["Field.SerialNumber"]</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-qr-code"></i>
                                 </span>
-                                <input asp-for="SerialNumber" class="form-control" placeholder="Enter serial number (if required)"/>
+                                <input asp-for="SerialNumber" class="form-control" placeholder="@T["Picking.EnterSerial"]"/>
                             </div>
                             <span asp-validation-for="SerialNumber" class="text-danger"></span>
                         </div>
 
                         <div class="col-12">
-                            <label for="Notes" class="form-label">Notes</label>
-                            <textarea asp-for="Notes" class="form-control" rows="2" placeholder="Enter any notes about this pick operation (optional)"></textarea>
+                            <label for="Notes" class="form-label">@T["Field.Notes"]</label>
+                            <textarea asp-for="Notes" class="form-control" rows="2" placeholder="@T["Picking.EnterNotes"]"></textarea>
                             <span asp-validation-for="Notes" class="text-danger"></span>
                         </div>
 
@@ -104,11 +104,11 @@
                             <div class="d-flex gap-2 justify-content-end">
                                 <button type="button" class="btn btn-outline-secondary" data-clear-form data-focus-field="OrderNumber">
                                     <i class="bi bi-arrow-clockwise me-1"></i>
-                                    Clear
+                                    @T["Common.Clear"]
                                 </button>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-check-circle me-1"></i>
-                                    Complete Pick
+                                    @T["Picking.Submit"]
                                 </button>
                             </div>
                         </div>
@@ -122,7 +122,7 @@
             <div class="card-header bg-light border-bottom">
                 <h6 class="card-title mb-0">
                     <i class="bi bi-lightning me-2"></i>
-                    Quick Actions
+                    @T["Common.Actions"]
                 </h6>
             </div>
             <div class="card-body">
@@ -130,13 +130,13 @@
                     <div class="col-md-6">
                         <a asp-controller="Receiving" asp-action="Receive" class="btn btn-outline-success w-100">
                             <i class="bi bi-box-arrow-in-down me-2"></i>
-                            Go to Receiving
+                            @T["Nav.Receiving"]
                         </a>
                     </div>
                     <div class="col-md-6">
                         <a asp-controller="Inventory" asp-action="Index" class="btn btn-outline-info w-100">
                             <i class="bi bi-stack me-2"></i>
-                            Check Inventory
+                            @T["Nav.Inventory"]
                         </a>
                     </div>
                 </div>

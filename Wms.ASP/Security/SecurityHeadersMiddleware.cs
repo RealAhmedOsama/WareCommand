@@ -22,9 +22,9 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
                 "frame-src 'none'; " +
                 "form-action 'self'; " +
                 $"script-src 'self' 'nonce-{nonce}'; " +
-                "style-src 'self' https://cdn.jsdelivr.net; " +
+                "style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
                 "style-src-attr 'none'; " +
-                "font-src 'self' https://cdn.jsdelivr.net; " +
+                "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; " +
                 "img-src 'self' data:; " +
                 "connect-src 'self'; " +
                 "media-src 'self'";

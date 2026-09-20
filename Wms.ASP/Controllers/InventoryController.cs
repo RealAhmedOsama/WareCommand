@@ -108,11 +108,11 @@ public class InventoryController : Controller
         if (result.IsFailure)
         {
             this.AddToModelState(result);
-            TempData["ErrorMessage"] = result.Error;
+            TempData["ErrorMessage"] = this.LocalizeError(result.FirstError!);
             return View(model);
         }
 
-        TempData["SuccessMessage"] = $"Stock adjusted successfully! Movement ID: {result.Value.MovementId}";
+        TempData["SuccessMessage"] = this.Localize("Inventory.Adjusted", result.Value.MovementId);
         return RedirectToAction(nameof(Index));
     }
 }

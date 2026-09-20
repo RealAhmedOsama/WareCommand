@@ -1,4 +1,4 @@
-using System.Globalization;
+using Wms.Application.Localization;
 
 namespace Wms.Application.Settings;
 
@@ -399,13 +399,9 @@ public static class WmsSettingsValidation
         RequireLength(errors, "Localization.TimeZone", values.TimeZone, 1, 100);
         RequirePattern(errors, "Localization.CurrencyCode", values.CurrencyCode, 3, 3);
 
-        try
+        if (!WmsLocaleCatalog.IsSupported(values.Locale))
         {
-            _ = CultureInfo.GetCultureInfo(values.Locale);
-        }
-        catch (CultureNotFoundException)
-        {
-            Add(errors, "Localization.Locale", "Locale must be a recognized culture name.");
+            Add(errors, "Localization.Locale", "Locale must be one of the supported English or Arabic cultures.");
         }
 
         try

@@ -1,12 +1,12 @@
 @model PutawayViewModel
 @{
-    ViewData["Title"] = "Putaway Operations";
+    ViewData["Title"] = T["Putaway.Title"];
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">
         <i class="bi bi-box-arrow-right me-2 text-info"></i>
-        Putaway Operations
+        @T["Putaway.Title"]
     </h2>
 </div>
 
@@ -16,7 +16,7 @@
             <div class="card-header bg-info bg-opacity-10 border-bottom">
                 <h5 class="card-title mb-0 text-info">
                     <i class="bi bi-box-arrow-right me-2"></i>
-                    Move Items Between Locations
+                    @T["Putaway.CardTitle"]
                 </h5>
             </div>
             <div class="card-body">
@@ -25,18 +25,18 @@
                     <div class="row g-3">
                         <!-- Item Information -->
                         <div class="col-md-6">
-                            <label for="ItemSku" class="form-label">Item SKU <span class="text-danger">*</span></label>
+                            <label for="ItemSku" class="form-label">@T["Field.ItemSku"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-upc-scan"></i>
                                 </span>
-                                <input asp-for="ItemSku" class="form-control" placeholder="Scan or enter SKU" required autofocus/>
+                                <input asp-for="ItemSku" class="form-control" placeholder="@T["Receiving.ScanSku"]" required autofocus/>
                             </div>
                             <span asp-validation-for="ItemSku" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="Quantity" class="form-label">Quantity <span class="text-danger">*</span></label>
+                            <label for="Quantity" class="form-label">@T["Field.Quantity"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-123"></i>
@@ -48,53 +48,53 @@
 
                         <!-- Location Information -->
                         <div class="col-md-6">
-                            <label for="FromLocationCode" class="form-label">From Location <span class="text-danger">*</span></label>
+                            <label for="FromLocationCode" class="form-label">@T["Field.FromLocation"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-geo-alt"></i>
                                 </span>
-                                <input asp-for="FromLocationCode" class="form-control" placeholder="Source location" required/>
+                                <input asp-for="FromLocationCode" class="form-control" placeholder="@T["Putaway.Source"]" required/>
                             </div>
                             <span asp-validation-for="FromLocationCode" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="ToLocationCode" class="form-label">To Location <span class="text-danger">*</span></label>
+                            <label for="ToLocationCode" class="form-label">@T["Field.ToLocation"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-geo-alt-fill"></i>
                                 </span>
-                                <input asp-for="ToLocationCode" class="form-control" placeholder="Destination location" required/>
+                                <input asp-for="ToLocationCode" class="form-control" placeholder="@T["Putaway.Destination"]" required/>
                             </div>
                             <span asp-validation-for="ToLocationCode" class="text-danger"></span>
                         </div>
 
                         <!-- Optional Fields -->
                         <div class="col-md-6">
-                            <label for="LotNumber" class="form-label">Lot Number</label>
+                            <label for="LotNumber" class="form-label">@T["Field.LotNumber"]</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-tag"></i>
                                 </span>
-                                <input asp-for="LotNumber" class="form-control" placeholder="Enter lot number (optional)"/>
+                                <input asp-for="LotNumber" class="form-control" placeholder="@T["Receiving.EnterLot"]"/>
                             </div>
                             <span asp-validation-for="LotNumber" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="SerialNumber" class="form-label">Serial Number</label>
+                            <label for="SerialNumber" class="form-label">@T["Field.SerialNumber"]</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-qr-code"></i>
                                 </span>
-                                <input asp-for="SerialNumber" class="form-control" placeholder="Enter serial number (optional)"/>
+                                <input asp-for="SerialNumber" class="form-control" placeholder="@T["Receiving.EnterSerial"]"/>
                             </div>
                             <span asp-validation-for="SerialNumber" class="text-danger"></span>
                         </div>
 
                         <div class="col-12">
-                            <label for="Notes" class="form-label">Notes</label>
-                            <textarea asp-for="Notes" class="form-control" rows="2" placeholder="Enter any notes about this putaway operation (optional)"></textarea>
+                            <label for="Notes" class="form-label">@T["Field.Notes"]</label>
+                            <textarea asp-for="Notes" class="form-control" rows="2" placeholder="@T["Putaway.EnterNotes"]"></textarea>
                             <span asp-validation-for="Notes" class="text-danger"></span>
                         </div>
 
@@ -103,11 +103,11 @@
                             <div class="d-flex gap-2 justify-content-end">
                                 <button type="button" class="btn btn-outline-secondary" data-clear-form data-focus-field="ItemSku">
                                     <i class="bi bi-arrow-clockwise me-1"></i>
-                                    Clear
+                                    @T["Common.Clear"]
                                 </button>
                                 <button type="submit" class="btn btn-info">
                                     <i class="bi bi-check-circle me-1"></i>
-                                    Complete Putaway
+                                    @T["Putaway.Submit"]
                                 </button>
                             </div>
                         </div>
@@ -121,7 +121,7 @@
             <div class="card-header bg-light border-bottom">
                 <h6 class="card-title mb-0">
                     <i class="bi bi-lightning me-2"></i>
-                    Quick Actions
+                    @T["Common.Actions"]
                 </h6>
             </div>
             <div class="card-body">
@@ -129,13 +129,13 @@
                     <div class="col-md-6">
                         <a asp-action="Receive" class="btn btn-outline-success w-100">
                             <i class="bi bi-box-arrow-in-down me-2"></i>
-                            Go to Receiving
+                            @T["Nav.Receiving"]
                         </a>
                     </div>
                     <div class="col-md-6">
                         <a asp-controller="Inventory" asp-action="Index" class="btn btn-outline-primary w-100">
                             <i class="bi bi-stack me-2"></i>
-                            View Inventory
+                            @T["Nav.Inventory"]
                         </a>
                     </div>
                 </div>

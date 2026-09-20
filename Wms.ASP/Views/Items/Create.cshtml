@@ -1,16 +1,16 @@
 @model CreateItemViewModel
 @{
-    ViewData["Title"] = "Create New Item";
+    ViewData["Title"] = T["Items.Create"];
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">
         <i class="bi bi-plus-circle me-2 text-primary"></i>
-        Create New Item
+        @T["Items.Create"]
     </h2>
     <a asp-action="Index" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left me-1"></i>
-        Back to Items
+        @T["Common.Back"]
     </a>
 </div>
 
@@ -20,7 +20,7 @@
             <div class="card-header bg-primary bg-opacity-10 border-bottom">
                 <h5 class="card-title mb-0 text-primary">
                     <i class="bi bi-box me-2"></i>
-                    Item Information
+                    @T["Items.Information"]
                 </h5>
             </div>
             <div class="card-body">
@@ -29,62 +29,62 @@
                     <div class="row g-3">
                         <!-- Basic Information -->
                         <div class="col-md-6">
-                            <label for="Sku" class="form-label">SKU <span class="text-danger">*</span></label>
+                            <label for="Sku" class="form-label">@T["Field.ItemSku"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-upc-scan"></i>
                                 </span>
-                                <input asp-for="Sku" class="form-control" placeholder="Enter item SKU" required/>
+                                <input asp-for="Sku" class="form-control wms-identifier" placeholder="@T["Items.EnterSku"]" required/>
                             </div>
                             <span asp-validation-for="Sku" class="text-danger"></span>
-                            <div class="form-text">Unique identifier for this item</div>
+                            <div class="form-text">@T["Items.UniqueIdentifier"]</div>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="Name" class="form-label">Name <span class="text-danger">*</span></label>
+                            <label for="Name" class="form-label">@T["Field.Name"] <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-tag"></i>
                                 </span>
-                                <input asp-for="Name" class="form-control" placeholder="Enter item name" required/>
+                                <input asp-for="Name" class="form-control" placeholder="@T["Items.EnterName"]" required/>
                             </div>
                             <span asp-validation-for="Name" class="text-danger"></span>
                         </div>
 
                         <div class="col-12">
-                            <label for="Description" class="form-label">Description</label>
-                            <textarea asp-for="Description" class="form-control" rows="3" placeholder="Enter item description (optional)"></textarea>
+                            <label for="Description" class="form-label">@T["Field.Description"]</label>
+                            <textarea asp-for="Description" class="form-control" rows="3" placeholder="@T["Items.EnterDescription"]"></textarea>
                             <span asp-validation-for="Description" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="UnitOfMeasure" class="form-label">Unit of Measure</label>
+                            <label for="UnitOfMeasure" class="form-label">@T["Field.UnitOfMeasure"]</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-rulers"></i>
                                 </span>
                                 <select asp-for="UnitOfMeasure" class="form-select">
-                                    <option value="EA">Each (EA)</option>
-                                    <option value="KG">Kilogram (KG)</option>
-                                    <option value="LB">Pound (LB)</option>
-                                    <option value="L">Liter (L)</option>
-                                    <option value="M">Meter (M)</option>
-                                    <option value="FT">Feet (FT)</option>
-                                    <option value="BOX">Box</option>
-                                    <option value="CASE">Case</option>
-                                    <option value="PALLET">Pallet</option>
+                                    <option value="EA">@T["Items.Each"]</option>
+                                    <option value="KG">@T["Items.Kilogram"]</option>
+                                    <option value="LB">@T["Items.Pound"]</option>
+                                    <option value="L">@T["Items.Liter"]</option>
+                                    <option value="M">@T["Items.Meter"]</option>
+                                    <option value="FT">@T["Items.Feet"]</option>
+                                    <option value="BOX">@T["Items.Box"]</option>
+                                    <option value="CASE">@T["Items.Case"]</option>
+                                    <option value="PALLET">@T["Items.Pallet"]</option>
                                 </select>
                             </div>
                             <span asp-validation-for="UnitOfMeasure" class="text-danger"></span>
                         </div>
 
                         <div class="col-md-6">
-                            <label for="Barcode" class="form-label">Barcode</label>
+                            <label for="Barcode" class="form-label">@T["Field.Barcode"]</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="bi bi-upc"></i>
                                 </span>
-                                <input asp-for="Barcode" class="form-control" placeholder="Enter barcode (optional)"/>
+                                <input asp-for="Barcode" class="form-control wms-barcode" placeholder="@T["Items.EnterBarcode"]"/>
                             </div>
                             <span asp-validation-for="Barcode" class="text-danger"></span>
                         </div>
@@ -92,27 +92,27 @@
                         <!-- Divider -->
                         <div class="col-12">
                             <hr class="my-4">
-                            <h6 class="text-muted">Tracking Requirements</h6>
+                            <h6 class="text-muted">@T["Items.TrackingRequirements"]</h6>
                         </div>
 
                         <div class="col-md-6">
                             <div class="form-check form-switch">
                                 <input asp-for="RequiresLot" class="form-check-input" type="checkbox"/>
                                 <label class="form-check-label" for="RequiresLot">
-                                    Requires Lot Tracking
+                                    @T["Items.RequiresLot"]
                                 </label>
                             </div>
-                            <div class="form-text">Enable if this item needs lot/batch tracking</div>
+                            <div class="form-text">@T["Items.RequiresLot"]</div>
                         </div>
 
                         <div class="col-md-6">
                             <div class="form-check form-switch">
                                 <input asp-for="RequiresSerial" class="form-check-input" type="checkbox"/>
                                 <label class="form-check-label" for="RequiresSerial">
-                                    Requires Serial Tracking
+                                    @T["Items.RequiresSerial"]
                                 </label>
                             </div>
-                            <div class="form-text">Enable if this item needs serial number tracking</div>
+                            <div class="form-text">@T["Items.RequiresSerial"]</div>
                         </div>
 
                         <!-- Action Buttons -->
@@ -120,11 +120,11 @@
                             <div class="d-flex gap-2 justify-content-end">
                                 <a asp-action="Index" class="btn btn-outline-secondary">
                                     <i class="bi bi-x-circle me-1"></i>
-                                    Cancel
+                                    @T["Common.Cancel"]
                                 </a>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-check-circle me-1"></i>
-                                    Create Item
+                                    @T["Common.Create"]
                                 </button>
                             </div>
                         </div>

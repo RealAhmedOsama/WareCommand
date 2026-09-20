@@ -1,13 +1,13 @@
 @model InventoryViewModel
 @{
-    ViewData["Title"] = "Inventory Management";
+    ViewData["Title"] = T["Inventory.Title"];
     var canAdjustInventory = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.InventoryAdjust)).Succeeded;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">
         <i class="bi bi-stack me-2 text-primary"></i>
-        Inventory Management
+        @T["Inventory.Title"]
     </h2>
 </div>
 
@@ -16,13 +16,13 @@
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end">
             <div class="col-md-4">
-                <label for="searchTerm" class="form-label">Search Inventory</label>
+                <label for="searchTerm" class="form-label">@T["Inventory.Search"]</label>
                 <div class="input-group">
                     <span class="input-group-text">
                         <i class="bi bi-search"></i>
                     </span>
                     <input type="text" class="form-control" id="searchTerm" name="searchTerm"
-                           value="@Model.SearchTerm" placeholder="Search by SKU, name, or location">
+                           value="@Model.SearchTerm" placeholder="@T["Inventory.SearchPlaceholder"]">
                 </div>
             </div>
             <div class="col-md-3">
@@ -30,7 +30,7 @@
                     <input class="form-check-input" type="checkbox" id="showSummary" name="showSummary"
                            value="true" @(Model.ShowSummary ? "checked" : "")>
                     <label class="form-check-label" for="showSummary">
-                        Show Summary View
+                        @T["Inventory.ShowSummary"]
                     </label>
                 </div>
             </div>
@@ -38,15 +38,15 @@
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-search me-1"></i>
-                        Search
+                        @T["Common.Search"]
                     </button>
                     <a href="@Url.Action("Index")" class="btn btn-outline-secondary">
                         <i class="bi bi-x-circle me-1"></i>
-                        Clear
+                        @T["Common.Clear"]
                     </a>
                     <button type="button" class="btn btn-outline-primary" data-reload-page>
                         <i class="bi bi-arrow-clockwise me-1"></i>
-                        Refresh
+                        @T["Common.Refresh"]
                     </button>
                 </div>
             </div>
@@ -61,7 +61,7 @@
         <div class="card-header bg-white border-bottom">
             <h5 class="card-title mb-0">
                 <i class="bi bi-bar-chart-line me-2 text-success"></i>
-                Stock Summary (@Model.StockSummary.Count items)
+                @T["Inventory.Summary"] (@Model.StockSummary.Count)
             </h5>
         </div>
         <div class="card-body p-0">
@@ -71,19 +71,19 @@
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                         <tr>
-                            <th>SKU</th>
-                            <th>Item Name</th>
-                            <th class="text-end">Total Qty</th>
-                            <th class="text-end">Reserved</th>
-                            <th class="text-end">Available</th>
-                            <th class="text-center">Locations</th>
+                            <th>@T["Movement.Sku"]</th>
+                            <th>@T["Field.Name"]</th>
+                            <th class="text-end">@T["Field.TotalQuantity"]</th>
+                            <th class="text-end">@T["Field.Reserved"]</th>
+                            <th class="text-end">@T["Field.Available"]</th>
+                            <th class="text-center">@T["Nav.Locations"]</th>
                         </tr>
                         </thead>
                         <tbody>
                         @foreach (var item in Model.StockSummary)
                         {
                             <tr>
-                                <td class="fw-medium">@item.ItemSku</td>
+                                <td class="fw-medium wms-identifier">@item.ItemSku</td>
                                 <td>@item.ItemName</td>
                                 <td class="text-end">@item.TotalQuantity.ToString("N2")</td>
                                 <td class="text-end text-warning">@item.TotalReserved.ToString("N2")</td>
@@ -105,7 +105,7 @@
             {
                 <div class="text-center py-5 text-muted">
                     <i class="bi bi-inbox fs-1 mb-3"></i>
-                    <p class="mb-0">No stock summary data available</p>
+                    <p class="mb-0">@T["Inventory.NoSummary"]</p>
                 </div>
             }
         </div>
@@ -118,7 +118,7 @@ else
         <div class="card-header bg-white border-bottom">
             <h5 class="card-title mb-0">
                 <i class="bi bi-list-ul me-2 text-primary"></i>
-                Stock Details (@Model.StockItems.Count items)
+                @T["Inventory.StockItems"] (@Model.StockItems.Count)
             </h5>
         </div>
         <div class="card-body p-0">
@@ -128,20 +128,20 @@ else
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                         <tr>
-                            <th>SKU</th>
-                            <th>Item Name</th>
-                            <th>Location</th>
-                            <th class="text-end">Available</th>
-                            <th class="text-end">Reserved</th>
-                            <th class="text-end">Net Available</th>
-                            <th class="text-center">Actions</th>
+                            <th>@T["Movement.Sku"]</th>
+                            <th>@T["Field.Name"]</th>
+                            <th>@T["Field.Location"]</th>
+                            <th class="text-end">@T["Field.Available"]</th>
+                            <th class="text-end">@T["Field.Reserved"]</th>
+                            <th class="text-end">@T["Field.NetAvailable"]</th>
+                            <th class="text-center">@T["Common.Actions"]</th>
                         </tr>
                         </thead>
                         <tbody>
                         @foreach (var item in Model.StockItems)
                         {
                             <tr>
-                                <td class="fw-medium">@item.ItemSku</td>
+                                <td class="fw-medium wms-identifier">@item.ItemSku</td>
                                 <td>@item.ItemName</td>
                                 <td>
                                     <span class="badge bg-secondary">@item.LocationCode</span>
@@ -162,7 +162,7 @@ else
                                            asp-route-locationCode="@item.LocationCode"
                                            asp-route-currentQuantity="@item.QuantityAvailable"
                                            class="btn btn-sm btn-outline-warning"
-                                           title="Adjust Stock">
+                                           title="@T["Inventory.Adjustment"]">
                                             <i class="bi bi-pencil-square"></i>
                                         </a>
                                     }
@@ -177,10 +177,10 @@ else
             {
                 <div class="text-center py-5 text-muted">
                     <i class="bi bi-inbox fs-1 mb-3"></i>
-                    <p class="mb-0">No stock items found</p>
+                    <p class="mb-0">@T["Inventory.NoStock"]</p>
                     @if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
                     {
-                        <p>Try adjusting your search criteria</p>
+                        <p>@T["Common.TryAdjust"]</p>
                     }
                 </div>
             }

@@ -40,6 +40,7 @@ public partial class LocationEditDialog : Form
         _locationId = locationId;
 
         InitializeComponent();
+        Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
 
