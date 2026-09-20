@@ -62,6 +62,8 @@ public static class WmsAuditActions
     public const string LicensePlateLifecycleChanged = "inventory.license_plate.lifecycle_changed";
     public const string LicensePlateShipped = "inventory.license_plate.shipped";
     public const string LicensePlateNumberingConfigured = "inventory.license_plate.numbering_configured";
+    public const string ReplenishmentPolicyChanged = "inventory.replenishment_policy.changed";
+    public const string ReplenishmentSignalRaised = "inventory.replenishment_signal.raised";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -120,7 +122,9 @@ public static class WmsAuditActions
         LicensePlateMoved,
         LicensePlateLifecycleChanged,
         LicensePlateShipped,
-        LicensePlateNumberingConfigured
+        LicensePlateNumberingConfigured,
+        ReplenishmentPolicyChanged,
+        ReplenishmentSignalRaised
     ];
 }
 
@@ -151,6 +155,7 @@ public static class WmsAuditEntityTypes
     public const string LicensePlate = "LicensePlate";
     public const string LicensePlateContent = "LicensePlateContent";
     public const string LicensePlateNumberSequence = "LicensePlateNumberSequence";
+    public const string ReplenishmentPolicy = "ReplenishmentPolicy";
 }
 
 /// <summary>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.Inventory;
 using Wms.Application.Settings;
 using Wms.Application.Time;
 using Wms.Application.UseCases.Inventory;
@@ -18,6 +19,7 @@ public class DashboardController : Controller
 {
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly IGetStockUseCase _getStockUseCase;
+    private readonly IInventoryReplenishmentPolicyService _replenishmentPolicyService;
     private readonly IClock _clock;
     private readonly ILogger<DashboardController> _logger;
     private readonly IMovementReportUseCase _movementReportUseCase;
@@ -25,6 +27,7 @@ public class DashboardController : Controller
 
     public DashboardController(
         IGetStockUseCase getStockUseCase,
+        IInventoryReplenishmentPolicyService replenishmentPolicyService,
         IGetItemsUseCase getItemsUseCase,
         IMovementReportUseCase movementReportUseCase,
         ILogger<DashboardController> logger,
@@ -32,6 +35,7 @@ public class DashboardController : Controller
         IClock clock)
     {
         _getStockUseCase = getStockUseCase;
+        _replenishmentPolicyService = replenishmentPolicyService;
         _getItemsUseCase = getItemsUseCase;
         _movementReportUseCase = movementReportUseCase;
         _logger = logger;
@@ -92,17 +96,26 @@ public class DashboardController : Controller
         if (allStockResult.IsSuccess)
         {
             model.StockLocations = allStockResult.Value.Select(s => s.LocationId).Distinct().Count();
-
-            // Low stock alerts
-            model.LowStockItems = allStockResult.Value
-                .Where(s => s.AvailableQuantity < dashboardSettings.LowStockThreshold)
-                .OrderBy(s => s.AvailableQuantity)
-                .Take(dashboardSettings.LowStockAlertLimit)
-                .ToList();
         }
         else
         {
             _logger.LogWarning("Failed to load stock data: {ErrorCode}", allStockResult.ErrorCode);
+        }
+
+        // Replenishment signals are policy-driven; the legacy global threshold is
+        // retained only for settings compatibility and is not used for decisions.
+        var signalsResult = await _replenishmentPolicyService.GetSignalsAsync(
+            new InventoryReplenishmentSignalQuery(Limit: dashboardSettings.LowStockAlertLimit),
+            cancellationToken);
+        if (signalsResult.IsSuccess)
+        {
+            model.LowStockSignals = signalsResult.Value.ToList();
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Failed to load replenishment signals: {ErrorCode}",
+                signalsResult.ErrorCode);
         }
 
         // Recent movements

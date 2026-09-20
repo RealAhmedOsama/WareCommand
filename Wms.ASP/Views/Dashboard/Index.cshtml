@@ -147,22 +147,23 @@
                 </h5>
             </div>
             <div class="card-body p-0">
-                @if (Model.LowStockItems.Any())
+                @if (Model.LowStockSignals.Any())
                 {
                     <div class="list-group list-group-flush">
-                        @foreach (var item in Model.LowStockItems)
+                        @foreach (var signal in Model.LowStockSignals)
                         {
                             <div class="list-group-item border-0 py-3">
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div class="flex-grow-1">
-                                        <h6 class="mb-1 fw-medium wms-identifier">@item.ItemSku</h6>
-                                        <p class="mb-1 text-muted small">@item.ItemName</p>
-                                        <small class="text-muted">@item.LocationCode</small>
+                                        <h6 class="mb-1 fw-medium wms-identifier">@signal.ItemSku</h6>
+                                        <p class="mb-1 text-muted small">@signal.ItemName</p>
+                                        <small class="text-muted">@(signal.LocationCode ?? signal.WarehouseCode)</small>
                                     </div>
                                     <div class="text-end">
-                        <span class="badge bg-@(GetStockLevelColor(item.AvailableQuantity, Model.LowStockThreshold)) rounded-pill">
-                                            @item.AvailableQuantity.ToString("N1")
+                        <span class="badge bg-@(GetSignalColor(signal.SignalKind)) rounded-pill">
+                                            @signal.EvaluatedQuantity.ToString("N1")
                                         </span>
+                                        <small class="d-block text-muted">@signal.SignalKind</small>
                                     </div>
                                 </div>
                             </div>
@@ -216,13 +217,13 @@
         };
     }
 
-    private string GetStockLevelColor(decimal quantity, decimal threshold)
+    private string GetSignalColor(Wms.Domain.Enums.InventoryReplenishmentSignalKind signalKind)
     {
-        return quantity switch
+        return signalKind switch
         {
-            <= 0 => "danger",
-            _ when quantity <= threshold => "warning",
-            _ => "success"
+            Wms.Domain.Enums.InventoryReplenishmentSignalKind.OutOfStock => "danger",
+            Wms.Domain.Enums.InventoryReplenishmentSignalKind.Overstock => "info",
+            _ => "warning"
         };
     }
 

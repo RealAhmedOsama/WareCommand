@@ -180,6 +180,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryReservationService, InventoryReservationService>();
         services.AddScoped<IInventoryCommandIdempotencyService, InventoryCommandIdempotencyService>();
         services.AddScoped<IInventoryInquiryService, InventoryInquiryService>();
+        services.AddScoped<IInventoryReplenishmentPolicyService, InventoryReplenishmentPolicyService>();
         return services;
     }
 

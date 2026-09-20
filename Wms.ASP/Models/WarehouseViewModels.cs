@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
+using Wms.Application.Inventory;
 using Wms.Application.UseCases.Reports;
 using Wms.Application.Warehouses;
 using Wms.Domain.Enums;
@@ -16,6 +17,7 @@ public class DashboardViewModel
     public int StockLocations { get; set; }
     public List<MovementReportDto> RecentMovements { get; set; } = new();
     public List<StockDto> LowStockItems { get; set; } = new();
+    public List<InventoryReplenishmentSignalDto> LowStockSignals { get; set; } = new();
     public DateTime LastRefresh { get; set; }
     public string DisplayTimeZone { get; set; } = "UTC";
     public decimal LowStockThreshold { get; set; }

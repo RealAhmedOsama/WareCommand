@@ -52,6 +52,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<InventoryReservationAllocation>();
     public DbSet<InventoryReservationEvent> InventoryReservationEvents =>
         Set<InventoryReservationEvent>();
+    public DbSet<InventoryReplenishmentPolicy> InventoryReplenishmentPolicies =>
+        Set<InventoryReplenishmentPolicy>();
     public DbSet<WmsIdentifier> WmsIdentifiers => Set<WmsIdentifier>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
@@ -97,6 +99,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new InventoryReservationConfiguration());
         builder.ApplyConfiguration(new InventoryReservationAllocationConfiguration());
         builder.ApplyConfiguration(new InventoryReservationEventConfiguration());
+        builder.ApplyConfiguration(new InventoryReplenishmentPolicyConfiguration());
         builder.ApplyConfiguration(new WmsIdentifierConfiguration());
 
         builder.Entity<WmsUser>(entity =>

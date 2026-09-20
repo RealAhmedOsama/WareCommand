@@ -7,6 +7,7 @@ using Wms.Application.Lots;
 using Wms.Application.Settings;
 using Wms.Application.Time;
 using Wms.Application.Idempotency;
+using Wms.Application.Inventory;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Jobs;
@@ -101,7 +102,7 @@ public sealed class WmsExpiryAlertJob(
 }
 
 public sealed class WmsLowStockAlertJob(
-    WmsDbContext dbContext,
+    IInventoryReplenishmentPolicyService replenishmentPolicyService,
     IWmsSettingsService settingsService,
     IWmsJobExecutionStore executionStore,
     IClock clock,
@@ -118,43 +119,58 @@ public sealed class WmsLowStockAlertJob(
             ? settings.Value.Values
             : WmsSettingsDefaults.Create();
         var dashboard = values.Dashboard;
-        var stocks = await dbContext.Stock
-            .AsNoTracking()
-            .Include(stock => stock.Item)
-            .Include(stock => stock.Location)
-            .Where(stock => stock.QuantityAvailable.Value - stock.QuantityReserved.Value <
-                dashboard.LowStockThreshold)
-            .OrderBy(stock => stock.QuantityAvailable.Value - stock.QuantityReserved.Value)
-            .Take(dashboard.LowStockAlertLimit)
-            .ToListAsync(cancellationToken);
+        var signals = await replenishmentPolicyService.GetSignalsAsync(
+            new InventoryReplenishmentSignalQuery(Limit: dashboard.LowStockAlertLimit),
+            cancellationToken);
+        if (signals.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Replenishment signal evaluation failed: {signals.Error}");
+        }
 
         var today = WmsBusinessTime.GetBusinessDate(
             clock.UtcNow,
             values.Localization.TimeZone);
-        foreach (var stock in stocks)
+        foreach (var signal in signals.Value)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var available = stock.QuantityAvailable.Value - stock.QuantityReserved.Value;
+            var kind = signal.SignalKind switch
+            {
+                Wms.Domain.Enums.InventoryReplenishmentSignalKind.OutOfStock => "out-of-stock",
+                Wms.Domain.Enums.InventoryReplenishmentSignalKind.Overstock => "overstock",
+                _ => "low-stock"
+            };
+            var severity = signal.SignalKind ==
+                Wms.Domain.Enums.InventoryReplenishmentSignalKind.OutOfStock
+                ? "critical"
+                : "warning";
             await executionStore.UpsertNotificationAsync(
                 new WmsJobNotification(
-                    $"low-stock:{stock.Id}:{today:yyyyMMdd}",
-                    "inventory.low-stock",
-                    "warning",
-                    "Low stock alert",
-                    $"Item {stock.Item.Sku} at {stock.Location.Code} has {available:0.####} available units.",
+                    $"replenishment:{signal.PolicyId}:{kind}:{today:yyyyMMdd}",
+                    $"inventory.{kind}",
+                    severity,
+                    signal.SignalKind == Wms.Domain.Enums.InventoryReplenishmentSignalKind.Overstock
+                        ? "Overstock alert"
+                        : signal.SignalKind == Wms.Domain.Enums.InventoryReplenishmentSignalKind.OutOfStock
+                            ? "Out-of-stock alert"
+                            : "Low-stock alert",
+                    $"Item {signal.ItemSku} at {signal.LocationCode ?? signal.WarehouseCode} has {signal.EvaluatedQuantity:0.####} units by {signal.QuantityBasis}; target is {signal.TargetQuantity:0.####}.",
                     JobName,
                     context.Envelope.IdempotencyKey,
                     context.Envelope.CorrelationId,
-                    stock.Location.WarehouseId,
+                    signal.WarehouseId,
                     clock.UtcNow.AddDays(1)),
                 clock.UtcNow,
                 cancellationToken);
         }
 
         logger.LogInformation(
-            "Low-stock alert job evaluated {StockCount} stock rows",
-            stocks.Count);
-        return new WmsJobExecutionResult(stocks.Count, stocks.Count, $"Evaluated {stocks.Count} stock rows.");
+            "Replenishment alert job evaluated {SignalCount} policy signals",
+            signals.Value.Count);
+        return new WmsJobExecutionResult(
+            signals.Value.Count,
+            signals.Value.Count,
+            $"Evaluated {signals.Value.Count} replenishment policy signals.");
     }
 }
 
