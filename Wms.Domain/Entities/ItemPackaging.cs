@@ -1,5 +1,6 @@
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Identification;
 
 namespace Wms.Domain.Entities;
 
@@ -274,15 +275,17 @@ public sealed class ItemPackaging : Entity
         }
 
         var normalized = value.Trim();
-        if ((normalized.Length is not (8 or 12 or 13 or 14)) ||
-            normalized.Any(character => character is < '0' or > '9'))
+        try
+        {
+            return BarcodeParser.NormalizeProductCode(normalized);
+        }
+        catch (ArgumentException exception)
         {
             throw new ArgumentException(
-                "GTIN must contain 8, 12, 13, or 14 digits.",
-                nameof(value));
+                $"GTIN is invalid: {exception.Message}",
+                nameof(value),
+                exception);
         }
-
-        return normalized;
     }
 
     private static string? NormalizeParentCode(string? value, string code)

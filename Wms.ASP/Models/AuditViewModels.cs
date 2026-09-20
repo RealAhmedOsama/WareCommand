@@ -53,7 +53,8 @@ public sealed class AuditLogViewModel
         WmsAuditEntityTypes.Shipment,
         WmsAuditEntityTypes.Return,
         WmsAuditEntityTypes.Settings,
-        WmsAuditEntityTypes.Integration
+        WmsAuditEntityTypes.Integration,
+        WmsAuditEntityTypes.Identifier
     ];
 
     public int TotalCount { get; set; }

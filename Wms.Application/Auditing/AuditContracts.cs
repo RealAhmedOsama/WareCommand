@@ -46,6 +46,7 @@ public static class WmsAuditActions
     public const string ReturnProcessed = "outbound.return.processed";
     public const string SettingsChanged = "settings.changed";
     public const string IntegrationAction = "integration.action";
+    public const string IdentifierResolved = "security.identifier.resolved";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -88,7 +89,8 @@ public static class WmsAuditActions
         ShipmentCompleted,
         ReturnProcessed,
         SettingsChanged,
-        IntegrationAction
+        IntegrationAction,
+        IdentifierResolved
     ];
 }
 
@@ -111,6 +113,7 @@ public static class WmsAuditEntityTypes
     public const string Return = "Return";
     public const string Settings = "Settings";
     public const string Integration = "Integration";
+    public const string Identifier = "Identifier";
 }
 
 /// <summary>

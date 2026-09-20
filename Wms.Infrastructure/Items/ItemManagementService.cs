@@ -8,6 +8,7 @@ using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
+using Wms.Application.Identification;
 using Wms.Application.Items;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -20,7 +21,8 @@ public sealed class ItemManagementService(
     WmsDbContext context,
     IWarehouseAccessService warehouseAccessService,
     IAuditWriter auditWriter,
-    ILogger<ItemManagementService> logger) : IItemManagementService
+    ILogger<ItemManagementService> logger,
+    IIdentificationRegistry? identificationRegistry = null) : IItemManagementService
 {
     private const string PostgreSqlProviderName = "Npgsql.EntityFrameworkCore.PostgreSQL";
     private const int MaximumPageSize = 200;
@@ -174,6 +176,14 @@ public sealed class ItemManagementService(
             AddBarcodes(item, barcodeValues);
             AddPackagings(item, packaging);
             await context.Items.AddAsync(item, cancellationToken);
+            if (identificationRegistry is not null)
+            {
+                var identifierSync = await identificationRegistry.SyncItemAsync(item, cancellationToken);
+                if (identifierSync.IsFailure)
+                {
+                    return identifierSync.ToFailure<ItemDto>();
+                }
+            }
             await auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.ItemCreated,
@@ -300,6 +310,14 @@ public sealed class ItemManagementService(
                 request.Storage, request.Planning));
             ReplaceBarcodes(item, barcodeValues);
             ReplacePackagings(item, packaging);
+            if (identificationRegistry is not null)
+            {
+                var identifierSync = await identificationRegistry.SyncItemAsync(item, cancellationToken);
+                if (identifierSync.IsFailure)
+                {
+                    return identifierSync.ToFailure<ItemDto>();
+                }
+            }
             await auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.ItemUpdated,
@@ -374,6 +392,15 @@ public sealed class ItemManagementService(
             item.Deactivate();
         }
 
+        if (identificationRegistry is not null)
+        {
+            var identifierSync = await identificationRegistry.SyncItemAsync(item, cancellationToken);
+            if (identifierSync.IsFailure)
+            {
+                return identifierSync;
+            }
+        }
+
         await auditWriter.RecordAsync(
             new AuditRecord(
                 active ? WmsAuditActions.ItemActivated : WmsAuditActions.ItemDeactivated,
@@ -409,6 +436,16 @@ public sealed class ItemManagementService(
             return Result.Failure(WmsErrors.Conflict(
                 "item.history_exists",
                 "The item cannot be deleted because stock, lots, or movement history references it. Deactivate it instead."));
+        }
+
+        item.Deactivate();
+        if (identificationRegistry is not null)
+        {
+            var identifierSync = await identificationRegistry.SyncItemAsync(item, cancellationToken);
+            if (identifierSync.IsFailure)
+            {
+                return identifierSync;
+            }
         }
 
         context.Items.Remove(item);
@@ -539,6 +576,14 @@ public sealed class ItemManagementService(
             }
 
             await context.Items.AddAsync(item, cancellationToken);
+            if (identificationRegistry is not null)
+            {
+                var identifierSync = await identificationRegistry.SyncItemAsync(item, cancellationToken);
+                if (identifierSync.IsFailure)
+                {
+                    return identifierSync.ToFailure<ItemDto>();
+                }
+            }
             await auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.ItemDuplicated,
@@ -665,6 +710,14 @@ public sealed class ItemManagementService(
                 AddPackagings(item, packaging);
                 items.Add(item);
                 await context.Items.AddAsync(item, cancellationToken);
+                if (identificationRegistry is not null)
+                {
+                    var identifierSync = await identificationRegistry.SyncItemAsync(item, cancellationToken);
+                    if (identifierSync.IsFailure)
+                    {
+                        return identifierSync.ToFailure<ItemImportResult>();
+                    }
+                }
                 await auditWriter.RecordAsync(
                     new AuditRecord(
                         WmsAuditActions.ItemBulkImported,

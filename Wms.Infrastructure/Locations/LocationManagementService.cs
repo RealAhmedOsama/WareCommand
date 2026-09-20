@@ -6,6 +6,7 @@ using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
+using Wms.Application.Identification;
 using Wms.Application.Locations;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -17,7 +18,8 @@ public sealed class LocationManagementService(
     WmsDbContext context,
     IWarehouseAccessService warehouseAccessService,
     IAuditWriter auditWriter,
-    ILogger<LocationManagementService> logger) : ILocationManagementService
+    ILogger<LocationManagementService> logger,
+    IIdentificationRegistry? identificationRegistry = null) : ILocationManagementService
 {
     private const string PostgreSqlProviderName = "Npgsql.EntityFrameworkCore.PostgreSQL";
     private const int MaximumPageSize = 200;
@@ -214,6 +216,14 @@ public sealed class LocationManagementService(
                 request.AccessRestriction,
                 request.ConstraintAttributesJson);
             context.Locations.Add(location);
+            if (identificationRegistry is not null)
+            {
+                var identifierSync = await identificationRegistry.SyncLocationAsync(location, cancellationToken);
+                if (identifierSync.IsFailure)
+                {
+                    return identifierSync.ToFailure<LocationDto>();
+                }
+            }
             await auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.LocationCreated,
@@ -342,6 +352,15 @@ public sealed class LocationManagementService(
                 location.SetParentLocation(request.ParentLocationId);
             }
 
+            if (identificationRegistry is not null)
+            {
+                var identifierSync = await identificationRegistry.SyncLocationAsync(location, cancellationToken);
+                if (identifierSync.IsFailure)
+                {
+                    return identifierSync.ToFailure<LocationDto>();
+                }
+            }
+
             await auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.LocationUpdated,
@@ -434,6 +453,15 @@ public sealed class LocationManagementService(
             location.Deactivate();
         }
 
+        if (identificationRegistry is not null)
+        {
+            var identifierSync = await identificationRegistry.SyncLocationAsync(location, cancellationToken);
+            if (identifierSync.IsFailure)
+            {
+                return identifierSync;
+            }
+        }
+
         await auditWriter.RecordAsync(
             new AuditRecord(
                 active ? WmsAuditActions.LocationActivated : WmsAuditActions.LocationDeactivated,
@@ -493,6 +521,14 @@ public sealed class LocationManagementService(
         }
 
         location.Deactivate();
+        if (identificationRegistry is not null)
+        {
+            var identifierSync = await identificationRegistry.SyncLocationAsync(location, cancellationToken);
+            if (identifierSync.IsFailure)
+            {
+                return identifierSync;
+            }
+        }
         await auditWriter.RecordAsync(
             new AuditRecord(
                 WmsAuditActions.LocationDeactivated,
@@ -768,6 +804,14 @@ public sealed class LocationManagementService(
                         row.MaxLpns,
                         row.StorageProfile);
                     context.Locations.Add(location);
+                    if (identificationRegistry is not null)
+                    {
+                        var identifierSync = await identificationRegistry.SyncLocationAsync(location, cancellationToken);
+                        if (identifierSync.IsFailure)
+                        {
+                            throw new InvalidOperationException(identifierSync.Error);
+                        }
+                    }
                     await context.SaveChangesAsync(cancellationToken);
                     await auditWriter.RecordAsync(
                         new AuditRecord(

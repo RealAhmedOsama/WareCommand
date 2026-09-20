@@ -204,14 +204,14 @@ public sealed class ItemManagementServiceTests : IAsyncLifetime, IDisposable
                         "CASE",
                         "EA",
                         12m,
-                        Gtin: "0001234567890",
+                        Gtin: "00012345678905",
                         Type: PackagingType.Case,
                         IsDefaultStorage: true),
                     new ItemPackagingRequest(
                         "PALLET",
                         "CASE",
                         10m,
-                        Gtin: "0001234567891",
+                        Gtin: "00012345678912",
                         ParentPackagingCode: "CASE",
                         Type: PackagingType.Pallet,
                         IsDefaultShipping: true)
@@ -234,7 +234,7 @@ public sealed class ItemManagementServiceTests : IAsyncLifetime, IDisposable
                 new ItemStorageRequest(),
                 new ItemPlanningRequest(),
                 Packagings:
-                [new ItemPackagingRequest("CASE", "EA", 12m, Gtin: "0001234567890")]),
+                [new ItemPackagingRequest("CASE", "EA", 12m, Gtin: "00012345678905")]),
             "user-1");
 
         duplicateGtin.ErrorCode.Should().Be("item.barcode_conflict");

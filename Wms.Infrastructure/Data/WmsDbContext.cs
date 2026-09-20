@@ -36,6 +36,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<Lot> Lots => Set<Lot>();
     public DbSet<Stock> Stock => Set<Stock>();
     public DbSet<Movement> Movements => Set<Movement>();
+    public DbSet<WmsIdentifier> WmsIdentifiers => Set<WmsIdentifier>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
 
@@ -67,6 +68,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new LotConfiguration());
         builder.ApplyConfiguration(new StockConfiguration());
         builder.ApplyConfiguration(new MovementConfiguration());
+        builder.ApplyConfiguration(new WmsIdentifierConfiguration());
 
         builder.Entity<WmsUser>(entity =>
         {

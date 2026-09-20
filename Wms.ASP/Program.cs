@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Net;
+using System.Text.Json.Serialization;
 using Hangfire;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -65,6 +66,8 @@ public class Program
                     options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
                 })
                 .AddViewLocalization()
+                .AddJsonOptions(options =>
+                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()))
                 .AddDataAnnotationsLocalization(options =>
                 {
                     options.DataAnnotationLocalizerProvider = (_, factory) =>
@@ -195,6 +198,7 @@ public class Program
                 })
                 .AllowAnonymous();
 
+            app.MapControllers();
             app.MapControllerRoute(
                 "default",
                 "{controller=Dashboard}/{action=Index}/{id?}");
