@@ -80,6 +80,18 @@
                             <span asp-validation-for="LotNumber" class="text-danger"></span>
                         </div>
 
+                        <div class="col-md-6">
+                            <label asp-for="ManufacturedDate" class="form-label">@T["Field.ManufacturedDate"]</label>
+                            <input asp-for="ManufacturedDate" class="form-control" type="date" />
+                            <span asp-validation-for="ManufacturedDate" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="ExpiryDate" class="form-label">@T["Field.ExpiryDate"]</label>
+                            <input asp-for="ExpiryDate" class="form-control" type="date" />
+                            <span asp-validation-for="ExpiryDate" class="text-danger"></span>
+                        </div>
+
                         <div class="col-12">
                             <label for="SerialNumber" class="form-label">@T["Field.SerialNumber"]</label>
                             <div class="input-group">

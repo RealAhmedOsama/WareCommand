@@ -2,9 +2,12 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
+using Wms.Application.Context;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
+using Wms.Application.Lots;
+using Wms.Application.Time;
 using Wms.Application.Units;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
@@ -36,19 +39,25 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
     private readonly IItemQuantityConversionService? _quantityConversionService;
+    private readonly ILotService? _lotService;
+    private readonly IClock? _clock;
 
     public StockAdjustmentUseCase(
         IUnitOfWork unitOfWork,
         IStockMovementService stockMovementService,
         ILogger<StockAdjustmentUseCase> logger,
         IWarehouseAccessService warehouseAccessService,
-        IItemQuantityConversionService? quantityConversionService = null)
+        IItemQuantityConversionService? quantityConversionService = null,
+        ILotService? lotService = null,
+        IClock? clock = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
         _quantityConversionService = quantityConversionService;
+        _lotService = lotService;
+        _clock = clock;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(StockAdjustmentDto request, string userId,
@@ -103,7 +112,35 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                     "inventory.adjustment_reason_required",
                     "Adjustment reason is required."));
 
-            // Create the adjustment
+            int? lotId = null;
+            string? resolvedLotNumber = request.LotNumber;
+            if (_lotService is not null)
+            {
+                var lotResult = await _lotService.ResolveForMovementAsync(
+                    item,
+                    request.LotNumber,
+                    requireAllocationEligibility: false,
+                    WmsBusinessTime.GetBusinessDate(
+                        _clock?.UtcNow ?? DateTimeOffset.UtcNow,
+                        location.Warehouse?.TimeZone ?? WmsTimeZoneCatalog.Utc),
+                    cancellationToken);
+                if (lotResult.IsFailure)
+                {
+                    return lotResult.ToFailure<ReceiptResultDto>();
+                }
+
+                lotId = lotResult.Value?.Id;
+                resolvedLotNumber = lotResult.Value?.Number ?? request.LotNumber;
+            }
+            else if (item.RequiresLot)
+            {
+                return Result.Failure<ReceiptResultDto>(WmsErrors.Dependency(
+                    "lot.service_unavailable",
+                    "Lot-controlled adjustment is not available.",
+                    isRetryable: false));
+            }
+
+            // Create the adjustment with the resolved lot identity.
             var quantityResult = await ConvertToBaseAsync(
                 item,
                 request.NewQuantity,
@@ -118,7 +155,7 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
             var newQuantity = quantityResult.Value;
             var movement = await _stockMovementService.AdjustAsync(
                 item.Id, location.Id, newQuantity, userId, request.Reason,
-                null, request.SerialNumber, cancellationToken);
+                lotId, request.SerialNumber, cancellationToken);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -131,7 +168,7 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                 request.ItemSku,
                 request.LocationCode,
                 request.NewQuantity,
-                request.LotNumber,
+                resolvedLotNumber,
                 movement.Timestamp
             ));
         }

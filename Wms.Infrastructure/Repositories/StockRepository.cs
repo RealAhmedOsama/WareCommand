@@ -98,6 +98,47 @@ public class StockRepository : Repository<Stock>, IStockRepository
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Stock>> GetByItemAndLocationCandidatesAsync(
+        int itemId,
+        int locationId,
+        string? serialNumber = null,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var query = DbSet
+            .Include(stock => stock.Item)
+            .Include(stock => stock.Location)
+            .Include(stock => stock.Lot)
+            .Where(stock => stock.ItemId == itemId && stock.LocationId == locationId)
+            .AsQueryable();
+        query = ApplyScope(query, scope);
+
+        query = string.IsNullOrWhiteSpace(serialNumber)
+            ? query.Where(stock => stock.SerialNumber == null)
+            : query.Where(stock => stock.SerialNumber == serialNumber.Trim());
+
+        return await query
+            .OrderBy(stock => stock.Lot == null ? 1 : 0)
+            .ThenBy(stock => stock.Lot!.ExpiryDate)
+            .ThenBy(stock => stock.Lot!.Number)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<Stock>> GetByLotIdAsync(
+        int lotId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var query = DbSet
+            .Include(stock => stock.Item)
+            .Include(stock => stock.Location)
+            .Include(stock => stock.Lot)
+            .Where(stock => stock.LotId == lotId)
+            .AsQueryable();
+        query = ApplyScope(query, scope);
+        return await query.OrderBy(stock => stock.Location.Code).ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Stock>> GetAvailableStockAsync(int itemId,
         CancellationToken cancellationToken = default)
     {

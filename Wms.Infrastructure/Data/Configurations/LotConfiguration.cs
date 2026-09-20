@@ -22,6 +22,20 @@ public class LotConfiguration : IEntityTypeConfiguration<Lot>
             .HasColumnType("timestamp without time zone");
         builder.Property(e => e.ManufacturedDate)
             .HasColumnType("timestamp without time zone");
+        builder.Property(e => e.RetestDate)
+            .HasColumnType("timestamp without time zone");
+        builder.Property(e => e.HoldUntil)
+            .HasColumnType("timestamp without time zone");
+        builder.Property(e => e.SupplierLotNumber)
+            .HasMaxLength(100);
+        builder.Property(e => e.Notes)
+            .HasMaxLength(1_000);
+        builder.Property(e => e.Status)
+            .IsRequired();
+        builder.Property(e => e.RecallReason)
+            .HasMaxLength(1_000);
+        builder.Property(e => e.RecalledAt)
+            .HasColumnType("timestamp with time zone");
 
         builder.Property(e => e.CreatedAt)
             .IsRequired()

@@ -75,7 +75,14 @@ internal sealed record LotRow(
     int ItemId,
     DateTime? ExpiryDate,
     DateTime? ManufacturedDate,
+    DateTime? RetestDate,
+    DateTime? HoldUntil,
+    string? SupplierLotNumber,
+    string? Notes,
+    int Status,
     bool IsActive,
+    string? RecallReason,
+    DateTime? RecalledAt,
     DateTime CreatedAt,
     DateTime? UpdatedAt);
 

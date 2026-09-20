@@ -58,7 +58,8 @@ public class InventoryController : Controller
                     stockItems = stockItems.Where(s =>
                         s.ItemSku.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                         s.ItemName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        s.LocationCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+                        s.LocationCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        (s.LotNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
                 }
 
                 model.StockItems = stockItems.ToList();
@@ -70,12 +71,17 @@ public class InventoryController : Controller
 
     [HttpGet]
     [Authorize(Policy = WmsPermissions.InventoryAdjust)]
-    public IActionResult Adjust(string itemSku, string locationCode, decimal currentQuantity)
+    public IActionResult Adjust(
+        string itemSku,
+        string locationCode,
+        decimal currentQuantity,
+        string? lotNumber = null)
     {
         var model = new StockAdjustmentViewModel
         {
             ItemSku = itemSku,
             LocationCode = locationCode,
+            LotNumber = lotNumber,
             CurrentQuantity = currentQuantity,
             NewQuantity = currentQuantity
         };
@@ -85,7 +91,7 @@ public class InventoryController : Controller
     [HttpPost]
     [Authorize(Policy = WmsPermissions.InventoryAdjust)]
     public async Task<IActionResult> Adjust(
-        [Bind("ItemSku,LocationCode,NewQuantity,UnitOfMeasure,PackagingCode,Reason")] StockAdjustmentViewModel model,
+        [Bind("ItemSku,LocationCode,LotNumber,NewQuantity,UnitOfMeasure,PackagingCode,Reason")] StockAdjustmentViewModel model,
         CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
@@ -98,6 +104,7 @@ public class InventoryController : Controller
             model.LocationCode,
             model.NewQuantity,
             model.Reason,
+            model.LotNumber,
             UnitOfMeasure: model.UnitOfMeasure,
             PackagingCode: model.PackagingCode
         );

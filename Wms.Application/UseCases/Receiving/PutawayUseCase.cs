@@ -3,8 +3,11 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
+using Wms.Application.Lots;
+using Wms.Application.Time;
 using Wms.Application.Units;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
@@ -25,19 +28,25 @@ public class PutawayUseCase : IPutawayUseCase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
     private readonly IItemQuantityConversionService? _quantityConversionService;
+    private readonly ILotService? _lotService;
+    private readonly IClock? _clock;
 
     public PutawayUseCase(
         IUnitOfWork unitOfWork,
         IStockMovementService stockMovementService,
         ILogger<PutawayUseCase> logger,
         IWarehouseAccessService warehouseAccessService,
-        IItemQuantityConversionService? quantityConversionService = null)
+        IItemQuantityConversionService? quantityConversionService = null,
+        ILotService? lotService = null,
+        IClock? clock = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
         _quantityConversionService = quantityConversionService;
+        _lotService = lotService;
+        _clock = clock;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(PutawayDto request, string userId,
@@ -114,9 +123,35 @@ public class PutawayUseCase : IPutawayUseCase
                     "location.inactive",
                     $"Location '{request.ToLocationCode}' is inactive."));
 
-            // Validate stock exists in from location
+            var lotId = default(int?);
+            string? resolvedLotNumber = request.LotNumber;
+            if (_lotService is not null)
+            {
+                var lotResult = await _lotService.ResolveForMovementAsync(
+                    item,
+                    request.LotNumber,
+                    requireAllocationEligibility: false,
+                    GetBusinessDate(fromLocation),
+                    cancellationToken);
+                if (lotResult.IsFailure)
+                {
+                    return lotResult.ToFailure<ReceiptResultDto>();
+                }
+
+                lotId = lotResult.Value?.Id;
+                resolvedLotNumber = lotResult.Value?.Number ?? request.LotNumber;
+            }
+            else if (item.RequiresLot)
+            {
+                return Result.Failure<ReceiptResultDto>(WmsErrors.Dependency(
+                    "lot.service_unavailable",
+                    "Lot-controlled putaway is not available.",
+                    isRetryable: false));
+            }
+
+            // Validate stock exists in from location using the requested lot identity.
             var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-                item.Id, fromLocation.Id, null, request.SerialNumber, cancellationToken);
+                item.Id, fromLocation.Id, lotId, request.SerialNumber, cancellationToken);
 
             if (stock == null)
                 return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
@@ -143,7 +178,7 @@ public class PutawayUseCase : IPutawayUseCase
             // Create the putaway movement
             var movement = await _stockMovementService.PutawayAsync(
                 item.Id, fromLocation.Id, toLocation.Id, requestedQuantity, userId,
-                stock.LotId, request.SerialNumber, notes: request.Notes, cancellationToken: cancellationToken);
+                lotId ?? stock.LotId, request.SerialNumber, notes: request.Notes, cancellationToken: cancellationToken);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -155,7 +190,7 @@ public class PutawayUseCase : IPutawayUseCase
                 request.ItemSku,
                 request.ToLocationCode,
                 request.Quantity,
-                request.LotNumber,
+                resolvedLotNumber,
                 movement.Timestamp
             ));
         }
@@ -205,4 +240,9 @@ public class PutawayUseCase : IPutawayUseCase
             ? result.ToFailure<Quantity>()
             : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));
     }
+
+    private DateOnly GetBusinessDate(Wms.Domain.Entities.Location location) =>
+        WmsBusinessTime.GetBusinessDate(
+            _clock?.UtcNow ?? DateTimeOffset.UtcNow,
+            location.Warehouse?.TimeZone ?? WmsTimeZoneCatalog.Utc);
 }

@@ -58,6 +58,7 @@ public class StockMovementService : IStockMovementService
             location?.WarehouseId);
         try
         {
+            await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: false, cancellationToken);
             var existingStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 itemId, locationId, lotId, serialNumber, cancellationToken);
             await EnsureInboundCapacityAsync(
@@ -151,6 +152,7 @@ public class StockMovementService : IStockMovementService
             fromLocation?.WarehouseId ?? toLocation?.WarehouseId);
         try
         {
+            await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: true, cancellationToken);
             // Validate source stock
             var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 itemId, fromLocationId, lotId, serialNumber, cancellationToken);
@@ -261,6 +263,7 @@ public class StockMovementService : IStockMovementService
             location?.WarehouseId);
         try
         {
+            await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: true, cancellationToken);
             // Validate source stock
             var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 itemId, fromLocationId, lotId, serialNumber, cancellationToken);
@@ -350,6 +353,7 @@ public class StockMovementService : IStockMovementService
             location?.WarehouseId);
         try
         {
+            await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: false, cancellationToken);
             var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 itemId, locationId, lotId, serialNumber, cancellationToken);
             var quantityBefore = stock?.QuantityAvailable.Value;
@@ -485,6 +489,58 @@ public class StockMovementService : IStockMovementService
                 violation.Code,
                 violation.Message);
         }
+    }
+
+    private async Task<Lot?> ValidateLotAsync(
+        int itemId,
+        int? lotId,
+        bool requireAllocationEligibility,
+        CancellationToken cancellationToken)
+    {
+        var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken);
+        if (item is null)
+        {
+            throw new InvalidOperationException($"Item {itemId} was not found.");
+        }
+
+        if (!lotId.HasValue)
+        {
+            if (item.RequiresLot)
+            {
+                throw new InvalidOperationException(
+                    $"Item '{item.Sku}' requires a persisted lot identity for this movement.");
+            }
+
+            return null;
+        }
+
+        var lot = await _unitOfWork.Lots.GetByIdAsync(lotId.Value, cancellationToken);
+        if (lot is null)
+        {
+            throw new InvalidOperationException($"Lot {lotId.Value} was not found.");
+        }
+
+        if (lot.ItemId != itemId)
+        {
+            throw new InvalidOperationException(
+                $"Lot '{lot.Number}' does not belong to item '{item.Sku}'.");
+        }
+
+        var businessDate = DateOnly.FromDateTime(_clock.UtcNow.DateTime);
+        if (requireAllocationEligibility && !lot.IsAllocationEligible(businessDate))
+        {
+            throw new InvalidOperationException(
+                $"Lot '{lot.Number}' is not eligible for allocation.");
+        }
+
+        if (!requireAllocationEligibility &&
+            lot.Status is LotStatus.Recalled or LotStatus.Closed)
+        {
+            throw new InvalidOperationException(
+                $"Lot '{lot.Number}' cannot be used while it is {lot.Status}.");
+        }
+
+        return lot;
     }
 
     private static LocationCapacitySnapshot CalculateIncomingCapacity(Quantity quantity, Item? item)

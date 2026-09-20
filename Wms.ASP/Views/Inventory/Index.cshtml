@@ -130,6 +130,7 @@ else
                         <tr>
                             <th>@T["Movement.Sku"]</th>
                             <th>@T["Field.Name"]</th>
+                            <th>@T["Field.LotNumber"]</th>
                             <th>@T["Field.Location"]</th>
                             <th class="text-end">@T["Field.Available"]</th>
                             <th class="text-end">@T["Field.Reserved"]</th>
@@ -143,6 +144,7 @@ else
                             <tr>
                                 <td class="fw-medium wms-identifier">@item.ItemSku</td>
                                 <td>@item.ItemName</td>
+                                <td class="wms-identifier">@(item.LotNumber ?? "-")</td>
                                 <td>
                                     <span class="badge bg-secondary">@item.LocationCode</span>
                                     <br><small class="text-muted">@item.LocationName</small>
@@ -160,6 +162,7 @@ else
                                         <a asp-action="Adjust"
                                            asp-route-itemSku="@item.ItemSku"
                                            asp-route-locationCode="@item.LocationCode"
+                                           asp-route-lotNumber="@item.LotNumber"
                                            asp-route-currentQuantity="@item.QuantityAvailable"
                                            class="btn btn-sm btn-outline-warning"
                                            title="@T["Inventory.Adjustment"]">

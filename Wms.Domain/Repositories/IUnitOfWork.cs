@@ -6,6 +6,7 @@ public interface IUnitOfWork : IDisposable
 {
     IItemRepository Items { get; }
     ILocationRepository Locations { get; }
+    ILotRepository Lots { get; }
     IStockRepository Stock { get; }
     IMovementRepository Movements { get; }
 

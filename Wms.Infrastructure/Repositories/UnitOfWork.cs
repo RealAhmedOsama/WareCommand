@@ -1,5 +1,6 @@
 // Wms.Infrastructure/Repositories/UnitOfWork.cs
 
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Wms.Application.Identity;
 using Wms.Domain.Repositories;
@@ -17,12 +18,14 @@ public class UnitOfWork : IUnitOfWork
         _context = context;
         Items = new ItemRepository(context);
         Locations = new LocationRepository(context, warehouseAccessService);
+        Lots = new LotRepository(context);
         Stock = new StockRepository(context, warehouseAccessService);
         Movements = new MovementRepository(context, warehouseAccessService);
     }
 
     public IItemRepository Items { get; }
     public ILocationRepository Locations { get; }
+    public ILotRepository Lots { get; }
     public IStockRepository Stock { get; }
     public IMovementRepository Movements { get; }
 
@@ -33,6 +36,11 @@ public class UnitOfWork : IUnitOfWork
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
+        if (!_context.Database.IsRelational())
+        {
+            return;
+        }
+
         _transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
     }
 

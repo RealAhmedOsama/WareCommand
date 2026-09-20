@@ -2,8 +2,12 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
+using Wms.Application.Lots;
+using Wms.Application.Time;
+using Wms.Domain.Entities;
 using Wms.Application.Units;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
@@ -29,7 +33,8 @@ public record PickResultDto(
     string FromLocationCode,
     decimal Quantity,
     string? OrderNumber,
-    DateTime Timestamp
+    DateTime Timestamp,
+    string? LotNumber = null
 );
 
 public interface IPickOrderUseCase
@@ -45,19 +50,25 @@ public class PickOrderUseCase : IPickOrderUseCase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
     private readonly IItemQuantityConversionService? _quantityConversionService;
+    private readonly ILotService? _lotService;
+    private readonly IClock? _clock;
 
     public PickOrderUseCase(
         IUnitOfWork unitOfWork,
         IStockMovementService stockMovementService,
         ILogger<PickOrderUseCase> logger,
         IWarehouseAccessService warehouseAccessService,
-        IItemQuantityConversionService? quantityConversionService = null)
+        IItemQuantityConversionService? quantityConversionService = null,
+        ILotService? lotService = null,
+        IClock? clock = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
         _quantityConversionService = quantityConversionService;
+        _lotService = lotService;
+        _clock = clock;
     }
 
     public async Task<Result<PickResultDto>> ExecuteAsync(PickItemDto request, string userId,
@@ -111,15 +122,6 @@ public class PickOrderUseCase : IPickOrderUseCase
                     "location.inactive",
                     $"Location '{request.FromLocationCode}' is inactive."));
 
-            // Validate stock availability
-            var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
-                item.Id, location.Id, null, request.SerialNumber, cancellationToken);
-
-            if (stock == null)
-                return Result.Failure<PickResultDto>(WmsErrors.NotFound(
-                    "stock.not_found",
-                    $"No stock found for item '{request.ItemSku}' in location '{request.FromLocationCode}'."));
-
             var quantityResult = await ConvertToBaseAsync(
                 item,
                 request.Quantity,
@@ -132,6 +134,72 @@ public class PickOrderUseCase : IPickOrderUseCase
             }
 
             var requestedQuantity = quantityResult.Value;
+
+            int? lotId = null;
+            string? resolvedLotNumber = request.LotNumber;
+            Stock? stock;
+            if (_lotService is not null &&
+                (!string.IsNullOrWhiteSpace(request.LotNumber) || !item.RequiresLot || !item.UseFefo))
+            {
+                var lotResult = await _lotService.ResolveForMovementAsync(
+                    item,
+                    request.LotNumber,
+                    requireAllocationEligibility: true,
+                    GetBusinessDate(location),
+                    cancellationToken);
+                if (lotResult.IsFailure)
+                {
+                    return lotResult.ToFailure<PickResultDto>();
+                }
+
+                lotId = lotResult.Value?.Id;
+                resolvedLotNumber = lotResult.Value?.Number ?? request.LotNumber;
+                stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+                    item.Id,
+                    location.Id,
+                    lotId,
+                    request.SerialNumber,
+                    cancellationToken);
+            }
+            else if (_lotService is not null && item.RequiresLot && item.UseFefo)
+            {
+                var candidates = await _unitOfWork.Stock.GetByItemAndLocationCandidatesAsync(
+                    item.Id,
+                    location.Id,
+                    request.SerialNumber,
+                    cancellationToken);
+                var businessDate = GetBusinessDate(location);
+                stock = candidates.FirstOrDefault(candidate =>
+                    candidate.Lot is not null &&
+                    candidate.Lot.IsAllocationEligible(businessDate) &&
+                    candidate.GetAvailableQuantity() >= requestedQuantity);
+                if (stock is not null)
+                {
+                    lotId = stock.LotId;
+                    resolvedLotNumber = stock.Lot?.Number;
+                }
+            }
+            else
+            {
+                if (item.RequiresLot)
+                {
+                    return Result.Failure<PickResultDto>(WmsErrors.Dependency(
+                        "lot.service_unavailable",
+                        "Lot-controlled picking is not available.",
+                        isRetryable: false));
+                }
+
+                stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+                    item.Id, location.Id, null, request.SerialNumber, cancellationToken);
+            }
+
+            if (stock == null)
+            {
+                return Result.Failure<PickResultDto>(WmsErrors.NotFound(
+                    "stock.not_found",
+                    $"No eligible stock found for item '{request.ItemSku}' in location '{request.FromLocationCode}' and lot '{request.LotNumber ?? "FEFO"}'."));
+            }
+
             if (stock.GetAvailableQuantity() < requestedQuantity)
                 return Result.Failure<PickResultDto>(WmsErrors.BusinessRule(
                     "stock.insufficient",
@@ -140,7 +208,7 @@ public class PickOrderUseCase : IPickOrderUseCase
             // Create the pick movement
             var movement = await _stockMovementService.PickAsync(
                 item.Id, location.Id, requestedQuantity, userId,
-                stock.LotId, request.SerialNumber, request.OrderNumber, request.Notes, cancellationToken);
+                lotId ?? stock.LotId, request.SerialNumber, request.OrderNumber, request.Notes, cancellationToken);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -154,7 +222,8 @@ public class PickOrderUseCase : IPickOrderUseCase
                 request.FromLocationCode,
                 request.Quantity,
                 request.OrderNumber,
-                movement.Timestamp
+                movement.Timestamp,
+                resolvedLotNumber
             ));
         }
         catch (OperationCanceledException)
@@ -203,4 +272,9 @@ public class PickOrderUseCase : IPickOrderUseCase
             ? result.ToFailure<Quantity>()
             : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));
     }
+
+    private DateOnly GetBusinessDate(Wms.Domain.Entities.Location location) =>
+        WmsBusinessTime.GetBusinessDate(
+            _clock?.UtcNow ?? DateTimeOffset.UtcNow,
+            location.Warehouse?.TimeZone ?? WmsTimeZoneCatalog.Utc);
 }

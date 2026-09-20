@@ -40,6 +40,19 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
         return await query.OrderByDescending(m => m.Timestamp).ToListAsync(cancellationToken);
     }
 
+    public async Task<IEnumerable<Movement>> GetByLotIdAsync(
+        int lotId,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var query = IncludeNavigations(DbSet.AsQueryable())
+            .Where(movement => movement.LotId == lotId)
+            .AsQueryable();
+        query = ApplyScope(query, scope);
+        return await query.OrderByDescending(movement => movement.Timestamp)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Movement>> GetByLocationIdAsync(int locationId,
         CancellationToken cancellationToken = default)
     {

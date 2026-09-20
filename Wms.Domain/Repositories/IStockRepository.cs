@@ -13,6 +13,16 @@ public interface IStockRepository : IRepository<Stock>
     Task<Stock?> GetByItemAndLocationAsync(int itemId, int locationId, int? lotId = null,
         string? serialNumber = null, CancellationToken cancellationToken = default);
 
+    Task<IEnumerable<Stock>> GetByItemAndLocationCandidatesAsync(
+        int itemId,
+        int locationId,
+        string? serialNumber = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<Stock>> GetByLotIdAsync(
+        int lotId,
+        CancellationToken cancellationToken = default);
+
     Task<IEnumerable<Stock>> GetAvailableStockAsync(int itemId, CancellationToken cancellationToken = default);
     Task<Quantity> GetTotalQuantityAsync(int itemId, CancellationToken cancellationToken = default);
 }

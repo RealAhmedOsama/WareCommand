@@ -107,6 +107,8 @@
   <data name="Field.ToLocation" xml:space="preserve"><value>To Location</value></data>
   <data name="Field.Quantity" xml:space="preserve"><value>Quantity</value></data>
   <data name="Field.LotNumber" xml:space="preserve"><value>Lot Number</value></data>
+  <data name="Field.ManufacturedDate" xml:space="preserve"><value>Manufactured date</value></data>
+  <data name="Field.ExpiryDate" xml:space="preserve"><value>Expiry date</value></data>
   <data name="Field.SerialNumber" xml:space="preserve"><value>Serial Number</value></data>
   <data name="Field.Notes" xml:space="preserve"><value>Notes</value></data>
   <data name="Field.OrderNumber" xml:space="preserve"><value>Order Number</value></data>

@@ -40,6 +40,12 @@
                             <span asp-validation-for="LocationCode" class="text-danger"></span>
                         </div>
 
+                        <div class="col-md-6">
+                            <label asp-for="LotNumber" class="form-label">@T["Field.LotNumber"]</label>
+                            <input asp-for="LotNumber" class="form-control wms-identifier" maxlength="100" />
+                            <span asp-validation-for="LotNumber" class="text-danger"></span>
+                        </div>
+
                         <!-- Current Quantity Display -->
                         <div class="col-12">
                             <div class="alert alert-info">

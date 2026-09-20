@@ -8,6 +8,7 @@ namespace Wms.Domain.Repositories;
 public interface IMovementRepository : IRepository<Movement>
 {
     Task<IEnumerable<Movement>> GetByItemIdAsync(int itemId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<Movement>> GetByLotIdAsync(int lotId, CancellationToken cancellationToken = default);
     Task<IEnumerable<Movement>> GetByLocationIdAsync(int locationId, CancellationToken cancellationToken = default);
 
     /// <summary>

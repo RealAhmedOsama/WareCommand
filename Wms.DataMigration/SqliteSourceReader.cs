@@ -188,18 +188,48 @@ internal sealed class SqliteSourceReader(string sourcePath)
             cancellationToken);
     }
 
-    private static Task<List<LotRow>> ReadLotsAsync(SqliteConnection connection, CancellationToken cancellationToken)
+    private static async Task<List<LotRow>> ReadLotsAsync(
+        SqliteConnection connection,
+        CancellationToken cancellationToken)
     {
-        return ReadRowsAsync(
+        var columns = await ReadColumnsAsync(connection, "Lots", cancellationToken);
+        static string SelectColumn(HashSet<string> available, string column, string fallback) =>
+            available.Contains(column)
+                ? $"\"{column}\""
+                : $"{fallback} AS \"{column}\"";
+
+        var sql = $"""
+            SELECT "Id", "Number", "ItemId", "ExpiryDate", "ManufacturedDate",
+                   {SelectColumn(columns, "RetestDate", "NULL")},
+                   {SelectColumn(columns, "HoldUntil", "NULL")},
+                   {SelectColumn(columns, "SupplierLotNumber", "NULL")},
+                   {SelectColumn(columns, "Notes", "NULL")},
+                   {SelectColumn(columns, "Status", "1")},
+                   "IsActive",
+                   {SelectColumn(columns, "RecallReason", "NULL")},
+                   {SelectColumn(columns, "RecalledAt", "NULL")},
+                   "CreatedAt", "UpdatedAt"
+            FROM "Lots"
+            ORDER BY "Id";
+            """;
+
+        return await ReadRowsAsync(
             connection,
-            "SELECT \"Id\", \"Number\", \"ItemId\", \"ExpiryDate\", \"ManufacturedDate\", \"IsActive\", \"CreatedAt\", \"UpdatedAt\" FROM \"Lots\" ORDER BY \"Id\";",
+            sql,
             reader => new LotRow(
                 ReadInt32(reader, "Id"),
                 ReadString(reader, "Number"),
                 ReadInt32(reader, "ItemId"),
                 ReadNullableDate(reader, "ExpiryDate"),
                 ReadNullableDate(reader, "ManufacturedDate"),
+                ReadNullableDate(reader, "RetestDate"),
+                ReadNullableDate(reader, "HoldUntil"),
+                ReadNullableString(reader, "SupplierLotNumber"),
+                ReadNullableString(reader, "Notes"),
+                ReadInt32(reader, "Status"),
                 ReadBoolean(reader, "IsActive"),
+                ReadNullableString(reader, "RecallReason"),
+                ReadNullableUtc(reader, "RecalledAt"),
                 ReadUtc(reader, "CreatedAt"),
                 ReadNullableUtc(reader, "UpdatedAt")),
             cancellationToken);

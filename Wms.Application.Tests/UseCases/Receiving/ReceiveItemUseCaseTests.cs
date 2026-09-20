@@ -1,7 +1,9 @@
 // Wms.Application.Tests/UseCases/Receiving/ReceiveItemUseCaseTests.cs
 
 using Microsoft.Extensions.Logging;
+using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Application.Lots;
 using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Receiving;
 using Wms.Domain.Entities;
@@ -17,6 +19,7 @@ public class ReceiveItemUseCaseTests
     private readonly Mock<ILocationRepository> _mockLocationRepository;
     private readonly Mock<ILogger<ReceiveItemUseCase>> _mockLogger;
     private readonly Mock<IStockMovementService> _mockStockMovementService;
+    private readonly Mock<ILotService> _mockLotService;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly ReceiveItemUseCase _useCase;
 
@@ -26,6 +29,7 @@ public class ReceiveItemUseCaseTests
         _mockItemRepository = new Mock<IItemRepository>();
         _mockLocationRepository = new Mock<ILocationRepository>();
         _mockStockMovementService = new Mock<IStockMovementService>();
+        _mockLotService = new Mock<ILotService>();
         _mockLogger = new Mock<ILogger<ReceiveItemUseCase>>();
 
         _mockUnitOfWork.Setup(x => x.Items).Returns(_mockItemRepository.Object);
@@ -35,7 +39,8 @@ public class ReceiveItemUseCaseTests
             _mockUnitOfWork.Object,
             _mockStockMovementService.Object,
             _mockLogger.Object,
-            new AllowAllWarehouseAccessService());
+            new AllowAllWarehouseAccessService(),
+            lotService: _mockLotService.Object);
     }
 
     [Fact]
@@ -245,6 +250,20 @@ public class ReceiveItemUseCaseTests
             .ReturnsAsync(item);
         _mockLocationRepository.Setup(x => x.GetByCodeAsync(request.LocationCode, It.IsAny<CancellationToken>()))
             .ReturnsAsync(location);
+        _mockLotService.Setup(x => x.ResolveForReceiptAsync(
+                item,
+                request.LotNumber!,
+                It.IsAny<LotDetailsRequest>(),
+                "USER1",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(new Lot(
+                request.LotNumber!,
+                item.Id,
+                request.ExpiryDate)));
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         _mockStockMovementService.Setup(x => x.ReceiveAsync(
                 It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Quantity>(), It.IsAny<string>(),
                 It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),

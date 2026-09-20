@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Wms.Application.Backups;
 using Wms.Application.Context;
 using Wms.Application.Jobs;
+using Wms.Application.Lots;
 using Wms.Application.Settings;
 using Wms.Application.Time;
 using Wms.Infrastructure.Data;
@@ -39,7 +40,7 @@ public sealed class WmsJobHandlerCatalog(
 }
 
 public sealed class WmsExpiryAlertJob(
-    WmsDbContext dbContext,
+    ILotService lotService,
     IWmsSettingsService settingsService,
     IWmsJobExecutionStore executionStore,
     IClock clock,
@@ -58,21 +59,22 @@ public sealed class WmsExpiryAlertJob(
         var today = WmsBusinessTime.GetBusinessDate(
             clock.UtcNow,
             values.Localization.TimeZone);
-        var warningDate = today.AddDays(values.Expiry.WarningDays);
-        var lots = await dbContext.Lots
-            .AsNoTracking()
-            .Include(lot => lot.Item)
-            .Where(lot => lot.IsActive &&
-                lot.ExpiryDate.HasValue &&
-                lot.ExpiryDate.Value.Date <= warningDate.ToDateTime(TimeOnly.MinValue))
-            .OrderBy(lot => lot.ExpiryDate)
-            .ToListAsync(cancellationToken);
+        var alerts = await lotService.GetExpiryAlertsAsync(
+            today,
+            values.Expiry.WarningDays,
+            cancellationToken);
+        if (alerts.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Lot expiry evaluation failed: {alerts.Error}");
+        }
 
-        foreach (var lot in lots)
+        foreach (var alert in alerts.Value.OrderBy(alert => alert.ExpiryDate))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var expiryDate = DateOnly.FromDateTime(lot.ExpiryDate!.Value);
-            var expired = expiryDate < today;
+            var expiryDate = alert.ExpiryDate;
+            var expired = alert.IsExpired;
+            var lot = alert.Lot;
             var kind = expired ? "expiry.expired" : "expiry.warning";
             await executionStore.UpsertNotificationAsync(
                 new WmsJobNotification(
@@ -80,7 +82,7 @@ public sealed class WmsExpiryAlertJob(
                     kind,
                     expired ? "critical" : "warning",
                     expired ? "Expired lot" : "Lot expiry warning",
-                    $"Item {lot.Item.Sku} lot {lot.Number} expires on {expiryDate:yyyy-MM-dd}.",
+                    $"Item {lot.ItemSku} lot {lot.Number} expires on {expiryDate:yyyy-MM-dd}.",
                     JobName,
                     context.Envelope.IdempotencyKey,
                     context.Envelope.CorrelationId,
@@ -91,8 +93,9 @@ public sealed class WmsExpiryAlertJob(
 
         logger.LogInformation(
             "Expiry alert job evaluated {LotCount} lots and persisted idempotent notifications",
-            lots.Count);
-        return new WmsJobExecutionResult(lots.Count, lots.Count, $"Evaluated {lots.Count} lots.");
+            alerts.Value.Count());
+        var alertCount = alerts.Value.Count();
+        return new WmsJobExecutionResult(alertCount, alertCount, $"Evaluated {alertCount} lots.");
     }
 }
 

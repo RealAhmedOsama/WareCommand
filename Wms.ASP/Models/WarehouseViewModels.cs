@@ -62,6 +62,9 @@ public class StockAdjustmentViewModel
     [StringLength(50)]
     public string LocationCode { get; set; } = string.Empty;
 
+    [StringLength(100)]
+    public string? LotNumber { get; set; }
+
     public decimal CurrentQuantity { get; set; }
 
     [Range(typeof(decimal), "0", "1000000000")]
@@ -244,6 +247,12 @@ public class ReceivingViewModel
 
     [StringLength(100)]
     public string? LotNumber { get; set; }
+
+    [DataType(DataType.Date)]
+    public DateTime? ManufacturedDate { get; set; }
+
+    [DataType(DataType.Date)]
+    public DateTime? ExpiryDate { get; set; }
 
     [StringLength(100)]
     public string? SerialNumber { get; set; }

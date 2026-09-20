@@ -140,14 +140,21 @@ internal static class PostgreSqlTargetWriter
                 connection,
                 transaction,
                 """
-                INSERT INTO "Lots" ("Id", "Number", "ItemId", "ExpiryDate", "ManufacturedDate", "IsActive", "CreatedAt", "UpdatedAt")
-                VALUES (@Id, @Number, @ItemId, @ExpiryDate, @ManufacturedDate, @IsActive, @CreatedAt, @UpdatedAt)
+                INSERT INTO "Lots" ("Id", "Number", "ItemId", "ExpiryDate", "ManufacturedDate", "RetestDate", "HoldUntil", "SupplierLotNumber", "Notes", "Status", "IsActive", "RecallReason", "RecalledAt", "CreatedAt", "UpdatedAt")
+                VALUES (@Id, @Number, @ItemId, @ExpiryDate, @ManufacturedDate, @RetestDate, @HoldUntil, @SupplierLotNumber, @Notes, @Status, @IsActive, @RecallReason, @RecalledAt, @CreatedAt, @UpdatedAt)
                 ON CONFLICT ("Id") DO UPDATE SET
                     "Number" = EXCLUDED."Number",
                     "ItemId" = EXCLUDED."ItemId",
                     "ExpiryDate" = EXCLUDED."ExpiryDate",
                     "ManufacturedDate" = EXCLUDED."ManufacturedDate",
+                    "RetestDate" = EXCLUDED."RetestDate",
+                    "HoldUntil" = EXCLUDED."HoldUntil",
+                    "SupplierLotNumber" = EXCLUDED."SupplierLotNumber",
+                    "Notes" = EXCLUDED."Notes",
+                    "Status" = EXCLUDED."Status",
                     "IsActive" = EXCLUDED."IsActive",
+                    "RecallReason" = EXCLUDED."RecallReason",
+                    "RecalledAt" = EXCLUDED."RecalledAt",
                     "CreatedAt" = EXCLUDED."CreatedAt",
                     "UpdatedAt" = EXCLUDED."UpdatedAt";
                 """,
@@ -157,7 +164,14 @@ internal static class PostgreSqlTargetWriter
                 ("ItemId", row.ItemId),
                 ("ExpiryDate", row.ExpiryDate),
                 ("ManufacturedDate", row.ManufacturedDate),
+                ("RetestDate", row.RetestDate),
+                ("HoldUntil", row.HoldUntil),
+                ("SupplierLotNumber", row.SupplierLotNumber),
+                ("Notes", row.Notes),
+                ("Status", row.Status),
                 ("IsActive", row.IsActive),
+                ("RecallReason", row.RecallReason),
+                ("RecalledAt", row.RecalledAt),
                 ("CreatedAt", row.CreatedAt),
                 ("UpdatedAt", row.UpdatedAt));
         }

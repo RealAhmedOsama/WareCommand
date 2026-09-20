@@ -322,7 +322,10 @@ public class StockMovementServiceTests : IDisposable
     {
         // Arrange
         var quantity = new Quantity(5.0m);
-        var lotId = 1; // Assuming lot exists
+        var lot = new Lot("LOT-001", _item.Id);
+        _context.Lots.Add(lot);
+        await _context.SaveChangesAsync();
+        var lotId = lot.Id;
 
         // Act
         var movement = await _service.ReceiveAsync(_item.Id, _location.Id, quantity, "USER1", lotId);

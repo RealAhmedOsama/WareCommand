@@ -36,7 +36,7 @@ public class ReceivingController : Controller
     [ValidateAntiForgeryToken]
     [Authorize(Policy = WmsPermissions.ReceivingExecute)]
     public async Task<IActionResult> Receive(
-        [Bind("ItemSku,LocationCode,Quantity,UnitOfMeasure,PackagingCode,LotNumber,SerialNumber,ReferenceNumber,Notes")]
+        [Bind("ItemSku,LocationCode,Quantity,UnitOfMeasure,PackagingCode,LotNumber,ManufacturedDate,ExpiryDate,SerialNumber,ReferenceNumber,Notes")]
         ReceivingViewModel model,
         CancellationToken cancellationToken = default)
     {
@@ -53,6 +53,8 @@ public class ReceivingController : Controller
             model.SerialNumber,
             model.ReferenceNumber,
             model.Notes,
+            ExpiryDate: model.ExpiryDate,
+            ManufacturedDate: model.ManufacturedDate,
             UnitOfMeasure: model.UnitOfMeasure,
             PackagingCode: model.PackagingCode
         );

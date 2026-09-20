@@ -45,6 +45,7 @@ public sealed class AuditLogViewModel
         WmsAuditEntityTypes.Location,
         WmsAuditEntityTypes.Warehouse,
         WmsAuditEntityTypes.Stock,
+        WmsAuditEntityTypes.Lot,
         WmsAuditEntityTypes.Movement,
         WmsAuditEntityTypes.Count,
         WmsAuditEntityTypes.Transfer,

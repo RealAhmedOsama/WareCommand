@@ -5,6 +5,7 @@ using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
+using Wms.Application.Lots;
 using Wms.Application.Units;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
@@ -26,24 +27,28 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
     private readonly IItemQuantityConversionService? _quantityConversionService;
+    private readonly ILotService? _lotService;
 
     public ReceiveItemUseCase(
         IUnitOfWork unitOfWork,
         IStockMovementService stockMovementService,
         ILogger<ReceiveItemUseCase> logger,
         IWarehouseAccessService warehouseAccessService,
-        IItemQuantityConversionService? quantityConversionService = null)
+        IItemQuantityConversionService? quantityConversionService = null,
+        ILotService? lotService = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
         _quantityConversionService = quantityConversionService;
+        _lotService = lotService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
         CancellationToken cancellationToken = default)
     {
+        var lotTransactionStarted = false;
         try
         {
             var authorization = await _warehouseAccessService.AuthorizeAsync(
@@ -94,11 +99,41 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
 
             // Handle lot creation if required
             int? lotId = null;
+            if (!item.RequiresLot && !string.IsNullOrWhiteSpace(request.LotNumber))
+            {
+                return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
+                    "receiving.lot_not_allowed",
+                    $"Item '{request.ItemSku}' is not lot controlled and must not receive a lot number."));
+            }
+
             if (item.RequiresLot && !string.IsNullOrWhiteSpace(request.LotNumber))
             {
-                var existingLot = await GetOrCreateLotAsync(item.Id, request.LotNumber,
-                    request.ExpiryDate, request.ManufacturedDate, cancellationToken);
-                lotId = existingLot.Id;
+                if (_lotService is null)
+                {
+                    return Result.Failure<ReceiptResultDto>(WmsErrors.Dependency(
+                        "lot.service_unavailable",
+                        "Lot-controlled receiving is not available.",
+                        isRetryable: false));
+                }
+
+                await _unitOfWork.BeginTransactionAsync(cancellationToken);
+                lotTransactionStarted = true;
+                var lotResult = await _lotService.ResolveForReceiptAsync(
+                    item,
+                    request.LotNumber,
+                    new LotDetailsRequest(
+                        request.ExpiryDate,
+                        request.ManufacturedDate),
+                    userId,
+                    cancellationToken);
+                if (lotResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                    return lotResult.ToFailure<ReceiptResultDto>();
+                }
+
+                lotId = lotResult.Value.Id;
             }
             else if (item.RequiresLot)
             {
@@ -131,6 +166,11 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 request.SerialNumber, request.ReferenceNumber, request.Notes, cancellationToken);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+            if (lotTransactionStarted)
+            {
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                lotTransactionStarted = false;
+            }
 
             _logger.LogInformation("Item {ItemSku} received: {Quantity} to {LocationCode} by {UserId}",
                 request.ItemSku, request.Quantity, request.LocationCode, userId);
@@ -146,10 +186,27 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         }
         catch (OperationCanceledException)
         {
+            if (lotTransactionStarted)
+            {
+                await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            }
+
             throw;
         }
         catch (Exception ex)
         {
+            if (lotTransactionStarted)
+            {
+                try
+                {
+                    await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+                }
+                catch (Exception rollbackException)
+                {
+                    _logger.LogError(rollbackException, "Lot receipt transaction rollback failed");
+                }
+            }
+
             var failure = WmsErrors.FromException(ex,
                 "receiving.failed",
                 "Error receiving item. Please try again.");
@@ -191,12 +248,4 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));
     }
 
-    private static Task<Lot> GetOrCreateLotAsync(int itemId, string lotNumber,
-        DateTime? expiryDate, DateTime? manufacturedDate, CancellationToken cancellationToken)
-    {
-        // For now, create a simple lot lookup - in full implementation this would be a proper repository method
-        var lot = new Lot(lotNumber, itemId, expiryDate, manufacturedDate);
-        // This would typically check if lot exists first, but keeping simple for MVP
-        return Task.FromResult(lot);
-    }
 }

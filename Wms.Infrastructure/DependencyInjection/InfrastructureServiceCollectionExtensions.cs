@@ -9,6 +9,7 @@ using Wms.Application.Identification;
 using Wms.Application.Items;
 using Wms.Application.Jobs;
 using Wms.Application.Locations;
+using Wms.Application.Lots;
 using Wms.Application.Settings;
 using Wms.Application.Units;
 using Wms.Application.Warehouses;
@@ -22,6 +23,7 @@ using Wms.Infrastructure.Identification;
 using Wms.Infrastructure.Items;
 using Wms.Infrastructure.Jobs;
 using Wms.Infrastructure.Locations;
+using Wms.Infrastructure.Lots;
 using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
@@ -71,6 +73,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IItemManagementService, ItemManagementService>();
         services.AddScoped<IIdentificationRegistry, IdentificationRegistry>();
         services.AddScoped<IIdentificationService, IdentificationService>();
+        services.AddScoped<ILotService, LotService>();
         services.AddScoped<IUnitOfMeasureManagementService, UnitOfMeasureService>();
         services.AddScoped<IItemQuantityConversionService, UnitOfMeasureService>();
         services.AddScoped<WmsAuthorizationBootstrapper>();
@@ -144,6 +147,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IItemRepository, ItemRepository>();
         services.AddScoped<ILocationRepository, LocationRepository>();
+        services.AddScoped<ILotRepository, LotRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IMovementRepository, MovementRepository>();
 
