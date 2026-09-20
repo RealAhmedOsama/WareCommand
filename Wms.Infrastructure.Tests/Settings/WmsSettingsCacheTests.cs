@@ -1,4 +1,5 @@
 using Wms.Application.Settings;
+using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Settings;
 
 namespace Wms.Infrastructure.Tests.Settings;
@@ -8,7 +9,7 @@ public sealed class WmsSettingsCacheTests
     [Fact]
     public void GlobalAndWarehouseEntriesCanBeInvalidatedIndependentlyOrTogether()
     {
-        var cache = new WmsSettingsCache();
+        var cache = new WmsSettingsCache(new SystemClock());
         var global = new WmsSettingsSnapshot(
             null,
             "global",

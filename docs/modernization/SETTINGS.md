@@ -20,6 +20,10 @@ missing/inactive default warehouse and requires the configured receiving
 location to be active and receivable in the target warehouse. Shipping
 locations are validated when configured.
 
+Localization time zones use IANA identifiers (`UTC`, `Africa/Cairo`, and so
+on). A known Windows identifier may be read for legacy compatibility, but new
+user and settings values are normalized to the equivalent IANA identifier.
+
 The Settings MVC controller and the settings service both require
 `settings.manage`; warehouse-scoped writes also require warehouse scope. Every
 create, update, removal, and import is recorded through the shared immutable

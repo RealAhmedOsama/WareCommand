@@ -33,13 +33,24 @@ public static class WmsJobNames
     public const string ReplenishmentGeneration = "wms.replenishment-generation";
 }
 
+public static class WmsJobScheduleTimeZones
+{
+    /// <summary>
+    /// Hangfire cron expressions are registered in UTC. Warehouse-local
+    /// business dates are calculated inside handlers and never inferred from
+    /// the host's local clock.
+    /// </summary>
+    public const string Utc = "UTC";
+}
+
 public sealed record WmsJobDefinition(
     string Name,
     string Queue,
     string Cron,
     TimeSpan IdempotencyWindow,
     TimeSpan Timeout,
-    string Description);
+    string Description,
+    string ScheduleTimeZone = WmsJobScheduleTimeZones.Utc);
 
 public static class WmsJobCatalog
 {

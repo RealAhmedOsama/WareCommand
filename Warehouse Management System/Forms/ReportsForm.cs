@@ -4,6 +4,9 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Context;
+using Wms.Application.Settings;
+using Wms.Application.Time;
 using Wms.Application.UseCases.Reports;
 using Wms.Domain.Enums;
 using Wms.WinForms.Common;
@@ -14,15 +17,25 @@ public partial class ReportsForm : Form
 {
     private readonly ILogger<ReportsForm> _logger;
     private readonly IMovementReportUseCase _movementReportUseCase;
+    private readonly IClock _clock;
+    private readonly IWmsSettingsService _settingsService;
+    private WmsSettingsValues _settings = WmsSettingsDefaults.Create();
 
-    public ReportsForm(IMovementReportUseCase movementReportUseCase, ILogger<ReportsForm> logger)
+    public ReportsForm(
+        IMovementReportUseCase movementReportUseCase,
+        ILogger<ReportsForm> logger,
+        IClock clock,
+        IWmsSettingsService settingsService)
     {
         _movementReportUseCase = movementReportUseCase;
         _logger = logger;
+        _clock = clock;
+        _settingsService = settingsService;
         InitializeComponent();
         Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupEventHandlers();
         SetupForm();
+        _ = LoadSettingsAsync();
     }
 
     private void SetupEventHandlers()
@@ -35,8 +48,9 @@ public partial class ReportsForm : Form
     private void SetupForm()
     {
         ModernUIHelper.StyleForm(this);
-        dtpFromDate.Value = DateTime.Today.AddDays(-30);
-        dtpToDate.Value = DateTime.Today;
+        var today = GetBusinessToday();
+        dtpFromDate.Value = today.AddDays(-30);
+        dtpToDate.Value = today;
 
         // Setup movement type combo
         cmbMovementType.Items.Add("All Types");
@@ -58,6 +72,34 @@ public partial class ReportsForm : Form
         btnExport.Enabled = false;
     }
 
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settingsResult = await _settingsService.GetAsync();
+            if (settingsResult.IsFailure)
+            {
+                _logger.LogWarning(
+                    "Desktop report settings could not be loaded: {ErrorCode}",
+                    settingsResult.ErrorCode);
+                return;
+            }
+
+            _settings = settingsResult.Value.Values;
+            var today = GetBusinessToday();
+            dtpFromDate.Value = today.AddDays(-_settings.Reports.DefaultPeriodDays);
+            dtpToDate.Value = today;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Error loading desktop report settings");
+        }
+    }
+
+    private DateTime GetBusinessToday() =>
+        WmsBusinessTime.GetBusinessDate(_clock.UtcNow, _settings.Localization.TimeZone)
+            .ToDateTime(TimeOnly.MinValue);
+
     private async void BtnGenerateReport_Click(object? sender, EventArgs e)
     {
         try
@@ -67,7 +109,7 @@ public partial class ReportsForm : Form
 
             var request = new MovementReportRequest(
                 dtpFromDate.Value.Date,
-                dtpToDate.Value.Date.AddDays(1).AddSeconds(-1),
+                dtpToDate.Value.Date,
                 string.IsNullOrWhiteSpace(txtItemSku.Text) ? null : txtItemSku.Text.Trim(),
                 MovementType: GetSelectedMovementType()
             );
@@ -126,7 +168,7 @@ public partial class ReportsForm : Form
             var saveDialog = new SaveFileDialog
             {
                 Filter = "CSV files (*.csv)|*.csv|Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
-                FileName = $"Movement_Report_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
+                FileName = $"Movement_Report_{_clock.UtcNow:yyyyMMdd_HHmmss}.csv",
                 Title = "Export Movement Report"
             };
 
@@ -161,8 +203,9 @@ public partial class ReportsForm : Form
         dgvMovements.DataSource = null;
         txtItemSku.Clear();
         cmbMovementType.SelectedIndex = 0;
-        dtpFromDate.Value = DateTime.Today.AddDays(-30);
-        dtpToDate.Value = DateTime.Today;
+        var today = GetBusinessToday();
+        dtpFromDate.Value = today.AddDays(-_settings.Reports.DefaultPeriodDays);
+        dtpToDate.Value = today;
         btnExport.Enabled = false;
         lblStatus.Text = "Ready";
     }

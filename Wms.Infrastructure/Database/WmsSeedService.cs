@@ -3,6 +3,7 @@ using Wms.Application.Context;
 using Wms.Application.Settings;
 using Wms.Domain.Entities;
 using Wms.Domain.ValueObjects;
+using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Settings;
 
@@ -10,6 +11,7 @@ namespace Wms.Infrastructure.Database;
 
 public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) : IWmsSeedService
 {
+    private readonly IClock _clock = clock ?? new SystemClock();
     private static readonly SeedLocation[] ReferenceLocations =
     [
         new("RECEIVE", "Receiving Dock", ParentCode: null, IsPickable: false, IsReceivable: true),
@@ -130,7 +132,7 @@ public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) :
         context.GlobalSettings.Add(WmsSettingsSeedFactory.Create(
             WmsSettingsDefaults.Create(),
             defaultWarehouseId,
-            clock?.UtcNow ?? DateTimeOffset.UtcNow));
+            _clock.UtcNow));
         await context.SaveChangesAsync(cancellationToken);
     }
 

@@ -118,7 +118,7 @@
                                     </td>
                                     <td class="fw-medium wms-identifier">@movement.ItemSku</td>
                                     <td class="text-end wms-number">@movement.Quantity.ToString("N1")</td>
-                                    <td class="text-muted">@movement.Timestamp.ToString("g")</td>
+                                    <td class="text-muted">@Wms.Application.Time.WmsBusinessTime.ToLocalDateTime(movement.Timestamp, Model.DisplayTimeZone).ToString("g")</td>
                                     <td class="text-muted">@movement.UserId</td>
                                 </tr>
                             }

@@ -68,4 +68,20 @@ public sealed class WmsSettingsTests
 
         errors.Should().ContainKey("Integrations.EndpointUrl");
     }
+
+    [Fact]
+    public void InvalidTimeZoneIsRejectedBeforePersistence()
+    {
+        var values = new WmsSettingsValues
+        {
+            Localization = new WmsLocalizationSettings
+            {
+                TimeZone = "Not/A-Real-TimeZone"
+            }
+        };
+
+        var errors = WmsSettingsValidation.Validate(values);
+
+        errors.Should().ContainKey("Localization.TimeZone");
+    }
 }

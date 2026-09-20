@@ -2,7 +2,10 @@
 
 using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
+using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.Settings;
+using Wms.Application.Time;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
@@ -25,6 +28,8 @@ public record MovementReportDto(
     DateTime Timestamp
 );
 
+// These values are business dates in the effective warehouse time zone. They
+// are converted to a half-open UTC range before querying persistence.
 public record MovementReportRequest(
     DateTime? FromDate = null,
     DateTime? ToDate = null,
@@ -43,17 +48,23 @@ public interface IMovementReportUseCase
 public class MovementReportUseCase : IMovementReportUseCase
 {
     private readonly ILogger<MovementReportUseCase> _logger;
+    private readonly IClock _clock;
+    private readonly IWmsSettingsService _settingsService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public MovementReportUseCase(
         IUnitOfWork unitOfWork,
         ILogger<MovementReportUseCase> logger,
-        IWarehouseAccessService warehouseAccessService)
+        IWarehouseAccessService warehouseAccessService,
+        IClock clock,
+        IWmsSettingsService settingsService)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _warehouseAccessService = warehouseAccessService;
+        _clock = clock;
+        _settingsService = settingsService;
     }
 
     public async Task<Result<IEnumerable<MovementReportDto>>> ExecuteAsync(MovementReportRequest request,
@@ -69,7 +80,18 @@ public class MovementReportUseCase : IMovementReportUseCase
                 return authorization.ToFailure<IEnumerable<MovementReportDto>>();
             }
 
-            var movements = await GetFilteredMovementsAsync(request, cancellationToken);
+            var settingsResult = await _settingsService.GetAsync(cancellationToken: cancellationToken);
+            var settings = settingsResult.IsSuccess
+                ? settingsResult.Value.Values
+                : WmsSettingsDefaults.Create();
+            if (settingsResult.IsFailure)
+            {
+                _logger.LogWarning(
+                    "Report settings could not be loaded; UTC defaults will be used: {ErrorCode}",
+                    settingsResult.ErrorCode);
+            }
+
+            var movements = await GetFilteredMovementsAsync(request, settings, cancellationToken);
             var reportData = movements.Select(MapToDto);
 
             _logger.LogInformation("Movement report generated with {Count} records", reportData.Count());
@@ -89,13 +111,27 @@ public class MovementReportUseCase : IMovementReportUseCase
     }
 
     private async Task<IEnumerable<Movement>> GetFilteredMovementsAsync(
-        MovementReportRequest request, CancellationToken cancellationToken)
+        MovementReportRequest request,
+        WmsSettingsValues settings,
+        CancellationToken cancellationToken)
     {
-        // Start with date range if provided
-        if (request.FromDate.HasValue && request.ToDate.HasValue)
+        if (request.FromDate.HasValue || request.ToDate.HasValue)
         {
+            var today = WmsBusinessTime.GetBusinessDate(_clock.UtcNow, settings.Localization.TimeZone);
+            var fromDate = request.FromDate.HasValue
+                ? DateOnly.FromDateTime(request.FromDate.Value)
+                : today.AddDays(-settings.Reports.DefaultPeriodDays);
+            var toDate = request.ToDate.HasValue
+                ? DateOnly.FromDateTime(request.ToDate.Value)
+                : today;
+            var range = WmsBusinessTime.GetInclusiveDateRange(
+                fromDate,
+                toDate,
+                settings.Localization.TimeZone);
             return await _unitOfWork.Movements.GetByDateRangeAsync(
-                request.FromDate.Value, request.ToDate.Value, cancellationToken);
+                range.FromUtc,
+                range.ToUtcExclusive,
+                cancellationToken);
         }
 
         // Filter by movement type if provided
@@ -110,11 +146,15 @@ public class MovementReportUseCase : IMovementReportUseCase
             return await _unitOfWork.Movements.GetByUserIdAsync(request.UserId, cancellationToken);
         }
 
-        // Default to last 30 days
-        var utcToday = DateTime.UtcNow.Date;
-        var defaultFromDate = utcToday.AddDays(-30);
-        var defaultToDate = utcToday.AddDays(1);
-        return await _unitOfWork.Movements.GetByDateRangeAsync(defaultFromDate, defaultToDate, cancellationToken);
+        var businessToday = WmsBusinessTime.GetBusinessDate(_clock.UtcNow, settings.Localization.TimeZone);
+        var defaultRange = WmsBusinessTime.GetInclusiveDateRange(
+            businessToday.AddDays(-settings.Reports.DefaultPeriodDays),
+            businessToday,
+            settings.Localization.TimeZone);
+        return await _unitOfWork.Movements.GetByDateRangeAsync(
+            defaultRange.FromUtc,
+            defaultRange.ToUtcExclusive,
+            cancellationToken);
     }
 
     private static MovementReportDto MapToDto(Movement movement)

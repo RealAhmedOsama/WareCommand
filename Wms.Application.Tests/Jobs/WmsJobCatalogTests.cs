@@ -16,6 +16,7 @@ public sealed class WmsJobCatalogTests
             WmsJobQueues.All.Should().Contain(definition.Queue);
             WmsJobCatalog.GetRecurringId(definition.Name).Should().Be(definition.Name);
             definition.Cron.Should().NotBeNullOrWhiteSpace();
+            definition.ScheduleTimeZone.Should().Be(WmsJobScheduleTimeZones.Utc);
             definition.IdempotencyWindow.Should().BePositive();
             definition.Timeout.Should().BePositive();
         });

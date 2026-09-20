@@ -16,12 +16,16 @@ public class Lot : Entity
         if (string.IsNullOrWhiteSpace(number))
             throw new ArgumentException("Lot number is required", nameof(number));
 
+        var normalizedExpiryDate = NormalizeDateOnly(expiryDate);
+        var normalizedManufacturedDate = NormalizeDateOnly(manufacturedDate);
+
         Number = number.Trim().ToUpperInvariant();
         ItemId = itemId;
-        ExpiryDate = expiryDate;
-        ManufacturedDate = manufacturedDate;
+        ExpiryDate = normalizedExpiryDate;
+        ManufacturedDate = normalizedManufacturedDate;
 
-        if (expiryDate.HasValue && manufacturedDate.HasValue && expiryDate < manufacturedDate)
+        if (normalizedExpiryDate.HasValue && normalizedManufacturedDate.HasValue &&
+            normalizedExpiryDate < normalizedManufacturedDate)
             throw new ArgumentException("Expiry date cannot be before manufactured date");
     }
 
@@ -36,22 +40,31 @@ public class Lot : Entity
 
     public void UpdateDates(DateTime? expiryDate = null, DateTime? manufacturedDate = null)
     {
-        if (expiryDate.HasValue && manufacturedDate.HasValue && expiryDate < manufacturedDate)
+        var normalizedExpiryDate = NormalizeDateOnly(expiryDate);
+        var normalizedManufacturedDate = NormalizeDateOnly(manufacturedDate);
+        if (normalizedExpiryDate.HasValue && normalizedManufacturedDate.HasValue &&
+            normalizedExpiryDate < normalizedManufacturedDate)
             throw new ArgumentException("Expiry date cannot be before manufactured date");
 
-        ExpiryDate = expiryDate;
-        ManufacturedDate = manufacturedDate;
+        ExpiryDate = normalizedExpiryDate;
+        ManufacturedDate = normalizedManufacturedDate;
         SetUpdatedAt();
     }
 
-    public bool IsExpired()
-    {
-        return ExpiryDate.HasValue && ExpiryDate.Value.Date < DateTime.UtcNow.Date;
-    }
-
-    public bool IsExpiringSoon(int warningDays = 30)
+    public bool IsExpired(DateOnly businessDate)
     {
         return ExpiryDate.HasValue &&
-               ExpiryDate.Value.Date <= DateTime.UtcNow.Date.AddDays(warningDays);
+               DateOnly.FromDateTime(ExpiryDate.Value) < businessDate;
     }
+
+    public bool IsExpiringSoon(DateOnly businessDate, int warningDays = 30)
+    {
+        return ExpiryDate.HasValue &&
+               DateOnly.FromDateTime(ExpiryDate.Value) <= businessDate.AddDays(warningDays);
+    }
+
+    private static DateTime? NormalizeDateOnly(DateTime? value) =>
+        value.HasValue
+            ? DateTime.SpecifyKind(value.Value.Date, DateTimeKind.Unspecified)
+            : null;
 }

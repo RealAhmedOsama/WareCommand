@@ -51,12 +51,23 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
         return await query.OrderByDescending(m => m.Timestamp).ToListAsync(cancellationToken);
     }
 
-    public async Task<IEnumerable<Movement>> GetByDateRangeAsync(DateTime from, DateTime toDate,
+    public async Task<IEnumerable<Movement>> GetByDateRangeAsync(
+        DateTime fromInclusiveUtc,
+        DateTime toExclusiveUtc,
         CancellationToken cancellationToken = default)
     {
+        if (toExclusiveUtc <= fromInclusiveUtc)
+        {
+            throw new ArgumentException(
+                "The exclusive movement range end must be after the start.",
+                nameof(toExclusiveUtc));
+        }
+
+        fromInclusiveUtc = DateTime.SpecifyKind(fromInclusiveUtc, DateTimeKind.Utc);
+        toExclusiveUtc = DateTime.SpecifyKind(toExclusiveUtc, DateTimeKind.Utc);
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = IncludeNavigations(DbSet.AsQueryable())
-            .Where(m => m.Timestamp >= from && m.Timestamp <= toDate)
+            .Where(m => m.Timestamp >= fromInclusiveUtc && m.Timestamp < toExclusiveUtc)
             .AsQueryable();
         query = ApplyScope(query, scope);
         return await query.OrderByDescending(m => m.Timestamp).ToListAsync(cancellationToken);

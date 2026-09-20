@@ -3,6 +3,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Wms.Application.Context;
+using Wms.Domain.Common;
 using Wms.Domain.Entities;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data.Configurations;
@@ -14,8 +16,11 @@ namespace Wms.Infrastructure.Data;
 
 public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 {
-    public WmsDbContext(DbContextOptions<WmsDbContext> options) : base(options)
+    private readonly IClock _clock;
+
+    public WmsDbContext(DbContextOptions<WmsDbContext> options, IClock? clock = null) : base(options)
     {
+        _clock = clock ?? new SystemClock();
     }
 
     public DbSet<Item> Items => Set<Item>();
@@ -224,12 +229,14 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         EnsureAuditEntriesAreAppendOnly();
+        EnsureDomainTimestamps();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override int SaveChanges()
     {
         EnsureAuditEntriesAreAppendOnly();
+        EnsureDomainTimestamps();
         return base.SaveChanges();
     }
 
@@ -238,6 +245,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         CancellationToken cancellationToken = default)
     {
         EnsureAuditEntriesAreAppendOnly();
+        EnsureDomainTimestamps();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
@@ -245,7 +253,51 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         CancellationToken cancellationToken = default)
     {
         EnsureAuditEntriesAreAppendOnly();
+        EnsureDomainTimestamps();
         return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void EnsureDomainTimestamps()
+    {
+        var nowUtc = DateTime.SpecifyKind(_clock.UtcNow.UtcDateTime, DateTimeKind.Utc);
+        foreach (var entry in ChangeTracker.Entries<Entity>())
+        {
+            if (entry.State == EntityState.Added)
+            {
+                if (entry.Property<DateTime>(nameof(Entity.CreatedAt)).CurrentValue == DateTime.UnixEpoch)
+                {
+                    entry.Property<DateTime>(nameof(Entity.CreatedAt)).CurrentValue = nowUtc;
+                }
+
+                var addedUpdatedAt = entry.Property<DateTime?>(nameof(Entity.UpdatedAt)).CurrentValue;
+                if (addedUpdatedAt == DateTime.UnixEpoch)
+                {
+                    entry.Property<DateTime?>(nameof(Entity.UpdatedAt)).CurrentValue = nowUtc;
+                }
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Property<DateTime?>(nameof(Entity.UpdatedAt)).CurrentValue = nowUtc;
+            }
+
+            if (entry.Entity is Movement &&
+                entry.State == EntityState.Added &&
+                entry.Property<DateTime>(nameof(Movement.Timestamp)).CurrentValue == DateTime.UnixEpoch)
+            {
+                entry.Property<DateTime>(nameof(Movement.Timestamp)).CurrentValue = nowUtc;
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<WmsUserWarehouseAssignment>())
+        {
+            if (entry.State == EntityState.Added &&
+                entry.Property<DateTimeOffset>(nameof(WmsUserWarehouseAssignment.AssignedAtUtc)).CurrentValue ==
+                DateTimeOffset.UnixEpoch)
+            {
+                entry.Property<DateTimeOffset>(nameof(WmsUserWarehouseAssignment.AssignedAtUtc)).CurrentValue =
+                    _clock.UtcNow;
+            }
+        }
     }
 
     private void EnsureAuditEntriesAreAppendOnly()

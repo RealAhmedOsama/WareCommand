@@ -5,13 +5,23 @@ namespace Wms.Domain.Common;
 public abstract class Entity
 {
     public int Id { get; protected set; }
-    public DateTime CreatedAt { get; protected set; } = DateTime.UtcNow;
+    // New entities are stamped by the persistence boundary with the injected
+    // clock. Keeping the domain default deterministic prevents hidden system
+    // time reads during construction.
+    public DateTime CreatedAt { get; protected set; } = DateTime.UnixEpoch;
     public DateTime? UpdatedAt { get; protected set; }
 
-    protected void SetUpdatedAt()
+    protected void SetUpdatedAt(DateTime? updatedAtUtc = null)
     {
-        UpdatedAt = DateTime.UtcNow;
+        UpdatedAt = updatedAtUtc.HasValue
+            ? NormalizeUtc(updatedAtUtc.Value)
+            : DateTime.UnixEpoch;
     }
+
+    internal static DateTime NormalizeUtc(DateTime value) =>
+        value.Kind == DateTimeKind.Utc
+            ? value
+            : DateTime.SpecifyKind(value, DateTimeKind.Utc);
 
     public override bool Equals(object? obj)
     {

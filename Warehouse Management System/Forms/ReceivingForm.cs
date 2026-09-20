@@ -3,9 +3,11 @@
 using System.Globalization;
 using System.Media;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Context;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
 using Wms.Application.Settings;
+using Wms.Application.Time;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Receiving;
 using Wms.WinForms.Common;
@@ -15,6 +17,7 @@ namespace Wms.WinForms.Forms;
 public partial class ReceivingForm : Form
 {
     private readonly ICurrentUser _currentUser;
+    private readonly IClock _clock;
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly ILogger<ReceivingForm> _logger;
     private readonly IReceiveItemUseCase _receiveItemUseCase;
@@ -26,11 +29,13 @@ public partial class ReceivingForm : Form
         IGetItemsUseCase getItemsUseCase,
         ICurrentUser currentUser,
         IWmsSettingsService settingsService,
-        ILogger<ReceivingForm> logger)
+        ILogger<ReceivingForm> logger,
+        IClock clock)
     {
         _receiveItemUseCase = receiveItemUseCase;
         _getItemsUseCase = getItemsUseCase;
         _currentUser = currentUser;
+        _clock = clock;
         _settingsService = settingsService;
         _logger = logger;
         InitializeComponent();
@@ -86,7 +91,7 @@ public partial class ReceivingForm : Form
 
             _settings = settingsResult.Value.Values;
             txtLocationCode.Text = _settings.WarehouseDefaults.DefaultReceivingLocationCode;
-            dtpExpiryDate.Value = DateTime.Today.AddDays(_settings.Expiry.WarningDays);
+            dtpExpiryDate.Value = GetBusinessToday().AddDays(_settings.Expiry.WarningDays);
         }
         catch (Exception ex)
         {
@@ -336,8 +341,12 @@ public partial class ReceivingForm : Form
         txtLotNumber.Visible = false;
         lblExpiryDate.Visible = false;
         dtpExpiryDate.Visible = false;
-        dtpExpiryDate.Value = DateTime.Today.AddDays(_settings.Expiry.WarningDays);
+        dtpExpiryDate.Value = GetBusinessToday().AddDays(_settings.Expiry.WarningDays);
     }
+
+    private DateTime GetBusinessToday() =>
+        WmsBusinessTime.GetBusinessDate(_clock.UtcNow, _settings.Localization.TimeZone)
+            .ToDateTime(TimeOnly.MinValue);
 
     private void SetBusy(bool isBusy)
     {

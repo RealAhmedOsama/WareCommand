@@ -13,6 +13,15 @@ public sealed class WmsRecurringJobRegistrar(
         cancellationToken.ThrowIfCancellationRequested();
         foreach (var definition in WmsJobCatalog.All)
         {
+            if (!string.Equals(
+                    definition.ScheduleTimeZone,
+                    WmsJobScheduleTimeZones.Utc,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Job '{definition.Name}' declares unsupported schedule time zone '{definition.ScheduleTimeZone}'.");
+            }
+
             recurringJobManager.AddOrUpdate(
                 WmsJobCatalog.GetRecurringId(definition.Name),
                 Job.FromExpression<WmsJobRunner>(

@@ -5,6 +5,7 @@ using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Settings;
+using Wms.Application.Time;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Settings;
@@ -715,7 +716,7 @@ public sealed class WmsSettingsService(
         entity.DefaultReportPeriodDays = values.Reports.DefaultPeriodDays;
         entity.MaximumReportRows = values.Reports.MaximumRows;
         entity.DefaultLocale = values.Localization.Locale.Trim();
-        entity.DefaultTimeZone = values.Localization.TimeZone.Trim();
+        entity.DefaultTimeZone = WmsTimeZoneCatalog.Normalize(values.Localization.TimeZone);
         entity.CurrencyCode = values.Localization.CurrencyCode.Trim().ToUpperInvariant();
         entity.IntegrationsEnabled = values.Integrations.Enabled;
         entity.IntegrationEndpointUrl = NormalizeOptional(values.Integrations.EndpointUrl);
@@ -741,7 +742,9 @@ public sealed class WmsSettingsService(
         entity.DefaultReportPeriodDays = values.DefaultReportPeriodDays;
         entity.MaximumReportRows = values.MaximumReportRows;
         entity.Locale = NormalizeOptional(values.Locale);
-        entity.TimeZone = NormalizeOptional(values.TimeZone);
+        entity.TimeZone = string.IsNullOrWhiteSpace(values.TimeZone)
+            ? null
+            : WmsTimeZoneCatalog.Normalize(values.TimeZone);
     }
 
     private static string? NormalizeOptional(string? value, bool upperCase = false)

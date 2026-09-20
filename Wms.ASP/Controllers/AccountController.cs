@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Localization;
+using Wms.Application.Time;
 using Wms.ASP.Extensions;
 using Wms.ASP.Identity;
 using Wms.ASP.Models;
@@ -380,7 +381,7 @@ public sealed class AccountController(
             CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(locale)),
             new CookieOptions
             {
-                Expires = DateTimeOffset.UtcNow.AddYears(1),
+                Expires = clock.UtcNow.AddYears(1),
                 IsEssential = true,
                 SameSite = SameSiteMode.Lax,
                 Secure = Request.IsHttps
@@ -437,6 +438,14 @@ public sealed class AccountController(
             return View(model);
         }
 
+        if (!WmsTimeZoneCatalog.TryNormalize(model.TimeZone, out var normalizedTimeZone))
+        {
+            ModelState.AddModelError(
+                nameof(model.TimeZone),
+                "Time zone must be a valid installed IANA identifier, for example 'UTC' or 'Africa/Cairo'.");
+            return View(model);
+        }
+
         if (!WmsLocaleCatalog.IsSupported(model.Locale))
         {
             ModelState.AddModelError(nameof(model.Locale), this.Localize("Language.Invalid"));
@@ -451,7 +460,7 @@ public sealed class AccountController(
             DisplayName = model.DisplayName.Trim(),
             EmployeeCode = model.EmployeeCode.Trim(),
             Locale = model.Locale.Trim(),
-            TimeZone = model.TimeZone.Trim(),
+            TimeZone = normalizedTimeZone,
             IsActive = true,
             LockoutEnabled = true
         };

@@ -50,7 +50,8 @@ public class StockMovementServiceTests : IDisposable
             mockLogger.Object,
             auditWriter,
             new WmsRequestContext("Test"),
-            new WmsOperationContextAccessor());
+            new WmsOperationContextAccessor(),
+            new SystemClock());
 
         // Setup test data
         _warehouse = new Warehouse("TEST", "Test Warehouse");

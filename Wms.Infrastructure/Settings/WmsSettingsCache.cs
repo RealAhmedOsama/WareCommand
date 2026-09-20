@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Wms.Application.Context;
 using Wms.Application.Settings;
 
 namespace Wms.Infrastructure.Settings;
@@ -7,12 +8,18 @@ public sealed class WmsSettingsCache
 {
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(5);
     private readonly ConcurrentDictionary<string, CacheEntry> _entries = new(StringComparer.Ordinal);
+    private readonly IClock _clock;
+
+    public WmsSettingsCache(IClock clock)
+    {
+        _clock = clock;
+    }
 
     public bool TryGet(int? warehouseId, out WmsSettingsSnapshot snapshot)
     {
         var key = GetKey(warehouseId);
         if (_entries.TryGetValue(key, out var entry) &&
-            DateTimeOffset.UtcNow - entry.CachedAtUtc <= CacheLifetime)
+            _clock.UtcNow - entry.CachedAtUtc <= CacheLifetime)
         {
             snapshot = entry.Snapshot;
             return true;
@@ -27,7 +34,7 @@ public sealed class WmsSettingsCache
     {
         _entries[GetKey(snapshot.WarehouseId)] = new CacheEntry(
             snapshot,
-            DateTimeOffset.UtcNow);
+            _clock.UtcNow);
     }
 
     public void InvalidateAll() => _entries.Clear();

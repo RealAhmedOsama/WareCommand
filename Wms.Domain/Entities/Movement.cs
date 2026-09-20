@@ -15,7 +15,8 @@ public class Movement : Entity
 
     public Movement(MovementType type, int itemId, Quantity quantity, string userId,
         int? fromLocationId = null, int? toLocationId = null, int? lotId = null,
-        string? serialNumber = null, string? referenceNumber = null, string? notes = null)
+        string? serialNumber = null, string? referenceNumber = null, string? notes = null,
+        DateTime? timestampUtc = null)
     {
         if (string.IsNullOrWhiteSpace(userId))
             throw new ArgumentException("User ID is required", nameof(userId));
@@ -30,6 +31,9 @@ public class Movement : Entity
         UserId = userId.Trim();
         ReferenceNumber = referenceNumber?.Trim();
         Notes = notes?.Trim();
+        Timestamp = timestampUtc.HasValue
+            ? NormalizeUtc(timestampUtc.Value)
+            : DateTime.UnixEpoch;
     }
 
     public MovementType Type { get; private set; }
@@ -42,7 +46,7 @@ public class Movement : Entity
     public string UserId { get; private set; } = string.Empty;
     public string? ReferenceNumber { get; private set; }
     public string? Notes { get; private set; }
-    public DateTime Timestamp { get; private set; } = DateTime.UtcNow;
+    public DateTime Timestamp { get; private set; } = DateTime.UnixEpoch;
 
     // Navigation properties
     public Item Item { get; private set; } = null!;
@@ -51,35 +55,38 @@ public class Movement : Entity
     public Lot? Lot { get; private set; }
 
     public static Movement CreateReceipt(int itemId, int locationId, Quantity quantity, string userId,
-        int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null)
+        int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
+        DateTime? timestampUtc = null)
     {
         return new Movement(MovementType.Receipt, itemId, quantity, userId,
             toLocationId: locationId, lotId: lotId, serialNumber: serialNumber,
-            referenceNumber: referenceNumber, notes: notes);
+            referenceNumber: referenceNumber, notes: notes, timestampUtc: timestampUtc);
     }
 
     public static Movement CreatePutaway(int itemId, int fromLocationId, int toLocationId,
         Quantity quantity, string userId, int? lotId = null, string? serialNumber = null,
-        string? referenceNumber = null, string? notes = null)
+        string? referenceNumber = null, string? notes = null, DateTime? timestampUtc = null)
     {
         return new Movement(MovementType.Putaway, itemId, quantity, userId,
             fromLocationId, toLocationId, lotId,
-            serialNumber, referenceNumber, notes);
+            serialNumber, referenceNumber, notes, timestampUtc);
     }
 
     public static Movement CreatePick(int itemId, int fromLocationId, Quantity quantity, string userId,
-        int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null)
+        int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
+        DateTime? timestampUtc = null)
     {
         return new Movement(MovementType.Pick, itemId, quantity, userId,
             fromLocationId, lotId: lotId, serialNumber: serialNumber,
-            referenceNumber: referenceNumber, notes: notes);
+            referenceNumber: referenceNumber, notes: notes, timestampUtc: timestampUtc);
     }
 
     public static Movement CreateAdjustment(int itemId, int locationId, Quantity quantity, string userId,
-        int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null)
+        int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
+        DateTime? timestampUtc = null)
     {
         return new Movement(MovementType.Adjustment, itemId, quantity, userId,
             toLocationId: locationId, lotId: lotId, serialNumber: serialNumber,
-            referenceNumber: referenceNumber, notes: notes);
+            referenceNumber: referenceNumber, notes: notes, timestampUtc: timestampUtc);
     }
 }

@@ -1,4 +1,5 @@
 using Wms.Application.Localization;
+using Wms.Application.Time;
 
 namespace Wms.Application.Settings;
 
@@ -207,7 +208,7 @@ public static class WmsSettingsPrecedence
             Localization = new WmsLocalizationSettings
             {
                 Locale = First(overrides.Locale, global.Localization.Locale)!,
-                TimeZone = First(overrides.TimeZone, global.Localization.TimeZone)!,
+                TimeZone = NormalizeTimeZone(First(overrides.TimeZone, global.Localization.TimeZone)!),
                 CurrencyCode = global.Localization.CurrencyCode
             },
             Integrations = global.Integrations
@@ -216,6 +217,11 @@ public static class WmsSettingsPrecedence
 
     private static string? First(string? value, string? fallback) =>
         string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+
+    private static string NormalizeTimeZone(string value) =>
+        WmsTimeZoneCatalog.TryNormalize(value, out var normalized)
+            ? normalized
+            : value;
 }
 
 public static class WmsSettingsValidation
@@ -404,17 +410,10 @@ public static class WmsSettingsValidation
             Add(errors, "Localization.Locale", "Locale must be one of the supported English or Arabic cultures.");
         }
 
-        try
+        if (!WmsTimeZoneCatalog.TryNormalize(values.TimeZone, out _))
         {
-            _ = TimeZoneInfo.FindSystemTimeZoneById(values.TimeZone);
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            Add(errors, "Localization.TimeZone", "Time zone must be installed on the host.");
-        }
-        catch (InvalidTimeZoneException)
-        {
-            Add(errors, "Localization.TimeZone", "Time zone is invalid on the host.");
+            Add(errors, "Localization.TimeZone",
+                "Time zone must be a valid installed IANA identifier, for example 'UTC' or 'Africa/Cairo'.");
         }
     }
 

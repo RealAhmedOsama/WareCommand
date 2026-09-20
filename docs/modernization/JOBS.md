@@ -22,6 +22,10 @@ Recurring jobs use the stable names in `WmsJobCatalog`. Registration is
 idempotent, so application restarts do not create duplicate schedules. Every
 execution carries a bounded correlation ID, actor context, optional warehouse,
 a bucketed idempotency key, and a per-job timeout (five or ten minutes today).
+All cron expressions declare `UTC` as their schedule time zone and are
+registered with Hangfire using `TimeZoneInfo.Utc`. A handler that needs a
+warehouse-local business date must convert from the injected `IClock` and the
+effective IANA timezone; it must not use the host's local clock.
 
 ## Durability and failure handling
 

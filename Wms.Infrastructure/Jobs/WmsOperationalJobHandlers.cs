@@ -4,6 +4,7 @@ using Wms.Application.Backups;
 using Wms.Application.Context;
 using Wms.Application.Jobs;
 using Wms.Application.Settings;
+using Wms.Application.Time;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Jobs;
@@ -54,21 +55,23 @@ public sealed class WmsExpiryAlertJob(
         var values = settings.IsSuccess
             ? settings.Value.Values
             : WmsSettingsDefaults.Create();
-        var today = clock.UtcNow.UtcDateTime.Date;
+        var today = WmsBusinessTime.GetBusinessDate(
+            clock.UtcNow,
+            values.Localization.TimeZone);
         var warningDate = today.AddDays(values.Expiry.WarningDays);
         var lots = await dbContext.Lots
             .AsNoTracking()
             .Include(lot => lot.Item)
             .Where(lot => lot.IsActive &&
                 lot.ExpiryDate.HasValue &&
-                lot.ExpiryDate.Value.Date <= warningDate)
+                lot.ExpiryDate.Value.Date <= warningDate.ToDateTime(TimeOnly.MinValue))
             .OrderBy(lot => lot.ExpiryDate)
             .ToListAsync(cancellationToken);
 
         foreach (var lot in lots)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var expiryDate = lot.ExpiryDate!.Value.Date;
+            var expiryDate = DateOnly.FromDateTime(lot.ExpiryDate!.Value);
             var expired = expiryDate < today;
             var kind = expired ? "expiry.expired" : "expiry.warning";
             await executionStore.UpsertNotificationAsync(
@@ -107,9 +110,10 @@ public sealed class WmsLowStockAlertJob(
         CancellationToken cancellationToken = default)
     {
         var settings = await settingsService.GetAsync(cancellationToken: cancellationToken);
-        var dashboard = settings.IsSuccess
-            ? settings.Value.Values.Dashboard
-            : WmsSettingsDefaults.Create().Dashboard;
+        var values = settings.IsSuccess
+            ? settings.Value.Values
+            : WmsSettingsDefaults.Create();
+        var dashboard = values.Dashboard;
         var stocks = await dbContext.Stock
             .AsNoTracking()
             .Include(stock => stock.Item)
@@ -120,7 +124,9 @@ public sealed class WmsLowStockAlertJob(
             .Take(dashboard.LowStockAlertLimit)
             .ToListAsync(cancellationToken);
 
-        var today = clock.UtcNow.UtcDateTime.Date;
+        var today = WmsBusinessTime.GetBusinessDate(
+            clock.UtcNow,
+            values.Localization.TimeZone);
         foreach (var stock in stocks)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -169,7 +175,7 @@ public sealed class WmsReportGenerationJob(
         var from = now.UtcDateTime.AddDays(-reportSettings.DefaultPeriodDays);
         var movements = await dbContext.Movements
             .AsNoTracking()
-            .Where(movement => movement.Timestamp >= from && movement.Timestamp <= now.UtcDateTime)
+            .Where(movement => movement.Timestamp >= from && movement.Timestamp < now.UtcDateTime)
             .Take(reportSettings.MaximumRows)
             .ToListAsync(cancellationToken);
         var quantity = movements.Sum(movement => movement.Quantity.Value);

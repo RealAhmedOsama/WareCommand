@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Settings;
+using Wms.Application.Time;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Reports;
@@ -16,6 +18,7 @@ public class DashboardController : Controller
 {
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly IGetStockUseCase _getStockUseCase;
+    private readonly IClock _clock;
     private readonly ILogger<DashboardController> _logger;
     private readonly IMovementReportUseCase _movementReportUseCase;
     private readonly IWmsSettingsService _settingsService;
@@ -25,13 +28,15 @@ public class DashboardController : Controller
         IGetItemsUseCase getItemsUseCase,
         IMovementReportUseCase movementReportUseCase,
         ILogger<DashboardController> logger,
-        IWmsSettingsService settingsService)
+        IWmsSettingsService settingsService,
+        IClock clock)
     {
         _getStockUseCase = getStockUseCase;
         _getItemsUseCase = getItemsUseCase;
         _movementReportUseCase = movementReportUseCase;
         _logger = logger;
         _settingsService = settingsService;
+        _clock = clock;
     }
 
     [EnableRateLimiting(WmsRateLimitPolicies.Report)]
@@ -54,6 +59,7 @@ public class DashboardController : Controller
         model.LowStockAlertLimit = dashboardSettings.LowStockAlertLimit;
         model.RecentMovementPeriodDays = settingsValues.Reports.DefaultPeriodDays;
         model.DashboardRefreshIntervalSeconds = dashboardSettings.RefreshIntervalSeconds;
+        model.DisplayTimeZone = settingsValues.Localization.TimeZone;
 
         // Load KPI data
         var itemsResult = await _getItemsUseCase.ExecuteAsync(cancellationToken: cancellationToken);
@@ -100,10 +106,14 @@ public class DashboardController : Controller
         }
 
         // Recent movements
-        var utcToday = DateTime.UtcNow.Date;
+        var nowUtc = _clock.UtcNow;
+        var businessToday = WmsBusinessTime.GetBusinessDate(
+            nowUtc,
+            settingsValues.Localization.TimeZone);
         var request = new MovementReportRequest(
-            utcToday.AddDays(-settingsValues.Reports.DefaultPeriodDays),
-            DateTime.UtcNow
+            businessToday.AddDays(-settingsValues.Reports.DefaultPeriodDays)
+                .ToDateTime(TimeOnly.MinValue),
+            businessToday.ToDateTime(TimeOnly.MinValue)
         );
 
         var movementsResult = await _movementReportUseCase.ExecuteAsync(request, cancellationToken);
@@ -119,13 +129,15 @@ public class DashboardController : Controller
             _logger.LogWarning("Failed to load recent movements: {ErrorCode}", movementsResult.ErrorCode);
         }
 
-        model.LastRefresh = DateTime.UtcNow;
+        model.LastRefresh = WmsBusinessTime.ToLocalDateTime(
+            nowUtc.UtcDateTime,
+            settingsValues.Localization.TimeZone);
         return View(model);
     }
 
     [HttpGet]
     public async Task<IActionResult> RefreshData()
     {
-        return Json(new { success = true, message = "Dashboard refreshed", timestamp = DateTime.UtcNow });
+        return Json(new { success = true, message = "Dashboard refreshed", timestamp = _clock.UtcNow });
     }
 }

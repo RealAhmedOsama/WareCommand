@@ -10,7 +10,7 @@ public sealed class WmsUserWarehouseAssignment
 
     public bool IsDefault { get; set; }
 
-    public DateTimeOffset AssignedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset AssignedAtUtc { get; set; } = DateTimeOffset.UnixEpoch;
 
     public WmsUser User { get; set; } = null!;
 

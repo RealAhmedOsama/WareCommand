@@ -17,6 +17,7 @@ namespace Wms.Infrastructure.Services;
 public class StockMovementService : IStockMovementService
 {
     private readonly IAuditWriter _auditWriter;
+    private readonly IClock _clock;
     private readonly ILogger<StockMovementService> _logger;
     private readonly IWmsOperationContextAccessor _operationContextAccessor;
     private readonly IRequestContext _requestContext;
@@ -27,13 +28,15 @@ public class StockMovementService : IStockMovementService
         ILogger<StockMovementService> logger,
         IAuditWriter auditWriter,
         IRequestContext requestContext,
-        IWmsOperationContextAccessor operationContextAccessor)
+        IWmsOperationContextAccessor operationContextAccessor,
+        IClock clock)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
         _auditWriter = auditWriter;
         _requestContext = requestContext;
         _operationContextAccessor = operationContextAccessor;
+        _clock = clock;
     }
 
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
@@ -60,7 +63,7 @@ public class StockMovementService : IStockMovementService
 
             // Create receipt movement
             var movement = Movement.CreateReceipt(itemId, locationId, quantity, userId,
-                lotId, serialNumber, referenceNumber, notes);
+                lotId, serialNumber, referenceNumber, notes, _clock.UtcNow.UtcDateTime);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -162,7 +165,7 @@ public class StockMovementService : IStockMovementService
 
             // Create putaway movement
             var movement = Movement.CreatePutaway(itemId, fromLocationId, toLocationId, quantity, userId,
-                lotId, serialNumber, referenceNumber, notes);
+                lotId, serialNumber, referenceNumber, notes, _clock.UtcNow.UtcDateTime);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -263,7 +266,7 @@ public class StockMovementService : IStockMovementService
 
             // Create pick movement
             var movement = Movement.CreatePick(itemId, fromLocationId, quantity, userId,
-                lotId, serialNumber, referenceNumber, notes);
+                lotId, serialNumber, referenceNumber, notes, _clock.UtcNow.UtcDateTime);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -355,7 +358,7 @@ public class StockMovementService : IStockMovementService
 
             // Create adjustment movement
             var movement = Movement.CreateAdjustment(itemId, locationId, newQuantity, userId,
-                lotId, serialNumber, notes: reason);
+                lotId, serialNumber, notes: reason, timestampUtc: _clock.UtcNow.UtcDateTime);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 

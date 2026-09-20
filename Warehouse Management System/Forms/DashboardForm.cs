@@ -2,7 +2,9 @@
 
 using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Context;
 using Wms.Application.Settings;
+using Wms.Application.Time;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Reports;
@@ -15,6 +17,7 @@ public partial class DashboardForm : Form
 {
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly IGetStockUseCase _getStockUseCase;
+    private readonly IClock _clock;
     private readonly ILogger<DashboardForm> _logger;
     private readonly IMovementReportUseCase _movementReportUseCase;
     private readonly IWmsSettingsService _settingsService;
@@ -24,13 +27,15 @@ public partial class DashboardForm : Form
     public DashboardForm(IGetStockUseCase getStockUseCase, IGetItemsUseCase getItemsUseCase,
         IMovementReportUseCase movementReportUseCase,
         IWmsSettingsService settingsService,
-        ILogger<DashboardForm> logger)
+        ILogger<DashboardForm> logger,
+        IClock clock)
     {
         _getStockUseCase = getStockUseCase;
         _getItemsUseCase = getItemsUseCase;
         _movementReportUseCase = movementReportUseCase;
         _settingsService = settingsService;
         _logger = logger;
+        _clock = clock;
         InitializeComponent();
         Wms.WinForms.Common.WmsDesktopLocalization.Apply(this);
         SetupForm();
@@ -74,7 +79,10 @@ public partial class DashboardForm : Form
 
             lblLastRefresh.Text = WmsDesktopLocalization.Get(
                 "Desktop.LastRefreshedAt",
-                DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture));
+                WmsBusinessTime.ToLocalDateTime(
+                        _clock.UtcNow.UtcDateTime,
+                        _settings.Localization.TimeZone)
+                    .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.CurrentCulture));
 
             // Load KPI data
             await LoadKpiDataAsync();
@@ -134,10 +142,13 @@ public partial class DashboardForm : Form
     {
         try
         {
+            var today = WmsBusinessTime.GetBusinessDate(
+                _clock.UtcNow,
+                _settings.Localization.TimeZone);
             var request = new MovementReportRequest(
-                DateTime.Today.AddDays(-_settings.Reports.DefaultPeriodDays),
-                DateTime.Now
-            );
+                today.AddDays(-_settings.Reports.DefaultPeriodDays)
+                    .ToDateTime(TimeOnly.MinValue),
+                today.ToDateTime(TimeOnly.MinValue));
 
             var result = await _movementReportUseCase.ExecuteAsync(request);
             if (result.IsSuccess)
