@@ -19,7 +19,8 @@ public record PickItemDto(
     string? LotNumber = null,
     string? SerialNumber = null,
     string? Notes = null,
-    string? UnitOfMeasure = null
+    string? UnitOfMeasure = null,
+    string? PackagingCode = null
 );
 
 public record PickResultDto(
@@ -123,6 +124,7 @@ public class PickOrderUseCase : IPickOrderUseCase
                 item,
                 request.Quantity,
                 request.UnitOfMeasure ?? item.SalesUnit,
+                request.PackagingCode,
                 cancellationToken);
             if (quantityResult.IsFailure)
             {
@@ -178,6 +180,7 @@ public class PickOrderUseCase : IPickOrderUseCase
         Wms.Domain.Entities.Item item,
         decimal quantity,
         string unitOfMeasure,
+        string? packagingCode,
         CancellationToken cancellationToken)
     {
         if (_quantityConversionService is null)
@@ -185,11 +188,17 @@ public class PickOrderUseCase : IPickOrderUseCase
             return Result.Success(new Quantity(quantity));
         }
 
-        var result = await _quantityConversionService.ConvertToBaseAsync(
-            item.Id,
-            quantity,
-            unitOfMeasure,
-            cancellationToken: cancellationToken);
+        var result = !string.IsNullOrWhiteSpace(packagingCode)
+            ? await _quantityConversionService.ConvertPackagingToBaseAsync(
+                item.Id,
+                quantity,
+                packagingCode,
+                cancellationToken: cancellationToken)
+            : await _quantityConversionService.ConvertToBaseAsync(
+                item.Id,
+                quantity,
+                unitOfMeasure,
+                cancellationToken: cancellationToken);
         return result.IsFailure
             ? result.ToFailure<Quantity>()
             : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));

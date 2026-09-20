@@ -7,6 +7,7 @@ using Wms.Application.Context;
 using Wms.Application.Logging;
 using Wms.Application.Telemetry;
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -63,7 +64,7 @@ public class StockMovementService : IStockMovementService
                 location,
                 itemId,
                 lotId,
-                quantity.Value,
+                quantity,
                 cancellationToken);
             var quantityBefore = existingStock?.QuantityAvailable.Value ?? 0m;
 
@@ -171,7 +172,7 @@ public class StockMovementService : IStockMovementService
                 toLocation,
                 itemId,
                 lotId,
-                quantity.Value,
+                quantity,
                 cancellationToken);
             var destinationQuantityBefore = destinationStock?.QuantityAvailable.Value ?? 0m;
 
@@ -362,7 +363,7 @@ public class StockMovementService : IStockMovementService
                         location,
                         itemId,
                         lotId,
-                        newQuantity.Value,
+                        newQuantity,
                         cancellationToken);
                     var newStock = new Stock(itemId, locationId, newQuantity, lotId, serialNumber);
                     await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
@@ -377,7 +378,7 @@ public class StockMovementService : IStockMovementService
                         location,
                         itemId,
                         lotId,
-                        delta,
+                        new Quantity(delta, newQuantity.ConversionSnapshot),
                         cancellationToken);
                 }
                 stock.AdjustQuantity(newQuantity, reason);
@@ -439,7 +440,7 @@ public class StockMovementService : IStockMovementService
         Location? location,
         int itemId,
         int? lotId,
-        decimal incomingUnits,
+        Quantity incomingQuantity,
         CancellationToken cancellationToken)
     {
         if (location is null)
@@ -454,6 +455,8 @@ public class StockMovementService : IStockMovementService
                 cancellationToken))
             .Where(stock => stock.QuantityAvailable.Value > 0 || stock.QuantityReserved.Value > 0)
             .ToArray();
+        var item = occupiedStock.FirstOrDefault(stock => stock.ItemId == itemId)?.Item ??
+                   await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken);
 
         if (!location.AllowMixedItems && occupiedStock.Any(stock => stock.ItemId != itemId))
         {
@@ -470,15 +473,42 @@ public class StockMovementService : IStockMovementService
                 $"Location '{location.Code}' does not allow mixed lots.");
         }
 
-        var violation = location.ValidateCapacity(
-            new LocationCapacitySnapshot(
-                occupiedStock.Sum(stock => stock.QuantityAvailable.Value)),
-            new LocationCapacitySnapshot(incomingUnits));
+        var currentCapacity = new LocationCapacitySnapshot(
+            occupiedStock.Sum(stock => stock.QuantityAvailable.Value),
+            occupiedStock.Sum(stock => stock.QuantityAvailable.Value * (stock.Item.NetWeightKg ?? 0m)),
+            occupiedStock.Sum(stock => stock.QuantityAvailable.Value * (stock.Item.VolumeCubicMeters ?? 0m)));
+        var incomingCapacity = CalculateIncomingCapacity(incomingQuantity, item);
+        var violation = location.ValidateCapacity(currentCapacity, incomingCapacity);
         if (violation is not null)
         {
             throw new LocationConstraintViolationException(
                 violation.Code,
                 violation.Message);
         }
+    }
+
+    private static LocationCapacitySnapshot CalculateIncomingCapacity(Quantity quantity, Item? item)
+    {
+        var conversion = quantity.ConversionSnapshot;
+        var packaging = conversion?.PackagingSnapshot;
+        if (packaging is null)
+        {
+            return new LocationCapacitySnapshot(
+                quantity.Value,
+                quantity.Value * (item?.NetWeightKg ?? 0m),
+                quantity.Value * (item?.VolumeCubicMeters ?? 0m));
+        }
+
+        var packageCount = conversion!.ConversionFactorToBase <= 0
+            ? 0m
+            : quantity.Value / conversion.ConversionFactorToBase;
+        var pallets = packaging.Type == PackagingType.Pallet
+            ? (int)Math.Ceiling(packageCount)
+            : 0;
+        return new LocationCapacitySnapshot(
+            quantity.Value,
+            (packaging.GrossWeightKg ?? item?.NetWeightKg * packaging.UnitsPerPackage ?? 0m) * packageCount,
+            (packaging.VolumeCubicMeters ?? item?.VolumeCubicMeters * packaging.UnitsPerPackage ?? 0m) * packageCount,
+            pallets);
     }
 }

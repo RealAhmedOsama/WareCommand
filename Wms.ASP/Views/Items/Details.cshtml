@@ -75,10 +75,10 @@
             <div class="card-body p-0">
                 @if (Model.Packagings.Any())
                 {
-                    <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>@T["Items.PackagingCode"]</th><th>@T["Field.UnitOfMeasure"]</th><th>@T["Items.UnitsPerPackage"]</th><th>@T["Field.Barcode"]</th><th>@T["Items.Default"]</th></tr></thead><tbody>
+                    <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>@T["Items.PackagingCode"]</th><th>@T["Items.PackagingName"]</th><th>@T["Items.PackagingType"]</th><th>@T["Field.UnitOfMeasure"]</th><th>@T["Items.UnitsPerPackage"]</th><th>@T["Field.Barcode"]</th><th>@T["Items.PackagingGtin"]</th><th>@T["Items.Default"]</th></tr></thead><tbody>
                     @foreach (var packaging in Model.Packagings)
                     {
-                        <tr><td>@packaging.Code</td><td>@packaging.UnitOfMeasure</td><td>@packaging.UnitsPerPackage</td><td class="wms-identifier">@(packaging.Barcode ?? T["Common.NotSet"])</td><td>@(packaging.IsDefault ? T["Common.Yes"] : T["Common.No"])</td></tr>
+                        <tr><td>@packaging.Code</td><td>@packaging.Name</td><td>@packaging.Type</td><td>@packaging.UnitOfMeasure</td><td>@packaging.UnitsPerPackage</td><td class="wms-identifier">@(packaging.Barcode ?? T["Common.NotSet"])</td><td class="wms-identifier">@(packaging.Gtin ?? T["Common.NotSet"])</td><td>@(packaging.IsDefault ? T["Common.Yes"] : T["Common.No"])</td></tr>
                     }
                     </tbody></table></div>
                 }

@@ -236,8 +236,11 @@
   <data name="Items.Barcodes" xml:space="preserve"><value>Barcodes</value></data>
   <data name="Items.BarcodeHelp" xml:space="preserve"><value>Enter one barcode per line. Values are globally unique.</value></data>
   <data name="Items.Packagings" xml:space="preserve"><value>Packaging definitions</value></data>
-  <data name="Items.PackagingHelp" xml:space="preserve"><value>One per line: CODE|UNIT|UNITS_PER_PACKAGE|BARCODE|WEIGHT_KG|LENGTH_CM|WIDTH_CM|HEIGHT_CM|DEFAULT</value></data>
+  <data name="Items.PackagingHelp" xml:space="preserve"><value>One per line: CODE|UNIT|UNITS_PER_PACKAGE|BARCODE|WEIGHT_KG|LENGTH_CM|WIDTH_CM|HEIGHT_CM|DEFAULT|NAME|LOCALIZED_NAME|GTIN|PARENT_CODE|TYPE|PARTIAL_POLICY|DEFAULT_RECEIVING|DEFAULT_STORAGE|DEFAULT_PICKING|DEFAULT_SHIPPING|ACTIVE</value></data>
   <data name="Items.PackagingCode" xml:space="preserve"><value>Packaging code</value></data>
+  <data name="Items.PackagingName" xml:space="preserve"><value>Packaging name</value></data>
+  <data name="Items.PackagingType" xml:space="preserve"><value>Packaging type</value></data>
+  <data name="Items.PackagingGtin" xml:space="preserve"><value>GTIN</value></data>
   <data name="Items.UnitsPerPackage" xml:space="preserve"><value>Units per package</value></data>
   <data name="Items.Default" xml:space="preserve"><value>Default</value></data>
   <data name="Items.NoPackagings" xml:space="preserve"><value>No packaging definitions.</value></data>

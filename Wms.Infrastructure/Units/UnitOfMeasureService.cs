@@ -6,6 +6,7 @@ using Wms.Application.Identity;
 using Wms.Application.Units;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Units;
@@ -702,6 +703,134 @@ public sealed class UnitOfMeasureService(
             path.PathDescription,
             path.RuleIds);
         return Result.Success(snapshot);
+    }
+
+    public async Task<Result<QuantityConversionResult>> ConvertPackagingToBaseAsync(
+        int itemId,
+        decimal enteredPackageQuantity,
+        string packagingCode,
+        QuantityRoundingMode? roundingMode = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (enteredPackageQuantity < 0)
+        {
+            return Result.Failure<QuantityConversionResult>(WmsErrors.Validation(
+                "quantity.negative",
+                "Package quantity cannot be negative."));
+        }
+
+        if (string.IsNullOrWhiteSpace(packagingCode))
+        {
+            return Result.Failure<QuantityConversionResult>(WmsErrors.Validation(
+                "packaging.code_required",
+                "A packaging code is required when a package quantity is entered."));
+        }
+
+        var normalizedCode = packagingCode.Trim().ToUpperInvariant();
+        var packaging = await context.ItemPackagings
+            .AsNoTracking()
+            .Include(value => value.Item)
+            .SingleOrDefaultAsync(
+                value => value.ItemId == itemId && value.Code == normalizedCode,
+                cancellationToken);
+        if (packaging is null)
+        {
+            return Result.Failure<QuantityConversionResult>(WmsErrors.NotFound(
+                "packaging.not_found",
+                $"Packaging '{normalizedCode}' was not found for the item."));
+        }
+
+        if (!packaging.IsActive)
+        {
+            return Result.Failure<QuantityConversionResult>(WmsErrors.Validation(
+                "packaging.inactive",
+                $"Packaging '{packaging.Code}' is inactive."));
+        }
+
+        if (packaging.PartialPackagePolicy == PackagingPartialPolicy.Reject &&
+            !IsWhole(enteredPackageQuantity))
+        {
+            return Result.Failure<QuantityConversionResult>(WmsErrors.Validation(
+                "packaging.partial_not_allowed",
+                $"Packaging '{packaging.Code}' does not allow partial packages."));
+        }
+
+        decimal containedQuantity;
+        try
+        {
+            containedQuantity = checked(enteredPackageQuantity * packaging.UnitsPerPackage);
+        }
+        catch (OverflowException)
+        {
+            return Result.Failure<QuantityConversionResult>(WmsErrors.Validation(
+                "packaging.quantity_overflow",
+                "The package quantity is too large to convert safely."));
+        }
+
+        var conversion = await ConvertToBaseAsync(
+            itemId,
+            containedQuantity,
+            packaging.UnitOfMeasure,
+            roundingMode,
+            cancellationToken);
+        if (conversion.IsFailure)
+        {
+            return conversion;
+        }
+
+        var value = conversion.Value;
+        PackagingConversionSnapshot packageSnapshot;
+        try
+        {
+            packageSnapshot = new PackagingConversionSnapshot(
+                packaging.Id,
+                packaging.Version,
+                packaging.Code,
+                packaging.Name,
+                packaging.LocalizedName,
+                packaging.Type,
+                packaging.UnitOfMeasure,
+                packaging.UnitsPerPackage,
+                packaging.PartialPackagePolicy,
+                packaging.GrossWeightKg,
+                packaging.LengthCm,
+                packaging.WidthCm,
+                packaging.HeightCm,
+                packaging.VolumeCubicMeters);
+        }
+        catch (ArgumentException exception)
+        {
+            return Result.Failure<QuantityConversionResult>(WmsErrors.Validation(
+                "packaging.definition_invalid",
+                exception.Message));
+        }
+
+        decimal factor;
+        try
+        {
+            factor = checked(packaging.UnitsPerPackage * value.ConversionFactorToBase);
+        }
+        catch (OverflowException)
+        {
+            return Result.Failure<QuantityConversionResult>(WmsErrors.Validation(
+                "packaging.conversion_overflow",
+                "The packaging conversion factor is too large to represent safely."));
+        }
+
+        return Result.Success(new QuantityConversionResult(
+            enteredPackageQuantity,
+            packaging.UnitOfMeasure,
+            value.BaseQuantity,
+            value.BaseUnitOfMeasure,
+            factor,
+            value.ResultPrecision,
+            value.RoundingMode,
+            value.RoundingDelta,
+            $"{packaging.Code} ({packaging.UnitOfMeasure}) -> {value.ConversionPath}",
+            value.ConversionRuleIds)
+        {
+            PackagingSnapshot = packageSnapshot
+        });
     }
 
     public async Task<Result<decimal>> ConvertFromBaseAsync(

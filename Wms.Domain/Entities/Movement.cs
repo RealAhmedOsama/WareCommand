@@ -45,6 +45,22 @@ public class Movement : Entity
         ConversionRoundingDelta = conversion?.RoundingDelta ?? 0m;
         ConversionPath = conversion?.ConversionPath ?? "BASE";
         ConversionRuleIds = conversion?.ConversionRuleIds ?? string.Empty;
+
+        var packaging = conversion?.PackagingSnapshot;
+        PackagingId = packaging?.PackagingId;
+        PackagingVersion = packaging?.Version;
+        PackagingCode = packaging?.Code;
+        PackagingName = packaging?.Name;
+        PackagingLocalizedName = packaging?.LocalizedName;
+        PackagingType = packaging?.Type;
+        PackagingUnitOfMeasure = packaging?.UnitOfMeasure;
+        PackagingUnitsPerPackage = packaging?.UnitsPerPackage;
+        PackagingPartialPackagePolicy = packaging?.PartialPackagePolicy;
+        PackagingGrossWeightKg = packaging?.GrossWeightKg;
+        PackagingLengthCm = packaging?.LengthCm;
+        PackagingWidthCm = packaging?.WidthCm;
+        PackagingHeightCm = packaging?.HeightCm;
+        PackagingVolumeCubicMeters = packaging?.VolumeCubicMeters;
     }
 
     public MovementType Type { get; private set; }
@@ -63,6 +79,20 @@ public class Movement : Entity
     public decimal ConversionRoundingDelta { get; private set; }
     public string ConversionPath { get; private set; } = "BASE";
     public string ConversionRuleIds { get; private set; } = string.Empty;
+    public int? PackagingId { get; private set; }
+    public int? PackagingVersion { get; private set; }
+    public string? PackagingCode { get; private set; }
+    public string? PackagingName { get; private set; }
+    public string? PackagingLocalizedName { get; private set; }
+    public PackagingType? PackagingType { get; private set; }
+    public string? PackagingUnitOfMeasure { get; private set; }
+    public decimal? PackagingUnitsPerPackage { get; private set; }
+    public PackagingPartialPolicy? PackagingPartialPackagePolicy { get; private set; }
+    public decimal? PackagingGrossWeightKg { get; private set; }
+    public decimal? PackagingLengthCm { get; private set; }
+    public decimal? PackagingWidthCm { get; private set; }
+    public decimal? PackagingHeightCm { get; private set; }
+    public decimal? PackagingVolumeCubicMeters { get; private set; }
     public string UserId { get; private set; } = string.Empty;
     public string? ReferenceNumber { get; private set; }
     public string? Notes { get; private set; }

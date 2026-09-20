@@ -19,7 +19,8 @@ public record StockAdjustmentDto(
     string Reason,
     string? LotNumber = null,
     string? SerialNumber = null,
-    string? UnitOfMeasure = null
+    string? UnitOfMeasure = null,
+    string? PackagingCode = null
 );
 
 public interface IStockAdjustmentUseCase
@@ -107,6 +108,7 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                 item,
                 request.NewQuantity,
                 request.UnitOfMeasure ?? item.UnitOfMeasure,
+                request.PackagingCode,
                 cancellationToken);
             if (quantityResult.IsFailure)
             {
@@ -156,6 +158,7 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
         Wms.Domain.Entities.Item item,
         decimal quantity,
         string unitOfMeasure,
+        string? packagingCode,
         CancellationToken cancellationToken)
     {
         if (_quantityConversionService is null)
@@ -163,11 +166,17 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
             return Result.Success(new Quantity(quantity));
         }
 
-        var result = await _quantityConversionService.ConvertToBaseAsync(
-            item.Id,
-            quantity,
-            unitOfMeasure,
-            cancellationToken: cancellationToken);
+        var result = !string.IsNullOrWhiteSpace(packagingCode)
+            ? await _quantityConversionService.ConvertPackagingToBaseAsync(
+                item.Id,
+                quantity,
+                packagingCode,
+                cancellationToken: cancellationToken)
+            : await _quantityConversionService.ConvertToBaseAsync(
+                item.Id,
+                quantity,
+                unitOfMeasure,
+                cancellationToken: cancellationToken);
         return result.IsFailure
             ? result.ToFailure<Quantity>()
             : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));

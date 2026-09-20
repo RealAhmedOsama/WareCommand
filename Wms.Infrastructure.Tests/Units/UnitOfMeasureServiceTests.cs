@@ -237,6 +237,93 @@ public sealed class UnitOfMeasureServiceTests : IAsyncLifetime, IDisposable
         rules[1].IsActive.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task PackagingConversion_UsesNestedUomAndStoresImmutableMovementSnapshot()
+    {
+        await AddUnitsAsync(
+            new("EA", UnitOfMeasureCategory.Count, 0, "ea", "Each"),
+            new("CASE", UnitOfMeasureCategory.Count, 0, "case", "Case"));
+        var item = new Item("ITEM-PACK", "Packaged widget", "EA");
+        var packaging = new ItemPackaging(
+            "PALLET",
+            "CASE",
+            10m,
+            type: PackagingType.Pallet,
+            grossWeightKg: 100m,
+            lengthCm: 100m,
+            widthCm: 80m,
+            heightCm: 120m,
+            partialPackagePolicy: PackagingPartialPolicy.Reject);
+        item.AddPackaging(packaging);
+        _context.Items.Add(item);
+        await _context.SaveChangesAsync();
+
+        var assignment = await _service.SaveItemAssignmentAsync(
+            new ItemUnitAssignmentRequest(
+                item.Id,
+                "EA",
+                "CASE",
+                "EA",
+                true,
+                [new("CASE", "EA", 12m, 0)]),
+            "user-1");
+        assignment.IsSuccess.Should().BeTrue();
+
+        var conversion = await _service.ConvertPackagingToBaseAsync(item.Id, 2m, "PALLET");
+
+        conversion.IsSuccess.Should().BeTrue();
+        conversion.Value.BaseQuantity.Should().Be(240m);
+        conversion.Value.ConversionFactorToBase.Should().Be(120m);
+        conversion.Value.PackagingSnapshot.Should().NotBeNull();
+        conversion.Value.PackagingSnapshot!.Code.Should().Be("PALLET");
+        conversion.Value.PackagingSnapshot.UnitsPerPackage.Should().Be(10m);
+        conversion.Value.PackagingSnapshot.VolumeCubicMeters.Should().Be(0.96m);
+
+        var movement = Movement.CreateReceipt(
+            item.Id,
+            _locationId,
+            new Quantity(conversion.Value.BaseQuantity, conversion.Value.ToSnapshot()),
+            "user-1");
+        _context.Movements.Add(movement);
+        await _context.SaveChangesAsync();
+
+        packaging.Update(
+            "PALLET",
+            "CASE",
+            8m,
+            null,
+            90m,
+            100m,
+            80m,
+            120m,
+            false,
+            type: PackagingType.Pallet,
+            partialPackagePolicy: PackagingPartialPolicy.Reject);
+        await _context.SaveChangesAsync();
+
+        var savedMovement = await _context.Movements.SingleAsync();
+        savedMovement.PackagingUnitsPerPackage.Should().Be(10m);
+        savedMovement.PackagingGrossWeightKg.Should().Be(100m);
+        savedMovement.PackagingVersion.Should().Be(1);
+        packaging.Version.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task PackagingConversion_RejectsPartialPackageWhenPolicyDisallowsIt()
+    {
+        await AddUnitsAsync(
+            new UnitOfMeasure("EA", UnitOfMeasureCategory.Count, 0, "ea", "Each"));
+        var item = new Item("ITEM-PARTIAL", "Partials", "EA");
+        item.AddPackaging(new ItemPackaging("CASE", "EA", 12m));
+        _context.Items.Add(item);
+        await _context.SaveChangesAsync();
+
+        var conversion = await _service.ConvertPackagingToBaseAsync(item.Id, 0.5m, "CASE");
+
+        conversion.IsFailure.Should().BeTrue();
+        conversion.ErrorCode.Should().Be("packaging.partial_not_allowed");
+    }
+
     private async Task AddUnitsAsync(params UnitOfMeasure[] units)
     {
         _context.UnitOfMeasures.AddRange(units);

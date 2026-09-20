@@ -201,7 +201,18 @@ public sealed class ItemFormViewModel
                 packaging.LengthCm?.ToString(CultureInfo.InvariantCulture),
                 packaging.WidthCm?.ToString(CultureInfo.InvariantCulture),
                 packaging.HeightCm?.ToString(CultureInfo.InvariantCulture),
-                packaging.IsDefault ? "true" : "false")))
+                packaging.IsDefault ? "true" : "false",
+                packaging.Name,
+                packaging.LocalizedName,
+                packaging.Gtin,
+                packaging.ParentPackagingCode,
+                packaging.Type.ToString(),
+                packaging.PartialPackagePolicy.ToString(),
+                packaging.IsDefaultReceiving ? "true" : "false",
+                packaging.IsDefaultStorage ? "true" : "false",
+                packaging.IsDefaultPicking ? "true" : "false",
+                packaging.IsDefaultShipping ? "true" : "false",
+                packaging.IsActive ? "true" : "false")))
     };
 }
 

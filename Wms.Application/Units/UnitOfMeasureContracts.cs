@@ -1,5 +1,6 @@
 using Wms.Application.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.ValueObjects;
 
 namespace Wms.Application.Units;
 
@@ -84,6 +85,8 @@ public sealed record QuantityConversionResult(
     string ConversionPath,
     string ConversionRuleIds)
 {
+    public PackagingConversionSnapshot? PackagingSnapshot { get; init; }
+
     public Wms.Domain.ValueObjects.QuantityConversionSnapshot ToSnapshot() =>
         new(
             EnteredQuantity,
@@ -94,7 +97,8 @@ public sealed record QuantityConversionResult(
             RoundingMode,
             RoundingDelta,
             ConversionPath,
-            ConversionRuleIds);
+            ConversionRuleIds,
+            PackagingSnapshot);
 }
 
 public interface IUnitOfMeasureManagementService
@@ -140,6 +144,13 @@ public interface IItemQuantityConversionService
         int itemId,
         decimal enteredQuantity,
         string? enteredUnitOfMeasure = null,
+        QuantityRoundingMode? roundingMode = null,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<QuantityConversionResult>> ConvertPackagingToBaseAsync(
+        int itemId,
+        decimal enteredPackageQuantity,
+        string packagingCode,
         QuantityRoundingMode? roundingMode = null,
         CancellationToken cancellationToken = default);
 

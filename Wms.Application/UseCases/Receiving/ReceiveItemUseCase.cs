@@ -118,6 +118,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 item,
                 request.Quantity,
                 request.UnitOfMeasure ?? item.PurchaseUnit,
+                request.PackagingCode,
                 cancellationToken);
             if (quantityResult.IsFailure)
             {
@@ -166,6 +167,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         Item item,
         decimal quantity,
         string unitOfMeasure,
+        string? packagingCode,
         CancellationToken cancellationToken)
     {
         if (_quantityConversionService is null)
@@ -173,11 +175,17 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             return Result.Success(new Quantity(quantity));
         }
 
-        var result = await _quantityConversionService.ConvertToBaseAsync(
-            item.Id,
-            quantity,
-            unitOfMeasure,
-            cancellationToken: cancellationToken);
+        var result = !string.IsNullOrWhiteSpace(packagingCode)
+            ? await _quantityConversionService.ConvertPackagingToBaseAsync(
+                item.Id,
+                quantity,
+                packagingCode,
+                cancellationToken: cancellationToken)
+            : await _quantityConversionService.ConvertToBaseAsync(
+                item.Id,
+                quantity,
+                unitOfMeasure,
+                cancellationToken: cancellationToken);
         return result.IsFailure
             ? result.ToFailure<Quantity>()
             : Result.Success(new Quantity(result.Value.BaseQuantity, result.Value.ToSnapshot()));

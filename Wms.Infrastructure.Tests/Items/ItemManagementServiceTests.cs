@@ -187,6 +187,114 @@ public sealed class ItemManagementServiceTests : IAsyncLifetime, IDisposable
         exported.Value.Should().Contain("Standard");
     }
 
+    [Fact]
+    public async Task CreateAsync_PersistsNestedPackagingRolesAndRejectsGlobalGtinReuse()
+    {
+        var created = await _service.CreateAsync(
+            new ItemCreateRequest(
+                "PACK-001",
+                new ItemCommercialRequest("Packaged item", LocalizedName: "منتج معبأ"),
+                new ItemMeasurementRequest("EA"),
+                new ItemTrackingRequest(),
+                new ItemStorageRequest(),
+                new ItemPlanningRequest(),
+                Packagings:
+                [
+                    new ItemPackagingRequest(
+                        "CASE",
+                        "EA",
+                        12m,
+                        Gtin: "0001234567890",
+                        Type: PackagingType.Case,
+                        IsDefaultStorage: true),
+                    new ItemPackagingRequest(
+                        "PALLET",
+                        "CASE",
+                        10m,
+                        Gtin: "0001234567891",
+                        ParentPackagingCode: "CASE",
+                        Type: PackagingType.Pallet,
+                        IsDefaultShipping: true)
+                ]),
+            "user-1");
+
+        created.IsSuccess.Should().BeTrue();
+        created.Value.Packagings.Should().HaveCount(2);
+        created.Value.Packagings.Single(value => value.Code == "PALLET")
+            .ParentPackagingCode.Should().Be("CASE");
+        created.Value.Packagings.Single(value => value.Code == "PALLET")
+            .IsDefaultShipping.Should().BeTrue();
+
+        var duplicateGtin = await _service.CreateAsync(
+            new ItemCreateRequest(
+                "PACK-002",
+                new ItemCommercialRequest("Other packaged item"),
+                new ItemMeasurementRequest("EA"),
+                new ItemTrackingRequest(),
+                new ItemStorageRequest(),
+                new ItemPlanningRequest(),
+                Packagings:
+                [new ItemPackagingRequest("CASE", "EA", 12m, Gtin: "0001234567890")]),
+            "user-1");
+
+        duplicateGtin.ErrorCode.Should().Be("item.barcode_conflict");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_VersionsExistingPackagingWithoutRewritingItsIdentity()
+    {
+        var created = await _service.CreateAsync(
+            CreateRequest("PACK-003", "Versioned", "123456"),
+            "user-1");
+
+        var updated = await _service.UpdateAsync(
+            new ItemUpdateRequest(
+                created.Value.Id,
+                new ItemCommercialRequest("Versioned"),
+                new ItemMeasurementRequest("EA", "BOX", "EA"),
+                new ItemTrackingRequest(RequiresExpiry: true, ShelfLifeDays: 30, UseFefo: true),
+                new ItemStorageRequest(StorageProfile: "Standard"),
+                new ItemPlanningRequest(ItemReorderPolicy.MinMax, 1, 100, 5, 7),
+                ["123456"],
+                [new ItemPackagingRequest("CASE", "EA", 24m, "654321", IsDefault: true)]),
+            "user-1");
+
+        updated.IsSuccess.Should().BeTrue();
+        var saved = await _context.ItemPackagings.SingleAsync();
+        saved.UnitsPerPackage.Should().Be(24m);
+        saved.Version.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ExportAsync_IncludesPackagingMasterDataAsBoundedJson()
+    {
+        await _service.CreateAsync(
+            new ItemCreateRequest(
+                "PACK-EXPORT",
+                new ItemCommercialRequest("Exported package"),
+                new ItemMeasurementRequest("EA"),
+                new ItemTrackingRequest(),
+                new ItemStorageRequest(),
+                new ItemPlanningRequest(),
+                Packagings:
+                [new ItemPackagingRequest(
+                    "CASE",
+                    "EA",
+                    12m,
+                    Name: "Case",
+                    LocalizedName: "علبة",
+                    Type: PackagingType.Case)]),
+            "user-1");
+
+        var exported = await _service.ExportAsync(
+            new ItemListQuery(SearchTerm: "PACK-EXPORT", IncludeInactive: true));
+
+        exported.IsSuccess.Should().BeTrue();
+        exported.Value.Should().Contain("PACKAGINGS_JSON");
+        exported.Value.Should().Contain("CASE");
+        exported.Value.Should().Contain("علبة");
+    }
+
     public async Task DisposeAsync()
     {
         await _context.DisposeAsync();

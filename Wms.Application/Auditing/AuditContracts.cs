@@ -16,6 +16,7 @@ public static class WmsAuditActions
     public const string ItemDeleted = "master.item.deleted";
     public const string ItemDuplicated = "master.item.duplicated";
     public const string ItemBulkImported = "master.item.bulk_imported";
+    public const string ItemPackagingsChanged = "master.item.packagings_changed";
     public const string UnitOfMeasureCreated = "master.uom.created";
     public const string UnitOfMeasureUpdated = "master.uom.updated";
     public const string UnitOfMeasureActivated = "master.uom.activated";
@@ -59,6 +60,7 @@ public static class WmsAuditActions
         ItemDeleted,
         ItemDuplicated,
         ItemBulkImported,
+        ItemPackagingsChanged,
         UnitOfMeasureCreated,
         UnitOfMeasureUpdated,
         UnitOfMeasureActivated,

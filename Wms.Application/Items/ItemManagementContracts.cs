@@ -92,7 +92,18 @@ public sealed record ItemPackagingRequest(
     decimal? LengthCm = null,
     decimal? WidthCm = null,
     decimal? HeightCm = null,
-    bool IsDefault = false);
+    bool IsDefault = false,
+    string? Name = null,
+    string? LocalizedName = null,
+    string? Gtin = null,
+    string? ParentPackagingCode = null,
+    PackagingType Type = PackagingType.Other,
+    PackagingPartialPolicy PartialPackagePolicy = PackagingPartialPolicy.Reject,
+    bool IsDefaultReceiving = false,
+    bool IsDefaultStorage = false,
+    bool IsDefaultPicking = false,
+    bool IsDefaultShipping = false,
+    bool IsActive = true);
 
 public sealed record ItemCreateRequest(
     string Sku,

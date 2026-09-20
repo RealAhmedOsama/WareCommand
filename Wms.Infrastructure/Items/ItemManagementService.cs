@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Auditing;
@@ -24,6 +26,11 @@ public sealed class ItemManagementService(
     private const int MaximumPageSize = 200;
     private const int MaximumImportRows = 1_000;
     private const int MaximumExportRows = 10_000;
+    private static readonly JsonSerializerOptions PackagingJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     public async Task<Result<ItemPageDto>> ListAsync(
         ItemListQuery request,
@@ -149,17 +156,17 @@ public sealed class ItemManagementService(
                     $"Barcode '{barcodeConflict}' is already assigned to another item."));
             }
 
-            var packagingBarcodeConflict = await FindPackagingBarcodeConflictAsync(
-                packaging.Select(value => value.Barcode).Where(value => value is not null).Cast<string>(),
+            var packagingIdentifierConflict = await FindPackagingIdentifierConflictAsync(
+                PackagingIdentifiers(packaging),
                 null,
                 cancellationToken);
-            if (packagingBarcodeConflict is not null || HasBarcodeOverlap(
+            if (packagingIdentifierConflict is not null || HasBarcodeOverlap(
                     barcodeValues,
-                    packaging.Select(value => value.Barcode).Where(value => value is not null).Cast<string>()))
+                    PackagingIdentifiers(packaging)))
             {
                 return Result.Failure<ItemDto>(WmsErrors.Conflict(
                     "item.barcode_conflict",
-                    "Every item and packaging barcode must be globally unique."));
+                    "Every item and packaging barcode and GTIN must be globally unique."));
             }
 
             var item = BuildItem(request.Sku, request.Commercial, request.Measurements,
@@ -175,6 +182,20 @@ public sealed class ItemManagementService(
                     After: AuditSnapshot(item),
                     ActorUserId: userId),
                 cancellationToken);
+            if (packaging.Count > 0)
+            {
+                await auditWriter.RecordAsync(
+                    new AuditRecord(
+                        WmsAuditActions.ItemPackagingsChanged,
+                        WmsAuditEntityTypes.Item,
+                        normalizedSku,
+                        After: new Dictionary<string, object?>
+                        {
+                            ["packagings"] = packaging.Select(PackagingAuditSnapshot).ToArray()
+                        },
+                        ActorUserId: userId),
+                    cancellationToken);
+            }
             await context.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation("Item master created for {ItemSku} by {UserId}", item.Sku, userId);
@@ -259,21 +280,22 @@ public sealed class ItemManagementService(
                     $"Barcode '{barcodeConflict}' is already assigned to another item."));
             }
 
-            var packagingBarcodeConflict = await FindPackagingBarcodeConflictAsync(
-                packaging.Select(value => value.Barcode).Where(value => value is not null).Cast<string>(),
+            var packagingIdentifierConflict = await FindPackagingIdentifierConflictAsync(
+                PackagingIdentifiers(packaging),
                 item.Id,
                 cancellationToken);
-            if (packagingBarcodeConflict is not null ||
+            if (packagingIdentifierConflict is not null ||
                 HasBarcodeOverlap(
                     barcodeValues,
-                    packaging.Select(value => value.Barcode).Where(value => value is not null).Cast<string>()))
+                    PackagingIdentifiers(packaging)))
             {
                 return Result.Failure<ItemDto>(WmsErrors.Conflict(
                     "item.barcode_conflict",
-                    "Every item and packaging barcode must be globally unique."));
+                    "Every item and packaging barcode and GTIN must be globally unique."));
             }
 
             var before = AuditSnapshot(item);
+            var beforePackagings = item.Packagings.Select(PackagingAuditSnapshot).ToArray();
             item.UpdateMasterData(ToDetails(request.Commercial, request.Measurements, request.Tracking,
                 request.Storage, request.Planning));
             ReplaceBarcodes(item, barcodeValues);
@@ -285,6 +307,18 @@ public sealed class ItemManagementService(
                     item.Sku,
                     Before: before,
                     After: AuditSnapshot(item),
+                    ActorUserId: userId),
+                cancellationToken);
+            await auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.ItemPackagingsChanged,
+                    WmsAuditEntityTypes.Item,
+                    item.Sku,
+                    Before: new Dictionary<string, object?> { ["packagings"] = beforePackagings },
+                    After: new Dictionary<string, object?>
+                    {
+                        ["packagings"] = item.Packagings.Select(PackagingAuditSnapshot).ToArray()
+                    },
                     ActorUserId: userId),
                 cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
@@ -473,11 +507,23 @@ public sealed class ItemManagementService(
                         packaging.UnitOfMeasure,
                         packaging.UnitsPerPackage,
                         barcode: null,
-                        packaging.GrossWeightKg,
-                        packaging.LengthCm,
-                        packaging.WidthCm,
-                        packaging.HeightCm,
-                        packaging.IsDefault));
+                        grossWeightKg: packaging.GrossWeightKg,
+                        lengthCm: packaging.LengthCm,
+                        widthCm: packaging.WidthCm,
+                        heightCm: packaging.HeightCm,
+                        isDefault: packaging.IsDefault,
+                        name: packaging.Name,
+                        localizedName: packaging.LocalizedName,
+                        gtin: null,
+                        parentPackagingCode: packaging.ParentPackagingCode,
+                        type: packaging.Type,
+                        partialPackagePolicy: packaging.PartialPackagePolicy,
+                        isDefaultReceiving: packaging.IsDefaultReceiving,
+                        isDefaultStorage: packaging.IsDefaultStorage,
+                        isDefaultPicking: packaging.IsDefaultPicking,
+                        isDefaultShipping: packaging.IsDefaultShipping,
+                        isActive: packaging.IsActive,
+                        version: packaging.Version));
                 }
             }
 
@@ -573,6 +619,7 @@ public sealed class ItemManagementService(
             }
 
             var items = new List<Item>();
+            var importedPackagingIdentifiers = new HashSet<string>(StringComparer.Ordinal);
             foreach (var row in parsed.Rows)
             {
                 if (!existingSkus.Add(row.Sku))
@@ -593,6 +640,29 @@ public sealed class ItemManagementService(
                     new ItemStorageRequest(row.StorageProfile, row.PutawayProfile, row.DefaultSupplierCode),
                     new ItemPlanningRequest(ItemReorderPolicy.None, row.MinimumStock, row.MaximumStock,
                         row.SafetyStock, row.LeadTimeDays));
+                var packaging = ValidatePackaging(row.Packagings);
+                var existingPackagingIdentifier = await FindPackagingIdentifierConflictAsync(
+                    PackagingIdentifiers(packaging),
+                    null,
+                    cancellationToken);
+                if (existingPackagingIdentifier is not null)
+                {
+                    return Result.Failure<ItemImportResult>(WmsErrors.Conflict(
+                        "item.barcode_conflict",
+                        $"Packaging identifier '{existingPackagingIdentifier}' is already assigned."));
+                }
+
+                foreach (var identifier in PackagingIdentifiers(packaging))
+                {
+                    if (!importedPackagingIdentifiers.Add(identifier))
+                    {
+                        return Result.Failure<ItemImportResult>(WmsErrors.Conflict(
+                            "item.barcode_conflict",
+                            $"Packaging identifier '{identifier}' appears more than once in the import."));
+                    }
+                }
+
+                AddPackagings(item, packaging);
                 items.Add(item);
                 await context.Items.AddAsync(item, cancellationToken);
                 await auditWriter.RecordAsync(
@@ -640,7 +710,7 @@ public sealed class ItemManagementService(
             .Take(MaximumExportRows)
             .ToListAsync(cancellationToken);
         var builder = new StringBuilder();
-        builder.AppendLine("SKU,NAME,LOCALIZED_NAME,CATEGORY,BRAND,TYPE,STATUS,BASE_UNIT,PURCHASE_UNIT,SALES_UNIT,REQUIRES_LOT,REQUIRES_SERIAL,REQUIRES_EXPIRY,SHELF_LIFE_DAYS,USE_FEFO,STANDARD_COST,MINIMUM_STOCK,MAXIMUM_STOCK,SAFETY_STOCK,LEAD_TIME_DAYS,STORAGE_PROFILE,PUTAWAY_PROFILE,DEFAULT_SUPPLIER_CODE");
+        builder.AppendLine("SKU,NAME,LOCALIZED_NAME,CATEGORY,BRAND,TYPE,STATUS,BASE_UNIT,PURCHASE_UNIT,SALES_UNIT,REQUIRES_LOT,REQUIRES_SERIAL,REQUIRES_EXPIRY,SHELF_LIFE_DAYS,USE_FEFO,STANDARD_COST,MINIMUM_STOCK,MAXIMUM_STOCK,SAFETY_STOCK,LEAD_TIME_DAYS,STORAGE_PROFILE,PUTAWAY_PROFILE,DEFAULT_SUPPLIER_CODE,PACKAGINGS_JSON");
         foreach (var item in items)
         {
             builder.AppendLine(string.Join(",", [
@@ -666,7 +736,10 @@ public sealed class ItemManagementService(
                 item.LeadTimeDays?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                 EscapeCsv(item.StorageProfile),
                 EscapeCsv(item.PutawayProfile),
-                EscapeCsv(item.DefaultSupplierCode)
+                EscapeCsv(item.DefaultSupplierCode),
+                EscapeCsv(JsonSerializer.Serialize(
+                    item.Packagings.Select(ToPackagingJson).ToArray(),
+                    PackagingJsonOptions))
             ]));
         }
 
@@ -842,8 +915,8 @@ public sealed class ItemManagementService(
         IReadOnlyList<ItemPackagingRequest>? values)
     {
         var packaging = new List<ItemPackaging>();
-        var defaultFound = false;
-        var barcodes = new HashSet<string>(StringComparer.Ordinal);
+        var defaults = new Dictionary<string, string>(StringComparer.Ordinal);
+        var identifiers = new HashSet<string>(StringComparer.Ordinal);
         foreach (var value in values ?? [])
         {
             var current = new ItemPackaging(
@@ -855,16 +928,31 @@ public sealed class ItemManagementService(
                 value.LengthCm,
                 value.WidthCm,
                 value.HeightCm,
-                value.IsDefault);
-            if (current.IsDefault && defaultFound)
-            {
-                throw new ArgumentException("Only one packaging definition can be the default.");
-            }
+                value.IsDefault,
+                value.Name,
+                value.LocalizedName,
+                value.Gtin,
+                value.ParentPackagingCode,
+                value.Type,
+                value.PartialPackagePolicy,
+                value.IsDefaultReceiving,
+                value.IsDefaultStorage,
+                value.IsDefaultPicking,
+                value.IsDefaultShipping,
+                value.IsActive);
 
-            defaultFound |= current.IsDefault;
-            if (current.Barcode is not null && !barcodes.Add(current.Barcode))
+            ValidateDefault(defaults, nameof(ItemPackaging.IsDefaultReceiving), current.IsDefaultReceiving, current.Code);
+            ValidateDefault(defaults, nameof(ItemPackaging.IsDefaultStorage), current.IsDefaultStorage, current.Code);
+            ValidateDefault(defaults, nameof(ItemPackaging.IsDefaultPicking), current.IsDefaultPicking, current.Code);
+            ValidateDefault(defaults, nameof(ItemPackaging.IsDefaultShipping), current.IsDefaultShipping, current.Code);
+
+            foreach (var identifier in new[] { current.Barcode, current.Gtin }.Where(value => value is not null))
             {
-                throw new ArgumentException($"Packaging barcode '{current.Barcode}' appears more than once.");
+                if (!identifiers.Add(identifier!))
+                {
+                    throw new ArgumentException(
+                        $"Packaging identifier '{identifier}' appears more than once.");
+                }
             }
 
             if (packaging.Any(item => string.Equals(item.Code, current.Code, StringComparison.OrdinalIgnoreCase)))
@@ -875,8 +963,43 @@ public sealed class ItemManagementService(
             packaging.Add(current);
         }
 
+        var byCode = packaging.ToDictionary(value => value.Code, StringComparer.Ordinal);
+        foreach (var value in packaging)
+        {
+            value.ValidateNesting(byCode);
+        }
+
         return packaging;
     }
+
+    private static void ValidateDefault(
+        Dictionary<string, string> defaults,
+        string role,
+        bool isDefault,
+        string code)
+    {
+        if (!isDefault)
+        {
+            return;
+        }
+
+        if (defaults.TryGetValue(role, out var existing) && !string.IsNullOrEmpty(existing))
+        {
+            throw new ArgumentException(
+                $"Only one packaging definition can be the default for {role.Replace("IsDefault", string.Empty, StringComparison.Ordinal)}.");
+        }
+
+        defaults[role] = code;
+    }
+
+    private static string[] PackagingIdentifiers(
+        IEnumerable<ItemPackaging> packaging) =>
+        packaging
+            .SelectMany(value => new[] { value.Barcode, value.Gtin })
+            .Where(value => value is not null)
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 
     private static bool HasBarcodeOverlap(
         IEnumerable<string> itemBarcodes,
@@ -912,14 +1035,52 @@ public sealed class ItemManagementService(
 
     private void ReplacePackagings(Item item, IReadOnlyList<ItemPackaging> values)
     {
-        var existing = item.Packagings.ToArray();
-        context.ItemPackagings.RemoveRange(existing);
-        foreach (var packaging in existing)
+        var requestedCodes = values
+            .Select(value => value.Code)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var existing in item.Packagings.ToArray())
         {
-            item.RemovePackaging(packaging);
+            if (requestedCodes.Contains(existing.Code))
+            {
+                continue;
+            }
+
+            context.ItemPackagings.Remove(existing);
+            item.RemovePackaging(existing);
         }
 
-        AddPackagings(item, values);
+        foreach (var value in values)
+        {
+            var existing = item.Packagings.FirstOrDefault(packaging =>
+                string.Equals(packaging.Code, value.Code, StringComparison.Ordinal));
+            if (existing is null)
+            {
+                item.AddPackaging(value);
+                continue;
+            }
+
+            existing.Update(
+                value.Code,
+                value.UnitOfMeasure,
+                value.UnitsPerPackage,
+                value.Barcode,
+                value.GrossWeightKg,
+                value.LengthCm,
+                value.WidthCm,
+                value.HeightCm,
+                value.IsDefault,
+                value.Name,
+                value.LocalizedName,
+                value.Gtin,
+                value.ParentPackagingCode,
+                value.Type,
+                value.PartialPackagePolicy,
+                value.IsDefaultReceiving,
+                value.IsDefaultStorage,
+                value.IsDefaultPicking,
+                value.IsDefaultShipping,
+                value.IsActive);
+        }
     }
 
     private async Task<string?> FindBarcodeConflictAsync(
@@ -942,22 +1103,36 @@ public sealed class ItemManagementService(
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private async Task<string?> FindPackagingBarcodeConflictAsync(
-        IEnumerable<string> barcodes,
+    private async Task<string?> FindPackagingIdentifierConflictAsync(
+        IEnumerable<string> identifiers,
         int? excludedItemId,
         CancellationToken cancellationToken)
     {
-        var values = barcodes.Distinct(StringComparer.Ordinal).ToArray();
+        var values = identifiers.Distinct(StringComparer.Ordinal).ToArray();
         if (values.Length == 0)
         {
             return null;
         }
 
-        return await context.ItemPackagings
+        var packagingConflict = await context.ItemPackagings
             .AsNoTracking()
             .Where(packaging => (!excludedItemId.HasValue || packaging.ItemId != excludedItemId.Value) &&
-                                packaging.Barcode != null && values.Contains(packaging.Barcode))
-            .Select(packaging => packaging.Barcode)
+                                ((packaging.Barcode != null && values.Contains(packaging.Barcode)) ||
+                                 (packaging.Gtin != null && values.Contains(packaging.Gtin))))
+            .Select(packaging => packaging.Barcode ?? packaging.Gtin)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (packagingConflict is not null)
+        {
+            return packagingConflict;
+        }
+
+        return await context.Items
+            .AsNoTracking()
+            .Where(item => (!excludedItemId.HasValue || item.Id != excludedItemId.Value) &&
+                           item.Barcodes.Any(barcode => values.Contains(barcode.Value)))
+            .SelectMany(item => item.Barcodes)
+            .Where(barcode => values.Contains(barcode.Value))
+            .Select(barcode => barcode.Value)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -975,7 +1150,31 @@ public sealed class ItemManagementService(
         ["shelfLifeDays"] = item.ShelfLifeDays,
         ["barcodeCount"] = item.Barcodes.Count,
         ["packagingCount"] = item.Packagings.Count,
+        ["packagings"] = item.Packagings.Select(PackagingAuditSnapshot).ToArray(),
         ["storageProfile"] = item.StorageProfile
+    };
+
+    private static Dictionary<string, object?> PackagingAuditSnapshot(ItemPackaging packaging) => new()
+    {
+        ["id"] = packaging.Id,
+        ["code"] = packaging.Code,
+        ["name"] = packaging.Name,
+        ["localizedName"] = packaging.LocalizedName,
+        ["type"] = packaging.Type.ToString(),
+        ["unitOfMeasure"] = packaging.UnitOfMeasure,
+        ["unitsPerPackage"] = packaging.UnitsPerPackage,
+        ["parentPackagingCode"] = packaging.ParentPackagingCode,
+        ["barcode"] = packaging.Barcode,
+        ["gtin"] = packaging.Gtin,
+        ["partialPackagePolicy"] = packaging.PartialPackagePolicy.ToString(),
+        ["isDefaultReceiving"] = packaging.IsDefaultReceiving,
+        ["isDefaultStorage"] = packaging.IsDefaultStorage,
+        ["isDefaultPicking"] = packaging.IsDefaultPicking,
+        ["isDefaultShipping"] = packaging.IsDefaultShipping,
+        ["isActive"] = packaging.IsActive,
+        ["version"] = packaging.Version,
+        ["grossWeightKg"] = packaging.GrossWeightKg,
+        ["volumeCubicMeters"] = packaging.VolumeCubicMeters
     };
 
     private static ItemDto MapToDto(Item item) =>
@@ -1039,7 +1238,22 @@ public sealed class ItemManagementService(
                 packaging.LengthCm,
                 packaging.WidthCm,
                 packaging.HeightCm,
-                packaging.IsDefault)).ToArray()
+                packaging.IsDefault)
+            {
+                Name = packaging.Name,
+                LocalizedName = packaging.LocalizedName,
+                Gtin = packaging.Gtin,
+                ParentPackagingCode = packaging.ParentPackagingCode,
+                Type = packaging.Type,
+                PartialPackagePolicy = packaging.PartialPackagePolicy,
+                VolumeCubicMeters = packaging.VolumeCubicMeters,
+                IsDefaultReceiving = packaging.IsDefaultReceiving,
+                IsDefaultStorage = packaging.IsDefaultStorage,
+                IsDefaultPicking = packaging.IsDefaultPicking,
+                IsDefaultShipping = packaging.IsDefaultShipping,
+                IsActive = packaging.IsActive,
+                Version = packaging.Version
+            }).ToArray()
         };
 
     private static string NormalizeSku(string sku) =>
@@ -1112,7 +1326,8 @@ public sealed class ItemManagementService(
                     ParseNullableInt(fields.ElementAtOrDefault(18)),
                     NullIfEmpty(fields.ElementAtOrDefault(19)),
                     NullIfEmpty(fields.ElementAtOrDefault(20)),
-                    NullIfEmpty(fields.ElementAtOrDefault(21))));
+                    NullIfEmpty(fields.ElementAtOrDefault(21)),
+                    ParsePackagingJson(fields.ElementAtOrDefault(23))));
             }
             catch (ArgumentException exception)
             {
@@ -1122,6 +1337,73 @@ public sealed class ItemManagementService(
 
         return new ParsedImport(rows, errors);
     }
+
+    private static ItemPackagingRequest[] ParsePackagingJson(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        try
+        {
+            var rows = JsonSerializer.Deserialize<List<ImportedPackaging>>(
+                value,
+                PackagingJsonOptions) ?? [];
+            return rows.Select(row => new ItemPackagingRequest(
+                row.Code ?? string.Empty,
+                row.UnitOfMeasure ?? string.Empty,
+                row.UnitsPerPackage,
+                row.Barcode,
+                row.GrossWeightKg,
+                row.LengthCm,
+                row.WidthCm,
+                row.HeightCm,
+                row.IsDefault,
+                row.Name,
+                row.LocalizedName,
+                row.Gtin,
+                row.ParentPackagingCode,
+                row.Type,
+                row.PartialPackagePolicy,
+                row.IsDefaultReceiving,
+                row.IsDefaultStorage,
+                row.IsDefaultPicking,
+                row.IsDefaultShipping,
+                row.IsActive)).ToArray();
+        }
+        catch (JsonException exception)
+        {
+            throw new ArgumentException(
+                $"PACKAGINGS_JSON is not valid JSON: {exception.Message}",
+                nameof(value),
+                exception);
+        }
+    }
+
+    private static ImportedPackaging ToPackagingJson(ItemPackaging packaging) => new()
+    {
+        Code = packaging.Code,
+        UnitOfMeasure = packaging.UnitOfMeasure,
+        UnitsPerPackage = packaging.UnitsPerPackage,
+        Barcode = packaging.Barcode,
+        GrossWeightKg = packaging.GrossWeightKg,
+        LengthCm = packaging.LengthCm,
+        WidthCm = packaging.WidthCm,
+        HeightCm = packaging.HeightCm,
+        IsDefault = packaging.IsDefault,
+        Name = packaging.Name,
+        LocalizedName = packaging.LocalizedName,
+        Gtin = packaging.Gtin,
+        ParentPackagingCode = packaging.ParentPackagingCode,
+        Type = packaging.Type,
+        PartialPackagePolicy = packaging.PartialPackagePolicy,
+        IsDefaultReceiving = packaging.IsDefaultReceiving,
+        IsDefaultStorage = packaging.IsDefaultStorage,
+        IsDefaultPicking = packaging.IsDefaultPicking,
+        IsDefaultShipping = packaging.IsDefaultShipping,
+        IsActive = packaging.IsActive
+    };
 
     private static T ParseEnum<T>(string? value, T defaultValue) where T : struct, Enum
     {
@@ -1246,7 +1528,32 @@ public sealed class ItemManagementService(
         int? LeadTimeDays,
         string? StorageProfile,
         string? PutawayProfile,
-        string? DefaultSupplierCode);
+        string? DefaultSupplierCode,
+        IReadOnlyList<ItemPackagingRequest> Packagings);
+
+    private sealed class ImportedPackaging
+    {
+        public string? Code { get; init; }
+        public string? UnitOfMeasure { get; init; }
+        public decimal UnitsPerPackage { get; init; }
+        public string? Barcode { get; init; }
+        public decimal? GrossWeightKg { get; init; }
+        public decimal? LengthCm { get; init; }
+        public decimal? WidthCm { get; init; }
+        public decimal? HeightCm { get; init; }
+        public bool IsDefault { get; init; }
+        public string? Name { get; init; }
+        public string? LocalizedName { get; init; }
+        public string? Gtin { get; init; }
+        public string? ParentPackagingCode { get; init; }
+        public PackagingType Type { get; init; }
+        public PackagingPartialPolicy PartialPackagePolicy { get; init; }
+        public bool IsDefaultReceiving { get; init; }
+        public bool IsDefaultStorage { get; init; }
+        public bool IsDefaultPicking { get; init; }
+        public bool IsDefaultShipping { get; init; }
+        public bool IsActive { get; init; } = true;
+    }
 
     private sealed record ParsedImport(
         IReadOnlyList<ImportedRow> Rows,

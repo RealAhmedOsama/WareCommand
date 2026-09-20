@@ -68,6 +68,11 @@
                             <span class="form-text">@T["Uom.OptionalOperationUnit"]</span>
                             <span asp-validation-for="UnitOfMeasure" class="text-danger"></span>
                         </div>
+                        <div class="col-md-6">
+                            <label asp-for="PackagingCode" class="form-label">@T["Items.PackagingCode"]</label>
+                            <input asp-for="PackagingCode" class="form-control wms-identifier" maxlength="40" placeholder="@T["Items.PackagingCode"]" />
+                            <span asp-validation-for="PackagingCode" class="text-danger"></span>
+                        </div>
 
                         <!-- Adjustment Calculation -->
                         <div class="col-12">

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Wms.Application.Auditing;
 using Wms.Application.Identity;
+using Wms.Domain.Enums;
 using Wms.Infrastructure.Data;
 using Xunit;
 
@@ -73,7 +74,7 @@ public sealed class ItemManagementFlowTests(WareCommandWebApplicationFactory fac
                 ["StorageProfile"] = "Standard",
                 ["PutawayProfile"] = "Fast",
                 ["BarcodesText"] = barcode,
-                ["PackagingsText"] = $"CASE|EA|12|{packagingBarcode}|||||true",
+                ["PackagingsText"] = $"CASE|EA|12|{packagingBarcode}|||||true|Case|علبة|0123456789012||Case|Allow|true|true|false|true|true",
                 ["__RequestVerificationToken"] = token
             }));
 
@@ -88,8 +89,13 @@ public sealed class ItemManagementFlowTests(WareCommandWebApplicationFactory fac
         Assert.Equal("BOX", item.PurchaseUnit);
         Assert.True(item.RequiresExpiry);
         Assert.Single(item.Packagings);
+        Assert.Equal("0123456789012", item.Packagings.Single().Gtin);
+        Assert.Equal(PackagingType.Case, item.Packagings.Single().Type);
+        Assert.True(item.Packagings.Single().IsDefaultShipping);
         Assert.True(await context.AuditEntries.AnyAsync(entry =>
             entry.Action == WmsAuditActions.ItemCreated && entry.EntityId == sku));
+        Assert.True(await context.AuditEntries.AnyAsync(entry =>
+            entry.Action == WmsAuditActions.ItemPackagingsChanged && entry.EntityId == sku));
 
         using var index = await client.GetAsync($"/Items?searchTerm={sku}&pageSize=1");
         var indexBody = await index.Content.ReadAsStringAsync();

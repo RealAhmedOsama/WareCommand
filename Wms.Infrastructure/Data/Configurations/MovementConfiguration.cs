@@ -78,6 +78,32 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.Property(e => e.ConversionRuleIds)
             .IsRequired()
             .HasMaxLength(500);
+        builder.Property(e => e.PackagingCode)
+            .HasMaxLength(40);
+        builder.Property(e => e.PackagingName)
+            .HasMaxLength(200);
+        builder.Property(e => e.PackagingLocalizedName)
+            .HasMaxLength(200);
+        builder.Property(e => e.PackagingType)
+            .HasConversion<string>()
+            .HasMaxLength(30);
+        builder.Property(e => e.PackagingUnitOfMeasure)
+            .HasMaxLength(20);
+        builder.Property(e => e.PackagingPartialPackagePolicy)
+            .HasConversion<string>()
+            .HasMaxLength(30);
+        builder.Property(e => e.PackagingUnitsPerPackage)
+            .HasColumnType("decimal(28,12)");
+        builder.Property(e => e.PackagingGrossWeightKg)
+            .HasColumnType("decimal(28,12)");
+        builder.Property(e => e.PackagingLengthCm)
+            .HasColumnType("decimal(28,12)");
+        builder.Property(e => e.PackagingWidthCm)
+            .HasColumnType("decimal(28,12)");
+        builder.Property(e => e.PackagingHeightCm)
+            .HasColumnType("decimal(28,12)");
+        builder.Property(e => e.PackagingVolumeCubicMeters)
+            .HasColumnType("decimal(28,12)");
 
         // Relationships
         builder.HasOne(e => e.Item)
@@ -108,5 +134,6 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.HasIndex(e => e.UserId);
         builder.HasIndex(e => e.Timestamp);
         builder.HasIndex(e => e.ReferenceNumber);
+        builder.HasIndex(e => e.PackagingCode);
     }
 }

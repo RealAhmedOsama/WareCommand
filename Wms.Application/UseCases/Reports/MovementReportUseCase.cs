@@ -36,6 +36,11 @@ public record MovementReportDto(
     public decimal DisplayQuantity { get; init; } = Quantity;
     public string DisplayUnitOfMeasure { get; init; } = "BASE";
     public decimal ConversionRoundingDelta { get; init; }
+    public string? PackagingCode { get; init; }
+    public string? PackagingName { get; init; }
+    public PackagingType? PackagingType { get; init; }
+    public int? PackagingVersion { get; init; }
+    public decimal? PackagingUnitsPerPackage { get; init; }
 }
 
 // These values are business dates in the effective warehouse time zone. They
@@ -219,7 +224,12 @@ public class MovementReportUseCase : IMovementReportUseCase
             EnteredUnitOfMeasure = movement.EnteredUnitOfMeasure,
             DisplayQuantity = movement.Quantity.Value,
             DisplayUnitOfMeasure = movement.BaseUnitOfMeasure,
-            ConversionRoundingDelta = movement.ConversionRoundingDelta
+            ConversionRoundingDelta = movement.ConversionRoundingDelta,
+            PackagingCode = movement.PackagingCode,
+            PackagingName = movement.PackagingName,
+            PackagingType = movement.PackagingType,
+            PackagingVersion = movement.PackagingVersion,
+            PackagingUnitsPerPackage = movement.PackagingUnitsPerPackage
         };
     }
 }

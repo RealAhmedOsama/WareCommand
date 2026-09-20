@@ -17,7 +17,8 @@ public sealed record QuantityConversionSnapshot
         QuantityRoundingMode roundingMode,
         decimal roundingDelta,
         string conversionPath,
-        string? conversionRuleIds = null)
+        string? conversionRuleIds = null,
+        PackagingConversionSnapshot? packagingSnapshot = null)
     {
         if (enteredQuantity < 0)
         {
@@ -34,6 +35,7 @@ public sealed record QuantityConversionSnapshot
         RoundingDelta = ValidateDelta(roundingDelta);
         ConversionPath = NormalizePath(conversionPath);
         ConversionRuleIds = NormalizeRuleIds(conversionRuleIds);
+        PackagingSnapshot = packagingSnapshot;
     }
 
     public decimal EnteredQuantity { get; }
@@ -45,6 +47,7 @@ public sealed record QuantityConversionSnapshot
     public decimal RoundingDelta { get; }
     public string ConversionPath { get; }
     public string ConversionRuleIds { get; }
+    public PackagingConversionSnapshot? PackagingSnapshot { get; }
 
     private static string NormalizeUnit(string value, string parameterName)
     {

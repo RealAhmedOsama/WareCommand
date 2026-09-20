@@ -70,6 +70,9 @@ public class StockAdjustmentViewModel
     [StringLength(20)]
     public string? UnitOfMeasure { get; set; }
 
+    [StringLength(40)]
+    public string? PackagingCode { get; set; }
+
     [Required]
     [StringLength(1000)]
     public string Reason { get; set; } = string.Empty;
@@ -236,6 +239,9 @@ public class ReceivingViewModel
     [StringLength(20)]
     public string? UnitOfMeasure { get; set; }
 
+    [StringLength(40)]
+    public string? PackagingCode { get; set; }
+
     [StringLength(100)]
     public string? LotNumber { get; set; }
 
@@ -264,6 +270,9 @@ public class PickingViewModel
 
     [StringLength(20)]
     public string? UnitOfMeasure { get; set; }
+
+    [StringLength(40)]
+    public string? PackagingCode { get; set; }
 
     [StringLength(100)]
     public string OrderNumber { get; set; } = string.Empty;
@@ -297,6 +306,9 @@ public class PutawayViewModel
 
     [StringLength(20)]
     public string? UnitOfMeasure { get; set; }
+
+    [StringLength(40)]
+    public string? PackagingCode { get; set; }
 
     [StringLength(100)]
     public string? LotNumber { get; set; }

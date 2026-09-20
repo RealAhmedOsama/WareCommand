@@ -426,7 +426,7 @@ public sealed class ItemsController(
             if (fields.Length < 3)
             {
                 throw new ArgumentException(
-                    $"Packaging line {index + 1} must be CODE|UNIT|UNITS_PER_PACKAGE|BARCODE|WEIGHT_KG|LENGTH_CM|WIDTH_CM|HEIGHT_CM|DEFAULT.");
+                    $"Packaging line {index + 1} must be CODE|UNIT|UNITS_PER_PACKAGE|BARCODE|WEIGHT_KG|LENGTH_CM|WIDTH_CM|HEIGHT_CM|DEFAULT|NAME|LOCALIZED_NAME|GTIN|PARENT_CODE|TYPE|PARTIAL_POLICY|DEFAULT_RECEIVING|DEFAULT_STORAGE|DEFAULT_PICKING|DEFAULT_SHIPPING|ACTIVE.");
             }
 
             result.Add(new ItemPackagingRequest(
@@ -438,7 +438,18 @@ public sealed class ItemsController(
                 ParseOptionalDecimal(fields, 5, "length"),
                 ParseOptionalDecimal(fields, 6, "width"),
                 ParseOptionalDecimal(fields, 7, "height"),
-                ParseOptionalBool(fields, 8)));
+                ParseOptionalBool(fields, 8, false, "packaging default"),
+                Optional(fields, 9),
+                Optional(fields, 10),
+                Optional(fields, 11),
+                Optional(fields, 12),
+                ParseOptionalEnum(fields, 13, PackagingType.Other, "packaging type"),
+                ParseOptionalEnum(fields, 14, PackagingPartialPolicy.Reject, "partial package policy"),
+                ParseOptionalBool(fields, 15, false, "default receiving"),
+                ParseOptionalBool(fields, 16, false, "default storage"),
+                ParseOptionalBool(fields, 17, false, "default picking"),
+                ParseOptionalBool(fields, 18, false, "default shipping"),
+                ParseOptionalBool(fields, 19, true, "packaging active")));
         }
 
         return result;
@@ -481,10 +492,26 @@ public sealed class ItemsController(
             ? null
             : ParseRequiredDecimal(fields[index], label);
 
-    private static bool ParseOptionalBool(string[] fields, int index) =>
+    private static bool ParseOptionalBool(
+        string[] fields,
+        int index,
+        bool defaultValue,
+        string label) =>
         fields.Length <= index || string.IsNullOrWhiteSpace(fields[index])
-            ? false
+            ? defaultValue
             : bool.TryParse(fields[index], out var parsed)
                 ? parsed
-                : throw new ArgumentException("The packaging default flag must be true or false.");
+                : throw new ArgumentException($"The {label} flag must be true or false.");
+
+    private static T ParseOptionalEnum<T>(
+        string[] fields,
+        int index,
+        T defaultValue,
+        string label)
+        where T : struct, Enum =>
+        fields.Length <= index || string.IsNullOrWhiteSpace(fields[index])
+            ? defaultValue
+            : Enum.TryParse<T>(fields[index], true, out var parsed) && Enum.IsDefined(parsed)
+                ? parsed
+                : throw new ArgumentException($"The {label} value is not supported.");
 }

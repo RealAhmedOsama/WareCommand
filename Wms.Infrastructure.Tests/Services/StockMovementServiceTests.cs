@@ -139,6 +139,60 @@ public class StockMovementServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ReceiveAsync_UsesPackagingWeightAndVolumeForCapacityChecks()
+    {
+        _location.SetCapacityDimensions(1000, 150m, 10m, null, null);
+        await _context.SaveChangesAsync();
+        var packagingSnapshot = new PackagingConversionSnapshot(
+            1,
+            1,
+            "PALLET",
+            "Pallet",
+            "Pallet",
+            PackagingType.Pallet,
+            "EA",
+            10m,
+            PackagingPartialPolicy.Reject,
+            100m,
+            100m,
+            80m,
+            120m,
+            1m);
+        var quantity = new Quantity(
+            20m,
+            new QuantityConversionSnapshot(
+                2m,
+                "EA",
+                "EA",
+                10m,
+                0,
+                QuantityRoundingMode.Reject,
+                0m,
+                "PALLET (EA) -> EA",
+                packagingSnapshot: packagingSnapshot));
+
+        var weightAct = async () => await _service.ReceiveAsync(
+            _item.Id,
+            _location.Id,
+            quantity,
+            "USER1");
+        var weightFailure = await weightAct
+            .Should().ThrowAsync<LocationConstraintViolationException>();
+        weightFailure.Which.Code.Should().Be("location.capacity_weight_exceeded");
+
+        _location.SetCapacityDimensions(1000, 1000m, 1.5m, null, null);
+        await _context.SaveChangesAsync();
+        var volumeAct = async () => await _service.ReceiveAsync(
+            _item.Id,
+            _location.Id,
+            quantity,
+            "USER1");
+        var volumeFailure = await volumeAct
+            .Should().ThrowAsync<LocationConstraintViolationException>();
+        volumeFailure.Which.Code.Should().Be("location.capacity_volume_exceeded");
+    }
+
+    [Fact]
     public async Task PutawayAsync_WithSufficientStock_MovesStockBetweenLocations()
     {
         // Arrange

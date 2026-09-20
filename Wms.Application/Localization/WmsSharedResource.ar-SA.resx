@@ -236,8 +236,11 @@
   <data name="Items.Barcodes" xml:space="preserve"><value>الباركود</value></data>
   <data name="Items.BarcodeHelp" xml:space="preserve"><value>أدخل باركوداً واحداً في كل سطر. القيم فريدة على مستوى النظام.</value></data>
   <data name="Items.Packagings" xml:space="preserve"><value>تعريفات التعبئة</value></data>
-  <data name="Items.PackagingHelp" xml:space="preserve"><value>سطر لكل تعريف: CODE|UNIT|UNITS_PER_PACKAGE|BARCODE|WEIGHT_KG|LENGTH_CM|WIDTH_CM|HEIGHT_CM|DEFAULT</value></data>
+  <data name="Items.PackagingHelp" xml:space="preserve"><value>سطر لكل تعريف: CODE|UNIT|UNITS_PER_PACKAGE|BARCODE|WEIGHT_KG|LENGTH_CM|WIDTH_CM|HEIGHT_CM|DEFAULT|NAME|LOCALIZED_NAME|GTIN|PARENT_CODE|TYPE|PARTIAL_POLICY|DEFAULT_RECEIVING|DEFAULT_STORAGE|DEFAULT_PICKING|DEFAULT_SHIPPING|ACTIVE</value></data>
   <data name="Items.PackagingCode" xml:space="preserve"><value>رمز التعبئة</value></data>
+  <data name="Items.PackagingName" xml:space="preserve"><value>اسم التعبئة</value></data>
+  <data name="Items.PackagingType" xml:space="preserve"><value>نوع التعبئة</value></data>
+  <data name="Items.PackagingGtin" xml:space="preserve"><value>GTIN</value></data>
   <data name="Items.UnitsPerPackage" xml:space="preserve"><value>الوحدات لكل عبوة</value></data>
   <data name="Items.Default" xml:space="preserve"><value>افتراضي</value></data>
   <data name="Items.NoPackagings" xml:space="preserve"><value>لا توجد تعريفات تعبئة.</value></data>

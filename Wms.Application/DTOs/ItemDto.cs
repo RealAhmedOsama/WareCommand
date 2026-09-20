@@ -68,7 +68,22 @@ public sealed record ItemPackagingDto(
     decimal? LengthCm,
     decimal? WidthCm,
     decimal? HeightCm,
-    bool IsDefault);
+    bool IsDefault)
+{
+    public string Name { get; init; } = string.Empty;
+    public string LocalizedName { get; init; } = string.Empty;
+    public string? Gtin { get; init; }
+    public string? ParentPackagingCode { get; init; }
+    public PackagingType Type { get; init; } = PackagingType.Other;
+    public PackagingPartialPolicy PartialPackagePolicy { get; init; } = PackagingPartialPolicy.Reject;
+    public decimal? VolumeCubicMeters { get; init; }
+    public bool IsDefaultReceiving { get; init; }
+    public bool IsDefaultStorage { get; init; }
+    public bool IsDefaultPicking { get; init; }
+    public bool IsDefaultShipping { get; init; }
+    public bool IsActive { get; init; } = true;
+    public int Version { get; init; } = 1;
+}
 
 public record CreateItemDto(
     string Sku,
