@@ -1,0 +1,94 @@
+@model PurchaseOrderListViewModel
+@{
+    ViewData["Title"] = T["PurchaseOrders.Title"];
+    var canManage = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PurchaseOrdersManage)).Succeeded;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-clipboard-check me-2 text-primary"></i>@T["PurchaseOrders.Title"]</h2>
+        <p class="text-muted mb-0">@T["PurchaseOrders.Subtitle"]</p>
+    </div>
+    <div class="d-flex gap-2">
+        @if (canManage)
+        {
+            <a asp-action="Import" class="btn btn-outline-primary"><i class="bi bi-upload me-1"></i>@T["PurchaseOrders.Import"]</a>
+        }
+        <a asp-action="Export" asp-route-searchTerm="@Model.SearchTerm" asp-route-warehouseId="@Model.WarehouseId" asp-route-supplierId="@Model.SupplierId" asp-route-status="@Model.Status" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>@T["PurchaseOrders.Export"]</a>
+        @if (canManage)
+        {
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>@T["PurchaseOrders.Add"]</a>
+        }
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form asp-action="Index" method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="searchTerm" class="form-label">@T["PurchaseOrders.Search"]</label>
+                <input id="searchTerm" name="searchTerm" value="@Model.SearchTerm" class="form-control" placeholder="@T["PurchaseOrders.SearchPlaceholder"]" />
+            </div>
+            <div class="col-md-3">
+                <label for="warehouseId" class="form-label">@T["PurchaseOrders.Warehouse"]</label>
+                <select id="warehouseId" name="warehouseId" class="form-select">
+                    <option value="">@T["Common.All"]</option>
+                    @foreach (var warehouse in Model.Warehouses)
+                    {
+                        <option value="@warehouse.Id" selected="@(Model.WarehouseId == warehouse.Id)">@warehouse.Code - @warehouse.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="status" class="form-label">@T["Field.Status"]</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">@T["Common.All"]</option>
+                    @foreach (var status in Enum.GetValues<PurchaseOrderStatus>())
+                    {
+                        <option value="@status" selected="@(Model.Status == status)">@T[$"PurchaseOrders.Status.{status}"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="pageSize" class="form-label">@T["PurchaseOrders.PageSize"]</label>
+                <select id="pageSize" name="pageSize" class="form-select">
+                    @foreach (var size in new[] { 25, 50, 100 })
+                    {
+                        <option value="@size" selected="@(Model.PageSize == size)">@size</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-1 d-grid"><button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i></button></div>
+            <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="includeCancelled" name="includeCancelled" value="true" checked="@Model.IncludeCancelled" /><label class="form-check-label" for="includeCancelled">@T["PurchaseOrders.IncludeCancelled"]</label><input type="hidden" name="includeCancelled" value="false" /></div></div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center"><h5 class="mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>@T["PurchaseOrders.List"]</h5><span class="text-muted">@Model.TotalCount @T["PurchaseOrders.Total"]</span></div>
+    @if (Model.PurchaseOrders.Count == 0)
+    {
+        <div class="card-body text-center text-muted py-5"><i class="bi bi-clipboard-x fs-1 d-block mb-3"></i><p class="mb-0">@T["PurchaseOrders.NoOrders"]</p></div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>@T["PurchaseOrders.Number"]</th><th>@T["PurchaseOrders.Supplier"]</th><th>@T["PurchaseOrders.Warehouse"]</th><th>@T["PurchaseOrders.OrderDate"]</th><th>@T["PurchaseOrders.Lines"]</th><th>@T["Field.Status"]</th><th>@T["Common.Actions"]</th></tr></thead><tbody>
+        @foreach (var order in Model.PurchaseOrders)
+        {
+            <tr>
+                <td class="fw-semibold"><a asp-action="Details" asp-route-id="@order.Id">@order.DocumentNumber</a><br /><small class="text-muted">@order.ExternalReference</small></td>
+                <td>@order.SupplierCode<br /><small class="text-muted">@order.SupplierName</small></td>
+                <td>@order.WarehouseCode</td>
+                <td>@order.OrderDate.ToString("yyyy-MM-dd")</td>
+                <td>@order.Lines.Count</td>
+                <td><span class="badge @(order.Status switch { PurchaseOrderStatus.Confirmed or PurchaseOrderStatus.PartiallyReceived => "bg-primary", PurchaseOrderStatus.Received or PurchaseOrderStatus.Closed => "bg-success", PurchaseOrderStatus.Cancelled => "bg-secondary", _ => "bg-warning text-dark" })">@T[$"PurchaseOrders.Status.{order.Status}"]</span></td>
+                <td><div class="btn-group btn-group-sm"><a asp-action="Details" asp-route-id="@order.Id" class="btn btn-outline-secondary"><i class="bi bi-eye"></i></a>@if (canManage && order.CanEdit){<a asp-action="Edit" asp-route-id="@order.Id" class="btn btn-outline-primary"><i class="bi bi-pencil"></i></a>}</div></td>
+            </tr>
+        }
+        </tbody></table></div>
+        @if (Model.TotalPages > 1)
+        {
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center"><span class="text-muted">@T["PurchaseOrders.PageOf", Model.Page, Model.TotalPages]</span><div class="btn-group">@if (Model.Page > 1){<a asp-action="Index" asp-route-page="@(Model.Page - 1)" asp-route-pageSize="@Model.PageSize" asp-route-searchTerm="@Model.SearchTerm" asp-route-warehouseId="@Model.WarehouseId" asp-route-status="@Model.Status" class="btn btn-outline-secondary">@T["Common.Previous"]</a>}@if (Model.Page < Model.TotalPages){<a asp-action="Index" asp-route-page="@(Model.Page + 1)" asp-route-pageSize="@Model.PageSize" asp-route-searchTerm="@Model.SearchTerm" asp-route-warehouseId="@Model.WarehouseId" asp-route-status="@Model.Status" class="btn btn-outline-secondary">@T["Common.Next"]</a>}</div></div>
+        }
+    }
+</div>

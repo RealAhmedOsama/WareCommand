@@ -14,7 +14,9 @@ public record ReceiveItemDto(
     DateTime? ManufacturedDate = null,
     string? UnitOfMeasure = null,
     string? PackagingCode = null,
-    int? LicensePlateId = null
+    int? LicensePlateId = null,
+    int? PurchaseOrderId = null,
+    int? PurchaseOrderLineId = null
 );
 
 public record PutawayDto(

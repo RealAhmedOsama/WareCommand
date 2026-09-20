@@ -9,6 +9,7 @@ using Wms.Application.Idempotency;
 using Wms.Application.Identity;
 using Wms.Application.Logging;
 using Wms.Application.Lots;
+using Wms.Application.Purchasing;
 using Wms.Application.Units;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
@@ -33,6 +34,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     private readonly ILotService? _lotService;
     private readonly IInventoryCommandIdempotencyService? _idempotencyService;
     private readonly IRequestContext? _requestContext;
+    private readonly IPurchaseOrderService? _purchaseOrderService;
 
     public ReceiveItemUseCase(
         IUnitOfWork unitOfWork,
@@ -42,7 +44,8 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         IItemQuantityConversionService? quantityConversionService = null,
         ILotService? lotService = null,
         IInventoryCommandIdempotencyService? idempotencyService = null,
-        IRequestContext? requestContext = null)
+        IRequestContext? requestContext = null,
+        IPurchaseOrderService? purchaseOrderService = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
@@ -52,6 +55,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         _lotService = lotService;
         _idempotencyService = idempotencyService;
         _requestContext = requestContext;
+        _purchaseOrderService = purchaseOrderService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
@@ -198,6 +202,57 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             }
 
             var quantity = quantityResult.Value;
+            PurchaseOrderReceiptPlan? purchaseOrderReceiptPlan = null;
+            if (request.PurchaseOrderId.HasValue || request.PurchaseOrderLineId.HasValue)
+            {
+                if (!request.PurchaseOrderId.HasValue || !request.PurchaseOrderLineId.HasValue)
+                {
+                    if (lotTransactionStarted)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                        lotTransactionStarted = false;
+                    }
+
+                    return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
+                        "purchase_order.reference_incomplete",
+                        "Both purchase order ID and purchase order line ID are required when receiving against a purchase order."));
+                }
+
+                if (_purchaseOrderService is null)
+                {
+                    if (lotTransactionStarted)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                        lotTransactionStarted = false;
+                    }
+
+                    return Result.Failure<ReceiptResultDto>(WmsErrors.Dependency(
+                        "purchase_order.service_unavailable",
+                        "Purchase-order receiving is not available.",
+                        isRetryable: false));
+                }
+
+                var receiptPlanResult = await _purchaseOrderService.ValidateReceiptAsync(
+                    request.PurchaseOrderId.Value,
+                    request.PurchaseOrderLineId.Value,
+                    item.Id,
+                    location.WarehouseId,
+                    quantity.Value,
+                    cancellationToken);
+                if (receiptPlanResult.IsFailure)
+                {
+                    if (lotTransactionStarted)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                        lotTransactionStarted = false;
+                    }
+
+                    return receiptPlanResult.ToFailure<ReceiptResultDto>();
+                }
+
+                purchaseOrderReceiptPlan = receiptPlanResult.Value;
+            }
+
             if (!lotTransactionStarted)
             {
                 await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -244,6 +299,21 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 request.SerialNumber, request.ReferenceNumber, request.Notes,
                 cancellationToken: cancellationToken,
                 licensePlateId: request.LicensePlateId);
+
+            if (purchaseOrderReceiptPlan is not null)
+            {
+                var allocationResult = await _purchaseOrderService!.RecordReceiptAsync(
+                    purchaseOrderReceiptPlan,
+                    movement,
+                    userId,
+                    cancellationToken);
+                if (allocationResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                    return allocationResult.ToFailure<ReceiptResultDto>();
+                }
+            }
 
             var result = new ReceiptResultDto(
                 movement.Id,

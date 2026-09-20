@@ -813,4 +813,61 @@
   <data name="Suppliers.Deleted" xml:space="preserve"><value>تم حذف المورد.</value></data>
   <data name="Suppliers.Imported" xml:space="preserve"><value>تم استيراد {0} مورد و {1} مرجع صنف.</value></data>
   <data name="Suppliers.ImportRequired" xml:space="preserve"><value>قدم ملف CSV أو الصق محتوى CSV.</value></data>
+  <data name="Nav.PurchaseOrders" xml:space="preserve"><value>أوامر الشراء</value></data>
+  <data name="PurchaseOrders.Title" xml:space="preserve"><value>أوامر الشراء</value></data>
+  <data name="PurchaseOrders.Subtitle" xml:space="preserve"><value>إدارة الطلب المتوقع قبل استلام المخزون.</value></data>
+  <data name="PurchaseOrders.Create" xml:space="preserve"><value>إنشاء أمر شراء</value></data>
+  <data name="PurchaseOrders.Edit" xml:space="preserve"><value>تعديل أمر الشراء</value></data>
+  <data name="PurchaseOrders.Details" xml:space="preserve"><value>تفاصيل أمر الشراء</value></data>
+  <data name="PurchaseOrders.Add" xml:space="preserve"><value>إضافة أمر شراء</value></data>
+  <data name="PurchaseOrders.Import" xml:space="preserve"><value>استيراد أوامر الشراء</value></data>
+  <data name="PurchaseOrders.Export" xml:space="preserve"><value>تصدير CSV</value></data>
+  <data name="PurchaseOrders.Search" xml:space="preserve"><value>بحث</value></data>
+  <data name="PurchaseOrders.SearchPlaceholder" xml:space="preserve"><value>الرقم أو المورد أو المرجع الخارجي</value></data>
+  <data name="PurchaseOrders.Warehouse" xml:space="preserve"><value>المستودع</value></data>
+  <data name="PurchaseOrders.Supplier" xml:space="preserve"><value>المورد</value></data>
+  <data name="PurchaseOrders.PageSize" xml:space="preserve"><value>الصفوف</value></data>
+  <data name="PurchaseOrders.IncludeCancelled" xml:space="preserve"><value>تضمين الملغاة</value></data>
+  <data name="PurchaseOrders.List" xml:space="preserve"><value>قائمة أوامر الشراء</value></data>
+  <data name="PurchaseOrders.Total" xml:space="preserve"><value>إجمالي</value></data>
+  <data name="PurchaseOrders.NoOrders" xml:space="preserve"><value>لا توجد أوامر شراء تطابق المرشحات الحالية.</value></data>
+  <data name="PurchaseOrders.PageOf" xml:space="preserve"><value>صفحة {0} من {1}</value></data>
+  <data name="PurchaseOrders.Number" xml:space="preserve"><value>الرقم</value></data>
+  <data name="PurchaseOrders.OrderDate" xml:space="preserve"><value>تاريخ الطلب</value></data>
+  <data name="PurchaseOrders.ExpectedReceipt" xml:space="preserve"><value>الاستلام المتوقع</value></data>
+  <data name="PurchaseOrders.ExternalReference" xml:space="preserve"><value>المرجع الخارجي</value></data>
+  <data name="PurchaseOrders.Source" xml:space="preserve"><value>المصدر</value></data>
+  <data name="PurchaseOrders.SourceReference" xml:space="preserve"><value>مرجع المصدر</value></data>
+  <data name="PurchaseOrders.Currency" xml:space="preserve"><value>العملة</value></data>
+  <data name="PurchaseOrders.Notes" xml:space="preserve"><value>ملاحظات</value></data>
+  <data name="PurchaseOrders.Lines" xml:space="preserve"><value>السطور</value></data>
+  <data name="PurchaseOrders.Ordered" xml:space="preserve"><value>المطلوب</value></data>
+  <data name="PurchaseOrders.Received" xml:space="preserve"><value>المستلم</value></data>
+  <data name="PurchaseOrders.Remaining" xml:space="preserve"><value>المتبقي</value></data>
+  <data name="PurchaseOrders.Tolerance" xml:space="preserve"><value>السماح</value></data>
+  <data name="PurchaseOrders.Profile" xml:space="preserve"><value>بيانات المستند</value></data>
+  <data name="PurchaseOrders.FormHelp" xml:space="preserve"><value>يمكن تعديل المسودة حتى التأكيد. يتم تحويل الكميات وحفظ لقطة التحويل عند الإدخال.</value></data>
+  <data name="PurchaseOrders.LinesHelp" xml:space="preserve"><value>سطر لكل صنف: ITEM_SKU|QUANTITY|UOM|OVER_TOLERANCE|UNDER_TOLERANCE|SUPPLIER_ITEM_REFERENCE|NOTES</value></data>
+  <data name="PurchaseOrders.LineRows" xml:space="preserve"><value>سطور الأمر</value></data>
+  <data name="PurchaseOrders.Status.Draft" xml:space="preserve"><value>مسودة</value></data>
+  <data name="PurchaseOrders.Status.Confirmed" xml:space="preserve"><value>مؤكد / مفتوح</value></data>
+  <data name="PurchaseOrders.Status.PartiallyReceived" xml:space="preserve"><value>مستلم جزئياً</value></data>
+  <data name="PurchaseOrders.Status.Received" xml:space="preserve"><value>مستلم</value></data>
+  <data name="PurchaseOrders.Status.Closed" xml:space="preserve"><value>مغلق</value></data>
+  <data name="PurchaseOrders.Status.Cancelled" xml:space="preserve"><value>ملغى</value></data>
+  <data name="PurchaseOrders.Confirm" xml:space="preserve"><value>تأكيد</value></data>
+  <data name="PurchaseOrders.Cancel" xml:space="preserve"><value>إلغاء</value></data>
+  <data name="PurchaseOrders.Close" xml:space="preserve"><value>إغلاق</value></data>
+  <data name="PurchaseOrders.Reopen" xml:space="preserve"><value>إعادة فتح</value></data>
+  <data name="PurchaseOrders.Created" xml:space="preserve"><value>تم إنشاء أمر الشراء '{0}'.</value></data>
+  <data name="PurchaseOrders.Updated" xml:space="preserve"><value>تم تحديث أمر الشراء '{0}'.</value></data>
+  <data name="PurchaseOrders.Confirmed" xml:space="preserve"><value>تم تأكيد أمر الشراء '{0}'.</value></data>
+  <data name="PurchaseOrders.Cancelled" xml:space="preserve"><value>تم إلغاء أمر الشراء '{0}'.</value></data>
+  <data name="PurchaseOrders.Closed" xml:space="preserve"><value>تم إغلاق أمر الشراء '{0}'.</value></data>
+  <data name="PurchaseOrders.Reopened" xml:space="preserve"><value>تمت إعادة فتح أمر الشراء '{0}'.</value></data>
+  <data name="PurchaseOrders.ImportHelp" xml:space="preserve"><value>تستخدم صفوف CSV نفس تنسيق السطر في API وتنشئ أمر شراء واحداً لكل صف.</value></data>
+  <data name="PurchaseOrders.ImportFile" xml:space="preserve"><value>ملف CSV</value></data>
+  <data name="PurchaseOrders.PasteCsv" xml:space="preserve"><value>لصق CSV</value></data>
+  <data name="PurchaseOrders.Imported" xml:space="preserve"><value>تم استيراد {0} أمر شراء؛ توجد أخطاء في {1} صف.</value></data>
+  <data name="PurchaseOrders.ImportRequired" xml:space="preserve"><value>قدم ملف CSV أو الصق محتوى CSV.</value></data>
 </root>

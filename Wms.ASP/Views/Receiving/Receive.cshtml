@@ -21,6 +21,8 @@
             </div>
             <div class="card-body">
                 <form asp-action="Receive" method="post">
+                    <input asp-for="PurchaseOrderId" type="hidden" />
+                    <input asp-for="PurchaseOrderLineId" type="hidden" />
                     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
                     <div class="row g-3">
                         <!-- Item Information -->

@@ -258,6 +258,12 @@ public class ReceivingViewModel
 
     public int? LicensePlateId { get; set; }
 
+    [Range(1, int.MaxValue)]
+    public int? PurchaseOrderId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? PurchaseOrderLineId { get; set; }
+
     [DataType(DataType.Date)]
     public DateTime? ManufacturedDate { get; set; }
 

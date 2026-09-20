@@ -51,6 +51,20 @@ public sealed class WarehouseNumberSequence : Entity
         SetUpdatedAt();
     }
 
+    public long AllocateOrderNumber()
+    {
+        var allocated = NextOrderNumber;
+        if (allocated < 1 || allocated == long.MaxValue)
+        {
+            throw new InvalidOperationException("The warehouse order number sequence is exhausted.");
+        }
+
+        NextOrderNumber++;
+        Revision++;
+        SetUpdatedAt();
+        return allocated;
+    }
+
     private static void Validate(long value, string name)
     {
         if (value < 1)

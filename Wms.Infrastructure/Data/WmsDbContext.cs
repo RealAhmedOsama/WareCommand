@@ -28,6 +28,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ItemPackaging> ItemPackagings => Set<ItemPackaging>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierItemReference> SupplierItemReferences => Set<SupplierItemReference>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+    public DbSet<PurchaseOrderReceiptAllocation> PurchaseOrderReceiptAllocations =>
+        Set<PurchaseOrderReceiptAllocation>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -81,6 +85,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ItemPackagingConfiguration());
         builder.ApplyConfiguration(new SupplierConfiguration());
         builder.ApplyConfiguration(new SupplierItemReferenceConfiguration());
+        builder.ApplyConfiguration(new PurchaseOrderConfiguration());
+        builder.ApplyConfiguration(new PurchaseOrderLineConfiguration());
+        builder.ApplyConfiguration(new PurchaseOrderReceiptAllocationConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());
         builder.ApplyConfiguration(new WarehouseConfiguration());

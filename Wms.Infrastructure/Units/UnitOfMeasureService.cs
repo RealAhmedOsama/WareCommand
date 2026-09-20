@@ -700,7 +700,9 @@ public sealed class UnitOfMeasureService(
             resultPrecision,
             effectiveMode,
             roundingDelta,
-            path.PathDescription,
+            string.IsNullOrWhiteSpace(path.PathDescription)
+                ? $"{fromCode} -> {baseCode}"
+                : path.PathDescription,
             path.RuleIds);
         return Result.Success(snapshot);
     }

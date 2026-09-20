@@ -24,6 +24,14 @@ public static class WmsAuditActions
     public const string SupplierDeleted = "master.supplier.deleted";
     public const string SupplierBulkImported = "master.supplier.bulk_imported";
     public const string SupplierItemReferencesChanged = "master.supplier.item_references_changed";
+    public const string PurchaseOrderCreated = "inbound.purchase_order.created";
+    public const string PurchaseOrderUpdated = "inbound.purchase_order.updated";
+    public const string PurchaseOrderConfirmed = "inbound.purchase_order.confirmed";
+    public const string PurchaseOrderCancelled = "inbound.purchase_order.cancelled";
+    public const string PurchaseOrderClosed = "inbound.purchase_order.closed";
+    public const string PurchaseOrderReopened = "inbound.purchase_order.reopened";
+    public const string PurchaseOrderReceiptAllocated = "inbound.purchase_order.receipt_allocated";
+    public const string PurchaseOrderBulkImported = "inbound.purchase_order.bulk_imported";
     public const string UnitOfMeasureCreated = "master.uom.created";
     public const string UnitOfMeasureUpdated = "master.uom.updated";
     public const string UnitOfMeasureActivated = "master.uom.activated";
@@ -93,6 +101,14 @@ public static class WmsAuditActions
         SupplierDeleted,
         SupplierBulkImported,
         SupplierItemReferencesChanged,
+        PurchaseOrderCreated,
+        PurchaseOrderUpdated,
+        PurchaseOrderConfirmed,
+        PurchaseOrderCancelled,
+        PurchaseOrderClosed,
+        PurchaseOrderReopened,
+        PurchaseOrderReceiptAllocated,
+        PurchaseOrderBulkImported,
         UnitOfMeasureCreated,
         UnitOfMeasureUpdated,
         UnitOfMeasureActivated,
@@ -149,6 +165,9 @@ public static class WmsAuditEntityTypes
     public const string AccessAssignment = "AccessAssignment";
     public const string Item = "Item";
     public const string Supplier = "Supplier";
+    public const string PurchaseOrder = "PurchaseOrder";
+    public const string PurchaseOrderLine = "PurchaseOrderLine";
+    public const string PurchaseOrderReceiptAllocation = "PurchaseOrderReceiptAllocation";
     public const string UnitOfMeasure = "UnitOfMeasure";
     public const string Location = "Location";
     public const string Warehouse = "Warehouse";

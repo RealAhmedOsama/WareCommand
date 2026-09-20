@@ -13,6 +13,7 @@
     var canInventory = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.InventoryRead)).Succeeded;
     var canItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsRead)).Succeeded;
     var canSuppliers = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SuppliersRead)).Succeeded;
+    var canPurchaseOrders = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PurchaseOrdersRead)).Succeeded;
     var canLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsRead)).Succeeded;
     var canAudit = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AuditRead)).Succeeded;
     var canWarehouses = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.WarehouseManage)).Succeeded;
@@ -114,7 +115,7 @@
                         </a>
                     </li>
                     }
-                    @if (canItems || canSuppliers || canLocations || canAudit || canWarehouses || canSettings)
+                    @if (canItems || canSuppliers || canPurchaseOrders || canLocations || canAudit || canWarehouses || canSettings)
                     {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded-pill mx-1" href="#" id="managementDropdown" role="button"
@@ -136,6 +137,15 @@
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="SupplierMaster" asp-action="Index">
                                     <i class="bi bi-truck me-2 text-info"></i>@T["Nav.Suppliers"]
+                                </a>
+                            </li>
+                            }
+                            @if (canPurchaseOrders)
+                            {
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item py-2" asp-controller="PurchaseOrderManagement" asp-action="Index">
+                                    <i class="bi bi-clipboard-check me-2 text-primary"></i>@T["Nav.PurchaseOrders"]
                                 </a>
                             </li>
                             }

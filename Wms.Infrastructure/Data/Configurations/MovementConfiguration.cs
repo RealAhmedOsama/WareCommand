@@ -34,6 +34,8 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.Property(e => e.LicensePlateId);
         builder.Property(e => e.FromLicensePlateId);
         builder.Property(e => e.ToLicensePlateId);
+        builder.Property(e => e.PurchaseOrderId);
+        builder.Property(e => e.PurchaseOrderLineId);
 
         builder.Property(e => e.AdjustmentBeforeQuantity)
             .HasColumnType("decimal(28,12)");
@@ -180,6 +182,14 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .WithMany()
             .HasForeignKey(e => e.ToLicensePlateId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.PurchaseOrder)
+            .WithMany()
+            .HasForeignKey(e => e.PurchaseOrderId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.PurchaseOrderLine)
+            .WithMany()
+            .HasForeignKey(e => e.PurchaseOrderLineId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Indexes
         builder.HasIndex(e => e.ItemId);
@@ -195,6 +205,8 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.HasIndex(e => e.LicensePlateId);
         builder.HasIndex(e => e.FromLicensePlateId);
         builder.HasIndex(e => e.ToLicensePlateId);
+        builder.HasIndex(e => e.PurchaseOrderId);
+        builder.HasIndex(e => e.PurchaseOrderLineId);
         builder.HasIndex(e => new { e.FromInventoryStatusId, e.ToInventoryStatusId });
     }
 }

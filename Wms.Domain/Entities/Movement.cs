@@ -130,6 +130,8 @@ public class Movement : Entity
     public string? ReferenceNumber { get; private set; }
     public string? Notes { get; private set; }
     public DateTime Timestamp { get; private set; } = DateTime.UnixEpoch;
+    public int? PurchaseOrderId { get; private set; }
+    public int? PurchaseOrderLineId { get; private set; }
 
     // Navigation properties
     public Item Item { get; private set; } = null!;
@@ -143,6 +145,27 @@ public class Movement : Entity
     public LicensePlate? LicensePlate { get; private set; }
     public LicensePlate? FromLicensePlate { get; private set; }
     public LicensePlate? ToLicensePlate { get; private set; }
+    public PurchaseOrder? PurchaseOrder { get; private set; }
+    public PurchaseOrderLine? PurchaseOrderLine { get; private set; }
+
+    public void LinkPurchaseOrder(int purchaseOrderId, int purchaseOrderLineId)
+    {
+        if (Type != MovementType.Receipt)
+        {
+            throw new InvalidOperationException("Only receipt movements can be linked to a purchase order.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(purchaseOrderId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(purchaseOrderLineId);
+        if (PurchaseOrderId.HasValue &&
+            (PurchaseOrderId.Value != purchaseOrderId || PurchaseOrderLineId != purchaseOrderLineId))
+        {
+            throw new InvalidOperationException("The receipt movement is already linked to another purchase order.");
+        }
+
+        PurchaseOrderId = purchaseOrderId;
+        PurchaseOrderLineId = purchaseOrderLineId;
+    }
 
     public static Movement CreateReceipt(int itemId, int locationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
