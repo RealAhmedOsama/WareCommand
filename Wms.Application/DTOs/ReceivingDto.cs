@@ -40,5 +40,7 @@ public record ReceiptResultDto(
     string LocationCode,
     decimal Quantity,
     string? LotNumber,
-    DateTime Timestamp
+    DateTime Timestamp,
+    int? ReceiptId = null,
+    string? ReceiptDocumentNumber = null
 );

@@ -947,4 +947,34 @@
   <data name="AdvanceShippingNotices.PasteCsv" xml:space="preserve"><value>لصق CSV</value></data>
   <data name="AdvanceShippingNotices.Imported" xml:space="preserve"><value>تم استيراد {0} إشعار؛ توجد أخطاء في {1} صف.</value></data>
   <data name="AdvanceShippingNotices.ImportRequired" xml:space="preserve"><value>قدم ملف CSV أو الصق محتوى CSV.</value></data>
+  <data name="Nav.Receipts" xml:space="preserve"><value>إيصالات الوارد</value></data>
+  <data name="Receipts.Title" xml:space="preserve"><value>إيصالات الوارد</value></data>
+  <data name="Receipts.Create" xml:space="preserve"><value>إنشاء إيصال</value></data>
+  <data name="Receipts.Details" xml:space="preserve"><value>تفاصيل الإيصال</value></data>
+  <data name="Receipts.Print" xml:space="preserve"><value>طباعة</value></data>
+  <data name="Receipts.Lines" xml:space="preserve"><value>سطور الإيصال</value></data>
+  <data name="Receipts.Created" xml:space="preserve"><value>تم إنشاء الإيصال '{0}'.</value></data>
+  <data name="Receipts.Updated" xml:space="preserve"><value>تم تحديث الإيصال '{0}'.</value></data>
+  <data name="Receipts.Corrected" xml:space="preserve"><value>تم تصحيح الإيصال باستخدام '{0}'.</value></data>
+  <data name="Receipts.Search" xml:space="preserve"><value>بحث</value></data>
+  <data name="Receipts.Status" xml:space="preserve"><value>الحالة</value></data>
+  <data name="Receipts.Warehouse" xml:space="preserve"><value>المستودع</value></data>
+  <data name="Receipts.Supplier" xml:space="preserve"><value>معرف المورد</value></data>
+  <data name="Receipts.Source" xml:space="preserve"><value>المصدر</value></data>
+  <data name="Receipts.Received" xml:space="preserve"><value>المستلم</value></data>
+  <data name="Receipts.Accepted" xml:space="preserve"><value>المقبول</value></data>
+  <data name="Receipts.Remaining" xml:space="preserve"><value>المتبقي</value></data>
+  <data name="Receipts.CreatedAt" xml:space="preserve"><value>تاريخ الإنشاء</value></data>
+  <data name="Receipts.NoRows" xml:space="preserve"><value>لا توجد إيصالات تطابق المرشحات الحالية.</value></data>
+  <data name="Receipts.Open" xml:space="preserve"><value>فتح</value></data>
+  <data name="Receipts.Complete" xml:space="preserve"><value>إكمال</value></data>
+  <data name="Receipts.Cancel" xml:space="preserve"><value>إلغاء</value></data>
+  <data name="Receipts.Reverse" xml:space="preserve"><value>عكس</value></data>
+  <data name="Receipts.Correct" xml:space="preserve"><value>تصحيح</value></data>
+  <data name="Receipts.Completed" xml:space="preserve"><value>مكتمل</value></data>
+  <data name="Receipts.Lifecycle" xml:space="preserve"><value>إجراءات دورة الحياة</value></data>
+  <data name="Receipts.Reason" xml:space="preserve"><value>السبب</value></data>
+  <data name="Receipts.Notes" xml:space="preserve"><value>ملاحظات</value></data>
+  <data name="Receipts.CreateInstructions" xml:space="preserve"><value>أنشئ رأس إيصال قابلاً للتدقيق وسطر توقع واحداً أو أكثر.</value></data>
+  <data name="Receipts.LineFormat" xml:space="preserve"><value>سطر لكل صف: ITEM_SKU|QUANTITY|UOM|PACKAGING|PO_ID|PO_LINE_ID|ASN_ID|ASN_LINE_ID|LOT|EXPIRY|SERIAL|LPN_ID|ACCEPTED|REJECTED|DAMAGED|QUARANTINED|NOTES</value></data>
 </root>

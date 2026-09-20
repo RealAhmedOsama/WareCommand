@@ -784,7 +784,8 @@ public sealed partial class AdvanceShippingNoticeService(
             line.PreAdvisedExpiryDate,
             line.PreAdvisedSerialNumber,
             line.ExpectedLicensePlateNumber,
-            purchaseOrderPlan));
+            purchaseOrderPlan,
+            line.RemainingBaseQuantity));
     }
 
     public async Task<Result> RecordReceiptAsync(

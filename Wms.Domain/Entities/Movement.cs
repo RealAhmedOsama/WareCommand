@@ -134,6 +134,10 @@ public class Movement : Entity
     public int? PurchaseOrderLineId { get; private set; }
     public int? AdvanceShippingNoticeId { get; private set; }
     public int? AdvanceShippingNoticeLineId { get; private set; }
+    public int? ReceiptId { get; private set; }
+    public int? ReceiptLineId { get; private set; }
+    public ReceiptMovementKind? ReceiptMovementKind { get; private set; }
+    public int? RelatedMovementId { get; private set; }
 
     // Navigation properties
     public Item Item { get; private set; } = null!;
@@ -151,6 +155,9 @@ public class Movement : Entity
     public PurchaseOrderLine? PurchaseOrderLine { get; private set; }
     public AdvanceShippingNotice? AdvanceShippingNotice { get; private set; }
     public AdvanceShippingNoticeLine? AdvanceShippingNoticeLine { get; private set; }
+    public Receipt? Receipt { get; private set; }
+    public ReceiptLine? ReceiptLine { get; private set; }
+    public Movement? RelatedMovement { get; private set; }
 
     public void LinkPurchaseOrder(int purchaseOrderId, int purchaseOrderLineId)
     {
@@ -193,6 +200,41 @@ public class Movement : Entity
 
         AdvanceShippingNoticeId = advanceShippingNoticeId;
         AdvanceShippingNoticeLineId = advanceShippingNoticeLineId;
+    }
+
+    public void LinkReceipt(
+        int receiptId,
+        int receiptLineId,
+        ReceiptMovementKind kind = Wms.Domain.Enums.ReceiptMovementKind.Receipt,
+        int? relatedMovementId = null)
+    {
+        if (Type is not (MovementType.Receipt or MovementType.Adjustment))
+        {
+            throw new InvalidOperationException("Only receipt or compensating adjustment movements can link to a receipt.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(receiptId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(receiptLineId);
+        if (relatedMovementId is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(relatedMovementId));
+        }
+
+        if (ReceiptId.HasValue || ReceiptLineId.HasValue || ReceiptMovementKind.HasValue)
+        {
+            if (ReceiptId == receiptId && ReceiptLineId == receiptLineId &&
+                ReceiptMovementKind == kind && RelatedMovementId == relatedMovementId)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException("The movement is already linked to another receipt.");
+        }
+
+        ReceiptId = receiptId;
+        ReceiptLineId = receiptLineId;
+        ReceiptMovementKind = kind;
+        RelatedMovementId = relatedMovementId;
     }
 
     public static Movement CreateReceipt(int itemId, int locationId, Quantity quantity, string userId,

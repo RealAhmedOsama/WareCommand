@@ -55,7 +55,7 @@ public class StockMovementService : IStockMovementService
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
         string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null)
+        int? licensePlateId = null, int? receiptId = null, int? receiptLineId = null)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -117,6 +117,17 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 inboundStatusId,
                 toLicensePlateId: licensePlateId);
+
+            if (receiptId.HasValue != receiptLineId.HasValue)
+            {
+                throw new InvalidOperationException(
+                    "A receiving movement must receive both a receipt ID and receipt line ID.");
+            }
+
+            if (receiptId.HasValue)
+            {
+                movement.LinkReceipt(receiptId.Value, receiptLineId!.Value);
+            }
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -238,6 +249,144 @@ public class StockMovementService : IStockMovementService
             telemetryScope.Fail(exception);
             throw;
         }
+    }
+
+    public async Task<Movement> ReverseReceiptAsync(
+        int receiptId,
+        int receiptLineId,
+        Movement originalMovement,
+        string userId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(originalMovement);
+        if (originalMovement.Type != MovementType.Receipt ||
+            originalMovement.ReceiptId != receiptId ||
+            originalMovement.ReceiptLineId != receiptLineId)
+        {
+            throw new InvalidOperationException(
+                "Only the original movement for the receipt line can be reversed.");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("A reversal reason is required.", nameof(reason));
+        }
+
+        var locationId = originalMovement.ToLocationId
+            ?? throw new InvalidOperationException("The receipt movement has no receiving location.");
+        var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken)
+            ?? throw new InvalidOperationException("The receipt location was not found.");
+        var quantity = originalMovement.Quantity;
+        var licensePlateId = originalMovement.ToLicensePlateId ?? originalMovement.LicensePlateId;
+        var stock = await FindStockAsync(
+            originalMovement.ItemId,
+            locationId,
+            originalMovement.LotId,
+            originalMovement.SerialNumber,
+            originalMovement.SerialNumberId,
+            originalMovement.InventoryStatusId,
+            licensePlateId,
+            cancellationToken);
+        if (stock is null || stock.GetAvailableQuantity() < quantity)
+        {
+            throw new InvalidOperationException(
+                "The receipt cannot be reversed because its quantity is no longer available.");
+        }
+
+        var before = stock.QuantityAvailable.Value;
+        stock.RemoveQuantity(quantity);
+        await _unitOfWork.Stock.UpdateAsync(stock, cancellationToken);
+        var after = stock.QuantityAvailable.Value;
+        var reversal = Movement.CreateAdjustment(
+            originalMovement.ItemId,
+            locationId,
+            new Quantity(after),
+            userId,
+            originalMovement.LotId,
+            originalMovement.SerialNumber,
+            originalMovement.ReferenceNumber,
+            reason,
+            _clock.UtcNow.UtcDateTime,
+            originalMovement.SerialNumberId,
+            originalMovement.InventoryStatusId,
+            licensePlateId,
+            before,
+            -quantity.Value,
+            after);
+        reversal.LinkReceipt(
+            receiptId,
+            receiptLineId,
+            ReceiptMovementKind.Reversal,
+            originalMovement.Id);
+        await _unitOfWork.Movements.AddAsync(reversal, cancellationToken);
+
+        if (originalMovement.SerialNumberId.HasValue && after == 0m)
+        {
+            var serial = await _unitOfWork.SerialNumbers.GetByIdAsync(
+                originalMovement.SerialNumberId.Value,
+                cancellationToken);
+            serial?.RecordCorrection(reason, _clock.UtcNow.UtcDateTime);
+            if (serial is not null)
+            {
+                await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
+            }
+        }
+
+        if (_inventoryLedgerService is not null)
+        {
+            var item = await _unitOfWork.Items.GetByIdAsync(originalMovement.ItemId, cancellationToken)
+                ?? throw new InvalidOperationException($"Item {originalMovement.ItemId} was not found.");
+            var transactionGroupId = $"movement:{Guid.NewGuid():N}";
+            await _inventoryLedgerService.RecordAsync(
+                [
+                    new InventoryLedgerEntryRequest(
+                        InventoryTransactionType.Adjustment,
+                        new InventoryBalanceKey(
+                            location.WarehouseId,
+                            locationId,
+                            originalMovement.ItemId,
+                            originalMovement.LotId,
+                            originalMovement.SerialNumberId,
+                            originalMovement.SerialNumber,
+                            licensePlateId,
+                            originalMovement.InventoryStatusId,
+                            item.UnitOfMeasure),
+                        -quantity.Value,
+                        ActorUserId: userId,
+                        ReferenceType: "Receipt",
+                        ReferenceId: originalMovement.ReferenceNumber,
+                        Reason: reason,
+                        OccurredAtUtc: reversal.Timestamp,
+                        CorrelationId: _requestContext.CorrelationId,
+                        IdempotencyKey: $"{transactionGroupId}:1",
+                        TransactionGroupId: transactionGroupId,
+                        MovementId: reversal.Id > 0 ? reversal.Id : null)
+                ],
+                cancellationToken);
+        }
+
+        await _auditWriter.RecordAsync(
+            new AuditRecord(
+                WmsAuditActions.ReceiptRecorded,
+                WmsAuditEntityTypes.ReceiptLineMovement,
+                $"{receiptId}:{receiptLineId}",
+                location.WarehouseId,
+                Before: new Dictionary<string, object?>
+                {
+                    ["quantityAvailable"] = before,
+                    ["movementId"] = originalMovement.Id
+                },
+                After: new Dictionary<string, object?>
+                {
+                    ["quantityAvailable"] = after,
+                    ["reversalMovementId"] = reversal.Id,
+                    ["reason"] = reason
+                },
+                ActorUserId: userId),
+            cancellationToken);
+
+        return reversal;
     }
 
     public async Task<Movement> PutawayAsync(int itemId, int fromLocationId, int toLocationId,

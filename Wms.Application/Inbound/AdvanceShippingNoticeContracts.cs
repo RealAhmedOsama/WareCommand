@@ -166,7 +166,8 @@ public sealed record AdvanceShippingNoticeReceiptPlan(
     DateTime? PreAdvisedExpiryDate,
     string? PreAdvisedSerialNumber,
     string? ExpectedLicensePlateNumber,
-    PurchaseOrderReceiptPlan? PurchaseOrderPlan);
+    PurchaseOrderReceiptPlan? PurchaseOrderPlan,
+    decimal? ExpectedBaseQuantity = null);
 
 public sealed record AdvanceShippingNoticeDiscrepancyInput(
     int? AdvanceShippingNoticeLineId,

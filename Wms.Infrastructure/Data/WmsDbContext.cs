@@ -38,6 +38,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<AdvanceShippingNoticeReceiptAllocation>();
     public DbSet<AdvanceShippingNoticeDiscrepancy> AdvanceShippingNoticeDiscrepancies =>
         Set<AdvanceShippingNoticeDiscrepancy>();
+    public DbSet<Receipt> Receipts => Set<Receipt>();
+    public DbSet<ReceiptLine> ReceiptLines => Set<ReceiptLine>();
+    public DbSet<ReceiptLineMovement> ReceiptLineMovements => Set<ReceiptLineMovement>();
+    public DbSet<ReceiptLineLink> ReceiptLineLinks => Set<ReceiptLineLink>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -98,6 +102,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new AdvanceShippingNoticeLineConfiguration());
         builder.ApplyConfiguration(new AdvanceShippingNoticeReceiptAllocationConfiguration());
         builder.ApplyConfiguration(new AdvanceShippingNoticeDiscrepancyConfiguration());
+        builder.ApplyConfiguration(new ReceiptConfiguration());
+        builder.ApplyConfiguration(new ReceiptLineConfiguration());
+        builder.ApplyConfiguration(new ReceiptLineMovementConfiguration());
+        builder.ApplyConfiguration(new ReceiptLineLinkConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());
         builder.ApplyConfiguration(new WarehouseConfiguration());

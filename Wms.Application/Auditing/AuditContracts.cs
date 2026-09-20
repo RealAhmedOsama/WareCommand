@@ -44,6 +44,15 @@ public static class WmsAuditActions
     public const string AdvanceShippingNoticeReceiptAllocated = "inbound.asn.receipt_allocated";
     public const string AdvanceShippingNoticeDiscrepancyRecorded = "inbound.asn.discrepancy_recorded";
     public const string AdvanceShippingNoticeBulkImported = "inbound.asn.bulk_imported";
+    public const string ReceiptCreated = "inbound.receipt.created";
+    public const string ReceiptOpened = "inbound.receipt.opened";
+    public const string ReceiptReceivingStarted = "inbound.receipt.receiving_started";
+    public const string ReceiptCompleted = "inbound.receipt.completed";
+    public const string ReceiptCancelled = "inbound.receipt.cancelled";
+    public const string ReceiptReversed = "inbound.receipt.reversed";
+    public const string ReceiptCorrected = "inbound.receipt.corrected";
+    public const string ReceiptException = "inbound.receipt.exception";
+    public const string ReceiptLinkAdded = "inbound.receipt.link_added";
     public const string UnitOfMeasureCreated = "master.uom.created";
     public const string UnitOfMeasureUpdated = "master.uom.updated";
     public const string UnitOfMeasureActivated = "master.uom.activated";
@@ -133,6 +142,15 @@ public static class WmsAuditActions
         AdvanceShippingNoticeReceiptAllocated,
         AdvanceShippingNoticeDiscrepancyRecorded,
         AdvanceShippingNoticeBulkImported,
+        ReceiptCreated,
+        ReceiptOpened,
+        ReceiptReceivingStarted,
+        ReceiptCompleted,
+        ReceiptCancelled,
+        ReceiptReversed,
+        ReceiptCorrected,
+        ReceiptException,
+        ReceiptLinkAdded,
         UnitOfMeasureCreated,
         UnitOfMeasureUpdated,
         UnitOfMeasureActivated,
@@ -196,6 +214,10 @@ public static class WmsAuditEntityTypes
     public const string AdvanceShippingNoticeLine = "AdvanceShippingNoticeLine";
     public const string AdvanceShippingNoticeReceiptAllocation = "AdvanceShippingNoticeReceiptAllocation";
     public const string AdvanceShippingNoticeDiscrepancy = "AdvanceShippingNoticeDiscrepancy";
+    public const string Receipt = "Receipt";
+    public const string ReceiptLine = "ReceiptLine";
+    public const string ReceiptLineMovement = "ReceiptLineMovement";
+    public const string ReceiptLineLink = "ReceiptLineLink";
     public const string UnitOfMeasure = "UnitOfMeasure";
     public const string Location = "Location";
     public const string Warehouse = "Warehouse";

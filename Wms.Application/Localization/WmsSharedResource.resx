@@ -947,4 +947,34 @@
   <data name="AdvanceShippingNotices.PasteCsv" xml:space="preserve"><value>Paste CSV</value></data>
   <data name="AdvanceShippingNotices.Imported" xml:space="preserve"><value>Imported {0} ASNs; {1} rows had errors.</value></data>
   <data name="AdvanceShippingNotices.ImportRequired" xml:space="preserve"><value>Provide a CSV file or paste CSV content.</value></data>
+  <data name="Nav.Receipts" xml:space="preserve"><value>Inbound receipts</value></data>
+  <data name="Receipts.Title" xml:space="preserve"><value>Inbound receipts</value></data>
+  <data name="Receipts.Create" xml:space="preserve"><value>Create receipt</value></data>
+  <data name="Receipts.Details" xml:space="preserve"><value>Receipt details</value></data>
+  <data name="Receipts.Print" xml:space="preserve"><value>Print</value></data>
+  <data name="Receipts.Lines" xml:space="preserve"><value>Receipt lines</value></data>
+  <data name="Receipts.Created" xml:space="preserve"><value>Receipt '{0}' was created.</value></data>
+  <data name="Receipts.Updated" xml:space="preserve"><value>Receipt '{0}' was updated.</value></data>
+  <data name="Receipts.Corrected" xml:space="preserve"><value>Receipt was corrected with '{0}'.</value></data>
+  <data name="Receipts.Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Receipts.Status" xml:space="preserve"><value>Status</value></data>
+  <data name="Receipts.Warehouse" xml:space="preserve"><value>Warehouse</value></data>
+  <data name="Receipts.Supplier" xml:space="preserve"><value>Supplier ID</value></data>
+  <data name="Receipts.Source" xml:space="preserve"><value>Source</value></data>
+  <data name="Receipts.Received" xml:space="preserve"><value>Received</value></data>
+  <data name="Receipts.Accepted" xml:space="preserve"><value>Accepted</value></data>
+  <data name="Receipts.Remaining" xml:space="preserve"><value>Remaining</value></data>
+  <data name="Receipts.CreatedAt" xml:space="preserve"><value>Created</value></data>
+  <data name="Receipts.NoRows" xml:space="preserve"><value>No receipts match the current filters.</value></data>
+  <data name="Receipts.Open" xml:space="preserve"><value>Open</value></data>
+  <data name="Receipts.Complete" xml:space="preserve"><value>Complete</value></data>
+  <data name="Receipts.Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Receipts.Reverse" xml:space="preserve"><value>Reverse</value></data>
+  <data name="Receipts.Correct" xml:space="preserve"><value>Correct</value></data>
+  <data name="Receipts.Completed" xml:space="preserve"><value>Completed</value></data>
+  <data name="Receipts.Lifecycle" xml:space="preserve"><value>Lifecycle actions</value></data>
+  <data name="Receipts.Reason" xml:space="preserve"><value>Reason</value></data>
+  <data name="Receipts.Notes" xml:space="preserve"><value>Notes</value></data>
+  <data name="Receipts.CreateInstructions" xml:space="preserve"><value>Create an auditable receipt header and one or more expected receipt lines.</value></data>
+  <data name="Receipts.LineFormat" xml:space="preserve"><value>One line per row: ITEM_SKU|QUANTITY|UOM|PACKAGING|PO_ID|PO_LINE_ID|ASN_ID|ASN_LINE_ID|LOT|EXPIRY|SERIAL|LPN_ID|ACCEPTED|REJECTED|DAMAGED|QUARANTINED|NOTES</value></data>
 </root>

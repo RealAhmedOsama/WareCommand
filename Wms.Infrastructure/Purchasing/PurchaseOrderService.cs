@@ -572,7 +572,8 @@ public sealed class PurchaseOrderService(
             order.DocumentNumber,
             itemId,
             warehouseId,
-            baseQuantity));
+            baseQuantity,
+            line.RemainingBaseQuantity));
     }
 
     public async Task<Result> RecordReceiptAsync(

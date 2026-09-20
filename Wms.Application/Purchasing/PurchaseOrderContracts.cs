@@ -124,7 +124,8 @@ public sealed record PurchaseOrderReceiptPlan(
     string PurchaseOrderNumber,
     int ItemId,
     int WarehouseId,
-    decimal BaseQuantity);
+    decimal BaseQuantity,
+    decimal? ExpectedBaseQuantity = null);
 
 public interface IPurchaseOrderService
 {

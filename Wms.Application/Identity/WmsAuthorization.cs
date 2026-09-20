@@ -40,6 +40,8 @@ public static class WmsPermissions
     public const string PurchaseOrdersManage = "purchase_orders.manage";
     public const string AdvanceShippingNoticesRead = "advance_shipping_notices.read";
     public const string AdvanceShippingNoticesManage = "advance_shipping_notices.manage";
+    public const string ReceiptsRead = "receipts.read";
+    public const string ReceiptsManage = "receipts.manage";
     public const string LocationsRead = "locations.read";
     public const string LocationsManage = "locations.manage";
     public const string InventoryRead = "inventory.read";
@@ -68,6 +70,8 @@ public static class WmsPermissions
         PurchaseOrdersManage,
         AdvanceShippingNoticesRead,
         AdvanceShippingNoticesManage,
+        ReceiptsRead,
+        ReceiptsManage,
         LocationsRead,
         LocationsManage,
         InventoryRead,
@@ -98,6 +102,8 @@ public static class WmsPermissions
             [PurchaseOrdersManage] = "Create, confirm, cancel, and close purchase orders",
             [AdvanceShippingNoticesRead] = "View advance shipping notices and expected inbound loads",
             [AdvanceShippingNoticesManage] = "Create, submit, check in, and complete advance shipping notices",
+            [ReceiptsRead] = "View inbound receipt documents and history",
+            [ReceiptsManage] = "Create, complete, reverse, and correct inbound receipt documents",
             [LocationsRead] = "View warehouse locations",
             [LocationsManage] = "Create and update warehouse locations",
             [InventoryRead] = "View inventory and availability",
@@ -137,6 +143,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.PurchaseOrdersManage,
                 WmsPermissions.AdvanceShippingNoticesRead,
                 WmsPermissions.AdvanceShippingNoticesManage,
+                WmsPermissions.ReceiptsRead,
+                WmsPermissions.ReceiptsManage,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.LocationsManage,
                 WmsPermissions.InventoryRead,
@@ -160,6 +168,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.PurchaseOrdersRead,
                 WmsPermissions.AdvanceShippingNoticesRead,
                 WmsPermissions.AdvanceShippingNoticesManage,
+                WmsPermissions.ReceiptsRead,
+                WmsPermissions.ReceiptsManage,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.ReceivingExecute,
@@ -198,6 +208,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.PurchaseOrdersRead,
                 WmsPermissions.AdvanceShippingNoticesRead,
+                WmsPermissions.ReceiptsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.ReportsRead,
@@ -209,6 +220,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.PurchaseOrdersRead,
                 WmsPermissions.AdvanceShippingNoticesRead,
+                WmsPermissions.ReceiptsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.ReportsRead
@@ -221,6 +233,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.PurchaseOrdersRead,
                 WmsPermissions.AdvanceShippingNoticesRead,
                 WmsPermissions.AdvanceShippingNoticesManage,
+                WmsPermissions.ReceiptsRead,
+                WmsPermissions.ReceiptsManage,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.ReceivingExecute,

@@ -1,0 +1,6 @@
+@model Wms.Application.Receiving.ReceiptDto
+@{
+    Layout = null;
+    var culture = System.Globalization.CultureInfo.CurrentUICulture;
+}
+<!doctype html><html lang="@culture.Name" dir="@(culture.TextInfo.IsRightToLeft ? "rtl" : "ltr")"><head><meta charset="utf-8" /><title>@Model.DocumentNumber</title><link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" /></head><body class="p-4"><main class="container"><div class="d-flex justify-content-between mb-4"><div><h1>@Model.DocumentNumber</h1><div>@Model.WarehouseCode · @Model.SourceType</div></div><div>@Model.Status<br />@Model.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</div></div><table class="table table-bordered"><thead><tr><th>#</th><th>Item</th><th>Expected</th><th>Received</th><th>Accepted</th><th>Remaining</th></tr></thead><tbody>@foreach(var line in Model.Lines){<tr><td>@line.LineNumber</td><td>@line.ItemSku</td><td>@line.ExpectedBaseQuantity.ToString("N4") @line.BaseUnitOfMeasure</td><td>@line.ReceivedBaseQuantity.ToString("N4")</td><td>@line.AcceptedBaseQuantity.ToString("N4")</td><td>@line.RemainingBaseQuantity.ToString("N4")</td></tr>}</tbody></table></main><script>window.print();</script></body></html>

@@ -80,6 +80,20 @@ public sealed class WarehouseNumberSequence : Entity
         return allocated;
     }
 
+    public long AllocateReceiptNumber()
+    {
+        var allocated = NextReceiptNumber;
+        if (allocated < 1 || allocated == long.MaxValue)
+        {
+            throw new InvalidOperationException("The warehouse receipt number sequence is exhausted.");
+        }
+
+        NextReceiptNumber++;
+        Revision++;
+        SetUpdatedAt();
+        return allocated;
+    }
+
     private static void Validate(long value, string name)
     {
         if (value < 1)

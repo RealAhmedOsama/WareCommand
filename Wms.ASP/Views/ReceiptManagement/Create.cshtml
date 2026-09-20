@@ -1,0 +1,21 @@
+@model Wms.ASP.Models.ReceiptFormViewModel
+@{
+    ViewData["Title"] = T["Receipts.Create"];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4"><div><h2 class="mb-1"><i class="bi bi-box-seam me-2 text-warning"></i>@T["Receipts.Create"]</h2><p class="text-muted mb-0">@T["Receipts.CreateInstructions"]</p></div><a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Back"]</a></div>
+
+<form asp-action="Create" method="post" class="card shadow-sm border-0"><div class="card-body"><div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div><div class="row g-3">
+    <div class="col-md-4"><label asp-for="WarehouseId" class="form-label">@T["Receipts.Warehouse"]</label><select asp-for="WarehouseId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var warehouse in Model.Warehouses){<option value="@warehouse.Id">@warehouse.Code - @warehouse.Name</option>}</select><span asp-validation-for="WarehouseId" class="text-danger"></span></div>
+    <div class="col-md-4"><label asp-for="ReceivingLocationId" class="form-label">@T["Field.ReceivingLocation"]</label><input asp-for="ReceivingLocationId" class="form-control" type="number" min="1" /><span asp-validation-for="ReceivingLocationId" class="text-danger"></span></div>
+    <div class="col-md-4"><label asp-for="SupplierId" class="form-label">@T["Receipts.Supplier"]</label><input asp-for="SupplierId" class="form-control" type="number" min="1" /></div>
+    <div class="col-md-4"><label asp-for="PurchaseOrderId" class="form-label">@T["PurchaseOrders.Number"]</label><input asp-for="PurchaseOrderId" class="form-control" type="number" min="1" /></div>
+    <div class="col-md-4"><label asp-for="AdvanceShippingNoticeId" class="form-label">@T["AdvanceShippingNotices.Number"]</label><input asp-for="AdvanceShippingNoticeId" class="form-control" type="number" min="1" /></div>
+    <div class="col-md-4"><label asp-for="SourceType" class="form-label">@T["Receipts.Source"]</label><input asp-for="SourceType" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="SourceReference" class="form-label">@T["PurchaseOrders.SourceReference"]</label><input asp-for="SourceReference" class="form-control" /></div>
+    <div class="col-md-6"><label asp-for="ExternalReference" class="form-label">@T["PurchaseOrders.ExternalReference"]</label><input asp-for="ExternalReference" class="form-control" /></div>
+    <div class="col-12"><label asp-for="LinesText" class="form-label">@T["Receipts.Lines"]</label><textarea asp-for="LinesText" class="form-control font-monospace" rows="7" required></textarea><div class="form-text">@T["Receipts.LineFormat"]</div><span asp-validation-for="LinesText" class="text-danger"></span></div>
+    <div class="col-12"><label asp-for="Notes" class="form-label">@T["Receipts.Notes"]</label><textarea asp-for="Notes" class="form-control" rows="3"></textarea></div>
+</div></div><div class="card-footer bg-white d-flex justify-content-end gap-2"><a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Cancel"]</a><button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>@T["Receipts.Create"]</button></div></form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

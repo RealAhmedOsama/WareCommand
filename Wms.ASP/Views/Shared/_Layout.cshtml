@@ -15,6 +15,7 @@
     var canSuppliers = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SuppliersRead)).Succeeded;
     var canPurchaseOrders = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PurchaseOrdersRead)).Succeeded;
     var canAdvanceShippingNotices = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AdvanceShippingNoticesRead)).Succeeded;
+    var canReceipts = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ReceiptsRead)).Succeeded;
     var canLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsRead)).Succeeded;
     var canAudit = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AuditRead)).Succeeded;
     var canWarehouses = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.WarehouseManage)).Succeeded;
@@ -116,7 +117,7 @@
                         </a>
                     </li>
                     }
-                    @if (canItems || canSuppliers || canPurchaseOrders || canAdvanceShippingNotices || canLocations || canAudit || canWarehouses || canSettings)
+                    @if (canItems || canSuppliers || canPurchaseOrders || canAdvanceShippingNotices || canReceipts || canLocations || canAudit || canWarehouses || canSettings)
                     {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded-pill mx-1" href="#" id="managementDropdown" role="button"
@@ -156,6 +157,15 @@
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="AdvanceShippingNoticeManagement" asp-action="Index">
                                     <i class="bi bi-truck me-2 text-success"></i>@T["Nav.AdvanceShippingNotices"]
+                                </a>
+                            </li>
+                            }
+                            @if (canReceipts)
+                            {
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item py-2" asp-controller="ReceiptManagement" asp-action="Index">
+                                    <i class="bi bi-box-seam me-2 text-warning"></i>@T["Nav.Receipts"]
                                 </a>
                             </li>
                             }

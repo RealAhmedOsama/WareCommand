@@ -11,6 +11,7 @@ using Wms.Application.Inbound;
 using Wms.Application.Logging;
 using Wms.Application.Lots;
 using Wms.Application.Purchasing;
+using Wms.Application.Receiving;
 using Wms.Application.Units;
 using Wms.Domain.Entities;
 using Wms.Domain.Repositories;
@@ -37,6 +38,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
     private readonly IRequestContext? _requestContext;
     private readonly IPurchaseOrderService? _purchaseOrderService;
     private readonly IAdvanceShippingNoticeService? _advanceShippingNoticeService;
+    private readonly IReceiptService? _receiptService;
 
     public ReceiveItemUseCase(
         IUnitOfWork unitOfWork,
@@ -48,7 +50,8 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         IInventoryCommandIdempotencyService? idempotencyService = null,
         IRequestContext? requestContext = null,
         IPurchaseOrderService? purchaseOrderService = null,
-        IAdvanceShippingNoticeService? advanceShippingNoticeService = null)
+        IAdvanceShippingNoticeService? advanceShippingNoticeService = null,
+        IReceiptService? receiptService = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
@@ -60,6 +63,7 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
         _requestContext = requestContext;
         _purchaseOrderService = purchaseOrderService;
         _advanceShippingNoticeService = advanceShippingNoticeService;
+        _receiptService = receiptService;
     }
 
     public async Task<Result<ReceiptResultDto>> ExecuteAsync(ReceiveItemDto request, string userId,
@@ -369,13 +373,64 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 idempotencyLease = idempotencyResult.Value.Lease;
             }
 
+            ReceiptReceivingPlan? receiptPlan = null;
+            if (_receiptService is not null)
+            {
+                var receiptResult = await _receiptService.OpenForReceivingAsync(
+                    new ReceiptReceivingInput(
+                        location.WarehouseId,
+                        location.Id,
+                        item.Id,
+                        item.Sku,
+                        item.Name,
+                        quantity,
+                        request.LotNumber,
+                        request.ExpiryDate,
+                        request.SerialNumber,
+                        request.LicensePlateId,
+                        request.PurchaseOrderId,
+                        request.PurchaseOrderLineId,
+                        request.AdvanceShippingNoticeId,
+                        request.AdvanceShippingNoticeLineId,
+                        purchaseOrderReceiptPlan,
+                        advanceShippingNoticeReceiptPlan,
+                        request.ReferenceNumber,
+                        request.Notes),
+                    userId,
+                    cancellationToken);
+                if (receiptResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                    return receiptResult.ToFailure<ReceiptResultDto>();
+                }
+
+                receiptPlan = receiptResult.Value;
+            }
+
             var movement = await _stockMovementService.ReceiveAsync(
                 item.Id, location.Id, quantity, userId, lotId,
-                request.SerialNumber, request.ReferenceNumber, request.Notes,
+                request.SerialNumber, receiptPlan?.DocumentNumber ?? request.ReferenceNumber, request.Notes,
                 cancellationToken: cancellationToken,
-                licensePlateId: request.LicensePlateId);
+                licensePlateId: request.LicensePlateId,
+                receiptId: receiptPlan?.ReceiptId,
+                receiptLineId: receiptPlan?.ReceiptLineId);
 
-            if (advanceShippingNoticeReceiptPlan is not null)
+            if (receiptPlan is not null)
+            {
+                var finalizeResult = await _receiptService!.FinalizeReceivingAsync(
+                    receiptPlan,
+                    movement,
+                    userId,
+                    cancellationToken);
+                if (finalizeResult.IsFailure)
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    lotTransactionStarted = false;
+                    return finalizeResult.ToFailure<ReceiptResultDto>();
+                }
+            }
+            else if (advanceShippingNoticeReceiptPlan is not null)
             {
                 var allocationResult = await _advanceShippingNoticeService!.RecordReceiptAsync(
                     advanceShippingNoticeReceiptPlan,
@@ -410,7 +465,9 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 request.LocationCode,
                 request.Quantity,
                 request.LotNumber,
-                movement.Timestamp);
+                movement.Timestamp,
+                receiptPlan?.ReceiptId,
+                receiptPlan?.DocumentNumber);
             if (idempotencyLease is not null)
             {
                 await _idempotencyService!.CompleteAsync(
