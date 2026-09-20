@@ -31,6 +31,8 @@ public static class WmsJobNames
     public const string DatabaseBackup = "wms.database-backup";
     public const string CycleCountGeneration = "wms.cycle-count-generation";
     public const string ReplenishmentGeneration = "wms.replenishment-generation";
+    public const string InventoryHealthCheck = "wms.inventory-health-check";
+    public const string InventoryReconciliation = "wms.inventory-reconciliation";
 }
 
 public static class WmsJobScheduleTimeZones
@@ -111,7 +113,21 @@ public static class WmsJobCatalog
             "30 4 * * *",
             TimeSpan.FromDays(1),
             TimeSpan.FromMinutes(10),
-            "Generate future replenishment work from inventory policy.")
+            "Generate future replenishment work from inventory policy."),
+        new(
+            WmsJobNames.InventoryHealthCheck,
+            WmsJobQueues.Maintenance,
+            "*/10 * * * *",
+            TimeSpan.FromMinutes(10),
+            TimeSpan.FromMinutes(5),
+            "Run a lightweight read-only inventory invariant check."),
+        new(
+            WmsJobNames.InventoryReconciliation,
+            WmsJobQueues.Maintenance,
+            "0 5 * * *",
+            TimeSpan.FromDays(1),
+            TimeSpan.FromMinutes(30),
+            "Run a deep read-only inventory reconciliation report.")
     ];
 
     private static readonly Dictionary<string, WmsJobDefinition> DefinitionMap =

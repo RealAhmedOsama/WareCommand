@@ -75,6 +75,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<WmsDatabaseBackupJob>();
         services.AddScoped<WmsCycleCountGenerationJob>();
         services.AddScoped<WmsReplenishmentGenerationJob>();
+        services.AddScoped<WmsInventoryHealthCheckJob>();
+        services.AddScoped<WmsInventoryReconciliationJob>();
         services.AddSingleton<WmsSettingsCache>();
         services.AddScoped<IWmsSettingsService, WmsSettingsService>();
         services.AddScoped<IWarehouseManagementService, WarehouseManagementService>();
@@ -181,6 +183,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryCommandIdempotencyService, InventoryCommandIdempotencyService>();
         services.AddScoped<IInventoryInquiryService, InventoryInquiryService>();
         services.AddScoped<IInventoryReplenishmentPolicyService, InventoryReplenishmentPolicyService>();
+        services.AddScoped<IInventoryReconciliationService, InventoryReconciliationService>();
         return services;
     }
 

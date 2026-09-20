@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Backups;
 using Wms.Application.Context;
@@ -20,7 +21,9 @@ public sealed class WmsJobHandlerCatalog(
     WmsCleanupJob cleanupJob,
     WmsDatabaseBackupJob databaseBackupJob,
     WmsCycleCountGenerationJob cycleCountGenerationJob,
-    WmsReplenishmentGenerationJob replenishmentGenerationJob)
+    WmsReplenishmentGenerationJob replenishmentGenerationJob,
+    WmsInventoryHealthCheckJob inventoryHealthCheckJob,
+    WmsInventoryReconciliationJob inventoryReconciliationJob)
 {
     private readonly Dictionary<string, IWmsJobHandler> _handlers =
         new IWmsJobHandler[]
@@ -32,7 +35,9 @@ public sealed class WmsJobHandlerCatalog(
             cleanupJob,
             databaseBackupJob,
             cycleCountGenerationJob,
-            replenishmentGenerationJob
+            replenishmentGenerationJob,
+            inventoryHealthCheckJob,
+            inventoryReconciliationJob
         }.ToDictionary(handler => handler.JobName, StringComparer.Ordinal);
 
     public IWmsJobHandler Resolve(string jobName) =>
@@ -338,4 +343,133 @@ public sealed class WmsReplenishmentGenerationJob(ILogger<WmsReplenishmentGenera
         return Task.FromResult(new WmsJobExecutionResult(
             Summary: "No replenishment policy model is registered; no work was generated."));
     }
+}
+
+public sealed class WmsInventoryHealthCheckJob(
+    IInventoryReconciliationService reconciliationService,
+    IWmsJobExecutionStore executionStore,
+    IClock clock,
+    ILogger<WmsInventoryHealthCheckJob> logger) : IWmsJobHandler
+{
+    public string JobName => WmsJobNames.InventoryHealthCheck;
+
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
+        WmsJobContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await reconciliationService.ReconcileAsync(
+            new InventoryReconciliationQuery(
+                WarehouseId: context.Envelope.WarehouseId,
+                Deep: false,
+                BatchSize: 250,
+                MaxIssues: 100),
+            cancellationToken);
+        if (report.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Inventory health check failed: {report.Error}");
+        }
+
+        if (!report.Value.IsClean)
+        {
+            await executionStore.UpsertNotificationAsync(
+                CreateNotification(
+                    report.Value,
+                    "light",
+                    clock.UtcNow,
+                    context),
+                clock.UtcNow,
+                cancellationToken);
+        }
+
+        logger.LogInformation(
+            "Inventory health check scanned {BalanceCount} balances and {TransactionCount} transactions; {IssueCount} issues detected",
+            report.Value.BalancesScanned,
+            report.Value.TransactionsScanned,
+            report.Value.IssueCount);
+        return new WmsJobExecutionResult(
+            ToInt(report.Value.BalancesScanned + report.Value.TransactionsScanned),
+            report.Value.IsClean ? 0 : 1,
+            $"Lightweight inventory check detected {report.Value.IssueCount} issues.");
+    }
+
+    private static WmsJobNotification CreateNotification(
+        InventoryReconciliationReportDto report,
+        string mode,
+        DateTimeOffset nowUtc,
+        WmsJobContext context) =>
+        new(
+            $"inventory-reconciliation:{mode}:{context.Envelope.WarehouseId?.ToString(CultureInfo.InvariantCulture) ?? "global"}:{nowUtc:yyyyMMddHHmm}",
+            "inventory.reconciliation",
+            report.CriticalIssueCount > 0 ? "critical" : "warning",
+            "Inventory reconciliation issue detected",
+            $"The {mode} inventory check detected {report.IssueCount} issues " +
+            $"({report.CriticalIssueCount} critical, {report.WarningIssueCount} warning).",
+            context.Envelope.JobName,
+            context.Envelope.IdempotencyKey,
+            context.Envelope.CorrelationId,
+            context.Envelope.WarehouseId,
+            nowUtc.AddHours(2));
+
+    public static WmsJobNotification CreateNotificationForDeepReport(
+        InventoryReconciliationReportDto report,
+        DateTimeOffset nowUtc,
+        WmsJobContext context) =>
+        CreateNotification(report, "deep", nowUtc, context);
+
+    private static int ToInt(long value) =>
+        value > int.MaxValue ? int.MaxValue : (int)value;
+}
+
+public sealed class WmsInventoryReconciliationJob(
+    IInventoryReconciliationService reconciliationService,
+    IWmsJobExecutionStore executionStore,
+    IClock clock,
+    ILogger<WmsInventoryReconciliationJob> logger) : IWmsJobHandler
+{
+    public string JobName => WmsJobNames.InventoryReconciliation;
+
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
+        WmsJobContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await reconciliationService.ReconcileAsync(
+            new InventoryReconciliationQuery(
+                WarehouseId: context.Envelope.WarehouseId,
+                Deep: true,
+                BatchSize: 500,
+                MaxIssues: 2_000),
+            cancellationToken);
+        if (report.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Deep inventory reconciliation failed: {report.Error}");
+        }
+
+        if (!report.Value.IsClean)
+        {
+            await executionStore.UpsertNotificationAsync(
+                WmsInventoryHealthCheckJob.CreateNotificationForDeepReport(
+                    report.Value,
+                    clock.UtcNow,
+                    context),
+                clock.UtcNow,
+                cancellationToken);
+        }
+
+        logger.LogInformation(
+            "Deep inventory reconciliation scanned {BalanceCount} balances, {TransactionCount} transactions, {ReservationCount} reservations, and {IssueCount} issues",
+            report.Value.BalancesScanned,
+            report.Value.TransactionsScanned,
+            report.Value.ReservationsScanned,
+            report.Value.IssueCount);
+        return new WmsJobExecutionResult(
+            ToInt(report.Value.BalancesScanned + report.Value.TransactionsScanned +
+                report.Value.ReservationsScanned + report.Value.AllocationsScanned),
+            report.Value.IsClean ? 0 : 1,
+            $"Deep inventory reconciliation detected {report.Value.IssueCount} issues.");
+    }
+
+    private static int ToInt(long value) =>
+        value > int.MaxValue ? int.MaxValue : (int)value;
 }
