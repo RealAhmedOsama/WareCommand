@@ -163,6 +163,7 @@ public class Program
             app.UseMiddleware<WmsRequestMetricsMiddleware>();
             app.UseRateLimiter();
             app.UseAuthentication();
+            app.UseMiddleware<WarehouseContextMiddleware>();
             app.UseRequestLocalization();
             var jobOptions = app.Services.GetRequiredService<WmsJobOptions>();
             if (jobOptions.Enabled)

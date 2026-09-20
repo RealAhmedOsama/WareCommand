@@ -1,0 +1,85 @@
+@model Wms.Application.Warehouses.WarehouseDto
+@{
+    ViewData["Title"] = $"{Model.Code} - {T["Warehouses.Details"]}";
+    var canEdit = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.WarehouseManage)).Succeeded;
+}
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-building me-2 text-primary"></i>@Model.Name <code class="wms-identifier ms-2">@Model.Code</code></h2>
+        @if (!string.IsNullOrWhiteSpace(Model.ArabicName)) { <div class="text-muted" dir="rtl">@Model.ArabicName</div> }
+        <span class="badge @(Model.IsActive ? "bg-success" : "bg-secondary")">@(Model.IsActive ? T["Common.Active"] : T["Common.Inactive"])</span>
+        <span class="badge @(Model.WorkflowEnabled ? "bg-primary" : "bg-warning text-dark")">@(Model.WorkflowEnabled ? T["Warehouses.WorkflowsOn"] : T["Warehouses.WorkflowsOff"])</span>
+    </div>
+    <div class="d-flex gap-2">
+        @if (canEdit) { <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">@T["Common.Edit"]</a> }
+        <a asp-action="Index" class="btn btn-outline-secondary">@T["Common.Back"]</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Warehouses.BasicInformation"]</h5></div>
+            <div class="card-body row g-3">
+                <div class="col-md-6"><strong>@T["Warehouses.Address"]</strong><div>@(string.IsNullOrWhiteSpace(Model.Address) ? T["Common.None"] : Model.Address)</div></div>
+                <div class="col-md-6"><strong>@T["Settings.TimeZone"]</strong><div><code>@Model.TimeZone</code></div></div>
+                <div class="col-md-6"><strong>@T["Warehouses.ContactName"]</strong><div>@(string.IsNullOrWhiteSpace(Model.ContactName) ? T["Common.None"] : Model.ContactName)</div></div>
+                <div class="col-md-6"><strong>@T["Warehouses.ContactPhone"]</strong><div>@(string.IsNullOrWhiteSpace(Model.ContactPhone) ? T["Common.None"] : Model.ContactPhone)</div></div>
+                <div class="col-md-6"><strong>@T["Warehouses.ContactEmail"]</strong><div>@(string.IsNullOrWhiteSpace(Model.ContactEmail) ? T["Common.None"] : Model.ContactEmail)</div></div>
+                <div class="col-md-6"><strong>@T["Warehouses.Locations"]</strong><div>@Model.ActiveLocationCount / @Model.LocationCount @T["Warehouses.ActiveLocations"]</div></div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">@T["Warehouses.OperationalLocations"]</h5>
+                @if (canEdit) { <a asp-action="Configure" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary">@T["Common.Edit"]</a> }
+            </div>
+            <div class="card-body">
+                @if (!Model.WorkflowReady) { <div class="alert alert-warning">@T["Warehouses.WorkflowSetupRequired"] @string.Join(", ", Model.MissingOperationalLocationRoles)</div> }
+                <div class="row g-2">
+                    @foreach (var reference in Model.OperationalLocations)
+                    {
+                        <div class="col-md-6"><span class="badge bg-light text-dark border me-1">@reference.Role</span> <code>@reference.LocationCode</code> — @reference.LocationName</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">@T["Warehouses.NumberSequences"]</h5></div>
+            <div class="card-body small">
+                <div class="row g-2">
+                    <div class="col-6">@T["Warehouses.ReceiptSequence"]<strong class="d-block">@Model.NumberSequence.NextReceiptNumber</strong></div>
+                    <div class="col-6">@T["Warehouses.OrderSequence"]<strong class="d-block">@Model.NumberSequence.NextOrderNumber</strong></div>
+                    <div class="col-6">@T["Warehouses.WorkSequence"]<strong class="d-block">@Model.NumberSequence.NextWorkNumber</strong></div>
+                    <div class="col-6">@T["Warehouses.ShipmentSequence"]<strong class="d-block">@Model.NumberSequence.NextShipmentNumber</strong></div>
+                    <div class="col-6">@T["Warehouses.TransferSequence"]<strong class="d-block">@Model.NumberSequence.NextTransferNumber</strong></div>
+                    <div class="col-6">@T["Warehouses.CountSequence"]<strong class="d-block">@Model.NumberSequence.NextCountNumber</strong></div>
+                </div>
+            </div>
+        </div>
+        @if (canEdit)
+        {
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white"><h5 class="mb-0">@T["Warehouses.Lifecycle"]</h5></div>
+                <div class="card-body d-grid gap-2">
+                    @if (Model.IsActive)
+                    {
+                        @if (!Model.WorkflowEnabled)
+                        {
+                            <form asp-action="EnableWorkflows" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-primary w-100" type="submit">@T["Warehouses.EnableWorkflows"]</button></form>
+                        }
+                        <form asp-action="Deactivate" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-outline-danger w-100" type="submit">@T["Warehouses.Deactivate"]</button></form>
+                    }
+                    else
+                    {
+                        <form asp-action="Activate" method="post"><input type="hidden" name="id" value="@Model.Id" /><button class="btn btn-success w-100" type="submit">@T["Warehouses.Activate"]</button></form>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

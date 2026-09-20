@@ -81,7 +81,10 @@ public class CreateLocationUseCase : ICreateLocationUseCase
             }
 
             // Check if code already exists
-            var existingLocation = await _unitOfWork.Locations.GetByCodeAsync(request.Code, cancellationToken);
+            var existingLocation = await _unitOfWork.Locations.GetByWarehouseAndCodeAsync(
+                request.WarehouseId,
+                request.Code,
+                cancellationToken);
             if (existingLocation != null)
                 return Result.Failure<LocationDto>(WmsErrors.Conflict(
                     "location.code_conflict",

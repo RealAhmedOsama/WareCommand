@@ -2,6 +2,8 @@ using System.ComponentModel.DataAnnotations;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
 using Wms.Application.UseCases.Reports;
+using Wms.Application.Warehouses;
+using Wms.Domain.Enums;
 
 namespace Wms.ASP.Models;
 
@@ -61,6 +63,151 @@ public class StockAdjustmentViewModel
     [StringLength(1000)]
     public string Reason { get; set; } = string.Empty;
 }
+
+public sealed class WarehouseManagementViewModel
+{
+    public IReadOnlyList<WarehouseSummaryDto> Warehouses { get; set; } = [];
+    public bool IncludeInactive { get; set; } = true;
+}
+
+public class CreateWarehouseViewModel
+{
+    [Required, StringLength(20, MinimumLength = 2)]
+    [RegularExpression("^[A-Za-z0-9_-]+$")]
+    public string Code { get; set; } = string.Empty;
+
+    [Required, StringLength(200)]
+    public string Name { get; set; } = string.Empty;
+
+    [StringLength(200)]
+    public string? ArabicName { get; set; }
+
+    [StringLength(500)]
+    public string? Address { get; set; }
+
+    [StringLength(200)]
+    public string? ContactName { get; set; }
+
+    [StringLength(50)]
+    public string? ContactPhone { get; set; }
+
+    [StringLength(320), EmailAddress]
+    public string? ContactEmail { get; set; }
+
+    [Required, StringLength(100)]
+    public string TimeZone { get; set; } = "UTC";
+
+    public bool AllowNegativeStock { get; set; }
+    public bool RequireLocationForAdjustment { get; set; } = true;
+    public bool BlockExpiredReceipt { get; set; } = true;
+
+    [Range(0, 3650)]
+    public int ExpiryWarningDays { get; set; } = 30;
+
+    [Range(1, long.MaxValue)]
+    public long NextReceiptNumber { get; set; } = 1;
+
+    [Range(1, long.MaxValue)]
+    public long NextOrderNumber { get; set; } = 1;
+
+    [Range(1, long.MaxValue)]
+    public long NextWorkNumber { get; set; } = 1;
+
+    [Range(1, long.MaxValue)]
+    public long NextShipmentNumber { get; set; } = 1;
+
+    [Range(1, long.MaxValue)]
+    public long NextTransferNumber { get; set; } = 1;
+
+    [Range(1, long.MaxValue)]
+    public long NextCountNumber { get; set; } = 1;
+}
+
+public sealed class EditWarehouseViewModel : CreateWarehouseViewModel
+{
+    [Range(1, int.MaxValue)]
+    public int Id { get; set; }
+
+}
+
+public sealed class ConfigureWarehouseLocationsViewModel
+{
+    [Range(1, int.MaxValue)]
+    public int WarehouseId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? ReceivingLocationId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? StagingLocationId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? StorageLocationId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? PackingLocationId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? ShippingLocationId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? QuarantineLocationId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? DamagedLocationId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? ReturnsLocationId { get; set; }
+
+    [Range(1, int.MaxValue)]
+    public int? TransitLocationId { get; set; }
+
+    public IReadOnlyList<WarehouseLocationOptionViewModel> Locations { get; set; } = [];
+    public WarehouseDto? Warehouse { get; set; }
+
+    public IReadOnlyList<WarehouseOperationalLocationSelection> ToSelections() =>
+    [
+        new(WarehouseOperationalLocationRole.Receiving, ReceivingLocationId ?? 0),
+        new(WarehouseOperationalLocationRole.Staging, StagingLocationId ?? 0),
+        new(WarehouseOperationalLocationRole.Storage, StorageLocationId ?? 0),
+        new(WarehouseOperationalLocationRole.Packing, PackingLocationId ?? 0),
+        new(WarehouseOperationalLocationRole.Shipping, ShippingLocationId ?? 0),
+        new(WarehouseOperationalLocationRole.Quarantine, QuarantineLocationId ?? 0),
+        new(WarehouseOperationalLocationRole.Damaged, DamagedLocationId ?? 0),
+        new(WarehouseOperationalLocationRole.Returns, ReturnsLocationId ?? 0),
+        new(WarehouseOperationalLocationRole.Transit, TransitLocationId ?? 0)
+    ];
+
+    public static ConfigureWarehouseLocationsViewModel From(WarehouseDto warehouse) =>
+        new()
+        {
+            WarehouseId = warehouse.Id,
+            Warehouse = warehouse,
+            ReceivingLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Receiving),
+            StagingLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Staging),
+            StorageLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Storage),
+            PackingLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Packing),
+            ShippingLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Shipping),
+            QuarantineLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Quarantine),
+            DamagedLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Damaged),
+            ReturnsLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Returns),
+            TransitLocationId = GetLocationId(warehouse, WarehouseOperationalLocationRole.Transit)
+        };
+
+    private static int? GetLocationId(
+        WarehouseDto warehouse,
+        WarehouseOperationalLocationRole role) =>
+        warehouse.OperationalLocations
+            .Where(reference => reference.Role == role)
+            .Select(reference => (int?)reference.LocationId)
+            .FirstOrDefault();
+}
+
+public sealed record WarehouseLocationOptionViewModel(
+    int Id,
+    string Code,
+    string Name,
+    bool IsActive);
 
 public class ReceivingViewModel
 {

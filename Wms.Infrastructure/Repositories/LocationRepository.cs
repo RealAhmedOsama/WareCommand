@@ -53,6 +53,21 @@ public class LocationRepository : Repository<Location>, ILocationRepository
         return await query.FirstOrDefaultAsync(l => l.Code == normalizedCode, cancellationToken);
     }
 
+    public async Task<Location?> GetByWarehouseAndCodeAsync(
+        int warehouseId,
+        string code,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedCode = code.Trim().ToUpperInvariant();
+        var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var query = DbSet
+            .Include(location => location.Warehouse)
+            .Where(location => location.WarehouseId == warehouseId && location.Code == normalizedCode)
+            .AsQueryable();
+        query = ApplyScope(query, scope);
+        return await query.FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IEnumerable<Location>> GetByWarehouseIdAsync(int warehouseId,
         CancellationToken cancellationToken = default)
     {

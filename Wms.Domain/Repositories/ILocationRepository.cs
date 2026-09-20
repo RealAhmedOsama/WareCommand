@@ -7,6 +7,10 @@ namespace Wms.Domain.Repositories;
 public interface ILocationRepository : IRepository<Location>
 {
     Task<Location?> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
+    Task<Location?> GetByWarehouseAndCodeAsync(
+        int warehouseId,
+        string code,
+        CancellationToken cancellationToken = default);
     Task<IEnumerable<Location>> GetByWarehouseIdAsync(int warehouseId, CancellationToken cancellationToken = default);
 
     Task<IEnumerable<Location>> GetChildLocationsAsync(int parentLocationId,

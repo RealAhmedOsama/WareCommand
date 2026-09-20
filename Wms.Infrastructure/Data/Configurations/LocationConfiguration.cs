@@ -42,7 +42,7 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .OnDelete(DeleteBehavior.Restrict);
 
         // Indexes
-        builder.HasIndex(e => e.Code).IsUnique();
+        builder.HasIndex(e => new { e.WarehouseId, e.Code }).IsUnique();
         builder.HasIndex(e => e.WarehouseId);
         builder.HasIndex(e => e.ParentLocationId);
         builder.HasIndex(e => new { e.IsActive, e.IsReceivable });

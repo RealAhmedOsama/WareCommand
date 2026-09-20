@@ -1,4 +1,7 @@
 ﻿<!DOCTYPE html>
+@using Wms.Application.Context
+@inject IWarehouseAccessService WarehouseAccessService
+@inject IWarehouseContext WarehouseContext
 @{
     var currentCulture = System.Globalization.CultureInfo.CurrentUICulture;
     var isRtl = currentCulture.TextInfo.IsRightToLeft;
@@ -11,8 +14,13 @@
     var canItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsRead)).Succeeded;
     var canLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsRead)).Succeeded;
     var canAudit = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AuditRead)).Succeeded;
+    var canWarehouses = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.WarehouseManage)).Succeeded;
     var canSettings = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SettingsManage)).Succeeded;
     var canAccess = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AccessManage)).Succeeded;
+    var accessibleWarehouses = User.Identity?.IsAuthenticated == true
+        ? await WarehouseAccessService.GetAccessibleWarehousesAsync(WmsPermissions.DashboardView)
+        : Array.Empty<WmsWarehouseOption>();
+    var layoutReturnUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
 }
 @* Authorization checks are evaluated before rendering navigation. *@
 <html lang="@currentCulture.Name" dir="@(isRtl ? "rtl" : "ltr")">
@@ -105,7 +113,7 @@
                         </a>
                     </li>
                     }
-                    @if (canItems || canLocations || canAudit || canSettings)
+                    @if (canItems || canLocations || canAudit || canWarehouses || canSettings)
                     {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded-pill mx-1" href="#" id="managementDropdown" role="button"
@@ -127,6 +135,15 @@
                             <li>
                                 <a class="dropdown-item py-2" asp-controller="Locations" asp-action="Index">
                                     <i class="bi bi-geo-alt me-2 text-danger"></i>@T["Nav.Locations"]
+                                </a>
+                            </li>
+                            }
+                            @if (canWarehouses)
+                            {
+                            <li><hr class="dropdown-divider" /></li>
+                            <li>
+                                <a class="dropdown-item py-2" asp-controller="Warehouses" asp-action="Index">
+                                    <i class="bi bi-building me-2 text-success"></i>@T["Nav.Warehouses"]
                                 </a>
                             </li>
                             }
@@ -186,6 +203,20 @@
                         </li>
                     }
                 </ul>
+                @if (User.Identity?.IsAuthenticated == true && accessibleWarehouses.Count > 0)
+                {
+                    <form asp-controller="Warehouses" asp-action="Select" method="post" class="d-flex align-items-center ms-lg-2 language-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="returnUrl" value="@layoutReturnUrl" />
+                        <label class="visually-hidden" for="layout-warehouse">@T["Warehouse.Select"]</label>
+                        <select id="layout-warehouse" name="id" class="form-select form-select-sm" aria-label="@T["Warehouse.Select"]" onchange="this.form.submit()">
+                            @foreach (var warehouse in accessibleWarehouses)
+                            {
+                                <option value="@warehouse.Id" selected="@(WarehouseContext.WarehouseId == warehouse.Id ? "selected" : null)">@warehouse.Code — @warehouse.Name</option>
+                            }
+                        </select>
+                    </form>
+                }
                 <form asp-controller="Account" asp-action="SetLocale" method="post" class="d-flex align-items-center ms-lg-2 language-form">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="ReturnUrl" value="@languageReturnUrl" />

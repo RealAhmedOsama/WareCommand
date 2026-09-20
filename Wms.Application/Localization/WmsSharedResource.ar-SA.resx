@@ -477,4 +477,60 @@
   <data name="The Locale field is required." xml:space="preserve"><value>حقل اللغة مطلوب.</value></data>
   <data name="The TimeZone field is required." xml:space="preserve"><value>حقل المنطقة الزمنية مطلوب.</value></data>
   <data name="The field Username or email must be a string with a maximum length of 256." xml:space="preserve"><value>يجب ألا يتجاوز حقل اسم المستخدم أو البريد الإلكتروني 256 حرفاً.</value></data>
+  <data name="Nav.Warehouses" xml:space="preserve"><value>المستودعات</value></data>
+  <data name="Warehouse.Select" xml:space="preserve"><value>اختر المستودع</value></data>
+  <data name="Common.Select" xml:space="preserve"><value>اختيار</value></data>
+  <data name="Common.Status" xml:space="preserve"><value>الحالة</value></data>
+  <data name="Warehouses.Title" xml:space="preserve"><value>إدارة المستودعات</value></data>
+  <data name="Warehouses.Subtitle" xml:space="preserve"><value>إدارة بيانات المستودعات والمراجع ودورة الحياة بشكل مستقل.</value></data>
+  <data name="Warehouses.Create" xml:space="preserve"><value>إنشاء مستودع</value></data>
+  <data name="Warehouses.Edit" xml:space="preserve"><value>تعديل المستودع</value></data>
+  <data name="Warehouses.Details" xml:space="preserve"><value>تفاصيل المستودع</value></data>
+  <data name="Warehouses.IncludeInactive" xml:space="preserve"><value>تضمين المستودعات غير النشطة</value></data>
+  <data name="Warehouses.Locations" xml:space="preserve"><value>المواقع</value></data>
+  <data name="Warehouses.ActiveLocations" xml:space="preserve"><value>نشطة</value></data>
+  <data name="Warehouses.OperationalSetup" xml:space="preserve"><value>الإعداد التشغيلي</value></data>
+  <data name="Warehouses.OperationalLocations" xml:space="preserve"><value>المواقع التشغيلية</value></data>
+  <data name="Warehouses.OperationalLocationsHelp" xml:space="preserve"><value>يجب أن يشير كل دور تشغيلي إلى موقع نشط داخل هذا المستودع.</value></data>
+  <data name="Warehouses.Users" xml:space="preserve"><value>المستخدمون المعينون</value></data>
+  <data name="Warehouses.None" xml:space="preserve"><value>لا توجد مستودعات ضمن نطاقك.</value></data>
+  <data name="Warehouses.WorkflowsOn" xml:space="preserve"><value>العمليات مفعلة</value></data>
+  <data name="Warehouses.WorkflowsOff" xml:space="preserve"><value>العمليات معطلة</value></data>
+  <data name="Warehouses.BasicInformation" xml:space="preserve"><value>المعلومات الأساسية</value></data>
+  <data name="Warehouses.CodeImmutable" xml:space="preserve"><value>الرمز فريد ولا يمكن تغييره بعد الإنشاء.</value></data>
+  <data name="Warehouses.ArabicName" xml:space="preserve"><value>الاسم العربي المحلي</value></data>
+  <data name="Warehouses.Address" xml:space="preserve"><value>العنوان</value></data>
+  <data name="Warehouses.Contact" xml:space="preserve"><value>بيانات الاتصال</value></data>
+  <data name="Warehouses.ContactName" xml:space="preserve"><value>اسم جهة الاتصال</value></data>
+  <data name="Warehouses.ContactPhone" xml:space="preserve"><value>هاتف جهة الاتصال</value></data>
+  <data name="Warehouses.ContactEmail" xml:space="preserve"><value>بريد جهة الاتصال</value></data>
+  <data name="Warehouses.OperationalSettings" xml:space="preserve"><value>الإعدادات التشغيلية</value></data>
+  <data name="Warehouses.NumberSequences" xml:space="preserve"><value>تسلسلات الأرقام</value></data>
+  <data name="Warehouses.ReceiptSequence" xml:space="preserve"><value>الرقم التالي للاستلام</value></data>
+  <data name="Warehouses.OrderSequence" xml:space="preserve"><value>الرقم التالي للطلب</value></data>
+  <data name="Warehouses.WorkSequence" xml:space="preserve"><value>الرقم التالي للعمل</value></data>
+  <data name="Warehouses.ShipmentSequence" xml:space="preserve"><value>الرقم التالي للشحنة</value></data>
+  <data name="Warehouses.TransferSequence" xml:space="preserve"><value>الرقم التالي للتحويل</value></data>
+  <data name="Warehouses.CountSequence" xml:space="preserve"><value>الرقم التالي للجرد</value></data>
+  <data name="Warehouses.Lifecycle" xml:space="preserve"><value>دورة الحياة</value></data>
+  <data name="Warehouses.WorkflowSetupRequired" xml:space="preserve"><value>اضبط كل المواقع التشغيلية المطلوبة قبل تفعيل العمليات.</value></data>
+  <data name="Warehouses.EnableWorkflows" xml:space="preserve"><value>تفعيل العمليات</value></data>
+  <data name="Warehouses.Deactivate" xml:space="preserve"><value>تعطيل المستودع</value></data>
+  <data name="Warehouses.Activate" xml:space="preserve"><value>تفعيل المستودع</value></data>
+  <data name="Warehouses.Created" xml:space="preserve"><value>تم إنشاء المستودع '{0}'.</value></data>
+  <data name="Warehouses.Updated" xml:space="preserve"><value>تم تحديث المستودع '{0}'.</value></data>
+  <data name="Warehouses.OperationalLocationsSaved" xml:space="preserve"><value>تم حفظ مراجع المواقع التشغيلية.</value></data>
+  <data name="Warehouses.WorkflowsEnabled" xml:space="preserve"><value>تم تفعيل عمليات المستودع.</value></data>
+  <data name="Warehouses.Activated" xml:space="preserve"><value>تم تفعيل المستودع.</value></data>
+  <data name="Warehouses.Deactivated" xml:space="preserve"><value>تم تعطيل المستودع مع الحفاظ على المراجع التاريخية.</value></data>
+  <data name="Warehouses.SelectionDenied" xml:space="preserve"><value>ليس لديك تعيين لهذا المستودع.</value></data>
+  <data name="Warehouses.Role.Receiving" xml:space="preserve"><value>الاستلام</value></data>
+  <data name="Warehouses.Role.Staging" xml:space="preserve"><value>التهيئة</value></data>
+  <data name="Warehouses.Role.Storage" xml:space="preserve"><value>التخزين</value></data>
+  <data name="Warehouses.Role.Packing" xml:space="preserve"><value>التعبئة</value></data>
+  <data name="Warehouses.Role.Shipping" xml:space="preserve"><value>الشحن</value></data>
+  <data name="Warehouses.Role.Quarantine" xml:space="preserve"><value>الحجر</value></data>
+  <data name="Warehouses.Role.Damaged" xml:space="preserve"><value>التالف</value></data>
+  <data name="Warehouses.Role.Returns" xml:space="preserve"><value>المرتجعات</value></data>
+  <data name="Warehouses.Role.Transit" xml:space="preserve"><value>العبور</value></data>
 </root>

@@ -25,6 +25,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<Item> Items => Set<Item>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
+    public DbSet<WarehouseOperationalLocation> WarehouseOperationalLocations =>
+        Set<WarehouseOperationalLocation>();
+    public DbSet<WarehouseNumberSequence> WarehouseNumberSequences =>
+        Set<WarehouseNumberSequence>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Lot> Lots => Set<Lot>();
     public DbSet<Stock> Stock => Set<Stock>();
@@ -51,6 +55,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
         builder.ApplyConfiguration(new ItemConfiguration());
         builder.ApplyConfiguration(new WarehouseConfiguration());
+        builder.ApplyConfiguration(new WarehouseOperationalLocationConfiguration());
+        builder.ApplyConfiguration(new WarehouseNumberSequenceConfiguration());
         builder.ApplyConfiguration(new LocationConfiguration());
         builder.ApplyConfiguration(new LotConfiguration());
         builder.ApplyConfiguration(new StockConfiguration());

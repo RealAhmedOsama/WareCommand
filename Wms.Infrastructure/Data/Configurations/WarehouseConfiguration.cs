@@ -22,8 +22,32 @@ public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
             .IsRequired()
             .HasMaxLength(200);
 
+        builder.Property(e => e.ArabicName)
+            .HasMaxLength(200)
+            .IsRequired();
+
         builder.Property(e => e.Address)
-            .HasMaxLength(500);
+            .HasMaxLength(500)
+            .IsRequired();
+
+        builder.Property(e => e.ContactName)
+            .HasMaxLength(200)
+            .IsRequired();
+
+        builder.Property(e => e.ContactPhone)
+            .HasMaxLength(50)
+            .IsRequired();
+
+        builder.Property(e => e.ContactEmail)
+            .HasMaxLength(320)
+            .IsRequired();
+
+        builder.Property(e => e.TimeZone)
+            .IsRequired()
+            .HasMaxLength(100);
+
+        builder.Property(e => e.ExpiryWarningDays)
+            .IsRequired();
 
         builder.Property(e => e.CreatedAt)
             .IsRequired()
@@ -37,6 +61,11 @@ public class WarehouseConfiguration : IEntityTypeConfiguration<Warehouse>
             .WithOne(l => l.Warehouse)
             .HasForeignKey(l => l.WarehouseId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(e => e.OperationalLocations)
+            .WithOne(reference => reference.Warehouse)
+            .HasForeignKey(reference => reference.WarehouseId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Indexes
         builder.HasIndex(e => e.Code).IsUnique();

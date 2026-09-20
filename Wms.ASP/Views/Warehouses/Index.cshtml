@@ -1,0 +1,84 @@
+@model WarehouseManagementViewModel
+@{
+    ViewData["Title"] = T["Warehouses.Title"];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-building me-2 text-primary"></i>@T["Warehouses.Title"]</h2>
+        <p class="text-muted mb-0">@T["Warehouses.Subtitle"]</p>
+    </div>
+    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i>@T["Warehouses.Create"]</a>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="d-flex align-items-center gap-3">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="includeInactive" name="includeInactive" value="true" checked="@Model.IncludeInactive" />
+                <label class="form-check-label" for="includeInactive">@T["Warehouses.IncludeInactive"]</label>
+            </div>
+            <button type="submit" class="btn btn-outline-secondary">@T["Common.Refresh"]</button>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+            <tr>
+                <th>@T["Field.Code"]</th>
+                <th>@T["Field.Name"]</th>
+                <th>@T["Common.Status"]</th>
+                <th>@T["Warehouses.Locations"]</th>
+                <th>@T["Warehouses.OperationalSetup"]</th>
+                <th>@T["Warehouses.Users"]</th>
+                <th class="text-end">@T["Common.Actions"]</th>
+            </tr>
+            </thead>
+            <tbody>
+            @if (Model.Warehouses.Count == 0)
+            {
+                <tr><td colspan="7" class="text-center text-muted py-5">@T["Warehouses.None"]</td></tr>
+            }
+            else
+            {
+                @foreach (var warehouse in Model.Warehouses)
+                {
+                    <tr class="@(!warehouse.IsActive ? "table-secondary" : null)">
+                        <td><code class="wms-identifier">@warehouse.Code</code></td>
+                        <td>
+                            <div class="fw-semibold">@warehouse.Name</div>
+                            @if (!string.IsNullOrWhiteSpace(warehouse.ArabicName))
+                            {
+                                <small class="text-muted">@warehouse.ArabicName</small>
+                            }
+                        </td>
+                        <td>
+                            <span class="badge @(warehouse.IsActive ? "bg-success" : "bg-secondary")">
+                                @(warehouse.IsActive ? T["Common.Active"] : T["Common.Inactive"])
+                            </span>
+                            @if (warehouse.WorkflowEnabled)
+                            {
+                                <span class="badge bg-primary">@T["Warehouses.WorkflowsOn"]</span>
+                            }
+                        </td>
+                        <td>@warehouse.ActiveLocationCount / @warehouse.LocationCount</td>
+                        <td>
+                            <span class="badge @(warehouse.WorkflowReady ? "bg-success" : "bg-warning text-dark")">
+                                @warehouse.ConfiguredOperationalLocationCount / 9
+                            </span>
+                        </td>
+                        <td>@warehouse.AssignedUserCount</td>
+                        <td class="text-end">
+                            <a asp-action="Details" asp-route-id="@warehouse.Id" class="btn btn-sm btn-outline-primary">@T["Common.View"]</a>
+                            <a asp-action="Edit" asp-route-id="@warehouse.Id" class="btn btn-sm btn-outline-secondary">@T["Common.Edit"]</a>
+                        </td>
+                    </tr>
+                }
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

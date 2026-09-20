@@ -1,0 +1,26 @@
+@model EditWarehouseViewModel
+@{
+    ViewData["Title"] = T["Warehouses.Edit"];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-pencil-square me-2 text-primary"></i>@T["Warehouses.Edit"]</h2>
+        <span class="text-muted">@T["Field.Code"]: <code class="wms-identifier">@Model.Code</code></span>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">@T["Common.Back"]</a>
+</div>
+
+<form asp-action="Edit" method="post">
+    <input asp-for="Id" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <partial name="_Form" model="Model" />
+    <div class="d-flex justify-content-end gap-2 mt-4">
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">@T["Common.Cancel"]</a>
+        <button type="submit" class="btn btn-primary">@T["Common.Save"]</button>
+    </div>
+</form>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

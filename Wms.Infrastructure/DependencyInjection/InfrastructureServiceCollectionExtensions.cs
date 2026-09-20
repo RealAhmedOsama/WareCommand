@@ -7,6 +7,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Jobs;
 using Wms.Application.Settings;
+using Wms.Application.Warehouses;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Infrastructure.Auditing;
@@ -19,6 +20,7 @@ using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
 using Wms.Infrastructure.Settings;
 using Wms.Infrastructure.Telemetry;
+using Wms.Infrastructure.Warehouses;
 
 namespace Wms.Infrastructure.DependencyInjection;
 
@@ -56,6 +58,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<WmsReplenishmentGenerationJob>();
         services.AddSingleton<WmsSettingsCache>();
         services.AddScoped<IWmsSettingsService, WmsSettingsService>();
+        services.AddScoped<IWarehouseManagementService, WarehouseManagementService>();
         services.AddScoped<WmsAuthorizationBootstrapper>();
         services.AddDatabaseInitialization();
         services.AddSingleton<WmsDbCommandMetricsInterceptor>();

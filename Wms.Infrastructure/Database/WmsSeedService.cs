@@ -105,6 +105,7 @@ public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) :
         var warehouse = await EnsureWarehouseAsync(cancellationToken);
         await EnsureGlobalSettingsAsync(warehouse.Id, cancellationToken);
         var locations = await EnsureLocationsAsync(warehouse, ReferenceLocations, cancellationToken);
+        await EnsureWarehouseConfigurationAsync(warehouse, cancellationToken);
 
         if (profile == WmsSeedProfile.Reference)
         {
@@ -149,6 +150,23 @@ public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) :
         context.Warehouses.Add(warehouse);
         await context.SaveChangesAsync(cancellationToken);
         return warehouse;
+    }
+
+    private async Task EnsureWarehouseConfigurationAsync(
+        Warehouse warehouse,
+        CancellationToken cancellationToken)
+    {
+        var sequence = await context.WarehouseNumberSequences
+            .SingleOrDefaultAsync(item => item.WarehouseId == warehouse.Id, cancellationToken);
+        if (sequence is null)
+        {
+            context.WarehouseNumberSequences.Add(new WarehouseNumberSequence(warehouse.Id));
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private async Task<Dictionary<string, Location>> EnsureLocationsAsync(

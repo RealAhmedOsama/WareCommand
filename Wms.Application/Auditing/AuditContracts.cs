@@ -15,6 +15,11 @@ public static class WmsAuditActions
     public const string LocationCreated = "master.location.created";
     public const string LocationUpdated = "master.location.updated";
     public const string LocationDeactivated = "master.location.deactivated";
+    public const string WarehouseCreated = "master.warehouse.created";
+    public const string WarehouseUpdated = "master.warehouse.updated";
+    public const string WarehouseActivated = "master.warehouse.activated";
+    public const string WarehouseDeactivated = "master.warehouse.deactivated";
+    public const string WarehouseConfigurationChanged = "master.warehouse.configuration_changed";
 
     public const string StockAdjusted = "inventory.stock.adjusted";
     public const string ReceiptRecorded = "inbound.receipt.recorded";
@@ -41,6 +46,11 @@ public static class WmsAuditActions
         LocationCreated,
         LocationUpdated,
         LocationDeactivated,
+        WarehouseCreated,
+        WarehouseUpdated,
+        WarehouseActivated,
+        WarehouseDeactivated,
+        WarehouseConfigurationChanged,
         StockAdjusted,
         ReceiptRecorded,
         PutawayCompleted,
@@ -63,6 +73,7 @@ public static class WmsAuditEntityTypes
     public const string AccessAssignment = "AccessAssignment";
     public const string Item = "Item";
     public const string Location = "Location";
+    public const string Warehouse = "Warehouse";
     public const string Stock = "Stock";
     public const string Movement = "Movement";
     public const string Count = "Count";

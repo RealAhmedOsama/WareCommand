@@ -1,0 +1,66 @@
+@model CreateWarehouseViewModel
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white"><h5 class="mb-0">@T["Warehouses.BasicInformation"]</h5></div>
+    <div class="card-body row g-3">
+        <div class="col-md-4">
+            <label asp-for="Code" class="form-label">@T["Field.Code"]</label>
+            @if (Model is EditWarehouseViewModel)
+            {
+                <input asp-for="Code" class="form-control wms-identifier" readonly />
+            }
+            else
+            {
+                <input asp-for="Code" class="form-control wms-identifier" />
+            }
+            <span asp-validation-for="Code" class="text-danger"></span>
+            <div class="form-text">@T["Warehouses.CodeImmutable"]</div>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Name" class="form-label">@T["Field.Name"]</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="ArabicName" class="form-label">@T["Warehouses.ArabicName"]</label>
+            <input asp-for="ArabicName" class="form-control" dir="rtl" />
+            <span asp-validation-for="ArabicName" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label asp-for="Address" class="form-label">@T["Warehouses.Address"]</label>
+            <textarea asp-for="Address" class="form-control" rows="2"></textarea>
+            <span asp-validation-for="Address" class="text-danger"></span>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white"><h5 class="mb-0">@T["Warehouses.Contact"]</h5></div>
+    <div class="card-body row g-3">
+        <div class="col-md-4"><label asp-for="ContactName" class="form-label">@T["Warehouses.ContactName"]</label><input asp-for="ContactName" class="form-control" /><span asp-validation-for="ContactName" class="text-danger"></span></div>
+        <div class="col-md-4"><label asp-for="ContactPhone" class="form-label">@T["Warehouses.ContactPhone"]</label><input asp-for="ContactPhone" class="form-control" /><span asp-validation-for="ContactPhone" class="text-danger"></span></div>
+        <div class="col-md-4"><label asp-for="ContactEmail" class="form-label">@T["Warehouses.ContactEmail"]</label><input asp-for="ContactEmail" class="form-control" type="email" /><span asp-validation-for="ContactEmail" class="text-danger"></span></div>
+        <div class="col-md-6"><label asp-for="TimeZone" class="form-label">@T["Settings.TimeZone"]</label><input asp-for="TimeZone" class="form-control" /><span asp-validation-for="TimeZone" class="text-danger"></span><div class="form-text">IANA identifier, for example UTC or Africa/Cairo.</div></div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white"><h5 class="mb-0">@T["Warehouses.OperationalSettings"]</h5></div>
+    <div class="card-body row g-3">
+        <div class="col-md-3 form-check form-switch ms-3"><input asp-for="AllowNegativeStock" class="form-check-input" /><label asp-for="AllowNegativeStock" class="form-check-label">@T["Settings.AllowNegativeStock"]</label></div>
+        <div class="col-md-3 form-check form-switch ms-3"><input asp-for="RequireLocationForAdjustment" class="form-check-input" /><label asp-for="RequireLocationForAdjustment" class="form-check-label">@T["Settings.RequireLocationForAdjustment"]</label></div>
+        <div class="col-md-3 form-check form-switch ms-3"><input asp-for="BlockExpiredReceipt" class="form-check-input" /><label asp-for="BlockExpiredReceipt" class="form-check-label">@T["Settings.BlockExpiredReceipt"]</label></div>
+        <div class="col-md-3"><label asp-for="ExpiryWarningDays" class="form-label">@T["Settings.ExpiryWarningDays"]</label><input asp-for="ExpiryWarningDays" class="form-control" type="number" min="0" /></div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white"><h5 class="mb-0">@T["Warehouses.NumberSequences"]</h5></div>
+    <div class="card-body row g-3">
+        <div class="col-md-4"><label asp-for="NextReceiptNumber" class="form-label">@T["Warehouses.ReceiptSequence"]</label><input asp-for="NextReceiptNumber" class="form-control" type="number" min="1" /><span asp-validation-for="NextReceiptNumber" class="text-danger"></span></div>
+        <div class="col-md-4"><label asp-for="NextOrderNumber" class="form-label">@T["Warehouses.OrderSequence"]</label><input asp-for="NextOrderNumber" class="form-control" type="number" min="1" /><span asp-validation-for="NextOrderNumber" class="text-danger"></span></div>
+        <div class="col-md-4"><label asp-for="NextWorkNumber" class="form-label">@T["Warehouses.WorkSequence"]</label><input asp-for="NextWorkNumber" class="form-control" type="number" min="1" /><span asp-validation-for="NextWorkNumber" class="text-danger"></span></div>
+        <div class="col-md-4"><label asp-for="NextShipmentNumber" class="form-label">@T["Warehouses.ShipmentSequence"]</label><input asp-for="NextShipmentNumber" class="form-control" type="number" min="1" /><span asp-validation-for="NextShipmentNumber" class="text-danger"></span></div>
+        <div class="col-md-4"><label asp-for="NextTransferNumber" class="form-label">@T["Warehouses.TransferSequence"]</label><input asp-for="NextTransferNumber" class="form-control" type="number" min="1" /><span asp-validation-for="NextTransferNumber" class="text-danger"></span></div>
+        <div class="col-md-4"><label asp-for="NextCountNumber" class="form-label">@T["Warehouses.CountSequence"]</label><input asp-for="NextCountNumber" class="form-control" type="number" min="1" /><span asp-validation-for="NextCountNumber" class="text-danger"></span></div>
+    </div>
+</div>

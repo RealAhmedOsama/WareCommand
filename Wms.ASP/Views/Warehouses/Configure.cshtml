@@ -1,0 +1,36 @@
+@model ConfigureWarehouseLocationsViewModel
+@{
+    ViewData["Title"] = T["Warehouses.OperationalLocations"];
+    var warehouseName = Model.Warehouse?.Name ?? T["Field.Warehouse"];
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-diagram-3 me-2 text-primary"></i>@T["Warehouses.OperationalLocations"]</h2>
+        <p class="text-muted mb-0">@warehouseName — @T["Warehouses.OperationalLocationsHelp"]</p>
+    </div>
+    <a asp-action="Details" asp-route-id="@Model.WarehouseId" class="btn btn-outline-secondary">@T["Common.Back"]</a>
+</div>
+
+<form asp-action="Configure" method="post">
+    <input asp-for="WarehouseId" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body row g-3">
+            <div class="col-md-6"><label asp-for="ReceivingLocationId" class="form-label">@T["Warehouses.Role.Receiving"]</label><select asp-for="ReceivingLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name @(location.IsActive ? "" : $"({T["Common.Inactive"]})")</option>}</select><span asp-validation-for="ReceivingLocationId" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="StagingLocationId" class="form-label">@T["Warehouses.Role.Staging"]</label><select asp-for="StagingLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name</option>}</select><span asp-validation-for="StagingLocationId" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="StorageLocationId" class="form-label">@T["Warehouses.Role.Storage"]</label><select asp-for="StorageLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name</option>}</select><span asp-validation-for="StorageLocationId" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="PackingLocationId" class="form-label">@T["Warehouses.Role.Packing"]</label><select asp-for="PackingLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name</option>}</select><span asp-validation-for="PackingLocationId" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="ShippingLocationId" class="form-label">@T["Warehouses.Role.Shipping"]</label><select asp-for="ShippingLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name</option>}</select><span asp-validation-for="ShippingLocationId" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="QuarantineLocationId" class="form-label">@T["Warehouses.Role.Quarantine"]</label><select asp-for="QuarantineLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name</option>}</select><span asp-validation-for="QuarantineLocationId" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="DamagedLocationId" class="form-label">@T["Warehouses.Role.Damaged"]</label><select asp-for="DamagedLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name</option>}</select><span asp-validation-for="DamagedLocationId" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="ReturnsLocationId" class="form-label">@T["Warehouses.Role.Returns"]</label><select asp-for="ReturnsLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name</option>}</select><span asp-validation-for="ReturnsLocationId" class="text-danger"></span></div>
+            <div class="col-md-6"><label asp-for="TransitLocationId" class="form-label">@T["Warehouses.Role.Transit"]</label><select asp-for="TransitLocationId" class="form-select"><option value="">@T["Common.Select"]</option>@foreach (var location in Model.Locations){<option value="@location.Id" disabled="@(!location.IsActive)">@location.Code — @location.Name</option>}</select><span asp-validation-for="TransitLocationId" class="text-danger"></span></div>
+        </div>
+        <div class="card-footer bg-white text-end"><button type="submit" class="btn btn-primary">@T["Common.Save"]</button></div>
+    </div>
+</form>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}
