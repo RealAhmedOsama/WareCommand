@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Identity;
+using Wms.Application.Settings;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Reports;
@@ -17,23 +18,42 @@ public class DashboardController : Controller
     private readonly IGetStockUseCase _getStockUseCase;
     private readonly ILogger<DashboardController> _logger;
     private readonly IMovementReportUseCase _movementReportUseCase;
+    private readonly IWmsSettingsService _settingsService;
 
     public DashboardController(
         IGetStockUseCase getStockUseCase,
         IGetItemsUseCase getItemsUseCase,
         IMovementReportUseCase movementReportUseCase,
-        ILogger<DashboardController> logger)
+        ILogger<DashboardController> logger,
+        IWmsSettingsService settingsService)
     {
         _getStockUseCase = getStockUseCase;
         _getItemsUseCase = getItemsUseCase;
         _movementReportUseCase = movementReportUseCase;
         _logger = logger;
+        _settingsService = settingsService;
     }
 
     [EnableRateLimiting(WmsRateLimitPolicies.Report)]
     public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
     {
         var model = new DashboardViewModel();
+        var settingsResult = await _settingsService.GetAsync(cancellationToken: cancellationToken);
+        var settingsValues = settingsResult.IsSuccess
+            ? settingsResult.Value.Values
+            : WmsSettingsDefaults.Create();
+        var dashboardSettings = settingsValues.Dashboard;
+        if (settingsResult.IsFailure)
+        {
+            _logger.LogWarning(
+                "Dashboard settings could not be loaded: {ErrorCode}",
+                settingsResult.ErrorCode);
+        }
+
+        model.LowStockThreshold = dashboardSettings.LowStockThreshold;
+        model.LowStockAlertLimit = dashboardSettings.LowStockAlertLimit;
+        model.RecentMovementPeriodDays = settingsValues.Reports.DefaultPeriodDays;
+        model.DashboardRefreshIntervalSeconds = dashboardSettings.RefreshIntervalSeconds;
 
         // Load KPI data
         var itemsResult = await _getItemsUseCase.ExecuteAsync(cancellationToken: cancellationToken);
@@ -69,9 +89,9 @@ public class DashboardController : Controller
 
             // Low stock alerts
             model.LowStockItems = allStockResult.Value
-                .Where(s => s.AvailableQuantity < 10)
+                .Where(s => s.AvailableQuantity < dashboardSettings.LowStockThreshold)
                 .OrderBy(s => s.AvailableQuantity)
-                .Take(10)
+                .Take(dashboardSettings.LowStockAlertLimit)
                 .ToList();
         }
         else
@@ -82,7 +102,7 @@ public class DashboardController : Controller
         // Recent movements
         var utcToday = DateTime.UtcNow.Date;
         var request = new MovementReportRequest(
-            utcToday.AddDays(-7),
+            utcToday.AddDays(-settingsValues.Reports.DefaultPeriodDays),
             DateTime.UtcNow
         );
 
@@ -91,7 +111,7 @@ public class DashboardController : Controller
         {
             model.RecentMovements = movementsResult.Value
                 .OrderByDescending(m => m.Timestamp)
-                .Take(10)
+                .Take(dashboardSettings.RecentMovementLimit)
                 .ToList();
         }
         else

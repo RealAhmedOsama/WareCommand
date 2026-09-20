@@ -2,6 +2,7 @@
 
 using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Settings;
 using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Reports;
@@ -16,14 +17,19 @@ public partial class DashboardForm : Form
     private readonly IGetStockUseCase _getStockUseCase;
     private readonly ILogger<DashboardForm> _logger;
     private readonly IMovementReportUseCase _movementReportUseCase;
+    private readonly IWmsSettingsService _settingsService;
+    private WmsSettingsValues _settings = WmsSettingsDefaults.Create();
     private Timer? _refreshTimer;
 
     public DashboardForm(IGetStockUseCase getStockUseCase, IGetItemsUseCase getItemsUseCase,
-        IMovementReportUseCase movementReportUseCase, ILogger<DashboardForm> logger)
+        IMovementReportUseCase movementReportUseCase,
+        IWmsSettingsService settingsService,
+        ILogger<DashboardForm> logger)
     {
         _getStockUseCase = getStockUseCase;
         _getItemsUseCase = getItemsUseCase;
         _movementReportUseCase = movementReportUseCase;
+        _settingsService = settingsService;
         _logger = logger;
         InitializeComponent();
         SetupForm();
@@ -40,7 +46,7 @@ public partial class DashboardForm : Form
     private void SetupRefreshTimer()
     {
         _refreshTimer = new Timer();
-        _refreshTimer.Interval = 300000; // 5 minutes
+        _refreshTimer.Interval = _settings.Dashboard.RefreshIntervalSeconds * 1000;
         _refreshTimer.Tick += async (s, e) => await LoadDashboardDataAsync();
         _refreshTimer.Start();
     }
@@ -49,6 +55,22 @@ public partial class DashboardForm : Form
     {
         try
         {
+            var settingsResult = await _settingsService.GetAsync();
+            if (settingsResult.IsSuccess)
+            {
+                _settings = settingsResult.Value.Values;
+                if (_refreshTimer is not null)
+                {
+                    _refreshTimer.Interval = _settings.Dashboard.RefreshIntervalSeconds * 1000;
+                }
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Desktop dashboard settings could not be loaded: {ErrorCode}",
+                    settingsResult.ErrorCode);
+            }
+
             lblLastRefresh.Text = $"Last Refreshed: {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
 
             // Load KPI data
@@ -110,7 +132,7 @@ public partial class DashboardForm : Form
         try
         {
             var request = new MovementReportRequest(
-                DateTime.Today.AddDays(-7),
+                DateTime.Today.AddDays(-_settings.Reports.DefaultPeriodDays),
                 DateTime.Now
             );
 
@@ -119,7 +141,7 @@ public partial class DashboardForm : Form
             {
                 var recentMovements = result.Value
                     .OrderByDescending(m => m.Timestamp)
-                    .Take(10)
+                    .Take(_settings.Dashboard.RecentMovementLimit)
                     .ToList();
 
                 dgvRecentMovements.DataSource = recentMovements;
@@ -140,9 +162,9 @@ public partial class DashboardForm : Form
             if (stockResult.IsSuccess)
             {
                 var lowStockItems = stockResult.Value
-                    .Where(s => s.AvailableQuantity < 10) // Configurable threshold
+                    .Where(s => s.AvailableQuantity < _settings.Dashboard.LowStockThreshold)
                     .OrderBy(s => s.AvailableQuantity)
-                    .Take(10)
+                    .Take(_settings.Dashboard.LowStockAlertLimit)
                     .ToList();
 
                 dgvLowStock.DataSource = lowStockItems;

@@ -90,7 +90,7 @@
             <div class="card-header bg-white border-bottom">
                 <h5 class="card-title mb-0">
                     <i class="bi bi-clock-history me-2 text-primary"></i>
-                    Recent Movements (Last 7 Days)
+                    Recent Movements (Last @Model.RecentMovementPeriodDays Days)
                 </h5>
             </div>
             <div class="card-body p-0">
@@ -160,7 +160,7 @@
                                         <small class="text-muted">@item.LocationCode</small>
                                     </div>
                                     <div class="text-end">
-                                        <span class="badge bg-@(GetStockLevelColor(item.AvailableQuantity)) rounded-pill">
+                        <span class="badge bg-@(GetStockLevelColor(item.AvailableQuantity, Model.LowStockThreshold)) rounded-pill">
                                             @item.AvailableQuantity.ToString("N1")
                                         </span>
                                     </div>
@@ -194,10 +194,10 @@
                 window.location.reload();
             });
 
-            // Auto-refresh every 5 minutes
+            const refreshIntervalSeconds = @Model.DashboardRefreshIntervalSeconds;
             setInterval(function() {
                 window.location.reload();
-            }, 300000);
+            }, refreshIntervalSeconds * 1000);
         });
     </script>
 }
@@ -216,13 +216,12 @@
         };
     }
 
-    private string GetStockLevelColor(decimal quantity)
+    private string GetStockLevelColor(decimal quantity, decimal threshold)
     {
         return quantity switch
         {
             <= 0 => "danger",
-            <= 5 => "danger",
-            <= 10 => "warning",
+            _ when quantity <= threshold => "warning",
             _ => "success"
         };
     }

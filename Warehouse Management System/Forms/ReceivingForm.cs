@@ -5,6 +5,7 @@ using System.Media;
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
+using Wms.Application.Settings;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Receiving;
 using Wms.WinForms.Common;
@@ -17,16 +18,20 @@ public partial class ReceivingForm : Form
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly ILogger<ReceivingForm> _logger;
     private readonly IReceiveItemUseCase _receiveItemUseCase;
+    private readonly IWmsSettingsService _settingsService;
+    private WmsSettingsValues _settings = WmsSettingsDefaults.Create();
 
     public ReceivingForm(
         IReceiveItemUseCase receiveItemUseCase,
         IGetItemsUseCase getItemsUseCase,
         ICurrentUser currentUser,
+        IWmsSettingsService settingsService,
         ILogger<ReceivingForm> logger)
     {
         _receiveItemUseCase = receiveItemUseCase;
         _getItemsUseCase = getItemsUseCase;
         _currentUser = currentUser;
+        _settingsService = settingsService;
         _logger = logger;
         InitializeComponent();
         SetupEventHandlers();
@@ -46,7 +51,7 @@ public partial class ReceivingForm : Form
     private void SetupForm()
     {
         ModernUIHelper.StyleForm(this);
-        txtLocationCode.Text = "RECEIVE"; // Default receiving location
+        txtLocationCode.Clear();
         txtBarcode.Focus();
 
         // Enable scanner-first workflow
@@ -62,6 +67,30 @@ public partial class ReceivingForm : Form
 
         ModernUIHelper.StyleSuccessButton(btnReceive);
         ModernUIHelper.StyleSecondaryButton(btnClear);
+        _ = LoadSettingsAsync();
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settingsResult = await _settingsService.GetAsync();
+            if (settingsResult.IsFailure)
+            {
+                _logger.LogWarning(
+                    "Receiving settings could not be loaded: {ErrorCode}",
+                    settingsResult.ErrorCode);
+                return;
+            }
+
+            _settings = settingsResult.Value.Values;
+            txtLocationCode.Text = _settings.WarehouseDefaults.DefaultReceivingLocationCode;
+            dtpExpiryDate.Value = DateTime.Today.AddDays(_settings.Expiry.WarningDays);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading receiving settings");
+        }
     }
 
     private async void TxtBarcode_KeyPress(object? sender, KeyPressEventArgs e)
@@ -113,6 +142,16 @@ public partial class ReceivingForm : Form
             {
                 PlayErrorSound();
                 ModernUIHelper.ShowModernError("Please scan or enter a barcode");
+                return;
+            }
+
+            if (txtBarcode.Text.Trim().Length < _settings.Scanner.MinimumBarcodeLength ||
+                txtBarcode.Text.Trim().Length > _settings.Scanner.MaximumBarcodeLength)
+            {
+                PlayErrorSound();
+                ModernUIHelper.ShowModernError(
+                    $"Barcode length must be between {_settings.Scanner.MinimumBarcodeLength} and {_settings.Scanner.MaximumBarcodeLength} characters.");
+                txtBarcode.SelectAll();
                 return;
             }
 
@@ -296,7 +335,7 @@ public partial class ReceivingForm : Form
         txtLotNumber.Visible = false;
         lblExpiryDate.Visible = false;
         dtpExpiryDate.Visible = false;
-        dtpExpiryDate.Value = DateTime.Today.AddDays(30); // Default 30 days from today
+        dtpExpiryDate.Value = DateTime.Today.AddDays(_settings.Expiry.WarningDays);
     }
 
     private void SetBusy(bool isBusy)
@@ -306,8 +345,13 @@ public partial class ReceivingForm : Form
         btnClear.Enabled = !isBusy;
     }
 
-    private static void PlaySuccessSound()
+    private void PlaySuccessSound()
     {
+        if (!_settings.Scanner.EnableAudioFeedback)
+        {
+            return;
+        }
+
         try
         {
             SystemSounds.Beep.Play();
@@ -318,8 +362,13 @@ public partial class ReceivingForm : Form
         }
     }
 
-    private static void PlayErrorSound()
+    private void PlayErrorSound()
     {
+        if (!_settings.Scanner.EnableAudioFeedback)
+        {
+            return;
+        }
+
         try
         {
             SystemSounds.Hand.Play();

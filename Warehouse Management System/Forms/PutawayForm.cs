@@ -4,6 +4,7 @@ using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
+using Wms.Application.Settings;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Receiving;
 using Wms.WinForms.Common;
@@ -16,16 +17,20 @@ public partial class PutawayForm : Form
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly ILogger<PutawayForm> _logger;
     private readonly IPutawayUseCase _putawayUseCase;
+    private readonly IWmsSettingsService _settingsService;
+    private WmsSettingsValues _settings = WmsSettingsDefaults.Create();
 
     public PutawayForm(
         IPutawayUseCase putawayUseCase,
         IGetItemsUseCase getItemsUseCase,
         ICurrentUser currentUser,
+        IWmsSettingsService settingsService,
         ILogger<PutawayForm> logger)
     {
         _putawayUseCase = putawayUseCase;
         _getItemsUseCase = getItemsUseCase;
         _currentUser = currentUser;
+        _settingsService = settingsService;
         _logger = logger;
         InitializeComponent();
         SetupEventHandlers();
@@ -58,8 +63,31 @@ public partial class PutawayForm : Form
         ModernUIHelper.StylePrimaryButton(btnPutaway);
         ModernUIHelper.StyleSecondaryButton(btnClear);
 
-        txtFromLocation.Text = "RECEIVE"; // Default from receiving
+        txtFromLocation.Clear();
         txtBarcode.Focus();
+        _ = LoadSettingsAsync();
+    }
+
+    private async Task LoadSettingsAsync()
+    {
+        try
+        {
+            var settingsResult = await _settingsService.GetAsync();
+            if (settingsResult.IsFailure)
+            {
+                _logger.LogWarning(
+                    "Putaway settings could not be loaded: {ErrorCode}",
+                    settingsResult.ErrorCode);
+                return;
+            }
+
+            _settings = settingsResult.Value.Values;
+            txtFromLocation.Text = _settings.WarehouseDefaults.DefaultReceivingLocationCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading putaway settings");
+        }
     }
 
     private async void TxtBarcode_KeyPress(object? sender, KeyPressEventArgs e)
@@ -119,6 +147,15 @@ public partial class PutawayForm : Form
             if (string.IsNullOrWhiteSpace(txtBarcode.Text))
             {
                 ModernUIHelper.ShowModernError("Please scan or enter a barcode");
+                return;
+            }
+
+            if (txtBarcode.Text.Trim().Length < _settings.Scanner.MinimumBarcodeLength ||
+                txtBarcode.Text.Trim().Length > _settings.Scanner.MaximumBarcodeLength)
+            {
+                ModernUIHelper.ShowModernError(
+                    $"Barcode length must be between {_settings.Scanner.MinimumBarcodeLength} and {_settings.Scanner.MaximumBarcodeLength} characters.");
+                txtBarcode.SelectAll();
                 return;
             }
 

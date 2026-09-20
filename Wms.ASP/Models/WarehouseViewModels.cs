@@ -15,6 +15,10 @@ public class DashboardViewModel
     public List<MovementReportDto> RecentMovements { get; set; } = new();
     public List<StockDto> LowStockItems { get; set; } = new();
     public DateTime LastRefresh { get; set; }
+    public decimal LowStockThreshold { get; set; }
+    public int LowStockAlertLimit { get; set; }
+    public int RecentMovementPeriodDays { get; set; }
+    public int DashboardRefreshIntervalSeconds { get; set; }
 }
 
 public class InventoryViewModel

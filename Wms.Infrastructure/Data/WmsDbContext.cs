@@ -7,6 +7,7 @@ using Wms.Domain.Entities;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.Settings;
 
 namespace Wms.Infrastructure.Data;
 
@@ -28,6 +29,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     public DbSet<WmsUserWarehouseAssignment> UserWarehouseAssignments => Set<WmsUserWarehouseAssignment>();
+
+    public DbSet<WmsGlobalSettingsEntity> GlobalSettings => Set<WmsGlobalSettingsEntity>();
+
+    public DbSet<WmsWarehouseSettingsOverrideEntity> WarehouseSettingsOverrides =>
+        Set<WmsWarehouseSettingsOverrideEntity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -67,6 +73,54 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
                 .WithMany()
                 .HasForeignKey(assignment => assignment.WarehouseId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<WmsGlobalSettingsEntity>(entity =>
+        {
+            entity.ToTable("WmsGlobalSettings");
+            entity.HasKey(settings => settings.Id);
+            entity.Property(settings => settings.CompanyName).HasMaxLength(200).IsRequired();
+            entity.Property(settings => settings.CompanyCode).HasMaxLength(50).IsRequired();
+            entity.Property(settings => settings.DefaultReceivingLocationCode).HasMaxLength(50).IsRequired();
+            entity.Property(settings => settings.DefaultShippingLocationCode).HasMaxLength(50);
+            entity.Property(settings => settings.ReceivingPrefix).HasMaxLength(20).IsRequired();
+            entity.Property(settings => settings.ShippingPrefix).HasMaxLength(20).IsRequired();
+            entity.Property(settings => settings.AdjustmentPrefix).HasMaxLength(20).IsRequired();
+            entity.Property(settings => settings.LowStockThreshold).HasColumnType("decimal(18,4)");
+            entity.Property(settings => settings.MaximumAdjustmentQuantity).HasColumnType("decimal(18,4)");
+            entity.Property(settings => settings.LabelTemplateName).HasMaxLength(100).IsRequired();
+            entity.Property(settings => settings.LabelPaperSize).HasMaxLength(30).IsRequired();
+            entity.Property(settings => settings.DefaultLocale).HasMaxLength(20).IsRequired();
+            entity.Property(settings => settings.DefaultTimeZone).HasMaxLength(100).IsRequired();
+            entity.Property(settings => settings.CurrencyCode).HasMaxLength(3).IsRequired();
+            entity.Property(settings => settings.IntegrationEndpointUrl).HasMaxLength(2_000);
+            entity.Property(settings => settings.UpdatedAtUtc)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired();
+            entity.Property(settings => settings.Revision).IsConcurrencyToken();
+            entity.HasOne<Warehouse>()
+                .WithMany()
+                .HasForeignKey(settings => settings.DefaultWarehouseId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<WmsWarehouseSettingsOverrideEntity>(entity =>
+        {
+            entity.ToTable("WmsWarehouseSettingsOverrides");
+            entity.HasKey(settings => settings.WarehouseId);
+            entity.Property(settings => settings.DefaultReceivingLocationCode).HasMaxLength(50);
+            entity.Property(settings => settings.DefaultShippingLocationCode).HasMaxLength(50);
+            entity.Property(settings => settings.LowStockThreshold).HasColumnType("decimal(18,4)");
+            entity.Property(settings => settings.Locale).HasMaxLength(20);
+            entity.Property(settings => settings.TimeZone).HasMaxLength(100);
+            entity.Property(settings => settings.UpdatedAtUtc)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired();
+            entity.Property(settings => settings.Revision).IsConcurrencyToken();
+            entity.HasOne<Warehouse>()
+                .WithMany()
+                .HasForeignKey(settings => settings.WarehouseId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<WmsAuthenticationEvent>(entity =>

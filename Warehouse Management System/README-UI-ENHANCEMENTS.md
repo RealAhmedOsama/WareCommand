@@ -147,11 +147,7 @@ A modern Warehouse Management System MVP built with .NET 10 and WinForms, featur
 - **Consistent spacing** using rem-based padding
 - **Professional form organization** with logical tab order
 
-## ?? Configuration
-Enhanced settings in `appsettings.json`:
-- Dashboard refresh intervals
-- Low stock thresholds
-- UI theme settings
-- Default locations and behaviors
+## Configuration
+Operational settings are managed through the permission-protected web Settings screen and the typed database settings schema. This keeps dashboard refresh intervals, low-stock thresholds, scanner behavior, and default locations consistent across Web and WinForms. Deployment secrets and host settings remain in deployment configuration and are never imported or exported as business settings.
 
 This enhanced WMS now provides a professional, modern user interface that follows current design standards while maintaining the efficiency needed for warehouse operations.

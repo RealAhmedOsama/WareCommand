@@ -3,6 +3,7 @@
 using Microsoft.Extensions.Logging;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
+using Wms.Application.Settings;
 using Wms.Application.UseCases.Locations;
 using Wms.WinForms.Common;
 using CreateLocationDto = Wms.Application.UseCases.Locations.CreateLocationDto;
@@ -15,6 +16,7 @@ public partial class LocationEditDialog : Form
     private readonly ICurrentUser _currentUser;
     private readonly ICreateLocationUseCase _createLocationUseCase;
     private readonly IGetLocationsUseCase _getLocationsUseCase;
+    private readonly IWmsSettingsService _settingsService;
 
     private readonly int? _locationId;
     private readonly ILogger<LocationEditDialog> _logger;
@@ -26,6 +28,7 @@ public partial class LocationEditDialog : Form
         IGetLocationsUseCase getLocationsUseCase,
         ILogger<LocationEditDialog> logger,
         ICurrentUser currentUser,
+        IWmsSettingsService settingsService,
         int? locationId = null)
     {
         _createLocationUseCase = createLocationUseCase;
@@ -33,6 +36,7 @@ public partial class LocationEditDialog : Form
         _getLocationsUseCase = getLocationsUseCase;
         _logger = logger;
         _currentUser = currentUser;
+        _settingsService = settingsService;
         _locationId = locationId;
 
         InitializeComponent();
@@ -215,10 +219,25 @@ public partial class LocationEditDialog : Form
             }
             else
             {
+                var settingsResult = await _settingsService.GetAsync();
+                if (settingsResult.IsFailure)
+                {
+                    ModernUIHelper.ShowModernError(settingsResult.Error);
+                    return;
+                }
+
+                var defaultWarehouseId = settingsResult.Value.Values.WarehouseDefaults.DefaultWarehouseId;
+                if (!defaultWarehouseId.HasValue)
+                {
+                    ModernUIHelper.ShowModernError(
+                        "A default warehouse is not configured. Ask an administrator to configure Settings before adding a location.");
+                    return;
+                }
+
                 var request = new CreateLocationDto(
                     txtCode.Text.Trim(),
                     txtName.Text.Trim(),
-                    1, // Default warehouse ID - TODO: Make this configurable
+                    defaultWarehouseId.Value,
                     parentLocationId,
                     chkIsPickable.Checked,
                     chkIsReceivable.Checked,

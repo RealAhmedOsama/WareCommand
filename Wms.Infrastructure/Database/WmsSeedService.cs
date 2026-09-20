@@ -1,11 +1,14 @@
 using Microsoft.EntityFrameworkCore;
+using Wms.Application.Context;
+using Wms.Application.Settings;
 using Wms.Domain.Entities;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
+using Wms.Infrastructure.Settings;
 
 namespace Wms.Infrastructure.Database;
 
-public sealed class WmsSeedService(WmsDbContext context) : IWmsSeedService
+public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) : IWmsSeedService
 {
     private static readonly SeedLocation[] ReferenceLocations =
     [
@@ -93,10 +96,12 @@ public sealed class WmsSeedService(WmsDbContext context) : IWmsSeedService
     {
         if (profile == WmsSeedProfile.None)
         {
+            await EnsureGlobalSettingsAsync(null, cancellationToken);
             return;
         }
 
         var warehouse = await EnsureWarehouseAsync(cancellationToken);
+        await EnsureGlobalSettingsAsync(warehouse.Id, cancellationToken);
         var locations = await EnsureLocationsAsync(warehouse, ReferenceLocations, cancellationToken);
 
         if (profile == WmsSeedProfile.Reference)
@@ -107,6 +112,26 @@ public sealed class WmsSeedService(WmsDbContext context) : IWmsSeedService
         locations = await EnsureLocationsAsync(warehouse, DemoLocations, cancellationToken, locations);
         var items = await EnsureItemsAsync(cancellationToken);
         await EnsureStockAsync(items, locations, cancellationToken);
+    }
+
+    private async Task EnsureGlobalSettingsAsync(
+        int? defaultWarehouseId,
+        CancellationToken cancellationToken)
+    {
+        var existing = await context.GlobalSettings
+            .SingleOrDefaultAsync(
+                settings => settings.Id == WmsGlobalSettingsEntity.GlobalId,
+                cancellationToken);
+        if (existing is not null)
+        {
+            return;
+        }
+
+        context.GlobalSettings.Add(WmsSettingsSeedFactory.Create(
+            WmsSettingsDefaults.Create(),
+            defaultWarehouseId,
+            clock?.UtcNow ?? DateTimeOffset.UtcNow));
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<Warehouse> EnsureWarehouseAsync(CancellationToken cancellationToken)

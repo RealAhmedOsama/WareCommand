@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.Settings;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Infrastructure.Auditing;
@@ -14,6 +15,7 @@ using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
+using Wms.Infrastructure.Settings;
 using Wms.Infrastructure.Telemetry;
 
 namespace Wms.Infrastructure.DependencyInjection;
@@ -40,6 +42,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.TryAddScoped<IWarehouseContext, WmsWarehouseContext>();
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IAuditQueryService, AuditQueryService>();
+        services.AddSingleton<WmsSettingsCache>();
+        services.AddScoped<IWmsSettingsService, WmsSettingsService>();
         services.AddScoped<WmsAuthorizationBootstrapper>();
         services.AddDatabaseInitialization();
         services.AddSingleton<WmsDbCommandMetricsInterceptor>();

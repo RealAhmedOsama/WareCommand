@@ -8,6 +8,7 @@
     var canItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsRead)).Succeeded;
     var canLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsRead)).Succeeded;
     var canAudit = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AuditRead)).Succeeded;
+    var canSettings = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SettingsManage)).Succeeded;
     var canAccess = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AccessManage)).Succeeded;
 }
 @* Authorization checks are evaluated before rendering navigation. *@
@@ -91,7 +92,7 @@
                         </a>
                     </li>
                     }
-                    @if (canItems || canLocations || canAudit)
+                    @if (canItems || canLocations || canAudit || canSettings)
                     {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded-pill mx-1" href="#" id="managementDropdown" role="button"
@@ -124,6 +125,15 @@
                                     <i class="bi bi-shield-check me-2 text-secondary"></i>Audit log
                                 </a>
                             </li>
+                            }
+                            @if (canSettings)
+                            {
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item py-2" asp-controller="Settings" asp-action="Index">
+                                        <i class="bi bi-sliders me-2 text-primary"></i>Settings
+                                    </a>
+                                </li>
                             }
                         </ul>
                     </li>

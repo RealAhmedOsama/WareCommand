@@ -1,0 +1,165 @@
+@model SettingsIndexViewModel
+@{
+    ViewData["Title"] = "Settings";
+    var isGlobal = !Model.WarehouseId.HasValue;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-sliders me-2 text-primary"></i>Settings</h2>
+        <p class="text-muted mb-0">@Model.ScopeName</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Export" class="btn btn-outline-primary">Export non-secret settings</a>
+    </div>
+</div>
+
+<div class="alert alert-info border-0 shadow-sm">
+    <strong>Configuration boundary:</strong> business rules live here; deployment secrets and credentials are never stored or displayed in this screen.
+    Dashboard, scanner, and location defaults reload immediately after save. Database connection, Data Protection, and secret-provider settings remain deployment configuration and require a restart when changed.
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" asp-action="Index" class="row g-3 align-items-end">
+            <div class="col-md-8">
+                <label for="warehouseId" class="form-label">Settings scope</label>
+                <select id="warehouseId" name="warehouseId" class="form-select">
+                    <option value="">Global defaults</option>
+                    @foreach (var warehouse in Model.Warehouses)
+                    {
+                        <option value="@warehouse.Id" selected="@(Model.WarehouseId == warehouse.Id)">
+                            @warehouse.Code - @warehouse.Name
+                        </option>
+                    }
+                </select>
+                <div class="form-text">Warehouse values override only the fields you fill; blank override fields inherit global defaults.</div>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-outline-secondary">Load scope</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (isGlobal)
+{
+    <form asp-action="SaveGlobal" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">Company and warehouse defaults</h5></div>
+            <div class="card-body row g-3">
+                <div class="col-md-6"><label asp-for="Global.CompanyName" class="form-label"></label><input asp-for="Global.CompanyName" class="form-control" /><span asp-validation-for="Global.CompanyName" class="text-danger"></span></div>
+                <div class="col-md-6"><label asp-for="Global.CompanyCode" class="form-label"></label><input asp-for="Global.CompanyCode" class="form-control" /><span asp-validation-for="Global.CompanyCode" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.DefaultWarehouseId" class="form-label">Default warehouse</label><select asp-for="Global.DefaultWarehouseId" class="form-select"><option value="">Not configured</option>@foreach (var warehouse in Model.Warehouses){<option value="@warehouse.Id">@warehouse.Code - @warehouse.Name</option>}</select><span asp-validation-for="Global.DefaultWarehouseId" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.DefaultReceivingLocationCode" class="form-label"></label><input asp-for="Global.DefaultReceivingLocationCode" class="form-control" /><span asp-validation-for="Global.DefaultReceivingLocationCode" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.DefaultShippingLocationCode" class="form-label"></label><input asp-for="Global.DefaultShippingLocationCode" class="form-control" /><span asp-validation-for="Global.DefaultShippingLocationCode" class="text-danger"></span></div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">Numbering and dashboard</h5></div>
+            <div class="card-body row g-3">
+                <div class="col-md-4"><label asp-for="Global.ReceivingPrefix" class="form-label"></label><input asp-for="Global.ReceivingPrefix" class="form-control" /><span asp-validation-for="Global.ReceivingPrefix" class="text-danger"></span></div>
+                <div class="col-md-2"><label asp-for="Global.NextReceivingNumber" class="form-label"></label><input asp-for="Global.NextReceivingNumber" class="form-control" /><span asp-validation-for="Global.NextReceivingNumber" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.ShippingPrefix" class="form-label"></label><input asp-for="Global.ShippingPrefix" class="form-control" /><span asp-validation-for="Global.ShippingPrefix" class="text-danger"></span></div>
+                <div class="col-md-2"><label asp-for="Global.NextShippingNumber" class="form-label"></label><input asp-for="Global.NextShippingNumber" class="form-control" /><span asp-validation-for="Global.NextShippingNumber" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.AdjustmentPrefix" class="form-label"></label><input asp-for="Global.AdjustmentPrefix" class="form-control" /><span asp-validation-for="Global.AdjustmentPrefix" class="text-danger"></span></div>
+                <div class="col-md-2"><label asp-for="Global.NextAdjustmentNumber" class="form-label"></label><input asp-for="Global.NextAdjustmentNumber" class="form-control" /><span asp-validation-for="Global.NextAdjustmentNumber" class="text-danger"></span></div>
+                <div class="col-md-3"><label asp-for="Global.LowStockThreshold" class="form-label"></label><input asp-for="Global.LowStockThreshold" class="form-control" /><span asp-validation-for="Global.LowStockThreshold" class="text-danger"></span></div>
+                <div class="col-md-3"><label asp-for="Global.LowStockAlertLimit" class="form-label"></label><input asp-for="Global.LowStockAlertLimit" class="form-control" /><span asp-validation-for="Global.LowStockAlertLimit" class="text-danger"></span></div>
+                <div class="col-md-3"><label asp-for="Global.RecentMovementLimit" class="form-label"></label><input asp-for="Global.RecentMovementLimit" class="form-control" /><span asp-validation-for="Global.RecentMovementLimit" class="text-danger"></span></div>
+                <div class="col-md-3"><label asp-for="Global.RefreshIntervalSeconds" class="form-label"></label><input asp-for="Global.RefreshIntervalSeconds" class="form-control" /><span asp-validation-for="Global.RefreshIntervalSeconds" class="text-danger"></span></div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">Inventory, expiry, and scanner rules</h5></div>
+            <div class="card-body row g-3">
+                <div class="col-md-4"><label asp-for="Global.MaximumAdjustmentQuantity" class="form-label"></label><input asp-for="Global.MaximumAdjustmentQuantity" class="form-control" /><span asp-validation-for="Global.MaximumAdjustmentQuantity" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.ExpiryWarningDays" class="form-label"></label><input asp-for="Global.ExpiryWarningDays" class="form-control" /><span asp-validation-for="Global.ExpiryWarningDays" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.ScannerTimeoutMilliseconds" class="form-label"></label><input asp-for="Global.ScannerTimeoutMilliseconds" class="form-control" /><span asp-validation-for="Global.ScannerTimeoutMilliseconds" class="text-danger"></span></div>
+                <div class="col-md-3"><label asp-for="Global.MinimumBarcodeLength" class="form-label"></label><input asp-for="Global.MinimumBarcodeLength" class="form-control" /><span asp-validation-for="Global.MinimumBarcodeLength" class="text-danger"></span></div>
+                <div class="col-md-3"><label asp-for="Global.MaximumBarcodeLength" class="form-label"></label><input asp-for="Global.MaximumBarcodeLength" class="form-control" /><span asp-validation-for="Global.MaximumBarcodeLength" class="text-danger"></span></div>
+                <div class="col-md-3 form-check ms-3 mt-4"><input asp-for="Global.AllowNegativeStock" class="form-check-input" /><label asp-for="Global.AllowNegativeStock" class="form-check-label"></label></div>
+                <div class="col-md-3 form-check ms-3 mt-4"><input asp-for="Global.RequireLocationForAdjustment" class="form-check-input" /><label asp-for="Global.RequireLocationForAdjustment" class="form-check-label"></label></div>
+                <div class="col-md-3 form-check ms-3"><input asp-for="Global.BlockExpiredReceipt" class="form-check-input" /><label asp-for="Global.BlockExpiredReceipt" class="form-check-label"></label></div>
+                <div class="col-md-3 form-check ms-3"><input asp-for="Global.EnableAudioFeedback" class="form-check-input" /><label asp-for="Global.EnableAudioFeedback" class="form-check-label"></label></div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">Labels, reports, localization, and integrations</h5></div>
+            <div class="card-body row g-3">
+                <div class="col-md-4"><label asp-for="Global.LabelTemplateName" class="form-label"></label><input asp-for="Global.LabelTemplateName" class="form-control" /><span asp-validation-for="Global.LabelTemplateName" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.LabelPaperSize" class="form-label"></label><input asp-for="Global.LabelPaperSize" class="form-control" /><span asp-validation-for="Global.LabelPaperSize" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.DefaultReportPeriodDays" class="form-label"></label><input asp-for="Global.DefaultReportPeriodDays" class="form-control" /><span asp-validation-for="Global.DefaultReportPeriodDays" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.MaximumReportRows" class="form-label"></label><input asp-for="Global.MaximumReportRows" class="form-control" /><span asp-validation-for="Global.MaximumReportRows" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.Locale" class="form-label"></label><input asp-for="Global.Locale" class="form-control" /><span asp-validation-for="Global.Locale" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.TimeZone" class="form-label"></label><input asp-for="Global.TimeZone" class="form-control" /><span asp-validation-for="Global.TimeZone" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.CurrencyCode" class="form-label"></label><input asp-for="Global.CurrencyCode" class="form-control" /><span asp-validation-for="Global.CurrencyCode" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.IntegrationEndpointUrl" class="form-label"></label><input asp-for="Global.IntegrationEndpointUrl" class="form-control" /><span asp-validation-for="Global.IntegrationEndpointUrl" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Global.IntegrationTimeoutSeconds" class="form-label"></label><input asp-for="Global.IntegrationTimeoutSeconds" class="form-control" /><span asp-validation-for="Global.IntegrationTimeoutSeconds" class="text-danger"></span></div>
+                <div class="col-12 form-check"><input asp-for="Global.IncludeCompanyNameOnLabels" class="form-check-input" /><label asp-for="Global.IncludeCompanyNameOnLabels" class="form-check-label"></label></div>
+                <div class="col-12 form-check"><input asp-for="Global.IntegrationsEnabled" class="form-check-input" /><label asp-for="Global.IntegrationsEnabled" class="form-check-label"></label></div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save global settings</button>
+    </form>
+}
+else
+{
+    <form asp-action="SaveOverride" method="post">
+        @Html.AntiForgeryToken()
+        <input asp-for="Override.WarehouseId" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">Warehouse overrides</h5></div>
+            <div class="card-body row g-3">
+                <div class="col-md-6"><label asp-for="Override.DefaultReceivingLocationCode" class="form-label">Receiving location (blank inherits)</label><input asp-for="Override.DefaultReceivingLocationCode" class="form-control" /><span asp-validation-for="Override.DefaultReceivingLocationCode" class="text-danger"></span></div>
+                <div class="col-md-6"><label asp-for="Override.DefaultShippingLocationCode" class="form-label">Shipping location (blank inherits)</label><input asp-for="Override.DefaultShippingLocationCode" class="form-control" /><span asp-validation-for="Override.DefaultShippingLocationCode" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.LowStockThreshold" class="form-label">Low-stock threshold</label><input asp-for="Override.LowStockThreshold" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.LowStockThreshold" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.LowStockAlertLimit" class="form-label">Low-stock alert limit</label><input asp-for="Override.LowStockAlertLimit" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.LowStockAlertLimit" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.RecentMovementLimit" class="form-label">Recent movement limit</label><input asp-for="Override.RecentMovementLimit" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.RecentMovementLimit" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.RefreshIntervalSeconds" class="form-label">Refresh interval (seconds)</label><input asp-for="Override.RefreshIntervalSeconds" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.RefreshIntervalSeconds" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.ExpiryWarningDays" class="form-label">Expiry warning (days)</label><input asp-for="Override.ExpiryWarningDays" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.ExpiryWarningDays" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.ScannerTimeoutMilliseconds" class="form-label">Scanner timeout (milliseconds)</label><input asp-for="Override.ScannerTimeoutMilliseconds" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.ScannerTimeoutMilliseconds" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.MinimumBarcodeLength" class="form-label">Minimum barcode length</label><input asp-for="Override.MinimumBarcodeLength" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.MinimumBarcodeLength" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.MaximumBarcodeLength" class="form-label">Maximum barcode length</label><input asp-for="Override.MaximumBarcodeLength" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.MaximumBarcodeLength" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.DefaultReportPeriodDays" class="form-label">Report period (days)</label><input asp-for="Override.DefaultReportPeriodDays" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.DefaultReportPeriodDays" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.MaximumReportRows" class="form-label">Report rows</label><input asp-for="Override.MaximumReportRows" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.MaximumReportRows" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.Locale" class="form-label">Locale</label><input asp-for="Override.Locale" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.Locale" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.TimeZone" class="form-label">Time zone</label><input asp-for="Override.TimeZone" class="form-control" placeholder="Inherit" /><span asp-validation-for="Override.TimeZone" class="text-danger"></span></div>
+                <div class="col-md-4"><label asp-for="Override.BlockExpiredReceipt" class="form-label">Expired receipt behavior</label><select asp-for="Override.BlockExpiredReceipt" class="form-select"><option value="">Inherit</option><option value="true">Block expired receipts</option><option value="false">Allow expired receipts</option></select></div>
+                <div class="col-md-4"><label asp-for="Override.EnableAudioFeedback" class="form-label">Scanner audio</label><select asp-for="Override.EnableAudioFeedback" class="form-select"><option value="">Inherit</option><option value="true">Enabled</option><option value="false">Disabled</option></select></div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save warehouse override</button>
+    </form>
+}
+
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white"><h5 class="mb-0">Import non-secret settings</h5></div>
+    <div class="card-body">
+        <form asp-action="Import" method="post">
+            @Html.AntiForgeryToken()
+            <label for="ImportJson" class="form-label">WareCommand settings JSON</label>
+            <textarea id="ImportJson" name="ImportJson" class="form-control font-monospace" rows="8" maxlength="500000" placeholder="Paste an export created by this screen"></textarea>
+            <div class="form-text">Import replaces the explicit global profile and warehouse overrides. The change is validated and audited as one transaction.</div>
+            <button type="submit" class="btn btn-outline-danger mt-3">Validate and import</button>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white"><h5 class="mb-0">Effective values for this scope</h5></div>
+    <div class="card-body row g-3">
+        <div class="col-md-3"><strong>Low-stock threshold</strong><div>@Model.EffectiveValues.Dashboard.LowStockThreshold</div></div>
+        <div class="col-md-3"><strong>Refresh interval</strong><div>@Model.EffectiveValues.Dashboard.RefreshIntervalSeconds seconds</div></div>
+        <div class="col-md-3"><strong>Receiving location</strong><div><code>@Model.EffectiveValues.WarehouseDefaults.DefaultReceivingLocationCode</code></div></div>
+        <div class="col-md-3"><strong>Expiry warning</strong><div>@Model.EffectiveValues.Expiry.WarningDays days</div></div>
+    </div>
+</div>

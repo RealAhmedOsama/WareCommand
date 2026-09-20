@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Wms.Infrastructure.Data;
@@ -11,9 +12,11 @@ using Wms.Infrastructure.Data;
 namespace Wms.Infrastructure.Database.Migrations
 {
     [DbContext(typeof(WmsDbContext))]
-    partial class WmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260920035416_AddTypedBusinessSettings")]
+    partial class AddTypedBusinessSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -852,9 +855,6 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<int>("RecentMovementLimit")
-                        .HasColumnType("integer");
-
                     b.Property<bool>("RequireLocationForAdjustment")
                         .HasColumnType("boolean");
 
@@ -925,9 +925,6 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("MinimumBarcodeLength")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("RecentMovementLimit")
                         .HasColumnType("integer");
 
                     b.Property<long>("Revision")

@@ -4,6 +4,7 @@ using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Identity;
+using Wms.Application.Settings;
 using Wms.Application.UseCases.Locations;
 using Wms.WinForms.Common;
 
@@ -331,6 +332,7 @@ public partial class LocationManagementForm : Form
             var createLocationUseCase = Program.ServiceProvider.GetRequiredService<ICreateLocationUseCase>();
             var updateLocationUseCase = Program.ServiceProvider.GetRequiredService<IUpdateLocationUseCase>();
             var logger = Program.ServiceProvider.GetRequiredService<ILogger<LocationEditDialog>>();
+            var settingsService = Program.ServiceProvider.GetRequiredService<IWmsSettingsService>();
 
             var dialog = new LocationEditDialog(
                 createLocationUseCase,
@@ -338,6 +340,7 @@ public partial class LocationManagementForm : Form
                 _getLocationsUseCase,
                 logger,
                 _currentUser,
+                settingsService,
                 locationId);
 
             if (dialog.ShowDialog(this) == DialogResult.OK)
