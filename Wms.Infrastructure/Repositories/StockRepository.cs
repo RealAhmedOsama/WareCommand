@@ -30,6 +30,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Location)
             .Include(stock => stock.Lot)
             .Include(stock => stock.Serial)
+            .Include(stock => stock.InventoryStatus)
             .AsQueryable();
         query = ApplyScope(query, scope);
         return await query.FirstOrDefaultAsync(stock => stock.Id == id, cancellationToken);
@@ -43,6 +44,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Location)
             .Include(s => s.Lot)
             .Include(s => s.Serial)
+            .Include(s => s.InventoryStatus)
             .AsQueryable();
         query = ApplyScope(query, scope);
         return await query.ToListAsync(cancellationToken);
@@ -56,6 +58,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Location)
             .Include(s => s.Lot)
             .Include(s => s.Serial)
+            .Include(s => s.InventoryStatus)
             .Where(s => s.ItemId == itemId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -71,6 +74,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Location)
             .Include(s => s.Lot)
             .Include(s => s.Serial)
+            .Include(s => s.InventoryStatus)
             .Where(s => s.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -87,6 +91,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Location)
             .Include(s => s.Lot)
             .Include(s => s.Serial)
+            .Include(s => s.InventoryStatus)
             .Where(s => s.ItemId == itemId && s.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -129,6 +134,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Location)
             .Include(stock => stock.Lot)
             .Include(stock => stock.Serial)
+            .Include(stock => stock.InventoryStatus)
             .Where(stock => stock.ItemId == itemId && stock.LocationId == locationId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -154,6 +160,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Location)
             .Include(stock => stock.Lot)
             .Include(stock => stock.Serial)
+            .Include(stock => stock.InventoryStatus)
             .Where(stock => stock.LotId == lotId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -170,6 +177,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.Location)
             .Include(stock => stock.Lot)
             .Include(stock => stock.Serial)
+            .Include(stock => stock.InventoryStatus)
             .Where(stock => stock.SerialNumberId == serialNumberId)
             .AsQueryable();
         query = ApplyScope(query, scope);
@@ -185,7 +193,11 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.Location)
             .Include(s => s.Lot)
             .Include(s => s.Serial)
+            .Include(s => s.InventoryStatus)
             .Where(s => s.ItemId == itemId &&
+                        s.InventoryStatus != null &&
+                        s.InventoryStatus.IsActive &&
+                        s.InventoryStatus.IsAllocatable &&
                         s.QuantityAvailable.Value > s.QuantityReserved.Value)
             .AsQueryable();
         query = ApplyScope(query, scope);

@@ -11,12 +11,14 @@ namespace Wms.Infrastructure.Repositories;
 
 public class MovementRepository : Repository<Movement>, IMovementRepository
 {
+    private readonly WmsDbContext _context;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public MovementRepository(
         WmsDbContext context,
         IWarehouseAccessService warehouseAccessService) : base(context)
     {
+        _context = context;
         _warehouseAccessService = warehouseAccessService;
     }
 
@@ -121,14 +123,24 @@ public class MovementRepository : Repository<Movement>, IMovementRepository
         return await query.OrderByDescending(m => m.Timestamp).ToListAsync(cancellationToken);
     }
 
-    private static IQueryable<Movement> IncludeNavigations(IQueryable<Movement> query)
+    private IQueryable<Movement> IncludeNavigations(IQueryable<Movement> query)
     {
-        return query
+        var included = query
             .Include(movement => movement.Item)
             .Include(movement => movement.FromLocation)
             .Include(movement => movement.ToLocation)
             .Include(movement => movement.Lot)
             .Include(movement => movement.Serial);
+
+        // Some legacy in-memory repository tests construct movements directly
+        // without seeding the status catalog. Keep those records queryable;
+        // relational stores always load the required status graph.
+        return _context.Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory"
+            ? included
+            : included
+                .Include(movement => movement.InventoryStatus)
+                .Include(movement => movement.FromInventoryStatus)
+                .Include(movement => movement.ToInventoryStatus);
     }
 
     private static IQueryable<Movement> ApplyScope(

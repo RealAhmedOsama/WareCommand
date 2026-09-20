@@ -28,6 +28,14 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
 
         builder.Property(e => e.SerialNumberId);
 
+        builder.Property(e => e.InventoryStatusId)
+            .IsRequired();
+
+        builder.Property(e => e.FromInventoryStatusId);
+        builder.Property(e => e.ToInventoryStatusId);
+        builder.Property(e => e.StatusChangeLeg)
+            .HasConversion<int>();
+
         builder.Property(e => e.ReferenceNumber)
             .HasMaxLength(100);
 
@@ -43,7 +51,8 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .HasColumnType("timestamp with time zone");
 
         builder.Property(e => e.UpdatedAt)
-            .HasColumnType("timestamp with time zone");
+            .HasColumnType("timestamp with time zone")
+            .IsConcurrencyToken();
 
         // Value object configuration
         builder.Property(e => e.Quantity)
@@ -133,6 +142,21 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .HasForeignKey(e => e.SerialNumberId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(e => e.InventoryStatus)
+            .WithMany()
+            .HasForeignKey(e => e.InventoryStatusId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.FromInventoryStatus)
+            .WithMany()
+            .HasForeignKey(e => e.FromInventoryStatusId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(e => e.ToInventoryStatus)
+            .WithMany()
+            .HasForeignKey(e => e.ToInventoryStatusId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // Indexes
         builder.HasIndex(e => e.ItemId);
         builder.HasIndex(e => e.FromLocationId);
@@ -143,5 +167,7 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.HasIndex(e => e.ReferenceNumber);
         builder.HasIndex(e => e.PackagingCode);
         builder.HasIndex(e => e.SerialNumberId);
+        builder.HasIndex(e => e.InventoryStatusId);
+        builder.HasIndex(e => new { e.FromInventoryStatusId, e.ToInventoryStatusId });
     }
 }

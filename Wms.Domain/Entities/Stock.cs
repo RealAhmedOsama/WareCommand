@@ -1,6 +1,7 @@
 // Wms.Domain/Entities/Stock.cs
 
 using Wms.Domain.Common;
+using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Domain.Entities;
@@ -18,13 +19,15 @@ public class Stock : Entity
         Quantity quantity,
         int? lotId = null,
         string? serialNumber = null,
-        int? serialNumberId = null)
+        int? serialNumberId = null,
+        int inventoryStatusId = InventoryStatusSystemIds.Available)
     {
         ItemId = itemId;
         LocationId = locationId;
         LotId = lotId;
         SerialNumber = serialNumber?.Trim();
         SerialNumberId = serialNumberId;
+        InventoryStatusId = inventoryStatusId;
         QuantityAvailable = quantity;
         QuantityReserved = Quantity.Zero;
     }
@@ -33,6 +36,7 @@ public class Stock : Entity
     public int LocationId { get; private set; }
     public int? LotId { get; private set; }
     public int? SerialNumberId { get; private set; }
+    public int InventoryStatusId { get; private set; }
     public string? SerialNumber { get; private set; }
     public Quantity QuantityAvailable { get; private set; } = Quantity.Zero;
     public Quantity QuantityReserved { get; private set; } = Quantity.Zero;
@@ -42,6 +46,15 @@ public class Stock : Entity
     public Location Location { get; private set; } = null!;
     public Lot? Lot { get; private set; }
     public SerialNumber? Serial { get; private set; }
+    public InventoryStatus? InventoryStatus { get; private set; }
+
+    public void SetInventoryStatus(int inventoryStatusId)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(inventoryStatusId);
+
+        InventoryStatusId = inventoryStatusId;
+        SetUpdatedAt();
+    }
 
     public void AddQuantity(Quantity quantity)
     {

@@ -51,7 +51,7 @@ public class InventoryController : Controller
             var result = await _getStockUseCase.GetAllStockAsync(cancellationToken);
             if (result.IsSuccess)
             {
-                var stockItems = result.Value.Where(s => s.AvailableQuantity > 0);
+                var stockItems = result.Value.Where(s => s.QuantityAvailable > 0);
 
                 if (!string.IsNullOrWhiteSpace(searchTerm))
                 {
@@ -59,7 +59,9 @@ public class InventoryController : Controller
                         s.ItemSku.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                         s.ItemName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                         s.LocationCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        (s.LotNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+                        (s.LotNumber?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                        s.InventoryStatusCode.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        s.InventoryStatusName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
                 }
 
                 model.StockItems = stockItems.ToList();

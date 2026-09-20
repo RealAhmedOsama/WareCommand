@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.InventoryStatuses;
 using Wms.Application.SerialNumbers;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -13,6 +14,7 @@ using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.InventoryStatuses;
 using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
@@ -54,6 +56,11 @@ public class StockMovementServiceTests : IDisposable
             auditWriter,
             new SystemClock(),
             NullLogger<SerialNumberService>.Instance);
+        var inventoryStatusService = new InventoryStatusService(
+            unitOfWork,
+            auditWriter,
+            new SystemClock(),
+            NullLogger<InventoryStatusService>.Instance);
         _service = new StockMovementService(
             unitOfWork,
             mockLogger.Object,
@@ -61,7 +68,8 @@ public class StockMovementServiceTests : IDisposable
             new WmsRequestContext("Test"),
             new WmsOperationContextAccessor(),
             new SystemClock(),
-            serialNumberService);
+            serialNumberService,
+            inventoryStatusService);
 
         // Setup test data
         _warehouse = new Warehouse("TEST", "Test Warehouse");
@@ -276,6 +284,28 @@ public class StockMovementServiceTests : IDisposable
 
         var stock = await _context.Stock.FirstOrDefaultAsync(s => s.ItemId == _item.Id && s.LocationId == _location.Id);
         stock!.QuantityAvailable.Value.Should().Be(7.0m); // 10 - 3
+    }
+
+    [Fact]
+    public async Task PickAsync_WithHeldStock_IsRejectedByInventoryStatus()
+    {
+        var heldStock = new Stock(
+            _item.Id,
+            _location.Id,
+            new Quantity(3m),
+            inventoryStatusId: InventoryStatusSystemIds.Hold);
+        _context.Stock.Add(heldStock);
+        await _context.SaveChangesAsync();
+
+        var act = () => _service.PickAsync(
+            _item.Id,
+            _location.Id,
+            new Quantity(1m),
+            "USER1");
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*does not permit pick*");
+        (await _context.Movements.CountAsync()).Should().Be(0);
     }
 
     [Fact]

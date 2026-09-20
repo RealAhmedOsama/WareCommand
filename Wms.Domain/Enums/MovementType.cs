@@ -10,5 +10,6 @@ public enum MovementType
     Ship = 4,
     Adjustment = 5,
     CycleCount = 6,
-    Transfer = 7
+    Transfer = 7,
+    StatusChange = 8
 }

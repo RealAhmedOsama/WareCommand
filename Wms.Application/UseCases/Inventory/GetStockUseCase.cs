@@ -5,6 +5,7 @@ using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
 
 namespace Wms.Application.UseCases.Inventory;
@@ -142,14 +143,23 @@ public class GetStockUseCase : IGetStockUseCase
 
             var summaries = stockItems
                 .GroupBy(s => new { s.Item.Sku, s.Item.Name })
-                .Select(g => new StockSummaryDto(
-                    g.Key.Sku,
-                    g.Key.Name,
-                    g.Sum(s => s.QuantityAvailable.Value),
-                    g.Sum(s => s.QuantityReserved.Value),
-                    g.Sum(s => s.GetAvailableQuantity().Value),
-                    g.Select(s => s.LocationId).Distinct().Count()
-                ));
+                .SelectMany(g => g
+                    .GroupBy(s => new
+                    {
+                        Code = s.InventoryStatus?.Code ?? InventoryStatusCodes.Available,
+                        Name = s.InventoryStatus?.Name ?? "Available",
+                        IsAllocatable = s.InventoryStatus?.IsAllocatable ?? true
+                    })
+                    .Select(statusGroup => new StockSummaryDto(
+                        g.Key.Sku,
+                        g.Key.Name,
+                        statusGroup.Sum(s => s.QuantityAvailable.Value),
+                        statusGroup.Sum(s => s.QuantityReserved.Value),
+                        statusGroup.Sum(s => s.GetAvailableQuantity().Value),
+                        statusGroup.Select(s => s.LocationId).Distinct().Count(),
+                        statusGroup.Key.Code,
+                        statusGroup.Key.Name,
+                        statusGroup.Key.IsAllocatable)));
 
             return Result.Success(summaries);
         }
@@ -168,6 +178,12 @@ public class GetStockUseCase : IGetStockUseCase
 
     private static StockDto MapToDto(Stock stock)
     {
+        var statusId = stock.InventoryStatus?.Id ?? stock.InventoryStatusId;
+        var statusCode = stock.InventoryStatus?.Code ?? InventoryStatusCodes.Available;
+        var statusName = stock.InventoryStatus?.Name ?? "Available";
+        var isAllocatable = stock.InventoryStatus?.IsAllocatable ?? true;
+        var isPickable = stock.InventoryStatus?.IsPickable ?? true;
+        var isShippable = stock.InventoryStatus?.IsShippable ?? true;
         return new StockDto(
             stock.Id,
             stock.ItemId,
@@ -184,7 +200,13 @@ public class GetStockUseCase : IGetStockUseCase
             stock.GetAvailableQuantity().Value,
             stock.CreatedAt,
             stock.UpdatedAt,
-            stock.SerialNumberId
+            stock.SerialNumberId,
+            statusId,
+            statusCode,
+            statusName,
+            isAllocatable,
+            isPickable,
+            isShippable
         );
     }
 }

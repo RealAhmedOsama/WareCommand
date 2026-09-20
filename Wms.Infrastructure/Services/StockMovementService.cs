@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
+using Wms.Application.InventoryStatuses;
 using Wms.Application.Logging;
 using Wms.Application.SerialNumbers;
 using Wms.Application.Telemetry;
@@ -25,6 +26,7 @@ public class StockMovementService : IStockMovementService
     private readonly IRequestContext _requestContext;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISerialNumberService? _serialNumberService;
+    private readonly IInventoryStatusService? _inventoryStatusService;
 
     public StockMovementService(
         IUnitOfWork unitOfWork,
@@ -33,7 +35,8 @@ public class StockMovementService : IStockMovementService
         IRequestContext requestContext,
         IWmsOperationContextAccessor operationContextAccessor,
         IClock clock,
-        ISerialNumberService? serialNumberService = null)
+        ISerialNumberService? serialNumberService = null,
+        IInventoryStatusService? inventoryStatusService = null)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -42,6 +45,7 @@ public class StockMovementService : IStockMovementService
         _operationContextAccessor = operationContextAccessor;
         _clock = clock;
         _serialNumberService = serialNumberService;
+        _inventoryStatusService = inventoryStatusService;
     }
 
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
@@ -69,12 +73,17 @@ public class StockMovementService : IStockMovementService
                 serialNumber,
                 quantity,
                 cancellationToken);
-            var existingStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+            var inboundStatusId = await ResolveInboundStatusIdAsync(
+                location,
+                itemId,
+                cancellationToken);
+            var existingStock = await FindStockAsync(
                 itemId,
                 locationId,
                 lotId,
                 serial?.Number ?? serialNumber,
                 serial?.Id,
+                inboundStatusId,
                 cancellationToken);
             await EnsureInboundCapacityAsync(
                 location,
@@ -91,7 +100,8 @@ public class StockMovementService : IStockMovementService
                 referenceNumber,
                 notes,
                 _clock.UtcNow.UtcDateTime,
-                serial?.Id);
+                serial?.Id,
+                inboundStatusId);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -109,7 +119,8 @@ public class StockMovementService : IStockMovementService
                     quantity,
                     lotId,
                     serial?.Number ?? serialNumber,
-                    serial?.Id);
+                    serial?.Id,
+                    inboundStatusId);
                 await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
             }
 
@@ -203,16 +214,17 @@ public class StockMovementService : IStockMovementService
                 lotId,
                 serialNumber,
                 fromLocationId,
-                requireAllocationEligibility: true,
+                requireAllocationEligibility: false,
                 quantity,
                 cancellationToken);
             // Validate source stock
-            var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+            var sourceStock = await FindStockAsync(
                 itemId,
                 fromLocationId,
                 lotId,
                 serial?.Number ?? serialNumber,
                 serial?.Id,
+                statusId: null,
                 cancellationToken);
 
             if (sourceStock == null)
@@ -226,12 +238,25 @@ public class StockMovementService : IStockMovementService
             }
 
             var sourceQuantityBefore = sourceStock.QuantityAvailable.Value;
-            var destinationStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+            var sourceStatus = sourceStock.InventoryStatus;
+            if (sourceStatus is null && _inventoryStatusService is not null)
+            {
+                sourceStatus = await _unitOfWork.InventoryStatuses.GetByIdAsync(
+                    sourceStock.InventoryStatusId,
+                    cancellationToken);
+            }
+
+            var destinationStatusId = await ResolveDestinationStatusIdAsync(
+                sourceStatus,
+                toLocation ?? throw new InvalidOperationException("Putaway destination was not found."),
+                cancellationToken);
+            var destinationStock = await FindStockAsync(
                 itemId,
                 toLocationId,
                 lotId,
                 serial?.Number ?? serialNumber,
                 serial?.Id,
+                destinationStatusId,
                 cancellationToken);
             await EnsureInboundCapacityAsync(
                 toLocation,
@@ -248,7 +273,8 @@ public class StockMovementService : IStockMovementService
                 referenceNumber,
                 notes,
                 _clock.UtcNow.UtcDateTime,
-                serial?.Id);
+                serial?.Id,
+                destinationStatusId);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -270,7 +296,8 @@ public class StockMovementService : IStockMovementService
                     quantity,
                     lotId,
                     serial?.Number ?? serialNumber,
-                    serial?.Id);
+                    serial?.Id,
+                    destinationStatusId);
                 await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
             }
 
@@ -362,18 +389,24 @@ public class StockMovementService : IStockMovementService
                 quantity,
                 cancellationToken);
             // Validate source stock
-            var sourceStock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+            var sourceStock = await FindStockAsync(
                 itemId,
                 fromLocationId,
                 lotId,
                 serial?.Number ?? serialNumber,
                 serial?.Id,
+                statusId: null,
                 cancellationToken);
 
             if (sourceStock == null)
             {
                 throw new InvalidOperationException("Source stock not found");
             }
+
+            await EnsureStatusOperationAllowedAsync(
+                sourceStock,
+                InventoryStatusOperation.Pick,
+                cancellationToken);
 
             if (sourceStock.GetAvailableQuantity() < quantity)
             {
@@ -389,7 +422,8 @@ public class StockMovementService : IStockMovementService
                 referenceNumber,
                 notes,
                 _clock.UtcNow.UtcDateTime,
-                serial?.Id);
+                serial?.Id,
+                sourceStock.InventoryStatusId);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -474,12 +508,17 @@ public class StockMovementService : IStockMovementService
                 locationId,
                 newQuantity,
                 cancellationToken);
-            var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
+            var stock = await FindStockAsync(
                 itemId,
                 locationId,
                 lotId,
                 serial?.Number ?? serialNumber,
                 serial?.Id,
+                statusId: null,
+                cancellationToken);
+            var adjustmentStatusId = stock?.InventoryStatusId ?? await ResolveInboundStatusIdAsync(
+                location,
+                itemId,
                 cancellationToken);
             var quantityBefore = stock?.QuantityAvailable.Value;
 
@@ -500,7 +539,8 @@ public class StockMovementService : IStockMovementService
                         newQuantity,
                         lotId,
                         serial?.Number ?? serialNumber,
-                        serial?.Id);
+                        serial?.Id,
+                        adjustmentStatusId);
                     await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
                 }
             }
@@ -526,7 +566,8 @@ public class StockMovementService : IStockMovementService
                 serial?.Number ?? serialNumber,
                 notes: reason,
                 timestampUtc: _clock.UtcNow.UtcDateTime,
-                serialNumberId: serial?.Id);
+                serialNumberId: serial?.Id,
+                inventoryStatusId: adjustmentStatusId);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -766,6 +807,144 @@ public class StockMovementService : IStockMovementService
             throw new InvalidOperationException(
                 $"Serial-controlled item '{item.Sku}' requires a quantity of exactly one unit.");
         }
+    }
+
+    private async Task<Stock?> FindStockAsync(
+        int itemId,
+        int locationId,
+        int? lotId,
+        string? serialNumber,
+        int? serialNumberId,
+        int? statusId,
+        CancellationToken cancellationToken)
+    {
+        if (_inventoryStatusService is null)
+        {
+            return await _unitOfWork.Stock.GetByItemAndLocationAsync(
+                itemId,
+                locationId,
+                lotId,
+                serialNumber,
+                serialNumberId,
+                cancellationToken);
+        }
+
+        var candidates = (await _unitOfWork.Stock.GetByLocationIdAsync(
+                locationId,
+                cancellationToken))
+            .Where(stock => stock.ItemId == itemId && stock.LotId == lotId)
+            .Where(stock => HasSerialIdentity(
+                stock,
+                serialNumber,
+                serialNumberId));
+        if (statusId.HasValue)
+        {
+            candidates = candidates.Where(stock => stock.InventoryStatusId == statusId.Value);
+        }
+
+        return candidates
+            .OrderByDescending(stock => stock.InventoryStatus?.IsAllocatable == true)
+            .ThenByDescending(stock => stock.GetAvailableQuantity().Value)
+            .FirstOrDefault();
+    }
+
+    private async Task<int> ResolveInboundStatusIdAsync(
+        Location? location,
+        int itemId,
+        CancellationToken cancellationToken)
+    {
+        if (_inventoryStatusService is null)
+        {
+            return InventoryStatusSystemIds.Available;
+        }
+
+        if (location is null)
+        {
+            throw new InvalidOperationException("Receipt location was not found.");
+        }
+
+        var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
+            ?? throw new InvalidOperationException($"Item {itemId} was not found.");
+        var result = await _inventoryStatusService.ResolveInboundStatusAsync(
+            location,
+            item.QualityInspectionRequired,
+            cancellationToken);
+        return result.IsSuccess
+            ? result.Value.Id
+            : throw new InvalidOperationException(result.Error);
+    }
+
+    private async Task<int> ResolveDestinationStatusIdAsync(
+        InventoryStatus? sourceStatus,
+        Location destination,
+        CancellationToken cancellationToken)
+    {
+        if (_inventoryStatusService is null)
+        {
+            return sourceStatus?.Id ?? InventoryStatusSystemIds.Available;
+        }
+
+        sourceStatus ??= await _unitOfWork.InventoryStatuses.GetByIdAsync(
+            sourceStatus?.Id ?? InventoryStatusSystemIds.Available,
+            cancellationToken);
+        if (sourceStatus is null)
+        {
+            throw new InvalidOperationException("Source inventory status was not found.");
+        }
+
+        var result = await _inventoryStatusService.ResolveDestinationStatusAsync(
+            sourceStatus,
+            destination,
+            cancellationToken);
+        return result.IsSuccess
+            ? result.Value.Id
+            : throw new InvalidOperationException(result.Error);
+    }
+
+    private async Task EnsureStatusOperationAllowedAsync(
+        Stock stock,
+        InventoryStatusOperation operation,
+        CancellationToken cancellationToken)
+    {
+        if (_inventoryStatusService is null)
+        {
+            return;
+        }
+
+        var result = await _inventoryStatusService.ValidateOperationAsync(
+            stock,
+            operation,
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new InvalidOperationException(result.Error);
+        }
+    }
+
+    private static bool HasSerialIdentity(
+        Stock stock,
+        string? serialNumber,
+        int? serialNumberId)
+    {
+        if (serialNumberId.HasValue)
+        {
+            return stock.SerialNumberId == serialNumberId.Value ||
+                   (stock.SerialNumberId is null &&
+                    string.Equals(
+                        stock.SerialNumber,
+                        serialNumber?.Trim(),
+                        StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(serialNumber))
+        {
+            return string.Equals(
+                stock.SerialNumber,
+                serialNumber.Trim(),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        return stock.SerialNumber is null && stock.SerialNumberId is null;
     }
 
     private async Task EnsureInboundCapacityAsync(

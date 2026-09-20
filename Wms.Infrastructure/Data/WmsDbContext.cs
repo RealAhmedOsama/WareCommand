@@ -35,6 +35,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Lot> Lots => Set<Lot>();
     public DbSet<SerialNumber> SerialNumbers => Set<SerialNumber>();
+    public DbSet<InventoryStatus> InventoryStatuses => Set<InventoryStatus>();
+    public DbSet<InventoryStatusTransition> InventoryStatusTransitions => Set<InventoryStatusTransition>();
     public DbSet<Stock> Stock => Set<Stock>();
     public DbSet<Movement> Movements => Set<Movement>();
     public DbSet<WmsIdentifier> WmsIdentifiers => Set<WmsIdentifier>();
@@ -68,6 +70,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new LocationConfiguration());
         builder.ApplyConfiguration(new LotConfiguration());
         builder.ApplyConfiguration(new SerialNumberConfiguration());
+        builder.ApplyConfiguration(new InventoryStatusConfiguration());
+        builder.ApplyConfiguration(new InventoryStatusTransitionConfiguration());
         builder.ApplyConfiguration(new StockConfiguration());
         builder.ApplyConfiguration(new MovementConfiguration());
         builder.ApplyConfiguration(new WmsIdentifierConfiguration());

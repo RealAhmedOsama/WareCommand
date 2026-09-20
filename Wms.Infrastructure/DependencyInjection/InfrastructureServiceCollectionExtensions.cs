@@ -6,6 +6,7 @@ using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Identification;
+using Wms.Application.InventoryStatuses;
 using Wms.Application.Items;
 using Wms.Application.Jobs;
 using Wms.Application.Locations;
@@ -21,6 +22,7 @@ using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Identification;
+using Wms.Infrastructure.InventoryStatuses;
 using Wms.Infrastructure.Items;
 using Wms.Infrastructure.Jobs;
 using Wms.Infrastructure.Locations;
@@ -77,6 +79,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IIdentificationService, IdentificationService>();
         services.AddScoped<ILotService, LotService>();
         services.AddScoped<ISerialNumberService, SerialNumberService>();
+        services.AddScoped<IInventoryStatusService, InventoryStatusService>();
         services.AddScoped<IUnitOfMeasureManagementService, UnitOfMeasureService>();
         services.AddScoped<IItemQuantityConversionService, UnitOfMeasureService>();
         services.AddScoped<WmsAuthorizationBootstrapper>();
@@ -152,6 +155,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<ILotRepository, LotRepository>();
         services.AddScoped<ISerialNumberRepository, SerialNumberRepository>();
+        services.AddScoped<IInventoryStatusRepository, InventoryStatusRepository>();
         services.AddScoped<IStockRepository, StockRepository>();
         services.AddScoped<IMovementRepository, MovementRepository>();
 

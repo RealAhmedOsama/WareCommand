@@ -76,6 +76,7 @@
                             <th class="text-end">@T["Field.TotalQuantity"]</th>
                             <th class="text-end">@T["Field.Reserved"]</th>
                             <th class="text-end">@T["Field.Available"]</th>
+                            <th>@T["Field.Status"]</th>
                             <th class="text-center">@T["Nav.Locations"]</th>
                         </tr>
                         </thead>
@@ -90,6 +91,11 @@
                                 <td class="text-end">
                                     <span class="fw-medium text-@(item.TotalAvailable > 0 ? "success" : "danger")">
                                         @item.TotalAvailable.ToString("N2")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge @(item.IsAllocatable ? "bg-success" : "bg-warning text-dark")">
+                                        @(item.InventoryStatusName ?? item.InventoryStatusCode ?? "-")
                                     </span>
                                 </td>
                                 <td class="text-center">
@@ -135,6 +141,7 @@ else
                             <th class="text-end">@T["Field.Available"]</th>
                             <th class="text-end">@T["Field.Reserved"]</th>
                             <th class="text-end">@T["Field.NetAvailable"]</th>
+                            <th>@T["Field.Status"]</th>
                             <th class="text-center">@T["Common.Actions"]</th>
                         </tr>
                         </thead>
@@ -154,6 +161,11 @@ else
                                 <td class="text-end">
                                     <span class="fw-medium text-@(item.AvailableQuantity > 0 ? "success" : "danger")">
                                         @item.AvailableQuantity.ToString("N2")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge @(item.IsAllocatable ? "bg-success" : "bg-warning text-dark")">
+                                        @item.InventoryStatusName (@item.InventoryStatusCode)
                                     </span>
                                 </td>
                                 <td class="text-center">

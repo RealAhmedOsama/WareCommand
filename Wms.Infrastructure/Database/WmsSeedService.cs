@@ -348,7 +348,9 @@ public sealed class WmsSeedService(WmsDbContext context, IClock? clock = null) :
         CancellationToken cancellationToken)
     {
         var existingStock = await context.Stock
-            .Where(entity => entity.LotId == null && entity.SerialNumber == null)
+            .Where(entity => entity.LotId == null &&
+                             entity.SerialNumber == null &&
+                             entity.InventoryStatusId == InventoryStatusSystemIds.Available)
             .ToDictionaryAsync(entity => (entity.ItemId, entity.LocationId), cancellationToken);
 
         foreach (var definition in DemoStock)

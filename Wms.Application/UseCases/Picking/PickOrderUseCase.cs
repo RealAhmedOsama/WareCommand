@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.InventoryStatuses;
 using Wms.Application.Logging;
 using Wms.Application.Lots;
 using Wms.Application.Time;
@@ -52,6 +53,7 @@ public class PickOrderUseCase : IPickOrderUseCase
     private readonly IItemQuantityConversionService? _quantityConversionService;
     private readonly ILotService? _lotService;
     private readonly IClock? _clock;
+    private readonly IInventoryStatusService? _inventoryStatusService;
 
     public PickOrderUseCase(
         IUnitOfWork unitOfWork,
@@ -60,7 +62,8 @@ public class PickOrderUseCase : IPickOrderUseCase
         IWarehouseAccessService warehouseAccessService,
         IItemQuantityConversionService? quantityConversionService = null,
         ILotService? lotService = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        IInventoryStatusService? inventoryStatusService = null)
     {
         _unitOfWork = unitOfWork;
         _stockMovementService = stockMovementService;
@@ -69,6 +72,7 @@ public class PickOrderUseCase : IPickOrderUseCase
         _quantityConversionService = quantityConversionService;
         _lotService = lotService;
         _clock = clock;
+        _inventoryStatusService = inventoryStatusService;
     }
 
     public async Task<Result<PickResultDto>> ExecuteAsync(PickItemDto request, string userId,
@@ -170,6 +174,10 @@ public class PickOrderUseCase : IPickOrderUseCase
                     cancellationToken);
                 var businessDate = GetBusinessDate(location);
                 stock = candidates.FirstOrDefault(candidate =>
+                    (candidate.InventoryStatus is null ||
+                     (candidate.InventoryStatus.IsActive &&
+                      candidate.InventoryStatus.IsAllocatable &&
+                      candidate.InventoryStatus.IsPickable)) &&
                     candidate.Lot is not null &&
                     candidate.Lot.IsAllocationEligible(businessDate) &&
                     candidate.GetAvailableQuantity() >= requestedQuantity);
@@ -202,6 +210,25 @@ public class PickOrderUseCase : IPickOrderUseCase
                 return Result.Failure<PickResultDto>(WmsErrors.NotFound(
                     "stock.not_found",
                     $"No eligible stock found for item '{request.ItemSku}' in location '{request.FromLocationCode}' and lot '{request.LotNumber ?? "FEFO"}'."));
+            }
+
+            if (_inventoryStatusService is not null)
+            {
+                var statusValidation = await _inventoryStatusService.ValidateOperationAsync(
+                    stock,
+                    InventoryStatusOperation.Pick,
+                    cancellationToken);
+                if (statusValidation.IsFailure)
+                {
+                    return statusValidation.ToFailure<PickResultDto>();
+                }
+            }
+            else if (stock.InventoryStatus is not null &&
+                     (!stock.InventoryStatus.IsActive || !stock.InventoryStatus.IsPickable))
+            {
+                return Result.Failure<PickResultDto>(WmsErrors.BusinessRule(
+                    "inventory_status.pick_blocked",
+                    $"Inventory status '{stock.InventoryStatus.Code}' does not permit picking."));
             }
 
             if (stock.GetAvailableQuantity() < requestedQuantity)

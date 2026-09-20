@@ -18,7 +18,13 @@ public record StockDto(
     decimal AvailableQuantity,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    int? SerialNumberId = null
+    int? SerialNumberId = null,
+    int InventoryStatusId = 0,
+    string InventoryStatusCode = "",
+    string InventoryStatusName = "",
+    bool IsAllocatable = false,
+    bool IsPickable = false,
+    bool IsShippable = false
 );
 
 public record StockSummaryDto(
@@ -27,5 +33,8 @@ public record StockSummaryDto(
     decimal TotalQuantity,
     decimal TotalReserved,
     decimal TotalAvailable,
-    int LocationCount
+    int LocationCount,
+    string? InventoryStatusCode = null,
+    string? InventoryStatusName = null,
+    bool IsAllocatable = false
 );
