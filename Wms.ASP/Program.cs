@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Wms.Application.DependencyInjection;
+using Wms.ASP.Errors;
 using Wms.ASP.Health;
 using Wms.ASP.Identity;
 using Wms.ASP.Middleware;
@@ -48,6 +49,7 @@ public class Program
             databaseProvider);
         builder.Services.AddWmsApplication();
         builder.Services.AddWareCommandIdentity(builder.Configuration, builder.Environment);
+        builder.Services.AddWmsExceptionHandling();
         builder.Services
             .AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"])
@@ -63,9 +65,14 @@ public class Program
             app.UseForwardedHeaders();
         }
 
+        app.UseMiddleware<WmsRequestContextMiddleware>();
+
         if (!app.Environment.IsDevelopment())
         {
-            app.UseExceptionHandler("/Home/Error");
+            app.UseExceptionHandler(new ExceptionHandlerOptions
+            {
+                ExceptionHandlingPath = "/Home/Error"
+            });
             app.UseHsts();
         }
 
@@ -78,7 +85,6 @@ public class Program
         app.UseStaticFiles();
         app.UseRouting();
         app.UseRateLimiter();
-        app.UseMiddleware<WmsRequestContextMiddleware>();
         app.UseAuthentication();
         app.UseAuthorization();
 

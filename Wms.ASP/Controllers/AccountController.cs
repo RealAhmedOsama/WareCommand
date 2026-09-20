@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.ASP.Extensions;
 using Wms.ASP.Identity;
 using Wms.ASP.Models;
 using Wms.ASP.Security;
@@ -40,7 +41,8 @@ public sealed class AccountController(
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(WmsRateLimitPolicies.Authentication)]
     public async Task<IActionResult> Login(
-        [Bind("UserName,Password,RememberMe,ReturnUrl")] LoginViewModel model)
+        [Bind("UserName,Password,RememberMe,ReturnUrl")] LoginViewModel model,
+        CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
@@ -51,7 +53,11 @@ public sealed class AccountController(
                    await userManager.FindByEmailAsync(model.UserName);
         if (user is null)
         {
-            await AuditAsync(WmsAuthenticationEventTypes.LoginFailed, false, userName: model.UserName);
+            await AuditAsync(
+                WmsAuthenticationEventTypes.LoginFailed,
+                false,
+                userName: model.UserName,
+                cancellationToken: cancellationToken);
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
             return View(model);
         }
@@ -62,7 +68,8 @@ public sealed class AccountController(
                 WmsAuthenticationEventTypes.AccountDisabled,
                 false,
                 user,
-                details: "Sign-in rejected for a disabled account.");
+                details: "Sign-in rejected for a disabled account.",
+                cancellationToken: cancellationToken);
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
             return View(model);
         }
@@ -73,7 +80,8 @@ public sealed class AccountController(
                 WmsAuthenticationEventTypes.AccountLockedOut,
                 false,
                 user,
-                details: "Sign-in rejected while the account was locked.");
+                details: "Sign-in rejected while the account was locked.",
+                cancellationToken: cancellationToken);
             ModelState.AddModelError(string.Empty, "This account is temporarily locked. Try again later.");
             return View(model);
         }
@@ -99,23 +107,36 @@ public sealed class AccountController(
                     WmsAuthenticationEventTypes.LoginFailed,
                     false,
                     user,
-                    details: "Sign-in was rolled back because account metadata could not be persisted.");
+                    details: "Sign-in was rolled back because account metadata could not be persisted.",
+                    cancellationToken: cancellationToken);
                 ModelState.AddModelError(string.Empty, "Sign-in could not be completed. Please try again.");
                 return View(model);
             }
 
-            await AuditAsync(WmsAuthenticationEventTypes.LoginSucceeded, true, user);
+            await AuditAsync(
+                WmsAuthenticationEventTypes.LoginSucceeded,
+                true,
+                user,
+                cancellationToken: cancellationToken);
             return RedirectToLocal(model.ReturnUrl);
         }
 
         if (signInResult.IsLockedOut)
         {
-            await AuditAsync(WmsAuthenticationEventTypes.AccountLockedOut, false, user);
+            await AuditAsync(
+                WmsAuthenticationEventTypes.AccountLockedOut,
+                false,
+                user,
+                cancellationToken: cancellationToken);
             ModelState.AddModelError(string.Empty, "This account is temporarily locked. Try again later.");
         }
         else
         {
-            await AuditAsync(WmsAuthenticationEventTypes.LoginFailed, false, user);
+            await AuditAsync(
+                WmsAuthenticationEventTypes.LoginFailed,
+                false,
+                user,
+                cancellationToken: cancellationToken);
             ModelState.AddModelError(string.Empty, "Invalid username or password.");
         }
 
@@ -125,10 +146,14 @@ public sealed class AccountController(
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken = default)
     {
         var user = await userManager.GetUserAsync(User);
-        await AuditAsync(WmsAuthenticationEventTypes.Logout, true, user);
+        await AuditAsync(
+            WmsAuthenticationEventTypes.Logout,
+            true,
+            user,
+            cancellationToken: cancellationToken);
         await signInManager.SignOutAsync();
         return RedirectToAction(nameof(Login));
     }
@@ -142,7 +167,8 @@ public sealed class AccountController(
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(WmsRateLimitPolicies.PasswordReset)]
     public async Task<IActionResult> ForgotPassword(
-        [Bind("Email")] ForgotPasswordViewModel model)
+        [Bind("Email")] ForgotPasswordViewModel model,
+        CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
@@ -167,11 +193,16 @@ public sealed class AccountController(
                     throw new InvalidOperationException("Could not build the password reset URL.");
                 }
 
-                await notificationSender.SendPasswordResetAsync(user, resetUrl);
+                await notificationSender.SendPasswordResetAsync(user, resetUrl, cancellationToken);
                 await AuditAsync(
                     WmsAuthenticationEventTypes.PasswordResetRequested,
                     true,
-                    user);
+                    user,
+                    cancellationToken: cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception exception)
             {
@@ -185,7 +216,8 @@ public sealed class AccountController(
                     WmsAuthenticationEventTypes.PasswordResetFailed,
                     false,
                     user,
-                    details: "Reset link could not be delivered.");
+                    details: "Reset link could not be delivered.",
+                    cancellationToken: cancellationToken);
             }
         }
 
@@ -213,7 +245,8 @@ public sealed class AccountController(
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(WmsRateLimitPolicies.PasswordReset)]
     public async Task<IActionResult> ResetPassword(
-        [Bind("UserId,Code,Password,ConfirmPassword")] ResetPasswordViewModel model)
+        [Bind("UserId,Code,Password,ConfirmPassword")] ResetPasswordViewModel model,
+        CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
@@ -227,14 +260,19 @@ public sealed class AccountController(
                 WmsAuthenticationEventTypes.PasswordResetFailed,
                 false,
                 user,
-                details: "Reset requested for an unknown or disabled account.");
+                details: "Reset requested for an unknown or disabled account.",
+                cancellationToken: cancellationToken);
             return RedirectToAction(nameof(ResetPasswordConfirmation));
         }
 
         var resetResult = await userManager.ResetPasswordAsync(user, model.Code, model.Password);
         if (resetResult.Succeeded)
         {
-            await AuditAsync(WmsAuthenticationEventTypes.PasswordResetSucceeded, true, user);
+            await AuditAsync(
+                WmsAuthenticationEventTypes.PasswordResetSucceeded,
+                true,
+                user,
+                cancellationToken: cancellationToken);
             return RedirectToAction(nameof(ResetPasswordConfirmation));
         }
 
@@ -242,7 +280,8 @@ public sealed class AccountController(
             WmsAuthenticationEventTypes.PasswordResetFailed,
             false,
             user,
-            details: "The supplied reset token was invalid or expired.");
+            details: "The supplied reset token was invalid or expired.",
+            cancellationToken: cancellationToken);
         AddIdentityErrors(resetResult);
         return View(model);
     }
@@ -262,7 +301,8 @@ public sealed class AccountController(
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Manage(
-        [Bind("CurrentPassword,NewPassword,ConfirmPassword")] ChangePasswordViewModel model)
+        [Bind("CurrentPassword,NewPassword,ConfirmPassword")] ChangePasswordViewModel model,
+        CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
@@ -287,7 +327,11 @@ public sealed class AccountController(
         }
 
         await signInManager.RefreshSignInAsync(user);
-        await AuditAsync(WmsAuthenticationEventTypes.PasswordChanged, true, user);
+        await AuditAsync(
+            WmsAuthenticationEventTypes.PasswordChanged,
+            true,
+            user,
+            cancellationToken: cancellationToken);
         TempData["SuccessMessage"] = "Your password was changed successfully.";
         return RedirectToAction(nameof(Manage));
     }
@@ -295,9 +339,9 @@ public sealed class AccountController(
     [Authorize(Roles = WmsRoles.Administrator)]
     [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpGet]
-    public async Task<IActionResult> Users()
+    public async Task<IActionResult> Users(CancellationToken cancellationToken = default)
     {
-        var users = (await accountDirectory.ListAsync())
+        var users = (await accountDirectory.ListAsync(cancellationToken))
             .Select(user => new AccountUserViewModel
             {
                 Id = user.Id,
@@ -323,7 +367,8 @@ public sealed class AccountController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateUser(
         [Bind("UserName,Email,DisplayName,EmployeeCode,Locale,TimeZone,Password,ConfirmPassword")]
-        CreateUserViewModel model)
+        CreateUserViewModel model,
+        CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
@@ -359,7 +404,11 @@ public sealed class AccountController(
             return View(model);
         }
 
-        await AuditAsync(WmsAuthenticationEventTypes.AccountCreated, true, user);
+        await AuditAsync(
+            WmsAuthenticationEventTypes.AccountCreated,
+            true,
+            user,
+            cancellationToken: cancellationToken);
         TempData["SuccessMessage"] = $"Account '{user.UserName}' was created.";
         return RedirectToAction(nameof(Users));
     }
@@ -367,7 +416,7 @@ public sealed class AccountController(
     [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ToggleActive(string id)
+    public async Task<IActionResult> ToggleActive(string id, CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByIdAsync(id);
         var currentUser = await userManager.GetUserAsync(User);
@@ -396,7 +445,8 @@ public sealed class AccountController(
                 ? WmsAuthenticationEventTypes.AccountEnabledByAdmin
                 : WmsAuthenticationEventTypes.AccountDisabledByAdmin,
             true,
-            user);
+            user,
+            cancellationToken: cancellationToken);
         TempData["SuccessMessage"] = user.IsActive
             ? $"Account '{user.UserName}' was enabled."
             : $"Account '{user.UserName}' was disabled.";
@@ -405,9 +455,9 @@ public sealed class AccountController(
 
     [Authorize(Policy = WmsPermissions.AccessManage)]
     [HttpGet]
-    public async Task<IActionResult> Access(string id)
+    public async Task<IActionResult> Access(string id, CancellationToken cancellationToken = default)
     {
-        var profile = await userAccessDirectory.GetProfileAsync(id);
+        var profile = await userAccessDirectory.GetProfileAsync(id, cancellationToken);
         return profile is null
             ? NotFound()
             : View(ToManageAccessViewModel(profile));
@@ -418,9 +468,10 @@ public sealed class AccountController(
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Access(
         [Bind("UserId,RoleNames,PermissionNames,WarehouseIds,DefaultWarehouseId")]
-        ManageAccessViewModel model)
+        ManageAccessViewModel model,
+        CancellationToken cancellationToken = default)
     {
-        var profile = await userAccessDirectory.GetProfileAsync(model.UserId);
+        var profile = await userAccessDirectory.GetProfileAsync(model.UserId, cancellationToken);
         if (profile is null)
         {
             return NotFound();
@@ -438,10 +489,11 @@ public sealed class AccountController(
             model.RoleNames,
             model.PermissionNames,
             model.WarehouseIds,
-            model.DefaultWarehouseId);
+            model.DefaultWarehouseId,
+            cancellationToken);
         if (result.IsFailure)
         {
-            ModelState.AddModelError(string.Empty, result.Error);
+            this.AddToModelState(result);
             ApplyAccessOptions(model, profile);
             return View(model);
         }
@@ -525,7 +577,8 @@ public sealed class AccountController(
         bool succeeded,
         WmsUser? user = null,
         string? userName = null,
-        string? details = null)
+        string? details = null,
+        CancellationToken cancellationToken = default)
     {
         await auditService.RecordAsync(
             eventType,
@@ -534,7 +587,8 @@ public sealed class AccountController(
             user?.UserName ?? userName,
             HttpContext.Connection.RemoteIpAddress?.ToString(),
             Request.Headers.UserAgent.ToString(),
-            details);
+            details,
+            cancellationToken == default ? HttpContext.RequestAborted : cancellationToken);
     }
 
     private void AddIdentityErrors(IdentityResult result)

@@ -66,7 +66,7 @@ public class MovementReportUseCase : IMovementReportUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<MovementReportDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<MovementReportDto>>();
             }
 
             var movements = await GetFilteredMovementsAsync(request, cancellationToken);
@@ -75,10 +75,16 @@ public class MovementReportUseCase : IMovementReportUseCase
             _logger.LogInformation("Movement report generated with {Count} records", reportData.Count());
             return Result.Success(reportData);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating movement report");
-            return Result.Failure<IEnumerable<MovementReportDto>>($"Error generating report: {ex.Message}");
+            return Result.Failure<IEnumerable<MovementReportDto>>(WmsErrors.FromException(ex,
+                "reports.generation_failed",
+                "Error generating report. Please try again."));
         }
     }
 

@@ -46,7 +46,7 @@ public class GetItemsUseCase : IGetItemsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<ItemDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<ItemDto>>();
             }
 
             var items = string.IsNullOrWhiteSpace(searchTerm)
@@ -56,10 +56,16 @@ public class GetItemsUseCase : IGetItemsUseCase
             var itemDtos = items.Select(MapToDto);
             return Result.Success(itemDtos);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving items");
-            return Result.Failure<IEnumerable<ItemDto>>($"Error retrieving items: {ex.Message}");
+            return Result.Failure<IEnumerable<ItemDto>>(WmsErrors.FromException(ex,
+                "items.read_failed",
+                "Error retrieving items. Please try again."));
         }
     }
 
@@ -72,19 +78,27 @@ public class GetItemsUseCase : IGetItemsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ItemDto>(authorization.Error);
+                return authorization.ToFailure<ItemDto>();
             }
 
             var item = await _unitOfWork.Items.GetByIdAsync(id, cancellationToken);
             if (item == null)
-                return Result.Failure<ItemDto>($"Item with ID {id} not found");
+                return Result.Failure<ItemDto>(WmsErrors.NotFound(
+                    "item.not_found",
+                    $"Item with ID {id} was not found."));
 
             return Result.Success(MapToDto(item));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving item {ItemId}", id);
-            return Result.Failure<ItemDto>($"Error retrieving item: {ex.Message}");
+            return Result.Failure<ItemDto>(WmsErrors.FromException(ex,
+                "item.read_failed",
+                "Error retrieving item. Please try again."));
         }
     }
 
@@ -97,19 +111,27 @@ public class GetItemsUseCase : IGetItemsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ItemDto>(authorization.Error);
+                return authorization.ToFailure<ItemDto>();
             }
 
             var item = await _unitOfWork.Items.GetBySkuAsync(sku, cancellationToken);
             if (item == null)
-                return Result.Failure<ItemDto>($"Item with SKU '{sku}' not found");
+                return Result.Failure<ItemDto>(WmsErrors.NotFound(
+                    "item.not_found",
+                    $"Item with SKU '{sku}' was not found."));
 
             return Result.Success(MapToDto(item));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving item {ItemSku}", sku);
-            return Result.Failure<ItemDto>($"Error retrieving item: {ex.Message}");
+            return Result.Failure<ItemDto>(WmsErrors.FromException(ex,
+                "item.read_failed",
+                "Error retrieving item. Please try again."));
         }
     }
 
@@ -122,19 +144,27 @@ public class GetItemsUseCase : IGetItemsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ItemDto>(authorization.Error);
+                return authorization.ToFailure<ItemDto>();
             }
 
             var item = await _unitOfWork.Items.GetByBarcodeAsync(new Barcode(barcode), cancellationToken);
             if (item == null)
-                return Result.Failure<ItemDto>($"Item with barcode '{barcode}' not found");
+                return Result.Failure<ItemDto>(WmsErrors.NotFound(
+                    "item.not_found",
+                    $"Item with barcode '{barcode}' was not found."));
 
             return Result.Success(MapToDto(item));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving item by barcode {Barcode}", barcode);
-            return Result.Failure<ItemDto>($"Error retrieving item: {ex.Message}");
+            return Result.Failure<ItemDto>(WmsErrors.FromException(ex,
+                "item.read_failed",
+                "Error retrieving item. Please try again."));
         }
     }
 

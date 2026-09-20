@@ -77,13 +77,15 @@ public class CreateLocationUseCase : ICreateLocationUseCase
                 cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<LocationDto>(authorization.Error);
+                return authorization.ToFailure<LocationDto>();
             }
 
             // Check if code already exists
             var existingLocation = await _unitOfWork.Locations.GetByCodeAsync(request.Code, cancellationToken);
             if (existingLocation != null)
-                return Result.Failure<LocationDto>($"Location with code '{request.Code}' already exists");
+                return Result.Failure<LocationDto>(WmsErrors.Conflict(
+                    "location.code_conflict",
+                    $"Location with code '{request.Code}' already exists."));
 
             // Validate parent location if specified
             if (request.ParentLocationId.HasValue)
@@ -91,11 +93,15 @@ public class CreateLocationUseCase : ICreateLocationUseCase
                 var parentLocation =
                     await _unitOfWork.Locations.GetByIdAsync(request.ParentLocationId.Value, cancellationToken);
                 if (parentLocation == null)
-                    return Result.Failure<LocationDto>($"Parent location with ID {request.ParentLocationId} not found");
+                    return Result.Failure<LocationDto>(WmsErrors.NotFound(
+                        "location.parent_not_found",
+                        $"Parent location with ID {request.ParentLocationId} was not found."));
 
                 if (parentLocation.WarehouseId != request.WarehouseId)
                 {
-                    return Result.Failure<LocationDto>("A parent location must belong to the selected warehouse.");
+                    return Result.Failure<LocationDto>(WmsErrors.BusinessRule(
+                        "location.parent_warehouse_mismatch",
+                        "A parent location must belong to the selected warehouse."));
                 }
             }
 
@@ -135,10 +141,16 @@ public class CreateLocationUseCase : ICreateLocationUseCase
 
             return Result.Success(MapToDto(location));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating location {LocationCode}", request.Code);
-            return Result.Failure<LocationDto>($"Error creating location: {ex.Message}");
+            return Result.Failure<LocationDto>(WmsErrors.FromException(ex,
+                "location.create_failed",
+                "Error creating location. Please try again."));
         }
     }
 
@@ -187,7 +199,9 @@ public class UpdateLocationUseCase : IUpdateLocationUseCase
         {
             var location = await _unitOfWork.Locations.GetByIdAsync(request.Id, cancellationToken);
             if (location == null)
-                return Result.Failure<LocationDto>($"Location with ID {request.Id} not found");
+                return Result.Failure<LocationDto>(WmsErrors.NotFound(
+                    "location.not_found",
+                    $"Location with ID {request.Id} was not found."));
 
             var authorization = await _warehouseAccessService.AuthorizeAsync(
                 WmsPermissions.LocationsManage,
@@ -195,7 +209,7 @@ public class UpdateLocationUseCase : IUpdateLocationUseCase
                 cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<LocationDto>(authorization.Error);
+                return authorization.ToFailure<LocationDto>();
             }
 
             var before = new Dictionary<string, object?>
@@ -236,10 +250,16 @@ public class UpdateLocationUseCase : IUpdateLocationUseCase
 
             return Result.Success(MapToDto(location));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating location {LocationId}", request.Id);
-            return Result.Failure<LocationDto>($"Error updating location: {ex.Message}");
+            return Result.Failure<LocationDto>(WmsErrors.FromException(ex,
+                "location.update_failed",
+                "Error updating location. Please try again."));
         }
     }
 
@@ -288,7 +308,9 @@ public class DeleteLocationUseCase : IDeleteLocationUseCase
         {
             var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
             if (location == null)
-                return Result.Failure($"Location with ID {locationId} not found");
+                return Result.Failure(WmsErrors.NotFound(
+                    "location.not_found",
+                    $"Location with ID {locationId} was not found."));
 
             var authorization = await _warehouseAccessService.AuthorizeAsync(
                 WmsPermissions.LocationsManage,
@@ -303,15 +325,18 @@ public class DeleteLocationUseCase : IDeleteLocationUseCase
             var stockItems = await _unitOfWork.Stock.GetByLocationIdAsync(locationId, cancellationToken);
             if (stockItems.Any(s => s.QuantityAvailable.Value > 0))
             {
-                return Result.Failure("Cannot delete location with existing stock. Please move stock first.");
+                return Result.Failure(WmsErrors.Conflict(
+                    "location.stock_exists",
+                    "Cannot delete a location with existing stock. Move stock first."));
             }
 
             // Check if location has child locations
             var childLocations = await _unitOfWork.Locations.GetChildLocationsAsync(locationId, cancellationToken);
             if (childLocations.Any())
             {
-                return Result.Failure(
-                    "Cannot delete location with child locations. Please delete child locations first.");
+                return Result.Failure(WmsErrors.Conflict(
+                    "location.children_exist",
+                    "Cannot delete a location with child locations. Delete child locations first."));
             }
 
             // Soft delete by deactivating
@@ -333,10 +358,16 @@ public class DeleteLocationUseCase : IDeleteLocationUseCase
 
             return Result.Success();
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting location {LocationId}", locationId);
-            return Result.Failure($"Error deleting location: {ex.Message}");
+            return Result.Failure(WmsErrors.FromException(ex,
+                "location.delete_failed",
+                "Error deleting location. Please try again."));
         }
     }
 }

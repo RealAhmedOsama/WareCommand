@@ -103,13 +103,17 @@ public sealed class UserAccessDirectory(
         if (actor is null || !actor.IsActive ||
             !await userManager.IsInRoleAsync(actor, WmsRoleNames.Administrator))
         {
-            return Result.Failure("Only an active administrator can change access assignments.");
+            return Result.Failure(WmsErrors.Forbidden(
+                "access.administrator_required",
+                "Only an active administrator can change access assignments."));
         }
 
         var target = await userManager.FindByIdAsync(targetUserId);
         if (target is null)
         {
-            return Result.Failure("The selected account was not found.");
+            return Result.Failure(WmsErrors.NotFound(
+                "account.not_found",
+                "The selected account was not found."));
         }
 
         var normalizedRoles = roleNames
@@ -121,7 +125,9 @@ public sealed class UserAccessDirectory(
             .ToArray();
         if (unknownRoles.Length > 0)
         {
-            return Result.Failure("One or more selected roles are not recognized.");
+            return Result.Failure(WmsErrors.Validation(
+                "access.role_invalid",
+                "One or more selected roles are not recognized."));
         }
 
         var normalizedPermissions = permissionNames
@@ -130,7 +136,9 @@ public sealed class UserAccessDirectory(
             .ToArray();
         if (normalizedPermissions.Any(permission => !WmsPermissions.IsKnown(permission)))
         {
-            return Result.Failure("One or more selected permissions are not recognized.");
+            return Result.Failure(WmsErrors.Validation(
+                "access.permission_invalid",
+                "One or more selected permissions are not recognized."));
         }
 
         var normalizedWarehouseIds = warehouseIds
@@ -142,12 +150,16 @@ public sealed class UserAccessDirectory(
             .ToHashSetAsync(cancellationToken);
         if (activeWarehouseIds.Count != normalizedWarehouseIds.Length)
         {
-            return Result.Failure("One or more selected warehouses are missing or inactive.");
+            return Result.Failure(WmsErrors.NotFound(
+                "warehouse.selection_invalid",
+                "One or more selected warehouses are missing or inactive."));
         }
 
         if (defaultWarehouseId.HasValue && !activeWarehouseIds.Contains(defaultWarehouseId.Value))
         {
-            return Result.Failure("The default warehouse must be one of the assigned warehouses.");
+            return Result.Failure(WmsErrors.Validation(
+                "warehouse.default_invalid",
+                "The default warehouse must be one of the assigned warehouses."));
         }
 
         var existingRoles = (await userManager.GetRolesAsync(target))
@@ -165,13 +177,18 @@ public sealed class UserAccessDirectory(
         {
             if (actorUserId == targetUserId)
             {
-                return Result.Failure("You cannot remove your own administrator access.");
+                return Result.Failure(WmsErrors.Conflict(
+                    "access.self_admin_removal",
+                    "You cannot remove your own administrator access."));
             }
 
             var administratorRole = await roleManager.FindByNameAsync(WmsRoleNames.Administrator);
             if (administratorRole is null)
             {
-                return Result.Failure("The administrator role is not available.");
+                return Result.Failure(WmsErrors.Dependency(
+                    "access.administrator_role_missing",
+                    "The administrator role is not available.",
+                    isRetryable: false));
             }
 
             var otherActiveAdministrators = await (
@@ -183,7 +200,9 @@ public sealed class UserAccessDirectory(
                 select user.Id).CountAsync(cancellationToken);
             if (otherActiveAdministrators == 0)
             {
-                return Result.Failure("At least one other active administrator must remain.");
+                return Result.Failure(WmsErrors.Conflict(
+                    "access.last_admin",
+                    "At least one other active administrator must remain."));
             }
         }
 

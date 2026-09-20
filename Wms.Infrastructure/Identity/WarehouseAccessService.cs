@@ -34,19 +34,25 @@ public sealed class WarehouseAccessService(
     {
         if (!IsPermissionValueAllowed(permission))
         {
-            return Result.Failure("The requested permission is not recognized.");
+            return Result.Failure(WmsErrors.Validation(
+                "authorization.permission_invalid",
+                "The requested permission is not recognized."));
         }
 
         var userId = await GetActiveUserIdAsync(cancellationToken);
         if (userId is null)
         {
-            return Result.Failure("An active authenticated user is required.");
+            return Result.Failure(WmsErrors.Unauthorized(
+                "authorization.authentication_required",
+                "An active authenticated user is required."));
         }
 
         if (!await HasPermissionClaimAsync(userId, permission, cancellationToken))
         {
             LogDenied(userId, permission, warehouseId, "permission");
-            return Result.Failure("You do not have permission to perform this operation.");
+            return Result.Failure(WmsErrors.Forbidden(
+                "authorization.permission_denied",
+                "You do not have permission to perform this operation."));
         }
 
         if (!warehouseId.HasValue)
@@ -60,7 +66,9 @@ public sealed class WarehouseAccessService(
         if (!warehouseExists)
         {
             LogDenied(userId, permission, warehouseId, "warehouse-not-found");
-            return Result.Failure("The requested warehouse was not found or is inactive.");
+            return Result.Failure(WmsErrors.NotFound(
+                "warehouse.not_found",
+                "The requested warehouse was not found or is inactive."));
         }
 
         var scope = await GetScopeAsync(cancellationToken);
@@ -70,7 +78,9 @@ public sealed class WarehouseAccessService(
         }
 
         LogDenied(userId, permission, warehouseId, "warehouse-scope");
-        return Result.Failure("You are not assigned to the requested warehouse.");
+        return Result.Failure(WmsErrors.Forbidden(
+            "authorization.warehouse_scope_denied",
+            "You are not assigned to the requested warehouse."));
     }
 
     public async Task<WarehouseAccessScope> GetScopeAsync(

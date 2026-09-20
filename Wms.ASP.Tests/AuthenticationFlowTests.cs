@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +59,64 @@ public sealed class AuthenticationFlowTests(WareCommandWebApplicationFactory fac
         AssertHeaderContains(response, "Permissions-Policy", "camera=()");
         AssertHeaderContains(response, "Cache-Control", "no-store");
         AssertHeaderContains(response, "Pragma", "no-cache");
+    }
+
+    [Fact]
+    public async Task UnexpectedApiErrorsReturnSafeProblemDetailsWithCorrelationReference()
+    {
+        using var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/ErrorProbe/Unexpected");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        request.Headers.Add("X-Correlation-ID", "error-test-correlation");
+
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.DoesNotContain("sensitive provider detail", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("InvalidOperationException", body, StringComparison.Ordinal);
+
+        using var document = JsonDocument.Parse(body);
+        Assert.Equal("server.unexpected_error", document.RootElement.GetProperty("errorCode").GetString());
+        Assert.Equal(
+            "error-test-correlation",
+            document.RootElement.GetProperty("errorReference").GetString());
+        Assert.Equal(500, document.RootElement.GetProperty("status").GetInt32());
+    }
+
+    [Fact]
+    public async Task UnexpectedMvcErrorsRenderFriendlyPageWithoutExceptionDetails()
+    {
+        using var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/ErrorProbe/Unexpected");
+        request.Headers.Add("X-Correlation-ID", "mvc-error-correlation");
+
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Contains("Error reference", body, StringComparison.Ordinal);
+        Assert.Contains("mvc-error-correlation", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("sensitive provider detail", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("InvalidOperationException", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ConcurrencyExceptionsReturnRetryableConflictProblemDetails()
+    {
+        using var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/ErrorProbe/Concurrency");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using var document = JsonDocument.Parse(body);
+        Assert.Equal("data.concurrency_conflict", document.RootElement.GetProperty("errorCode").GetString());
+        Assert.True(document.RootElement.GetProperty("retryable").GetBoolean());
+        Assert.DoesNotContain("internal concurrency detail", body, StringComparison.Ordinal);
     }
 
     [Fact]

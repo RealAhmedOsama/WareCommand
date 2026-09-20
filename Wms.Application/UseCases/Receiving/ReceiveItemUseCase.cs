@@ -46,21 +46,27 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ReceiptResultDto>(authorization.Error);
+                return authorization.ToFailure<ReceiptResultDto>();
             }
 
             // Validate item exists
             var item = await _unitOfWork.Items.GetBySkuAsync(request.ItemSku, cancellationToken);
             if (item == null)
-                return Result.Failure<ReceiptResultDto>($"Item with SKU '{request.ItemSku}' not found");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
+                    "item.not_found",
+                    $"Item with SKU '{request.ItemSku}' was not found."));
 
             if (!item.IsActive)
-                return Result.Failure<ReceiptResultDto>($"Item '{request.ItemSku}' is inactive");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "item.inactive",
+                    $"Item '{request.ItemSku}' is inactive."));
 
             // Validate location exists and is receivable
             var location = await _unitOfWork.Locations.GetByCodeAsync(request.LocationCode, cancellationToken);
             if (location == null)
-                return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' not found");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
+                    "location.not_found",
+                    $"Location '{request.LocationCode}' was not found."));
 
             authorization = await _warehouseAccessService.AuthorizeAsync(
                 WmsPermissions.ReceivingExecute,
@@ -68,14 +74,18 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ReceiptResultDto>(authorization.Error);
+                return authorization.ToFailure<ReceiptResultDto>();
             }
 
             if (!location.IsReceivable)
-                return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' is not receivable");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "location.not_receivable",
+                    $"Location '{request.LocationCode}' is not receivable."));
 
             if (!location.IsActive)
-                return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' is inactive");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "location.inactive",
+                    $"Location '{request.LocationCode}' is inactive."));
 
             // Handle lot creation if required
             int? lotId = null;
@@ -87,12 +97,16 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
             }
             else if (item.RequiresLot)
             {
-                return Result.Failure<ReceiptResultDto>($"Item '{request.ItemSku}' requires a lot number");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
+                    "receiving.lot_required",
+                    $"Item '{request.ItemSku}' requires a lot number."));
             }
 
             // Validate serial number requirement
             if (item.RequiresSerial && string.IsNullOrWhiteSpace(request.SerialNumber))
-                return Result.Failure<ReceiptResultDto>($"Item '{request.ItemSku}' requires a serial number");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
+                    "receiving.serial_required",
+                    $"Item '{request.ItemSku}' requires a serial number."));
 
             // Create the receipt movement
             var quantity = new Quantity(request.Quantity);
@@ -114,10 +128,16 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 movement.Timestamp
             ));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error receiving item {ItemSku}", request.ItemSku);
-            return Result.Failure<ReceiptResultDto>($"Error receiving item: {ex.Message}");
+            return Result.Failure<ReceiptResultDto>(WmsErrors.FromException(ex,
+                "receiving.failed",
+                "Error receiving item. Please try again."));
         }
     }
 

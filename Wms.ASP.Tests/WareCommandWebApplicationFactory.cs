@@ -33,6 +33,11 @@ public sealed class WareCommandWebApplicationFactory : WebApplicationFactory<Wms
         builder.UseSetting("ConnectionStrings:DefaultConnection", $"Data Source={DatabasePath}");
         builder.UseSetting("Wms:DatabaseProvider", "Sqlite");
         builder.UseSetting("Wms:SeedProfile", "None");
+        builder.ConfigureServices(services =>
+        {
+            services.AddControllersWithViews()
+                .AddApplicationPart(typeof(ErrorProbeController).Assembly);
+        });
         if (AuthenticationPermitLimitOverride.HasValue)
         {
             builder.UseSetting(

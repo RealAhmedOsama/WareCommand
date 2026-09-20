@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wms.Application.Identity;
 using Wms.Application.UseCases.Locations;
+using Wms.ASP.Extensions;
 using Wms.ASP.Models;
 
 namespace Wms.ASP.Controllers;
@@ -13,67 +14,59 @@ public class LocationsController : Controller
     private readonly ICreateLocationUseCase _createLocationUseCase;
     private readonly IGetLocationsUseCase _getLocationsUseCase;
     private readonly IWarehouseAccessService _warehouseAccessService;
-    private readonly ILogger<LocationsController> _logger;
 
     public LocationsController(
         IGetLocationsUseCase getLocationsUseCase,
         ICreateLocationUseCase createLocationUseCase,
         ICurrentUser currentUser,
-        IWarehouseAccessService warehouseAccessService,
-        ILogger<LocationsController> logger)
+        IWarehouseAccessService warehouseAccessService)
     {
         _getLocationsUseCase = getLocationsUseCase;
         _createLocationUseCase = createLocationUseCase;
         _currentUser = currentUser;
         _warehouseAccessService = warehouseAccessService;
-        _logger = logger;
     }
 
-    public async Task<IActionResult> Index(string? searchTerm)
+    public async Task<IActionResult> Index(
+        string? searchTerm,
+        CancellationToken cancellationToken = default)
     {
-        try
+        var result = await _getLocationsUseCase.ExecuteAsync(
+            searchTerm,
+            cancellationToken);
+
+        var model = new LocationManagementViewModel
         {
-            var result = await _getLocationsUseCase.ExecuteAsync();
+            SearchTerm = searchTerm
+        };
 
-            var model = new LocationManagementViewModel
+        if (result.IsSuccess)
+        {
+            var locations = result.Value.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                SearchTerm = searchTerm
-            };
-
-            if (result.IsSuccess)
-            {
-                var locations = result.Value.AsEnumerable();
-
-                if (!string.IsNullOrWhiteSpace(searchTerm))
-                {
-                    locations = locations.Where(l =>
-                        l.Code.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                        l.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
-                }
-
-                model.Locations = locations.ToList();
-            }
-            else
-            {
-                TempData["ErrorMessage"] = result.Error;
+                locations = locations.Where(l =>
+                    l.Code.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                    l.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
             }
 
-            return View(model);
+            model.Locations = locations.ToList();
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError(ex, "Error loading locations");
-            TempData["ErrorMessage"] = "Error loading locations. Please try again.";
-            return View(new LocationManagementViewModel());
+            TempData["ErrorMessage"] = result.Error;
         }
+
+        return View(model);
     }
 
     [HttpGet]
     [Authorize(Policy = WmsPermissions.LocationsManage)]
-    public async Task<IActionResult> Create()
+    public async Task<IActionResult> Create(CancellationToken cancellationToken = default)
     {
         var model = new CreateLocationViewModel();
-        await PopulateWarehouseOptionsAsync(model);
+        await PopulateWarehouseOptionsAsync(model, cancellationToken);
         return View(model);
     }
 
@@ -81,50 +74,48 @@ public class LocationsController : Controller
     [Authorize(Policy = WmsPermissions.LocationsManage)]
     public async Task<IActionResult> Create(
         [Bind("Code,Name,WarehouseId,IsPickable,IsReceivable,Capacity")]
-        CreateLocationViewModel model)
+        CreateLocationViewModel model,
+        CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
         {
-            await PopulateWarehouseOptionsAsync(model);
+            await PopulateWarehouseOptionsAsync(model, cancellationToken);
             return View(model);
         }
 
-        try
+        var request = new CreateLocationDto(
+            model.Code,
+            model.Name,
+            model.WarehouseId,
+            null, // ParentLocationId
+            model.IsPickable,
+            model.IsReceivable,
+            model.Capacity
+        );
+
+        var result = await _createLocationUseCase.ExecuteAsync(
+            request,
+            _currentUser.RequireUserId(),
+            cancellationToken);
+
+        if (result.IsFailure)
         {
-            var request = new CreateLocationDto(
-                model.Code,
-                model.Name,
-                model.WarehouseId,
-                null, // ParentLocationId
-                model.IsPickable,
-                model.IsReceivable,
-                model.Capacity
-            );
-
-            var result = await _createLocationUseCase.ExecuteAsync(request, _currentUser.RequireUserId());
-
-            if (result.IsFailure)
-            {
-                TempData["ErrorMessage"] = result.Error;
-                await PopulateWarehouseOptionsAsync(model);
-                return View(model);
-            }
-
-            TempData["SuccessMessage"] = $"Location '{model.Name}' created successfully!";
-            return RedirectToAction(nameof(Index));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating location");
-            TempData["ErrorMessage"] = "Error creating location. Please try again.";
-            await PopulateWarehouseOptionsAsync(model);
+            this.AddToModelState(result);
+            TempData["ErrorMessage"] = result.Error;
+            await PopulateWarehouseOptionsAsync(model, cancellationToken);
             return View(model);
         }
+
+        TempData["SuccessMessage"] = $"Location '{model.Name}' created successfully!";
+        return RedirectToAction(nameof(Index));
     }
 
-    private async Task PopulateWarehouseOptionsAsync(CreateLocationViewModel model)
+    private async Task PopulateWarehouseOptionsAsync(
+        CreateLocationViewModel model,
+        CancellationToken cancellationToken)
     {
         model.Warehouses = await _warehouseAccessService.GetAccessibleWarehousesAsync(
-            WmsPermissions.LocationsManage);
+            WmsPermissions.LocationsManage,
+            cancellationToken);
     }
 }

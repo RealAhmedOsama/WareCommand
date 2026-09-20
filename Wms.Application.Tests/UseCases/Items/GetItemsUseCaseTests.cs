@@ -177,4 +177,17 @@ public class GetItemsUseCaseTests
         result.IsFailure.Should().BeTrue();
         result.Error.Should().Contain("Error retrieving items");
     }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenRequestIsCancelled_PropagatesCancellation()
+    {
+        using var cancellationSource = new CancellationTokenSource();
+        cancellationSource.Cancel();
+        _mockItemRepository.Setup(x => x.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException(cancellationSource.Token));
+
+        var action = () => _useCase.ExecuteAsync(cancellationToken: cancellationSource.Token);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(action);
+    }
 }

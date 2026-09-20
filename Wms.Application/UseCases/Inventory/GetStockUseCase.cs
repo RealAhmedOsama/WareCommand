@@ -45,17 +45,23 @@ public class GetStockUseCase : IGetStockUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<StockDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<StockDto>>();
             }
 
             var stockItems = await _unitOfWork.Stock.GetAllAsync(cancellationToken);
             var stockDtos = stockItems.Select(MapToDto);
             return Result.Success(stockDtos);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving all stock");
-            return Result.Failure<IEnumerable<StockDto>>($"Error retrieving stock: {ex.Message}");
+            return Result.Failure<IEnumerable<StockDto>>(WmsErrors.FromException(ex,
+                "inventory.read_failed",
+                "Error retrieving stock. Please try again."));
         }
     }
 
@@ -69,17 +75,23 @@ public class GetStockUseCase : IGetStockUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<StockDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<StockDto>>();
             }
 
             var stockItems = await _unitOfWork.Stock.GetByItemIdAsync(itemId, cancellationToken);
             var stockDtos = stockItems.Select(MapToDto);
             return Result.Success(stockDtos);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving stock for item {ItemId}", itemId);
-            return Result.Failure<IEnumerable<StockDto>>($"Error retrieving stock: {ex.Message}");
+            return Result.Failure<IEnumerable<StockDto>>(WmsErrors.FromException(ex,
+                "inventory.read_failed",
+                "Error retrieving stock. Please try again."));
         }
     }
 
@@ -93,17 +105,23 @@ public class GetStockUseCase : IGetStockUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<StockDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<StockDto>>();
             }
 
             var stockItems = await _unitOfWork.Stock.GetByLocationIdAsync(locationId, cancellationToken);
             var stockDtos = stockItems.Select(MapToDto);
             return Result.Success(stockDtos);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving stock for location {LocationId}", locationId);
-            return Result.Failure<IEnumerable<StockDto>>($"Error retrieving stock: {ex.Message}");
+            return Result.Failure<IEnumerable<StockDto>>(WmsErrors.FromException(ex,
+                "inventory.read_failed",
+                "Error retrieving stock. Please try again."));
         }
     }
 
@@ -117,7 +135,7 @@ public class GetStockUseCase : IGetStockUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<StockSummaryDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<StockSummaryDto>>();
             }
 
             var stockItems = await _unitOfWork.Stock.GetAllAsync(cancellationToken);
@@ -135,10 +153,16 @@ public class GetStockUseCase : IGetStockUseCase
 
             return Result.Success(summaries);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving stock summary");
-            return Result.Failure<IEnumerable<StockSummaryDto>>($"Error retrieving stock summary: {ex.Message}");
+            return Result.Failure<IEnumerable<StockSummaryDto>>(WmsErrors.FromException(ex,
+                "inventory.summary_failed",
+                "Error retrieving stock summary. Please try again."));
         }
     }
 

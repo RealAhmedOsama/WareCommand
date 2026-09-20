@@ -46,7 +46,7 @@ public class GetLocationsUseCase : IGetLocationsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<LocationDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<LocationDto>>();
             }
 
             var locations = string.IsNullOrWhiteSpace(searchTerm)
@@ -56,10 +56,16 @@ public class GetLocationsUseCase : IGetLocationsUseCase
             var locationDtos = locations.Select(MapToDto);
             return Result.Success(locationDtos);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving locations");
-            return Result.Failure<IEnumerable<LocationDto>>($"Error retrieving locations: {ex.Message}");
+            return Result.Failure<IEnumerable<LocationDto>>(WmsErrors.FromException(ex,
+                "locations.read_failed",
+                "Error retrieving locations. Please try again."));
         }
     }
 
@@ -72,17 +78,23 @@ public class GetLocationsUseCase : IGetLocationsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<LocationDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<LocationDto>>();
             }
 
             var locations = await _unitOfWork.Locations.GetAllAsync(cancellationToken);
             var locationDtos = locations.Select(MapToDto);
             return Result.Success(locationDtos);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving locations");
-            return Result.Failure<IEnumerable<LocationDto>>($"Error retrieving locations: {ex.Message}");
+            return Result.Failure<IEnumerable<LocationDto>>(WmsErrors.FromException(ex,
+                "locations.read_failed",
+                "Error retrieving locations. Please try again."));
         }
     }
 
@@ -96,17 +108,23 @@ public class GetLocationsUseCase : IGetLocationsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<LocationDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<LocationDto>>();
             }
 
             var locations = await _unitOfWork.Locations.GetReceivableLocationsAsync(cancellationToken);
             var locationDtos = locations.Select(MapToDto);
             return Result.Success(locationDtos);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving receivable locations");
-            return Result.Failure<IEnumerable<LocationDto>>($"Error retrieving locations: {ex.Message}");
+            return Result.Failure<IEnumerable<LocationDto>>(WmsErrors.FromException(ex,
+                "locations.read_failed",
+                "Error retrieving locations. Please try again."));
         }
     }
 
@@ -120,17 +138,23 @@ public class GetLocationsUseCase : IGetLocationsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<IEnumerable<LocationDto>>(authorization.Error);
+                return authorization.ToFailure<IEnumerable<LocationDto>>();
             }
 
             var locations = await _unitOfWork.Locations.GetPickableLocationsAsync(cancellationToken);
             var locationDtos = locations.Select(MapToDto);
             return Result.Success(locationDtos);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving pickable locations");
-            return Result.Failure<IEnumerable<LocationDto>>($"Error retrieving locations: {ex.Message}");
+            return Result.Failure<IEnumerable<LocationDto>>(WmsErrors.FromException(ex,
+                "locations.read_failed",
+                "Error retrieving locations. Please try again."));
         }
     }
 
@@ -143,19 +167,27 @@ public class GetLocationsUseCase : IGetLocationsUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<LocationDto>(authorization.Error);
+                return authorization.ToFailure<LocationDto>();
             }
 
             var location = await _unitOfWork.Locations.GetByCodeAsync(code, cancellationToken);
             if (location == null)
-                return Result.Failure<LocationDto>($"Location with code '{code}' not found");
+                return Result.Failure<LocationDto>(WmsErrors.NotFound(
+                    "location.not_found",
+                    $"Location with code '{code}' was not found."));
 
             return Result.Success(MapToDto(location));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error retrieving location {LocationCode}", code);
-            return Result.Failure<LocationDto>($"Error retrieving location: {ex.Message}");
+            return Result.Failure<LocationDto>(WmsErrors.FromException(ex,
+                "location.read_failed",
+                "Error retrieving location. Please try again."));
         }
     }
 

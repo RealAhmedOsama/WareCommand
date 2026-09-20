@@ -19,7 +19,7 @@ public sealed class AuditQueryService(
             cancellationToken: cancellationToken);
         if (authorization.IsFailure)
         {
-            return Result.Failure<AuditPage>(authorization.Error);
+            return authorization.ToFailure<AuditPage>();
         }
 
         var scope = await warehouseAccessService.GetScopeAsync(cancellationToken);

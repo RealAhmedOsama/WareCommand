@@ -78,13 +78,15 @@ public class CreateItemUseCase : ICreateItemUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ItemDto>(authorization.Error);
+                return authorization.ToFailure<ItemDto>();
             }
 
             // Check if SKU already exists
             var existingItem = await _unitOfWork.Items.GetBySkuAsync(request.Sku, cancellationToken);
             if (existingItem != null)
-                return Result.Failure<ItemDto>($"Item with SKU '{request.Sku}' already exists");
+                return Result.Failure<ItemDto>(WmsErrors.Conflict(
+                    "item.sku_conflict",
+                    $"Item with SKU '{request.Sku}' already exists."));
 
             // Create new item
             var item = new Item(
@@ -136,10 +138,16 @@ public class CreateItemUseCase : ICreateItemUseCase
 
             return Result.Success(MapToDto(item));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating item {ItemSku}", request.Sku);
-            return Result.Failure<ItemDto>($"Error creating item: {ex.Message}");
+            return Result.Failure<ItemDto>(WmsErrors.FromException(ex,
+                "item.create_failed",
+                "Error creating item. Please try again."));
         }
     }
 
@@ -191,12 +199,14 @@ public class UpdateItemUseCase : IUpdateItemUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ItemDto>(authorization.Error);
+                return authorization.ToFailure<ItemDto>();
             }
 
             var item = await _unitOfWork.Items.GetByIdAsync(request.Id, cancellationToken);
             if (item == null)
-                return Result.Failure<ItemDto>($"Item with ID {request.Id} not found");
+                return Result.Failure<ItemDto>(WmsErrors.NotFound(
+                    "item.not_found",
+                    $"Item with ID {request.Id} was not found."));
 
             var before = new Dictionary<string, object?>
             {
@@ -252,10 +262,16 @@ public class UpdateItemUseCase : IUpdateItemUseCase
 
             return Result.Success(MapToDto(item));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating item {ItemId}", request.Id);
-            return Result.Failure<ItemDto>($"Error updating item: {ex.Message}");
+            return Result.Failure<ItemDto>(WmsErrors.FromException(ex,
+                "item.update_failed",
+                "Error updating item. Please try again."));
         }
     }
 
@@ -312,13 +328,17 @@ public class DeleteItemUseCase : IDeleteItemUseCase
 
             var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken);
             if (item == null)
-                return Result.Failure($"Item with ID {itemId} not found");
+                return Result.Failure(WmsErrors.NotFound(
+                    "item.not_found",
+                    $"Item with ID {itemId} was not found."));
 
             // Check if item has stock before deleting
             var stockItems = await _unitOfWork.Stock.GetByItemIdAsync(itemId, cancellationToken);
             if (stockItems.Any(s => s.QuantityAvailable.Value > 0))
             {
-                return Result.Failure("Cannot delete item with existing stock. Please adjust stock to zero first.");
+                return Result.Failure(WmsErrors.Conflict(
+                    "item.stock_exists",
+                    "Cannot delete an item with existing stock. Adjust stock to zero first."));
             }
 
             // Soft delete by deactivating
@@ -339,10 +359,16 @@ public class DeleteItemUseCase : IDeleteItemUseCase
 
             return Result.Success();
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting item {ItemId}", itemId);
-            return Result.Failure($"Error deleting item: {ex.Message}");
+            return Result.Failure(WmsErrors.FromException(ex,
+                "item.delete_failed",
+                "Error deleting item. Please try again."));
         }
     }
 }

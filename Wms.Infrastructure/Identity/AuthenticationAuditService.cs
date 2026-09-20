@@ -51,6 +51,10 @@ public sealed class AuthenticationAuditService(
                 cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             // Authentication must not expose persistence failures to an attacker, but

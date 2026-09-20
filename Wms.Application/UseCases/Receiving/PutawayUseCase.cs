@@ -45,18 +45,22 @@ public class PutawayUseCase : IPutawayUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ReceiptResultDto>(authorization.Error);
+                return authorization.ToFailure<ReceiptResultDto>();
             }
 
             // Validate item exists
             var item = await _unitOfWork.Items.GetBySkuAsync(request.ItemSku, cancellationToken);
             if (item == null)
-                return Result.Failure<ReceiptResultDto>($"Item with SKU '{request.ItemSku}' not found");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
+                    "item.not_found",
+                    $"Item with SKU '{request.ItemSku}' was not found."));
 
             // Validate from location
             var fromLocation = await _unitOfWork.Locations.GetByCodeAsync(request.FromLocationCode, cancellationToken);
             if (fromLocation == null)
-                return Result.Failure<ReceiptResultDto>($"From location '{request.FromLocationCode}' not found");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
+                    "location.source_not_found",
+                    $"Source location '{request.FromLocationCode}' was not found."));
 
             authorization = await _warehouseAccessService.AuthorizeAsync(
                 WmsPermissions.PutawayExecute,
@@ -64,18 +68,21 @@ public class PutawayUseCase : IPutawayUseCase
                 cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ReceiptResultDto>(authorization.Error);
+                return authorization.ToFailure<ReceiptResultDto>();
             }
 
             // Validate to location
             var toLocation = await _unitOfWork.Locations.GetByCodeAsync(request.ToLocationCode, cancellationToken);
             if (toLocation == null)
-                return Result.Failure<ReceiptResultDto>($"To location '{request.ToLocationCode}' not found");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
+                    "location.destination_not_found",
+                    $"Destination location '{request.ToLocationCode}' was not found."));
 
             if (toLocation.WarehouseId != fromLocation.WarehouseId)
             {
-                return Result.Failure<ReceiptResultDto>(
-                    "Putaway source and destination must belong to the same warehouse.");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "putaway.warehouse_mismatch",
+                    "Putaway source and destination must belong to the same warehouse."));
             }
 
             authorization = await _warehouseAccessService.AuthorizeAsync(
@@ -84,27 +91,33 @@ public class PutawayUseCase : IPutawayUseCase
                 cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ReceiptResultDto>(authorization.Error);
+                return authorization.ToFailure<ReceiptResultDto>();
             }
 
             if (!toLocation.IsReceivable)
-                return Result.Failure<ReceiptResultDto>($"Location '{request.ToLocationCode}' is not receivable");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "location.not_receivable",
+                    $"Location '{request.ToLocationCode}' is not receivable."));
 
             if (!toLocation.IsActive)
-                return Result.Failure<ReceiptResultDto>($"Location '{request.ToLocationCode}' is inactive");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "location.inactive",
+                    $"Location '{request.ToLocationCode}' is inactive."));
 
             // Validate stock exists in from location
             var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 item.Id, fromLocation.Id, null, request.SerialNumber, cancellationToken);
 
             if (stock == null)
-                return Result.Failure<ReceiptResultDto>(
-                    $"No stock found for item '{request.ItemSku}' in location '{request.FromLocationCode}'");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
+                    "stock.not_found",
+                    $"No stock found for item '{request.ItemSku}' in location '{request.FromLocationCode}'."));
 
             var requestedQuantity = new Quantity(request.Quantity);
             if (stock.GetAvailableQuantity() < requestedQuantity)
-                return Result.Failure<ReceiptResultDto>(
-                    $"Insufficient stock. Available: {stock.GetAvailableQuantity()}, Requested: {requestedQuantity}");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "stock.insufficient",
+                    $"Insufficient stock. Available: {stock.GetAvailableQuantity()}, Requested: {requestedQuantity}."));
 
             // Create the putaway movement
             var movement = await _stockMovementService.PutawayAsync(
@@ -125,10 +138,16 @@ public class PutawayUseCase : IPutawayUseCase
                 movement.Timestamp
             ));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during putaway for item {ItemSku}", request.ItemSku);
-            return Result.Failure<ReceiptResultDto>($"Error during putaway: {ex.Message}");
+            return Result.Failure<ReceiptResultDto>(WmsErrors.FromException(ex,
+                "putaway.failed",
+                "Error during putaway. Please try again."));
         }
     }
 }

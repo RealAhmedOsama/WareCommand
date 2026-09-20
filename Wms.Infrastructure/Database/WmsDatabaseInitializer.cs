@@ -37,6 +37,10 @@ public sealed class WmsDatabaseInitializer(
 
             logger.LogInformation("Database initialized successfully using {SeedProfile} seed profile", profile);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "An error occurred while initializing the database using {SeedProfile}", profile);

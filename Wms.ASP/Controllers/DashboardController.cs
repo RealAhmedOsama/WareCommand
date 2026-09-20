@@ -31,86 +31,76 @@ public class DashboardController : Controller
     }
 
     [EnableRateLimiting(WmsRateLimitPolicies.Report)]
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
     {
         var model = new DashboardViewModel();
 
-        try
+        // Load KPI data
+        var itemsResult = await _getItemsUseCase.ExecuteAsync(cancellationToken: cancellationToken);
+        if (itemsResult.IsSuccess)
         {
-            // Load KPI data
-            var itemsResult = await _getItemsUseCase.ExecuteAsync();
-            if (itemsResult.IsSuccess)
-            {
-                var items = itemsResult.Value.ToList();
-                model.TotalItems = items.Count;
-                model.ActiveItems = items.Count(i => i.IsActive);
-            }
-            else
-            {
-                _logger.LogWarning("Failed to load items: {Error}", itemsResult.Error);
-            }
-
-            // Stock Summary
-            var stockSummaryResult = await _getStockUseCase.GetStockSummaryAsync();
-            if (stockSummaryResult.IsSuccess)
-            {
-                var summary = stockSummaryResult.Value.ToList();
-                model.TotalSKUs = summary.Count;
-                model.TotalStockValue = summary.Sum(s => s.TotalQuantity);
-            }
-            else
-            {
-                _logger.LogWarning("Failed to load stock summary: {Error}", stockSummaryResult.Error);
-            }
-
-            // Stock Locations
-            var allStockResult = await _getStockUseCase.GetAllStockAsync();
-            if (allStockResult.IsSuccess)
-            {
-                model.StockLocations = allStockResult.Value.Select(s => s.LocationId).Distinct().Count();
-
-                // Low stock alerts
-                model.LowStockItems = allStockResult.Value
-                    .Where(s => s.AvailableQuantity < 10)
-                    .OrderBy(s => s.AvailableQuantity)
-                    .Take(10)
-                    .ToList();
-            }
-            else
-            {
-                _logger.LogWarning("Failed to load stock data: {Error}", allStockResult.Error);
-            }
-
-            // Recent movements
-            var utcToday = DateTime.UtcNow.Date;
-            var request = new MovementReportRequest(
-                utcToday.AddDays(-7),
-                DateTime.UtcNow
-            );
-
-            var movementsResult = await _movementReportUseCase.ExecuteAsync(request);
-            if (movementsResult.IsSuccess)
-            {
-                model.RecentMovements = movementsResult.Value
-                    .OrderByDescending(m => m.Timestamp)
-                    .Take(10)
-                    .ToList();
-            }
-            else
-            {
-                _logger.LogWarning("Failed to load recent movements: {Error}", movementsResult.Error);
-            }
-
-            model.LastRefresh = DateTime.UtcNow;
-            return View(model);
+            var items = itemsResult.Value.ToList();
+            model.TotalItems = items.Count;
+            model.ActiveItems = items.Count(i => i.IsActive);
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError(ex, "Error loading dashboard data");
-            TempData["ErrorMessage"] = "Error loading dashboard data. Please try again.";
-            model.LastRefresh = DateTime.UtcNow;
-            return View(model);
+            _logger.LogWarning("Failed to load items: {ErrorCode}", itemsResult.ErrorCode);
         }
+
+        // Stock Summary
+        var stockSummaryResult = await _getStockUseCase.GetStockSummaryAsync(cancellationToken);
+        if (stockSummaryResult.IsSuccess)
+        {
+            var summary = stockSummaryResult.Value.ToList();
+            model.TotalSKUs = summary.Count;
+            model.TotalStockValue = summary.Sum(s => s.TotalQuantity);
+        }
+        else
+        {
+            _logger.LogWarning("Failed to load stock summary: {ErrorCode}", stockSummaryResult.ErrorCode);
+        }
+
+        // Stock Locations
+        var allStockResult = await _getStockUseCase.GetAllStockAsync(cancellationToken);
+        if (allStockResult.IsSuccess)
+        {
+            model.StockLocations = allStockResult.Value.Select(s => s.LocationId).Distinct().Count();
+
+            // Low stock alerts
+            model.LowStockItems = allStockResult.Value
+                .Where(s => s.AvailableQuantity < 10)
+                .OrderBy(s => s.AvailableQuantity)
+                .Take(10)
+                .ToList();
+        }
+        else
+        {
+            _logger.LogWarning("Failed to load stock data: {ErrorCode}", allStockResult.ErrorCode);
+        }
+
+        // Recent movements
+        var utcToday = DateTime.UtcNow.Date;
+        var request = new MovementReportRequest(
+            utcToday.AddDays(-7),
+            DateTime.UtcNow
+        );
+
+        var movementsResult = await _movementReportUseCase.ExecuteAsync(request, cancellationToken);
+        if (movementsResult.IsSuccess)
+        {
+            model.RecentMovements = movementsResult.Value
+                .OrderByDescending(m => m.Timestamp)
+                .Take(10)
+                .ToList();
+        }
+        else
+        {
+            _logger.LogWarning("Failed to load recent movements: {ErrorCode}", movementsResult.ErrorCode);
+        }
+
+        model.LastRefresh = DateTime.UtcNow;
+        return View(model);
     }
 
     [HttpGet]

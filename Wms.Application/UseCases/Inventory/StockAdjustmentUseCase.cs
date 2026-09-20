@@ -54,18 +54,22 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                 cancellationToken: cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ReceiptResultDto>(authorization.Error);
+                return authorization.ToFailure<ReceiptResultDto>();
             }
 
             // Validate item exists
             var item = await _unitOfWork.Items.GetBySkuAsync(request.ItemSku, cancellationToken);
             if (item == null)
-                return Result.Failure<ReceiptResultDto>($"Item with SKU '{request.ItemSku}' not found");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
+                    "item.not_found",
+                    $"Item with SKU '{request.ItemSku}' was not found."));
 
             // Validate location exists
             var location = await _unitOfWork.Locations.GetByCodeAsync(request.LocationCode, cancellationToken);
             if (location == null)
-                return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' not found");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
+                    "location.not_found",
+                    $"Location '{request.LocationCode}' was not found."));
 
             authorization = await _warehouseAccessService.AuthorizeAsync(
                 WmsPermissions.InventoryAdjust,
@@ -73,15 +77,19 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                 cancellationToken);
             if (authorization.IsFailure)
             {
-                return Result.Failure<ReceiptResultDto>(authorization.Error);
+                return authorization.ToFailure<ReceiptResultDto>();
             }
 
             if (!location.IsActive)
-                return Result.Failure<ReceiptResultDto>($"Location '{request.LocationCode}' is inactive");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
+                    "location.inactive",
+                    $"Location '{request.LocationCode}' is inactive."));
 
             // Validate reason is provided
             if (string.IsNullOrWhiteSpace(request.Reason))
-                return Result.Failure<ReceiptResultDto>("Adjustment reason is required");
+                return Result.Failure<ReceiptResultDto>(WmsErrors.Validation(
+                    "inventory.adjustment_reason_required",
+                    "Adjustment reason is required."));
 
             // Create the adjustment
             var newQuantity = new Quantity(request.NewQuantity);
@@ -104,10 +112,16 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                 movement.Timestamp
             ));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error adjusting stock for item {ItemSku}", request.ItemSku);
-            return Result.Failure<ReceiptResultDto>($"Error adjusting stock: {ex.Message}");
+            return Result.Failure<ReceiptResultDto>(WmsErrors.FromException(ex,
+                "inventory.adjustment_failed",
+                "Error adjusting stock. Please try again."));
         }
     }
 }
