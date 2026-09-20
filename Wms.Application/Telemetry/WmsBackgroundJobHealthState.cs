@@ -1,8 +1,9 @@
 namespace Wms.Application.Telemetry;
 
 /// <summary>
-/// Shared state contract for the future durable job runner. The current host keeps
-/// this disabled until issue #21 registers a real runner and storage adapter.
+/// Shared state contract for the durable job runner. The host keeps jobs disabled
+/// by default; when enabled, the Hangfire/PostgreSQL adapter must register and
+/// continuously update this state before readiness succeeds.
 /// </summary>
 public sealed class WmsBackgroundJobHealthState(bool enabled)
 {

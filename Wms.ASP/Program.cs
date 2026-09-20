@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Net;
+using Hangfire;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -14,6 +15,7 @@ using Wms.Application.Telemetry;
 using Wms.ASP.Errors;
 using Wms.ASP.Health;
 using Wms.ASP.Identity;
+using Wms.ASP.Jobs;
 using Wms.ASP.Localization;
 using Wms.ASP.Middleware;
 using Wms.ASP.Security;
@@ -83,6 +85,10 @@ public class Program
             builder.Services.AddWmsInfrastructure(
                 connectionString,
                 databaseProvider);
+            builder.Services.AddWmsJobs(
+                builder.Configuration,
+                databaseProvider,
+                connectionString);
             builder.Services.AddWmsLogging(builder.Configuration);
             builder.Services.AddWmsTelemetry(builder.Configuration, builder.Environment);
             builder.Services.AddWmsApplication();
@@ -149,6 +155,16 @@ public class Program
             app.UseRateLimiter();
             app.UseAuthentication();
             app.UseRequestLocalization();
+            var jobOptions = app.Services.GetRequiredService<WmsJobOptions>();
+            if (jobOptions.Enabled)
+            {
+                app.UseHangfireDashboard(
+                    jobOptions.DashboardPath,
+                    new DashboardOptions
+                    {
+                        Authorization = [new WmsHangfireDashboardAuthorizationFilter()]
+                    });
+            }
             app.UseMiddleware<WmsRequestLoggingMiddleware>();
             app.UseAuthorization();
 

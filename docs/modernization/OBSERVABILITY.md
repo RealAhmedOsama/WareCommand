@@ -24,11 +24,14 @@ Readiness checks are:
 - production Data Protection, database, bootstrap, seed, and telemetry configuration;
 - completion of database and Identity startup initialization.
 
-Background jobs are disabled in the current host. Issue #21 must register the
-real PostgreSQL-backed runner with `WmsBackgroundJobHealthState`, call
-`RegisterRunner`, update `SetQueueBacklog`, and mark storage unhealthy when its
-connection or lease state fails. Enabling `Wms:Jobs:Enabled` before that adapter
-exists intentionally makes readiness fail.
+Background jobs remain disabled by default, but issue #21 now provides the
+PostgreSQL-backed Hangfire runner. When `Wms:Jobs:Enabled=true`, the host
+registers the five bounded queues, stable recurring definitions, the durable
+execution ledger, and the admin-only dashboard at `/jobs`. The runner registers
+with `WmsBackgroundJobHealthState`, updates `SetQueueBacklog`, and marks storage
+unhealthy when monitoring or shutdown state fails. Jobs require PostgreSQL and
+the `WmsJobExecutions`/`WmsJobNotifications` migration; the readiness check is
+intentionally unhealthy until the runner is registered.
 
 ## Traces and metrics
 
@@ -56,13 +59,15 @@ The bounded custom instruments are:
 | `warecommand.inventory.operation.duration` | fixed `operation`, `outcome` | Inventory operation latency |
 | `warecommand.inventory.conflicts` | fixed `operation` | Concurrency/conflict alerting |
 | `warecommand.jobs.failures` | bounded `job_kind` | Repeated job-failure alerting |
-| `warecommand.jobs.backlog` | none | Queue/backlog alerting |
+| `warecommand.jobs.backlog` | none | Queue/backlog alerting from Hangfire monitoring |
 | `warecommand.storage.free` | none | Low-disk alerting |
 | `warecommand.backups.failures` | bounded `backup_kind` | Backup adapter signal when a backup runner exists |
 
-Pack, ship, external, backup, and durable-job measurements are extension
-contracts until their owning issues add those workflows. The current host does
-not claim those operations have executed.
+Pack, ship, external, and backup measurements remain extension contracts until
+their owning issues add those workflows. The durable-job failure and backlog
+measurements are active when the runner is enabled; integration retry,
+cycle-count, and replenishment handlers remain explicit no-op adapters until
+their owning domain issues provide pending-work models.
 
 ## Export configuration
 

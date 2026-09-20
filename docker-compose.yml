@@ -57,6 +57,10 @@ services:
       Wms__Health__StoragePath: /var/lib/warecommand
       Wms__Health__MinimumFreeBytes: "${WARECOMMAND_MINIMUM_FREE_BYTES:-1073741824}"
       Wms__Jobs__Enabled: "${WARECOMMAND_JOBS_ENABLED:-false}"
+      Wms__Jobs__StorageSchema: "${WARECOMMAND_JOBS_STORAGE_SCHEMA:-hangfire}"
+      Wms__Jobs__WorkerCount: "${WARECOMMAND_JOBS_WORKER_COUNT:-4}"
+      Wms__Jobs__MaximumRetryAttempts: "${WARECOMMAND_JOBS_RETRY_ATTEMPTS:-5}"
+      Wms__Jobs__RetryDelaysInSeconds: "${WARECOMMAND_JOBS_RETRY_DELAYS:-30,120,600,1800,3600}"
       Wms__Telemetry__Otlp__Enabled: "${WARECOMMAND_OTEL_ENABLED:-false}"
       Wms__Telemetry__Otlp__Endpoint: "${WARECOMMAND_OTEL_ENDPOINT:-}"
       Wms__Telemetry__Otlp__Protocol: "${WARECOMMAND_OTEL_PROTOCOL:-grpc}"

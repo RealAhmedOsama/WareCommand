@@ -7,6 +7,7 @@ using Wms.Domain.Entities;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.Jobs;
 using Wms.Infrastructure.Settings;
 
 namespace Wms.Infrastructure.Data;
@@ -34,6 +35,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<WmsWarehouseSettingsOverrideEntity> WarehouseSettingsOverrides =>
         Set<WmsWarehouseSettingsOverrideEntity>();
+
+    public DbSet<WmsJobExecutionEntity> JobExecutions => Set<WmsJobExecutionEntity>();
+
+    public DbSet<WmsJobNotificationEntity> JobNotifications => Set<WmsJobNotificationEntity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -160,6 +165,59 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
             entity.HasIndex(entry => new { entry.WarehouseId, entry.OccurredAtUtc });
             entity.HasIndex(entry => new { entry.Action, entry.OccurredAtUtc });
             entity.HasIndex(entry => new { entry.EntityType, entry.EntityId, entry.OccurredAtUtc });
+        });
+
+        builder.Entity<WmsJobExecutionEntity>(entity =>
+        {
+            entity.ToTable("WmsJobExecutions");
+            entity.HasKey(execution => execution.Id);
+            entity.Property(execution => execution.JobName).HasMaxLength(150).IsRequired();
+            entity.Property(execution => execution.IdempotencyKey).HasMaxLength(250).IsRequired();
+            entity.Property(execution => execution.Queue).HasMaxLength(50).IsRequired();
+            entity.Property(execution => execution.Status).HasMaxLength(30).IsRequired();
+            entity.Property(execution => execution.CorrelationId).HasMaxLength(100).IsRequired();
+            entity.Property(execution => execution.ActorUserId).HasMaxLength(450);
+            entity.Property(execution => execution.ActorUserName).HasMaxLength(256);
+            entity.Property(execution => execution.LastErrorType).HasMaxLength(200);
+            entity.Property(execution => execution.LastErrorMessage).HasMaxLength(2_000);
+            entity.Property(execution => execution.ResultSummary).HasMaxLength(2_000);
+            entity.Property(execution => execution.CreatedAtUtc)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired();
+            entity.Property(execution => execution.StartedAtUtc)
+                .HasColumnType("timestamp with time zone");
+            entity.Property(execution => execution.CompletedAtUtc)
+                .HasColumnType("timestamp with time zone");
+            entity.HasIndex(execution => new { execution.JobName, execution.IdempotencyKey })
+                .IsUnique();
+            entity.HasIndex(execution => new { execution.Status, execution.CompletedAtUtc });
+        });
+
+        builder.Entity<WmsJobNotificationEntity>(entity =>
+        {
+            entity.ToTable("WmsJobNotifications");
+            entity.HasKey(notification => notification.Id);
+            entity.Property(notification => notification.DeduplicationKey)
+                .HasMaxLength(250)
+                .IsRequired();
+            entity.Property(notification => notification.Kind).HasMaxLength(100).IsRequired();
+            entity.Property(notification => notification.Severity).HasMaxLength(30).IsRequired();
+            entity.Property(notification => notification.Title).HasMaxLength(200).IsRequired();
+            entity.Property(notification => notification.Message).HasMaxLength(2_000).IsRequired();
+            entity.Property(notification => notification.JobName).HasMaxLength(150).IsRequired();
+            entity.Property(notification => notification.JobIdempotencyKey)
+                .HasMaxLength(250)
+                .IsRequired();
+            entity.Property(notification => notification.CorrelationId).HasMaxLength(100).IsRequired();
+            entity.Property(notification => notification.CreatedAtUtc)
+                .HasColumnType("timestamp with time zone")
+                .IsRequired();
+            entity.Property(notification => notification.ExpiresAtUtc)
+                .HasColumnType("timestamp with time zone");
+            entity.Property(notification => notification.ResolvedAtUtc)
+                .HasColumnType("timestamp with time zone");
+            entity.HasIndex(notification => notification.DeduplicationKey).IsUnique();
+            entity.HasIndex(notification => new { notification.Kind, notification.CreatedAtUtc });
         });
     }
 

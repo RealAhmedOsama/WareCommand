@@ -33,10 +33,13 @@ the collector's trace ID for diagnosis.
 
 ## Job failures or backlog
 
-The current host has jobs disabled. If the alert fires after issue #21 enables
-the runner, inspect runner/storage health, lease age, retry counts, and backlog
-growth. Pause only the affected job class using its supported control surface;
-do not delete job rows or force-complete work to clear an alert.
+Jobs remain disabled by default. When the runner is enabled, inspect
+`/health/ready`, Hangfire storage health, execution-ledger lease age, retry
+counts, and backlog growth. The administrator-only dashboard is at the
+configured `Wms:Jobs:DashboardPath` (normally `/jobs`). Retry a failed job only
+after checking its idempotency key and correlation record; do not delete job
+rows or force-complete work to clear an alert. A dead-lettered execution needs
+an operator decision and an explicit re-enqueue, not an automatic data edit.
 
 ## Low disk or backup failure
 

@@ -34,9 +34,10 @@ the global boundary.
 Validation, authorization, not-found, business-rule, and unique-conflict errors
 are non-retryable. Concurrency and transient dependency errors are retryable
 only when the owning operation is idempotent and the worker has a bounded
-backoff policy. A future background job must preserve cancellation, classify
-the final failure, and record the stable error code and correlation reference;
-it must not retry cancellation or programming defects.
+backoff policy. The durable background-job runner preserves cancellation,
+classifies the final failure, and records the stable job/correlation reference;
+it does not retry cancellation or programming defects. Retryable handlers must
+remain idempotent because Hangfire can redeliver work after a restart.
 
 ## UI contract
 
