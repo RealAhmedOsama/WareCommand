@@ -78,6 +78,15 @@
   <data name="Dashboard.TotalSkus" xml:space="preserve"><value>إجمالي رموز الأصناف</value></data>
   <data name="Dashboard.InStock" xml:space="preserve"><value>متوفر بالمخزون</value></data>
   <data name="Dashboard.TotalUnits" xml:space="preserve"><value>إجمالي الوحدات</value></data>
+  <data name="Dashboard.InventoryKpis" xml:space="preserve"><value>مؤشرات المخزون</value></data>
+  <data name="Dashboard.InventoryMetricScope" xml:space="preserve"><value>كميات نطاق المستودع من نموذج قراءة أرصدة المخزون المعتمد</value></data>
+  <data name="Dashboard.OnHand" xml:space="preserve"><value>المتاح فعلياً</value></data>
+  <data name="Dashboard.Reserved" xml:space="preserve"><value>محجوز</value></data>
+  <data name="Dashboard.Available" xml:space="preserve"><value>متاح للتخصيص</value></data>
+  <data name="Dashboard.Held" xml:space="preserve"><value>معلّق</value></data>
+  <data name="Dashboard.Damaged" xml:space="preserve"><value>تالف</value></data>
+  <data name="Dashboard.Expired" xml:space="preserve"><value>منتهي</value></data>
+  <data name="Dashboard.Expiring" xml:space="preserve"><value>قارب على الانتهاء</value></data>
   <data name="Dashboard.StockLocations" xml:space="preserve"><value>مواقع المخزون</value></data>
   <data name="Dashboard.Active" xml:space="preserve"><value>نشط</value></data>
   <data name="Dashboard.RecentMovements" xml:space="preserve"><value>آخر الحركات</value></data>

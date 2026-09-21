@@ -163,6 +163,65 @@ public sealed class InventoryInquiryService(
         }
     }
 
+    public async Task<Result<InventoryDashboardMetricsDto>> GetDashboardMetricsAsync(
+        InventoryInquiryQuery query,
+        DateOnly asOfBusinessDate,
+        int expiryWarningDays,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentOutOfRangeException.ThrowIfNegative(expiryWarningDays);
+
+        try
+        {
+            var authorization = await warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryRead,
+                query.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return authorization.ToFailure<InventoryDashboardMetricsDto>();
+            }
+
+            var scope = await warehouseAccessService.GetScopeAsync(cancellationToken);
+            var balances = BuildQuery(query, scope);
+            var expiryFrom = asOfBusinessDate.ToDateTime(TimeOnly.MinValue);
+            var expiryToExclusive = asOfBusinessDate
+                .AddDays(expiryWarningDays + 1)
+                .ToDateTime(TimeOnly.MinValue);
+            var aggregate = await AggregateBalancesAsync(
+                balances,
+                expiryFrom,
+                expiryToExclusive,
+                cancellationToken);
+
+            if (aggregate is not null)
+            {
+                return Result.Success(ToDashboardMetrics(aggregate));
+            }
+
+            var legacyAggregate = await AggregateLegacyStockAsync(
+                BuildLegacyQuery(query, scope),
+                expiryFrom,
+                expiryToExclusive,
+                cancellationToken);
+
+            return Result.Success(ToDashboardMetrics(legacyAggregate ?? DashboardAggregate.Empty));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error loading operational dashboard inventory metrics");
+            return Result.Failure<InventoryDashboardMetricsDto>(WmsErrors.FromException(
+                ex,
+                "inventory.dashboard_metrics_failed",
+                "Operational inventory metrics could not be loaded. Please try again."));
+        }
+    }
+
     private IQueryable<InventoryBalance> BuildQuery(
         InventoryInquiryQuery query,
         WarehouseAccessScope scope)
@@ -363,6 +422,83 @@ public sealed class InventoryInquiryService(
 
         return stock;
     }
+
+    private static Task<DashboardAggregate?> AggregateBalancesAsync(
+        IQueryable<InventoryBalance> balances,
+        DateTime expiryFrom,
+        DateTime expiryToExclusive,
+        CancellationToken cancellationToken) =>
+        balances
+            .GroupBy(_ => 1)
+            .Select(group => new DashboardAggregate(
+                group.Select(balance => balance.ItemId).Distinct().Count(),
+                group.Sum(balance => balance.OnHandQuantity),
+                group.Sum(balance => balance.ReservedQuantity),
+                group.Sum(balance => balance.OnHandQuantity - balance.ReservedQuantity),
+                group.Where(balance => balance.InventoryStatus.Code == InventoryStatusCodes.Hold)
+                    .Sum(balance => (decimal?)balance.OnHandQuantity) ?? 0m,
+                group.Where(balance => balance.InventoryStatus.Code == InventoryStatusCodes.Damaged)
+                    .Sum(balance => (decimal?)balance.OnHandQuantity) ?? 0m,
+                group.Where(balance => balance.InventoryStatus.Code == InventoryStatusCodes.Expired)
+                    .Sum(balance => (decimal?)balance.OnHandQuantity) ?? 0m,
+                group.Where(balance =>
+                        balance.InventoryStatus.Code != InventoryStatusCodes.Expired &&
+                        balance.Lot != null &&
+                        balance.Lot.ExpiryDate.HasValue &&
+                        balance.Lot.ExpiryDate.Value >= expiryFrom &&
+                        balance.Lot.ExpiryDate.Value < expiryToExclusive)
+                    .Sum(balance => (decimal?)balance.OnHandQuantity) ?? 0m,
+                group.Select(balance => balance.LocationId).Distinct().Count()))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    private static Task<DashboardAggregate?> AggregateLegacyStockAsync(
+        IQueryable<Stock> stock,
+        DateTime expiryFrom,
+        DateTime expiryToExclusive,
+        CancellationToken cancellationToken) =>
+        stock
+            .GroupBy(_ => 1)
+            .Select(group => new DashboardAggregate(
+                group.Select(row => row.ItemId).Distinct().Count(),
+                group.Sum(row => (decimal)row.QuantityAvailable),
+                group.Sum(row => (decimal)row.QuantityReserved),
+                group.Sum(row =>
+                    (decimal)row.QuantityAvailable - (decimal)row.QuantityReserved),
+                group.Where(row =>
+                        row.InventoryStatus != null &&
+                        row.InventoryStatus.Code == InventoryStatusCodes.Hold)
+                    .Sum(row => (decimal?)row.QuantityAvailable) ?? 0m,
+                group.Where(row =>
+                        row.InventoryStatus != null &&
+                        row.InventoryStatus.Code == InventoryStatusCodes.Damaged)
+                    .Sum(row => (decimal?)row.QuantityAvailable) ?? 0m,
+                group.Where(row =>
+                        row.InventoryStatus != null &&
+                        row.InventoryStatus.Code == InventoryStatusCodes.Expired)
+                    .Sum(row => (decimal?)row.QuantityAvailable) ?? 0m,
+                group.Where(row =>
+                        (row.InventoryStatus == null ||
+                         row.InventoryStatus.Code != InventoryStatusCodes.Expired) &&
+                        row.Lot != null &&
+                        row.Lot.ExpiryDate.HasValue &&
+                        row.Lot.ExpiryDate.Value >= expiryFrom &&
+                        row.Lot.ExpiryDate.Value < expiryToExclusive)
+                    .Sum(row => (decimal?)row.QuantityAvailable) ?? 0m,
+                group.Select(row => row.LocationId).Distinct().Count()))
+            .SingleOrDefaultAsync(cancellationToken);
+
+    private static InventoryDashboardMetricsDto ToDashboardMetrics(
+        DashboardAggregate aggregate) =>
+        new(
+            aggregate.StockKeepingUnits,
+            aggregate.OnHandQuantity,
+            aggregate.ReservedQuantity,
+            aggregate.AvailableQuantity,
+            aggregate.HeldQuantity,
+            aggregate.DamagedQuantity,
+            aggregate.ExpiredQuantity,
+            aggregate.ExpiringQuantity,
+            aggregate.StockLocations);
 
     private async Task<Result<InventoryInquiryPageDto>> QueryLegacyStockAsync(
         InventoryInquiryQuery query,
@@ -701,4 +837,18 @@ public sealed class InventoryInquiryService(
         totalCount == 0
             ? 0
             : (int)Math.Ceiling(totalCount / (double)pageSize);
+
+    private sealed record DashboardAggregate(
+        int StockKeepingUnits,
+        decimal OnHandQuantity,
+        decimal ReservedQuantity,
+        decimal AvailableQuantity,
+        decimal HeldQuantity,
+        decimal DamagedQuantity,
+        decimal ExpiredQuantity,
+        decimal ExpiringQuantity,
+        int StockLocations)
+    {
+        public static DashboardAggregate Empty { get; } = new(0, 0m, 0m, 0m, 0m, 0m, 0m, 0m, 0);
+    }
 }

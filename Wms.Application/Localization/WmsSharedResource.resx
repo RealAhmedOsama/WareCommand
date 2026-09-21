@@ -78,6 +78,15 @@
   <data name="Dashboard.TotalSkus" xml:space="preserve"><value>Total SKUs</value></data>
   <data name="Dashboard.InStock" xml:space="preserve"><value>In Stock</value></data>
   <data name="Dashboard.TotalUnits" xml:space="preserve"><value>Total Units</value></data>
+  <data name="Dashboard.InventoryKpis" xml:space="preserve"><value>Inventory KPIs</value></data>
+  <data name="Dashboard.InventoryMetricScope" xml:space="preserve"><value>Warehouse-scoped quantities from the canonical inventory balance read model</value></data>
+  <data name="Dashboard.OnHand" xml:space="preserve"><value>On hand</value></data>
+  <data name="Dashboard.Reserved" xml:space="preserve"><value>Reserved</value></data>
+  <data name="Dashboard.Available" xml:space="preserve"><value>Available</value></data>
+  <data name="Dashboard.Held" xml:space="preserve"><value>Held</value></data>
+  <data name="Dashboard.Damaged" xml:space="preserve"><value>Damaged</value></data>
+  <data name="Dashboard.Expired" xml:space="preserve"><value>Expired</value></data>
+  <data name="Dashboard.Expiring" xml:space="preserve"><value>Expiring soon</value></data>
   <data name="Dashboard.StockLocations" xml:space="preserve"><value>Stock Locations</value></data>
   <data name="Dashboard.Active" xml:space="preserve"><value>Active</value></data>
   <data name="Dashboard.RecentMovements" xml:space="preserve"><value>Recent Movements</value></data>

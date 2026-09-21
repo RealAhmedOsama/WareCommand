@@ -59,9 +59,9 @@
                         <i class="bi bi-stack text-warning fs-3"></i>
                     </div>
                 </div>
-                <h3 class="mb-1">@Model.TotalStockValue.ToString("N0")</h3>
+                <h3 class="mb-1">@Model.TotalOnHandUnits.ToString("N0")</h3>
                 <h6 class="text-muted mb-0">@T["Dashboard.TotalUnits"]</h6>
-                <small class="text-warning">@T["Dashboard.InStock"]</small>
+                <small class="text-warning">@T["Dashboard.OnHand"]</small>
             </div>
         </div>
     </div>
@@ -81,6 +81,48 @@
         </div>
     </div>
 </div>
+
+<section class="card border-0 shadow-sm mb-4" aria-labelledby="inventory-kpis-heading">
+    <div class="card-header bg-white border-bottom">
+        <h5 class="card-title mb-1" id="inventory-kpis-heading">
+            <i class="bi bi-bar-chart-line me-2 text-primary"></i>
+            @T["Dashboard.InventoryKpis"]
+        </h5>
+        <small class="text-muted">@T["Dashboard.InventoryMetricScope"]</small>
+    </div>
+    <div class="card-body">
+        <div class="wms-stat-grid">
+            <div class="wms-stat">
+                <div class="wms-stat__label">@T["Dashboard.OnHand"]</div>
+                <div class="wms-stat__value">@Model.TotalOnHandUnits.ToString("N0")</div>
+            </div>
+            <div class="wms-stat">
+                <div class="wms-stat__label">@T["Dashboard.Reserved"]</div>
+                <div class="wms-stat__value">@Model.ReservedUnits.ToString("N0")</div>
+            </div>
+            <div class="wms-stat">
+                <div class="wms-stat__label">@T["Dashboard.Available"]</div>
+                <div class="wms-stat__value">@Model.AvailableUnits.ToString("N0")</div>
+            </div>
+            <div class="wms-stat">
+                <div class="wms-stat__label">@T["Dashboard.Held"]</div>
+                <div class="wms-stat__value">@Model.HeldUnits.ToString("N0")</div>
+            </div>
+            <div class="wms-stat">
+                <div class="wms-stat__label">@T["Dashboard.Damaged"]</div>
+                <div class="wms-stat__value">@Model.DamagedUnits.ToString("N0")</div>
+            </div>
+            <div class="wms-stat">
+                <div class="wms-stat__label">@T["Dashboard.Expired"]</div>
+                <div class="wms-stat__value">@Model.ExpiredUnits.ToString("N0")</div>
+            </div>
+            <div class="wms-stat">
+                <div class="wms-stat__label">@T["Dashboard.Expiring"]</div>
+                <div class="wms-stat__value">@Model.ExpiringUnits.ToString("N0")</div>
+            </div>
+        </div>
+    </div>
+</section>
 
 <!-- Content Row -->
 <div class="row g-4">

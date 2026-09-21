@@ -6,7 +6,6 @@ using Wms.Application.Identity;
 using Wms.Application.Inventory;
 using Wms.Application.Settings;
 using Wms.Application.Time;
-using Wms.Application.UseCases.Inventory;
 using Wms.Application.UseCases.Items;
 using Wms.Application.UseCases.Reports;
 using Wms.ASP.Models;
@@ -18,7 +17,7 @@ namespace Wms.ASP.Controllers;
 public class DashboardController : Controller
 {
     private readonly IGetItemsUseCase _getItemsUseCase;
-    private readonly IGetStockUseCase _getStockUseCase;
+    private readonly IInventoryInquiryService _inventoryInquiryService;
     private readonly IInventoryReplenishmentPolicyService _replenishmentPolicyService;
     private readonly IClock _clock;
     private readonly ILogger<DashboardController> _logger;
@@ -26,7 +25,7 @@ public class DashboardController : Controller
     private readonly IWmsSettingsService _settingsService;
 
     public DashboardController(
-        IGetStockUseCase getStockUseCase,
+        IInventoryInquiryService inventoryInquiryService,
         IInventoryReplenishmentPolicyService replenishmentPolicyService,
         IGetItemsUseCase getItemsUseCase,
         IMovementReportUseCase movementReportUseCase,
@@ -34,7 +33,7 @@ public class DashboardController : Controller
         IWmsSettingsService settingsService,
         IClock clock)
     {
-        _getStockUseCase = getStockUseCase;
+        _inventoryInquiryService = inventoryInquiryService;
         _replenishmentPolicyService = replenishmentPolicyService;
         _getItemsUseCase = getItemsUseCase;
         _movementReportUseCase = movementReportUseCase;
@@ -65,6 +64,11 @@ public class DashboardController : Controller
         model.DashboardRefreshIntervalSeconds = dashboardSettings.RefreshIntervalSeconds;
         model.DisplayTimeZone = settingsValues.Localization.TimeZone;
 
+        var nowUtc = _clock.UtcNow;
+        var businessToday = WmsBusinessTime.GetBusinessDate(
+            nowUtc,
+            settingsValues.Localization.TimeZone);
+
         // Load KPI data
         var itemsResult = await _getItemsUseCase.ExecuteAsync(cancellationToken: cancellationToken);
         if (itemsResult.IsSuccess)
@@ -78,28 +82,32 @@ public class DashboardController : Controller
             _logger.LogWarning("Failed to load items: {ErrorCode}", itemsResult.ErrorCode);
         }
 
-        // Stock Summary
-        var stockSummaryResult = await _getStockUseCase.GetStockSummaryAsync(cancellationToken);
-        if (stockSummaryResult.IsSuccess)
+        // Inventory KPIs are aggregated by the canonical inquiry read model.
+        // The query remains warehouse-scoped by the service and never loads all
+        // stock rows into the controller process.
+        var dashboardMetricsResult = await _inventoryInquiryService.GetDashboardMetricsAsync(
+            new InventoryInquiryQuery(),
+            businessToday,
+            settingsValues.Expiry.WarningDays,
+            cancellationToken);
+        if (dashboardMetricsResult.IsSuccess)
         {
-            var summary = stockSummaryResult.Value.ToList();
-            model.TotalSKUs = summary.Count;
-            model.TotalStockValue = summary.Sum(s => s.TotalQuantity);
+            var metrics = dashboardMetricsResult.Value;
+            model.TotalSKUs = metrics.StockKeepingUnits;
+            model.TotalOnHandUnits = metrics.OnHandQuantity;
+            model.ReservedUnits = metrics.ReservedQuantity;
+            model.AvailableUnits = metrics.AvailableQuantity;
+            model.HeldUnits = metrics.HeldQuantity;
+            model.DamagedUnits = metrics.DamagedQuantity;
+            model.ExpiredUnits = metrics.ExpiredQuantity;
+            model.ExpiringUnits = metrics.ExpiringQuantity;
+            model.StockLocations = metrics.StockLocations;
         }
         else
         {
-            _logger.LogWarning("Failed to load stock summary: {ErrorCode}", stockSummaryResult.ErrorCode);
-        }
-
-        // Stock Locations
-        var allStockResult = await _getStockUseCase.GetAllStockAsync(cancellationToken);
-        if (allStockResult.IsSuccess)
-        {
-            model.StockLocations = allStockResult.Value.Select(s => s.LocationId).Distinct().Count();
-        }
-        else
-        {
-            _logger.LogWarning("Failed to load stock data: {ErrorCode}", allStockResult.ErrorCode);
+            _logger.LogWarning(
+                "Failed to load operational inventory metrics: {ErrorCode}",
+                dashboardMetricsResult.ErrorCode);
         }
 
         // Replenishment signals are policy-driven; the legacy global threshold is
@@ -119,10 +127,6 @@ public class DashboardController : Controller
         }
 
         // Recent movements
-        var nowUtc = _clock.UtcNow;
-        var businessToday = WmsBusinessTime.GetBusinessDate(
-            nowUtc,
-            settingsValues.Localization.TimeZone);
         var request = new MovementReportRequest(
             businessToday.AddDays(-settingsValues.Reports.DefaultPeriodDays)
                 .ToDateTime(TimeOnly.MinValue),

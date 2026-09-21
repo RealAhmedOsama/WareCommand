@@ -219,6 +219,26 @@ public sealed class InventoryInquiryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DashboardMetricsAggregateCanonicalBalancesAndExpiryWindow()
+    {
+        var result = await _service.GetDashboardMetricsAsync(
+            new InventoryInquiryQuery(WarehouseId: _warehouse.Id),
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            expiryWarningDays: 30);
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        result.Value.StockKeepingUnits.Should().Be(1);
+        result.Value.OnHandQuantity.Should().Be(14m);
+        result.Value.ReservedQuantity.Should().Be(2m);
+        result.Value.AvailableQuantity.Should().Be(12m);
+        result.Value.HeldQuantity.Should().Be(4m);
+        result.Value.DamagedQuantity.Should().Be(0m);
+        result.Value.ExpiredQuantity.Should().Be(0m);
+        result.Value.ExpiringQuantity.Should().Be(10m);
+        result.Value.StockLocations.Should().Be(1);
+    }
+
+    [Fact]
     public async Task LimitedWarehouseScopeCannotReadAnotherWarehouse()
     {
         _warehouseAccess
@@ -258,6 +278,10 @@ public sealed class InventoryInquiryServiceTests : IDisposable
             PageSize: 1));
         var summary = await _service.SummarizeAsync(new InventoryInquiryQuery(
             WarehouseId: _warehouse.Id));
+        var metrics = await _service.GetDashboardMetricsAsync(
+            new InventoryInquiryQuery(WarehouseId: _warehouse.Id),
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            expiryWarningDays: 30);
 
         page.IsSuccess.Should().BeTrue(page.Error);
         page.Value.TotalCount.Should().Be(1);
@@ -265,6 +289,10 @@ public sealed class InventoryInquiryServiceTests : IDisposable
         summary.IsSuccess.Should().BeTrue(summary.Error);
         summary.Value.Should().ContainSingle();
         summary.Value.Single().TotalQuantity.Should().Be(6m);
+        metrics.IsSuccess.Should().BeTrue(metrics.Error);
+        metrics.Value.OnHandQuantity.Should().Be(6m);
+        metrics.Value.AvailableQuantity.Should().Be(6m);
+        metrics.Value.StockLocations.Should().Be(1);
     }
 
     public void Dispose()

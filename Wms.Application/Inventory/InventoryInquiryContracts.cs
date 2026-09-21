@@ -51,4 +51,10 @@ public interface IInventoryInquiryService
     Task<Result<IReadOnlyList<StockSummaryDto>>> SummarizeAsync(
         InventoryInquiryQuery query,
         CancellationToken cancellationToken = default);
+
+    Task<Result<InventoryDashboardMetricsDto>> GetDashboardMetricsAsync(
+        InventoryInquiryQuery query,
+        DateOnly asOfBusinessDate,
+        int expiryWarningDays,
+        CancellationToken cancellationToken = default);
 }

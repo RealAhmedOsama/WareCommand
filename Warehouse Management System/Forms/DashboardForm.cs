@@ -3,6 +3,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Context;
+using Wms.Application.Inventory;
 using Wms.Application.Settings;
 using Wms.Application.Time;
 using Wms.Application.UseCases.Inventory;
@@ -17,6 +18,7 @@ public partial class DashboardForm : Form
 {
     private readonly IGetItemsUseCase _getItemsUseCase;
     private readonly IGetStockUseCase _getStockUseCase;
+    private readonly IInventoryInquiryService _inventoryInquiryService;
     private readonly IClock _clock;
     private readonly ILogger<DashboardForm> _logger;
     private readonly IMovementReportUseCase _movementReportUseCase;
@@ -24,13 +26,16 @@ public partial class DashboardForm : Form
     private WmsSettingsValues _settings = WmsSettingsDefaults.Create();
     private Timer? _refreshTimer;
 
-    public DashboardForm(IGetStockUseCase getStockUseCase, IGetItemsUseCase getItemsUseCase,
+    public DashboardForm(IGetStockUseCase getStockUseCase,
+        IInventoryInquiryService inventoryInquiryService,
+        IGetItemsUseCase getItemsUseCase,
         IMovementReportUseCase movementReportUseCase,
         IWmsSettingsService settingsService,
         ILogger<DashboardForm> logger,
         IClock clock)
     {
         _getStockUseCase = getStockUseCase;
+        _inventoryInquiryService = inventoryInquiryService;
         _getItemsUseCase = getItemsUseCase;
         _movementReportUseCase = movementReportUseCase;
         _settingsService = settingsService;
@@ -114,22 +119,19 @@ public partial class DashboardForm : Form
                 lblActiveItems.Text = $"{activeItems:N0} {WmsDesktopLocalization.Get("Common.Active")}";
             }
 
-            // Stock Summary
-            var stockResult = await _getStockUseCase.GetStockSummaryAsync();
-            if (stockResult.IsSuccess)
+            var businessToday = WmsBusinessTime.GetBusinessDate(
+                _clock.UtcNow,
+                _settings.Localization.TimeZone);
+            var metricsResult = await _inventoryInquiryService.GetDashboardMetricsAsync(
+                new InventoryInquiryQuery(),
+                businessToday,
+                _settings.Expiry.WarningDays);
+            if (metricsResult.IsSuccess)
             {
-                var summary = stockResult.Value.ToList();
-                lblTotalSKUs.Text = summary.Count.ToString("N0", CultureInfo.CurrentCulture);
-                var totalValue = summary.Sum(s => s.TotalQuantity);
-                lblTotalStockValue.Text = totalValue.ToString("N0", CultureInfo.CurrentCulture);
-            }
-
-            // Stock Locations
-            var allStockResult = await _getStockUseCase.GetAllStockAsync();
-            if (allStockResult.IsSuccess)
-            {
-                var locations = allStockResult.Value.Select(s => s.LocationId).Distinct().Count();
-                lblStockLocations.Text = locations.ToString("N0", CultureInfo.CurrentCulture);
+                var metrics = metricsResult.Value;
+                lblTotalSKUs.Text = metrics.StockKeepingUnits.ToString("N0", CultureInfo.CurrentCulture);
+                lblTotalStockValue.Text = metrics.OnHandQuantity.ToString("N0", CultureInfo.CurrentCulture);
+                lblStockLocations.Text = metrics.StockLocations.ToString("N0", CultureInfo.CurrentCulture);
             }
         }
         catch (Exception ex)

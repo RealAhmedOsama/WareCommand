@@ -13,7 +13,13 @@ public class DashboardViewModel
     public int TotalItems { get; set; }
     public int ActiveItems { get; set; }
     public int TotalSKUs { get; set; }
-    public decimal TotalStockValue { get; set; }
+    public decimal TotalOnHandUnits { get; set; }
+    public decimal ReservedUnits { get; set; }
+    public decimal AvailableUnits { get; set; }
+    public decimal HeldUnits { get; set; }
+    public decimal DamagedUnits { get; set; }
+    public decimal ExpiredUnits { get; set; }
+    public decimal ExpiringUnits { get; set; }
     public int StockLocations { get; set; }
     public List<MovementReportDto> RecentMovements { get; set; } = new();
     public List<StockDto> LowStockItems { get; set; } = new();
