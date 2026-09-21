@@ -121,6 +121,12 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<InventoryClassificationHistory>();
     public DbSet<InventoryAllocationStrategyPolicy> InventoryAllocationStrategyPolicies =>
         Set<InventoryAllocationStrategyPolicy>();
+    public DbSet<InventoryDispositionPolicy> InventoryDispositionPolicies =>
+        Set<InventoryDispositionPolicy>();
+    public DbSet<InventoryDisposition> InventoryDispositions =>
+        Set<InventoryDisposition>();
+    public DbSet<InventoryRecallCase> InventoryRecallCases =>
+        Set<InventoryRecallCase>();
     public DbSet<WaveTemplate> WaveTemplates => Set<WaveTemplate>();
     public DbSet<Wave> Waves => Set<Wave>();
     public DbSet<WaveLine> WaveLines => Set<WaveLine>();
@@ -244,6 +250,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new InventoryClassificationConfiguration());
         builder.ApplyConfiguration(new InventoryClassificationHistoryConfiguration());
         builder.ApplyConfiguration(new InventoryAllocationStrategyPolicyConfiguration());
+        builder.ApplyConfiguration(new InventoryDispositionPolicyConfiguration());
+        builder.ApplyConfiguration(new InventoryDispositionConfiguration());
+        builder.ApplyConfiguration(new InventoryRecallCaseConfiguration());
         builder.ApplyConfiguration(new WaveTemplateConfiguration());
         builder.ApplyConfiguration(new WaveConfiguration());
         builder.ApplyConfiguration(new WaveLineConfiguration());

@@ -90,7 +90,11 @@ public class Lot : Entity
             stampUpdatedAt: true);
     }
 
-    public void SetStatus(LotStatus status, string? reason, bool stampUpdatedAt = true)
+    public void SetStatus(
+        LotStatus status,
+        string? reason,
+        bool stampUpdatedAt = true,
+        DateTime? changedAtUtc = null)
     {
         if (status == Status)
         {
@@ -124,7 +128,7 @@ public class Lot : Entity
         if (status == LotStatus.Recalled)
         {
             RecallReason = NormalizeText(reason, 1_000, nameof(reason));
-            RecalledAt = DateTime.UtcNow;
+            RecalledAt = NormalizeUtc(changedAtUtc ?? DateTime.UtcNow);
         }
         else if (status != LotStatus.Recalled)
         {
@@ -134,7 +138,7 @@ public class Lot : Entity
 
         if (stampUpdatedAt)
         {
-            SetUpdatedAt();
+            SetUpdatedAt(changedAtUtc);
         }
     }
 

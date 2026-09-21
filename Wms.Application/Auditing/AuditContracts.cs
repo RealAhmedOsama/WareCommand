@@ -167,6 +167,12 @@ public static class WmsAuditActions
     public const string InventoryClassificationRecalculated = "inventory.classification.recalculated";
     public const string InventoryClassificationOverrideChanged = "inventory.classification.override_changed";
     public const string InventoryAllocationStrategyPolicyChanged = "inventory.allocation_strategy_policy.changed";
+    public const string InventoryDispositionPolicyChanged = "inventory.disposition_policy.changed";
+    public const string InventoryDispositionCreated = "inventory.disposition.created";
+    public const string InventoryDispositionApproved = "inventory.disposition.approved";
+    public const string InventoryDispositionCompleted = "inventory.disposition.completed";
+    public const string InventoryRecallCreated = "inventory.recall.created";
+    public const string InventoryRecallClosed = "inventory.recall.closed";
     public const string WaveTemplateChanged = "outbound.wave_template.changed";
     public const string WaveCreated = "outbound.wave.created";
     public const string WaveProcessed = "outbound.wave.processed";
@@ -343,6 +349,12 @@ public static class WmsAuditActions
         InventoryClassificationRecalculated,
         InventoryClassificationOverrideChanged,
         InventoryAllocationStrategyPolicyChanged,
+        InventoryDispositionPolicyChanged,
+        InventoryDispositionCreated,
+        InventoryDispositionApproved,
+        InventoryDispositionCompleted,
+        InventoryRecallCreated,
+        InventoryRecallClosed,
         WaveTemplateChanged,
         WaveCreated,
         WaveProcessed,
@@ -423,6 +435,9 @@ public static class WmsAuditEntityTypes
     public const string InventoryClassification = "InventoryClassification";
     public const string InventoryClassificationHistory = "InventoryClassificationHistory";
     public const string InventoryAllocationStrategyPolicy = "InventoryAllocationStrategyPolicy";
+    public const string InventoryDispositionPolicy = "InventoryDispositionPolicy";
+    public const string InventoryDisposition = "InventoryDisposition";
+    public const string InventoryRecallCase = "InventoryRecallCase";
     public const string WaveTemplate = "WaveTemplate";
     public const string Wave = "Wave";
     public const string WaveLine = "WaveLine";
