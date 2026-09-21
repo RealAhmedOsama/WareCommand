@@ -88,7 +88,8 @@ public class Program
             });
             builder.Services.AddWmsInfrastructure(
                 connectionString,
-                databaseProvider);
+                databaseProvider,
+                builder.Configuration);
             builder.Services.AddWmsBackups(
                 builder.Configuration,
                 builder.Environment,

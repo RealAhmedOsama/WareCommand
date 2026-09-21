@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Wms.Application.Approvals;
+using Wms.Application.Attachments;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.Identity;
@@ -37,6 +39,7 @@ using Wms.Application.Units;
 using Wms.Application.ValueAddedServices;
 using Wms.Application.Warehouses;
 using Wms.Infrastructure.Approvals;
+using Wms.Infrastructure.Attachments;
 using Wms.Application.WarehouseWork;
 using Wms.Application.Workforce;
 using Wms.Domain.Repositories;
@@ -91,9 +94,11 @@ public static class InfrastructureServiceCollectionExtensions
     public static IServiceCollection AddWmsInfrastructure(
         this IServiceCollection services,
         string? connectionString,
-        WmsDatabaseProvider provider = WmsDatabaseProvider.PostgreSql)
+        WmsDatabaseProvider provider = WmsDatabaseProvider.PostgreSql,
+        IConfiguration? configuration = null)
     {
         services.AddPersistence(connectionString, provider);
+        services.AddAttachmentInfrastructure(configuration);
         services.AddInventoryInfrastructure();
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
         services.AddScoped<IAccountDirectory, AccountDirectory>();
@@ -170,6 +175,26 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddDatabaseInitialization();
         services.AddSingleton<WmsDbCommandMetricsInterceptor>();
 
+        return services;
+    }
+
+    private static IServiceCollection AddAttachmentInfrastructure(
+        this IServiceCollection services,
+        IConfiguration? configuration)
+    {
+        var options = AttachmentStorageOptions.From(configuration);
+        if (!string.Equals(options.Provider, "Local", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "An external attachment storage provider is selected, but no provider adapter is registered. " +
+                "Register an IAttachmentStorage implementation before starting the host.");
+        }
+
+        services.AddSingleton(options);
+        services.AddSingleton<IAttachmentStorage, LocalAttachmentStorage>();
+        services.AddSingleton<IAttachmentScanner, NoOpAttachmentScanner>();
+        services.AddScoped<IAttachmentReferenceAccessService, AttachmentReferenceAccessService>();
+        services.AddScoped<IAttachmentService, AttachmentService>();
         return services;
     }
 

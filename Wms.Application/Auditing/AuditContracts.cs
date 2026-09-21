@@ -19,6 +19,10 @@ public static class WmsAuditActions
     public const string ApprovalExpired = "approval.expired";
     public const string ApprovalExecutionStarted = "approval.execution.started";
     public const string ApprovalExecuted = "approval.executed";
+    public const string AttachmentUploaded = "attachments.uploaded";
+    public const string AttachmentDownloaded = "attachments.downloaded";
+    public const string AttachmentEvidenceMarked = "attachments.evidence_marked";
+    public const string AttachmentDeletionRequested = "attachments.deletion_requested";
 
     public const string ItemCreated = "master.item.created";
     public const string ItemUpdated = "master.item.updated";
@@ -246,6 +250,10 @@ public static class WmsAuditActions
         ApprovalExpired,
         ApprovalExecutionStarted,
         ApprovalExecuted,
+        AttachmentUploaded,
+        AttachmentDownloaded,
+        AttachmentEvidenceMarked,
+        AttachmentDeletionRequested,
         ItemCreated,
         ItemUpdated,
         ItemActivated,
@@ -531,6 +539,7 @@ public static class WmsAuditEntityTypes
     public const string ApprovalDecision = "ApprovalDecision";
     public const string ApprovalExecution = "ApprovalExecution";
     public const string ApprovalInboxItem = "ApprovalInboxItem";
+    public const string Attachment = "Attachment";
     public const string WaveTemplate = "WaveTemplate";
     public const string Wave = "Wave";
     public const string WaveLine = "WaveLine";

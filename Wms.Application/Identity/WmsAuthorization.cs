@@ -79,6 +79,8 @@ public static class WmsPermissions
     public const string AccessManage = "access.manage";
     public const string ApprovalRead = "approval.read";
     public const string ApprovalManage = "approval.manage";
+    public const string AttachmentsRead = "attachments.read";
+    public const string AttachmentsManage = "attachments.manage";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -129,7 +131,9 @@ public static class WmsPermissions
         SettingsManage,
         AccessManage,
         ApprovalRead,
-        ApprovalManage
+        ApprovalManage,
+        AttachmentsRead,
+        AttachmentsManage
     ];
 
     public static IReadOnlyDictionary<string, string> Descriptions { get; } =
@@ -182,7 +186,9 @@ public static class WmsPermissions
             [SettingsManage] = "Manage system and warehouse settings",
             [AccessManage] = "Manage users, roles, permissions, and warehouse access",
             [ApprovalRead] = "View reason codes, approval requests, decisions, and inbox items",
-            [ApprovalManage] = "Manage reason codes and approval policies and decide approval requests"
+            [ApprovalManage] = "Manage reason codes and approval policies and decide approval requests",
+            [AttachmentsRead] = "View authorized warehouse attachments and evidence",
+            [AttachmentsManage] = "Upload, retain, quarantine, and request deletion of attachments"
         };
 
     public static bool IsKnown(string permission) =>
@@ -242,7 +248,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.AuditRead,
                 WmsPermissions.WarehouseManage,
                 WmsPermissions.ApprovalRead,
-                WmsPermissions.ApprovalManage
+                WmsPermissions.ApprovalManage,
+                WmsPermissions.AttachmentsRead,
+                WmsPermissions.AttachmentsManage
             ],
             [WmsRoleNames.Receiver] =
             [
@@ -265,7 +273,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ReceivingExecute,
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
-                WmsPermissions.PutawayExecute
+                WmsPermissions.PutawayExecute,
+                WmsPermissions.AttachmentsRead,
+                WmsPermissions.AttachmentsManage
             ],
             [WmsRoleNames.Picker] =
             [
@@ -317,7 +327,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.WorkOverride,
                 WmsPermissions.ReportsRead,
                 WmsPermissions.ApprovalRead,
-                WmsPermissions.ApprovalManage
+                WmsPermissions.ApprovalManage,
+                WmsPermissions.AttachmentsRead,
+                WmsPermissions.AttachmentsManage
             ],
             [WmsRoleNames.Auditor] =
             [
@@ -335,7 +347,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.WorkRead,
                 WmsPermissions.ReportsRead,
                 WmsPermissions.AuditRead,
-                WmsPermissions.ApprovalRead
+                WmsPermissions.ApprovalRead,
+                WmsPermissions.AttachmentsRead
             ],
             [WmsRoleNames.Viewer] =
             [
@@ -351,7 +364,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.QualityRead,
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
-                WmsPermissions.ReportsRead
+                WmsPermissions.ReportsRead,
+                WmsPermissions.AttachmentsRead
             ],
             [WmsRoleNames.WarehouseStaff] =
             [
@@ -373,7 +387,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.WorkExecute,
                 WmsPermissions.ReceivingExecute,
                 WmsPermissions.PutawayExecute,
-                WmsPermissions.PickingExecute
+                WmsPermissions.PickingExecute,
+                WmsPermissions.AttachmentsRead,
+                WmsPermissions.AttachmentsManage
             ]
         };
 }

@@ -169,6 +169,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ApprovalDecision> ApprovalDecisions => Set<ApprovalDecision>();
     public DbSet<ApprovalExecution> ApprovalExecutions => Set<ApprovalExecution>();
     public DbSet<ApprovalInboxItem> ApprovalInboxItems => Set<ApprovalInboxItem>();
+    public DbSet<Attachment> Attachments => Set<Attachment>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
 
@@ -492,6 +493,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ApprovalDecisionConfiguration());
         builder.ApplyConfiguration(new ApprovalExecutionConfiguration());
         builder.ApplyConfiguration(new ApprovalInboxItemConfiguration());
+        builder.ApplyConfiguration(new AttachmentConfiguration());
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)

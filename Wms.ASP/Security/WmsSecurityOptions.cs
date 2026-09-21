@@ -130,10 +130,14 @@ public static class WmsSecurityRegistration
 
         securityOptions.Validate();
         builder.Services.AddSingleton(securityOptions);
+        var attachmentRequestBodyBytes = Math.Max(
+            securityOptions.MaxRequestBodyBytes,
+            builder.Configuration.GetValue<long?>(
+                "Wms:Attachments:MaximumRequestBodyBytes") ?? 0);
 
         builder.WebHost.ConfigureKestrel(options =>
         {
-            options.Limits.MaxRequestBodySize = securityOptions.MaxRequestBodyBytes;
+            options.Limits.MaxRequestBodySize = attachmentRequestBodyBytes;
         });
 
         builder.Services.Configure<FormOptions>(options =>
@@ -141,7 +145,9 @@ public static class WmsSecurityRegistration
             options.ValueCountLimit = 1_000;
             options.KeyLengthLimit = 256;
             options.ValueLengthLimit = Math.Min(securityOptions.MaxRequestBodyBytes, 65_536);
-            options.MultipartBodyLengthLimit = securityOptions.MultipartBodyLengthLimitBytes;
+            options.MultipartBodyLengthLimit = Math.Max(
+                securityOptions.MultipartBodyLengthLimitBytes,
+                attachmentRequestBodyBytes);
             options.MultipartHeadersLengthLimit = 16_384;
         });
 
