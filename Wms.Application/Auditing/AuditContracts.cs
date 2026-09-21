@@ -143,6 +143,12 @@ public static class WmsAuditActions
     public const string ReturnProcessed = "outbound.return.processed";
     public const string SettingsChanged = "settings.changed";
     public const string IntegrationAction = "integration.action";
+    public const string LabelTemplateVersionCreated = "labels.template.version_created";
+    public const string LabelTemplateActivated = "labels.template.activated";
+    public const string LabelTemplateRolledBack = "labels.template.rolled_back";
+    public const string LabelPrintSubmitted = "labels.print.submitted";
+    public const string LabelPrintRetried = "labels.print.retried";
+    public const string LabelPrintFailed = "labels.print.failed";
     public const string IdentifierResolved = "security.identifier.resolved";
     public const string LotUpdated = "inventory.lot.updated";
     public const string LotStatusChanged = "inventory.lot.status_changed";
@@ -461,6 +467,8 @@ public static class WmsAuditEntityTypes
     public const string PickingPlanHandoff = "PickingPlanHandoff";
     public const string CrossDockPolicy = "CrossDockPolicy";
     public const string CrossDockPlan = "CrossDockPlan";
+    public const string LabelTemplate = "LabelTemplate";
+    public const string PrintJob = "PrintJob";
 }
 
 /// <summary>

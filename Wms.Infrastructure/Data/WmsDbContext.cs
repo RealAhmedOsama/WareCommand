@@ -10,6 +10,7 @@ using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Jobs;
+using Wms.Infrastructure.Labels;
 using Wms.Infrastructure.Settings;
 using Wms.Domain.Services;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
@@ -163,6 +164,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<WmsJobExecutionEntity> JobExecutions => Set<WmsJobExecutionEntity>();
 
     public DbSet<WmsJobNotificationEntity> JobNotifications => Set<WmsJobNotificationEntity>();
+
+    public DbSet<WmsLabelTemplateEntity> LabelTemplates => Set<WmsLabelTemplateEntity>();
+
+    public DbSet<WmsPrintJobEntity> PrintJobs => Set<WmsPrintJobEntity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -445,6 +450,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
             entity.HasIndex(notification => notification.DeduplicationKey).IsUnique();
             entity.HasIndex(notification => new { notification.Kind, notification.CreatedAtUtc });
         });
+
+        builder.ApplyConfiguration(new WmsLabelTemplateConfiguration());
+        builder.ApplyConfiguration(new WmsPrintJobConfiguration());
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
