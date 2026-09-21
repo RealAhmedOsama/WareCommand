@@ -73,6 +73,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ShipmentLoad> ShipmentLoads => Set<ShipmentLoad>();
     public DbSet<ShipmentCommand> ShipmentCommands => Set<ShipmentCommand>();
     public DbSet<ShipmentTrackingEvent> ShipmentTrackingEvents => Set<ShipmentTrackingEvent>();
+    public DbSet<ReturnAuthorization> ReturnAuthorizations => Set<ReturnAuthorization>();
+    public DbSet<ReturnLine> ReturnLines => Set<ReturnLine>();
+    public DbSet<ReturnReceipt> ReturnReceipts => Set<ReturnReceipt>();
+    public DbSet<ReturnDisposition> ReturnDispositions => Set<ReturnDisposition>();
+    public DbSet<ReturnCommand> ReturnCommands => Set<ReturnCommand>();
     public DbSet<PutawayRule> PutawayRules => Set<PutawayRule>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
@@ -168,6 +173,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ShipmentLoadConfiguration());
         builder.ApplyConfiguration(new ShipmentCommandConfiguration());
         builder.ApplyConfiguration(new ShipmentTrackingEventConfiguration());
+        builder.ApplyConfiguration(new ReturnAuthorizationConfiguration());
+        builder.ApplyConfiguration(new ReturnLineConfiguration());
+        builder.ApplyConfiguration(new ReturnReceiptConfiguration());
+        builder.ApplyConfiguration(new ReturnDispositionConfiguration());
+        builder.ApplyConfiguration(new ReturnCommandConfiguration());
         builder.ApplyConfiguration(new PutawayRuleConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());

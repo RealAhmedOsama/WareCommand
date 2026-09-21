@@ -4,6 +4,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
+#pragma warning disable CA1861
+
 namespace Wms.Infrastructure.Database.Migrations
 {
     /// <inheritdoc />
