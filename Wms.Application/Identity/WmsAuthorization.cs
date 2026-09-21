@@ -81,6 +81,8 @@ public static class WmsPermissions
     public const string ApprovalManage = "approval.manage";
     public const string AttachmentsRead = "attachments.read";
     public const string AttachmentsManage = "attachments.manage";
+    public const string NotificationsRead = "notifications.read";
+    public const string NotificationsManage = "notifications.manage";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -133,7 +135,9 @@ public static class WmsPermissions
         ApprovalRead,
         ApprovalManage,
         AttachmentsRead,
-        AttachmentsManage
+        AttachmentsManage,
+        NotificationsRead,
+        NotificationsManage
     ];
 
     public static IReadOnlyDictionary<string, string> Descriptions { get; } =
@@ -188,7 +192,9 @@ public static class WmsPermissions
             [ApprovalRead] = "View reason codes, approval requests, decisions, and inbox items",
             [ApprovalManage] = "Manage reason codes and approval policies and decide approval requests",
             [AttachmentsRead] = "View authorized warehouse attachments and evidence",
-            [AttachmentsManage] = "Upload, retain, quarantine, and request deletion of attachments"
+            [AttachmentsManage] = "Upload, retain, quarantine, and request deletion of attachments",
+            [NotificationsRead] = "View authorized in-app notifications and delivery state",
+            [NotificationsManage] = "Manage role and warehouse notification preferences"
         };
 
     public static bool IsKnown(string permission) =>
@@ -204,6 +210,8 @@ public static class WmsRolePermissionCatalog
             [WmsRoleNames.WarehouseManager] =
             [
                 WmsPermissions.DashboardView,
+                WmsPermissions.NotificationsRead,
+                WmsPermissions.NotificationsManage,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.ItemsManage,
                 WmsPermissions.SuppliersRead,
@@ -255,6 +263,7 @@ public static class WmsRolePermissionCatalog
             [WmsRoleNames.Receiver] =
             [
                 WmsPermissions.DashboardView,
+                WmsPermissions.NotificationsRead,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.SuppliersRead,
                 WmsPermissions.CustomersRead,
@@ -280,6 +289,7 @@ public static class WmsRolePermissionCatalog
             [WmsRoleNames.Picker] =
             [
                 WmsPermissions.DashboardView,
+                WmsPermissions.NotificationsRead,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
@@ -294,6 +304,7 @@ public static class WmsRolePermissionCatalog
             [WmsRoleNames.Packer] =
             [
                 WmsPermissions.DashboardView,
+                WmsPermissions.NotificationsRead,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
@@ -308,6 +319,8 @@ public static class WmsRolePermissionCatalog
             [WmsRoleNames.InventoryController] =
             [
                 WmsPermissions.DashboardView,
+                WmsPermissions.NotificationsRead,
+                WmsPermissions.NotificationsManage,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
@@ -334,6 +347,7 @@ public static class WmsRolePermissionCatalog
             [WmsRoleNames.Auditor] =
             [
                 WmsPermissions.DashboardView,
+                WmsPermissions.NotificationsRead,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.PurchaseOrdersRead,
                 WmsPermissions.AdvanceShippingNoticesRead,
@@ -353,6 +367,7 @@ public static class WmsRolePermissionCatalog
             [WmsRoleNames.Viewer] =
             [
                 WmsPermissions.DashboardView,
+                WmsPermissions.NotificationsRead,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.PurchaseOrdersRead,
                 WmsPermissions.AdvanceShippingNoticesRead,
@@ -370,6 +385,7 @@ public static class WmsRolePermissionCatalog
             [WmsRoleNames.WarehouseStaff] =
             [
                 WmsPermissions.DashboardView,
+                WmsPermissions.NotificationsRead,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.SuppliersRead,
                 WmsPermissions.PurchaseOrdersRead,

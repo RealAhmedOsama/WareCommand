@@ -11,6 +11,7 @@ using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Jobs;
 using Wms.Infrastructure.Labels;
+using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Settings;
 using Wms.Domain.Services;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
@@ -185,6 +186,14 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<WmsJobExecutionEntity> JobExecutions => Set<WmsJobExecutionEntity>();
 
     public DbSet<WmsJobNotificationEntity> JobNotifications => Set<WmsJobNotificationEntity>();
+
+    public DbSet<WmsNotificationEntity> Notifications => Set<WmsNotificationEntity>();
+
+    public DbSet<WmsNotificationRecipientEntity> NotificationRecipients =>
+        Set<WmsNotificationRecipientEntity>();
+
+    public DbSet<WmsNotificationPreferenceEntity> NotificationPreferences =>
+        Set<WmsNotificationPreferenceEntity>();
 
     public DbSet<WmsLabelTemplateEntity> LabelTemplates => Set<WmsLabelTemplateEntity>();
 
@@ -494,6 +503,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ApprovalExecutionConfiguration());
         builder.ApplyConfiguration(new ApprovalInboxItemConfiguration());
         builder.ApplyConfiguration(new AttachmentConfiguration());
+        builder.ApplyConfiguration(new WmsNotificationConfiguration());
+        builder.ApplyConfiguration(new WmsNotificationRecipientConfiguration());
+        builder.ApplyConfiguration(new WmsNotificationPreferenceConfiguration());
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)

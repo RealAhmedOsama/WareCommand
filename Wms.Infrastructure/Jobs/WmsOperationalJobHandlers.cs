@@ -10,6 +10,7 @@ using Wms.Application.Time;
 using Wms.Application.Idempotency;
 using Wms.Application.Inventory;
 using Wms.Application.Outbound;
+using Wms.Application.Notifications;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Jobs;
@@ -236,20 +237,26 @@ public sealed class WmsReportGenerationJob(
 }
 
 public sealed class WmsIntegrationRetryJob(
+    INotificationDeliveryService notificationDeliveryService,
     ILogger<WmsIntegrationRetryJob> logger) : IWmsJobHandler
 {
     public string JobName => WmsJobNames.IntegrationRetries;
 
-    public Task<WmsJobExecutionResult> ExecuteAsync(
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
         WmsJobContext context,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         cancellationToken.ThrowIfCancellationRequested();
+        var notificationCount = await notificationDeliveryService.DispatchPendingAsync(
+            cancellationToken: cancellationToken);
         logger.LogInformation(
-            "Integration retry job completed with no registered integration outbox adapter");
-        return Task.FromResult(new WmsJobExecutionResult(
-            Summary: "No integration outbox adapter is registered yet; the durable queue is ready for future adapters."));
+            "Integration retry job dispatched {NotificationCount} pending notification deliveries; no other integration outbox adapter is registered",
+            notificationCount);
+        return new WmsJobExecutionResult(
+            ItemsExamined: notificationCount,
+            ItemsCreated: 0,
+            Summary: $"Dispatched {notificationCount} pending notification deliveries; no other integration outbox adapter is registered yet.");
     }
 }
 
