@@ -80,6 +80,88 @@ public sealed class WarehouseManagementService(
             .ToArray());
     }
 
+    public async Task<Result<WarehousePageDto>> ListPageAsync(
+        WarehouseListQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var authorization = await AuthorizePermissionAsync(cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<WarehousePageDto>();
+        }
+
+        var page = Math.Max(1, query.Page);
+        var pageSize = Math.Clamp(query.PageSize, 1, 200);
+        var scope = await warehouseAccessService.GetScopeAsync(cancellationToken);
+        var warehouses = context.Warehouses.AsNoTracking().AsQueryable();
+        if (!query.IncludeInactive)
+        {
+            warehouses = warehouses.Where(warehouse => warehouse.IsActive);
+        }
+
+        if (!scope.HasGlobalAccess)
+        {
+            warehouses = warehouses.Where(warehouse => scope.WarehouseIds.Contains(warehouse.Id));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var pattern = $"%{query.SearchTerm.Trim()}%";
+            warehouses = warehouses.Where(warehouse =>
+                EF.Functions.Like(warehouse.Code, pattern) ||
+                EF.Functions.Like(warehouse.Name, pattern) ||
+                EF.Functions.Like(warehouse.ArabicName, pattern));
+        }
+
+        var totalCount = await warehouses.CountAsync(cancellationToken);
+        var rows = await warehouses
+            .OrderBy(warehouse => warehouse.Code)
+            .Select(warehouse => new
+            {
+                warehouse.Id,
+                warehouse.Code,
+                warehouse.Name,
+                warehouse.ArabicName,
+                warehouse.IsActive,
+                warehouse.WorkflowEnabled,
+                LocationCount = context.Locations.Count(location => location.WarehouseId == warehouse.Id),
+                ActiveLocationCount = context.Locations.Count(location =>
+                    location.WarehouseId == warehouse.Id && location.IsActive),
+                ConfiguredOperationalLocationCount = context.WarehouseOperationalLocations
+                    .Where(reference => reference.WarehouseId == warehouse.Id)
+                    .Select(reference => reference.Role)
+                    .Distinct()
+                    .Count(),
+                AssignedUserCount = context.UserWarehouseAssignments
+                    .Count(assignment => assignment.WarehouseId == warehouse.Id)
+            })
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var items = rows
+            .Select(row => new WarehouseSummaryDto(
+                row.Id,
+                row.Code,
+                row.Name,
+                row.ArabicName,
+                row.IsActive,
+                row.WorkflowEnabled,
+                row.ConfiguredOperationalLocationCount == Warehouse.RequiredOperationalLocationRoles.Count,
+                row.LocationCount,
+                row.ActiveLocationCount,
+                row.ConfiguredOperationalLocationCount,
+                row.AssignedUserCount))
+            .ToArray();
+
+        return Result.Success(new WarehousePageDto(
+            items,
+            page,
+            pageSize,
+            totalCount,
+            totalCount == 0 ? 0 : (int)Math.Ceiling(totalCount / (double)pageSize)));
+    }
+
     public async Task<Result<WarehouseDto>> GetAsync(
         int id,
         CancellationToken cancellationToken = default)

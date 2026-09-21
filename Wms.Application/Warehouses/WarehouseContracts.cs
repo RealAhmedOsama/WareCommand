@@ -38,6 +38,19 @@ public sealed record WarehouseSummaryDto(
     int ConfiguredOperationalLocationCount,
     int AssignedUserCount);
 
+public sealed record WarehouseListQuery(
+    bool IncludeInactive = true,
+    string? SearchTerm = null,
+    int Page = 1,
+    int PageSize = 50);
+
+public sealed record WarehousePageDto(
+    IReadOnlyList<WarehouseSummaryDto> Items,
+    int Page,
+    int PageSize,
+    int TotalCount,
+    int TotalPages);
+
 public sealed record WarehouseDto(
     int Id,
     string Code,
@@ -114,6 +127,10 @@ public interface IWarehouseManagementService
 {
     Task<Result<IReadOnlyList<WarehouseSummaryDto>>> ListAsync(
         bool includeInactive = true,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<WarehousePageDto>> ListPageAsync(
+        WarehouseListQuery query,
         CancellationToken cancellationToken = default);
 
     Task<Result<WarehouseDto>> GetAsync(

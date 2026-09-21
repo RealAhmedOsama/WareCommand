@@ -1,0 +1,355 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "WareCommand REST API",
+    "version": "v1",
+    "description": "Versioned, permission-scoped query contracts for the current API foundation. Responses use Application-owned contracts and never expose MVC view models or EF entities. Mutating commands are intentionally not published until the credential, idempotency, and outbox boundaries are complete.",
+    "x-status": "foundation",
+    "x-deprecation-policy": "v1 is additive. Breaking changes require a new version; deprecated operations remain documented for at least one release cycle."
+  },
+  "servers": [
+    { "url": "/" }
+  ],
+  "security": [
+    { "cookieAuth": [] }
+  ],
+  "paths": {
+    "/api/v1": {
+      "get": {
+        "operationId": "getApiV1Metadata",
+        "summary": "Read the API version and published resource boundary",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "API version metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiVersionInfo" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "operationId": "getApiV1OpenApi",
+        "summary": "Read the OpenAPI 3.1 contract",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 JSON document",
+            "content": {
+              "application/vnd.oai.openapi+json;version=3.1": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/warehouses": {
+      "get": {
+        "operationId": "listWarehousesV1",
+        "summary": "List accessible warehouse master records",
+        "parameters": [
+          { "$ref": "#/components/parameters/searchTerm" },
+          { "$ref": "#/components/parameters/includeInactive" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/WarehousePage" },
+          "400": { "$ref": "#/components/responses/ProblemDetails" },
+          "401": { "$ref": "#/components/responses/ProblemDetails" },
+          "403": { "$ref": "#/components/responses/ProblemDetails" },
+          "429": { "$ref": "#/components/responses/ProblemDetails" }
+        }
+      }
+    },
+    "/api/v1/items": {
+      "get": {
+        "operationId": "listItemsV1",
+        "summary": "List item master records with bounded paging",
+        "parameters": [
+          { "$ref": "#/components/parameters/searchTerm" },
+          { "$ref": "#/components/parameters/category" },
+          { "$ref": "#/components/parameters/includeInactive" },
+          { "$ref": "#/components/parameters/itemType" },
+          { "$ref": "#/components/parameters/itemLifecycleStatus" },
+          { "$ref": "#/components/parameters/itemSortBy" },
+          { "$ref": "#/components/parameters/descending" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/ItemPage" },
+          "400": { "$ref": "#/components/responses/ProblemDetails" },
+          "401": { "$ref": "#/components/responses/ProblemDetails" },
+          "403": { "$ref": "#/components/responses/ProblemDetails" },
+          "429": { "$ref": "#/components/responses/ProblemDetails" }
+        }
+      }
+    },
+    "/api/v1/locations": {
+      "get": {
+        "operationId": "listLocationsV1",
+        "summary": "List accessible warehouse locations with bounded paging",
+        "parameters": [
+          { "$ref": "#/components/parameters/warehouseId" },
+          { "$ref": "#/components/parameters/searchTerm" },
+          { "$ref": "#/components/parameters/locationType" },
+          { "$ref": "#/components/parameters/includeInactive" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/LocationPage" },
+          "400": { "$ref": "#/components/responses/ProblemDetails" },
+          "401": { "$ref": "#/components/responses/ProblemDetails" },
+          "403": { "$ref": "#/components/responses/ProblemDetails" },
+          "429": { "$ref": "#/components/responses/ProblemDetails" }
+        }
+      }
+    },
+    "/api/v1/inventory/stock": {
+      "get": {
+        "operationId": "queryInventoryStockV1",
+        "summary": "Query warehouse-scoped stock and availability",
+        "parameters": [
+          { "$ref": "#/components/parameters/warehouseId" },
+          { "$ref": "#/components/parameters/locationId" },
+          { "$ref": "#/components/parameters/itemId" },
+          { "$ref": "#/components/parameters/lotId" },
+          { "$ref": "#/components/parameters/serialNumberId" },
+          { "$ref": "#/components/parameters/licensePlateId" },
+          { "$ref": "#/components/parameters/inventoryStatusId" },
+          { "$ref": "#/components/parameters/searchTerm" },
+          { "$ref": "#/components/parameters/scanValue" },
+          { "$ref": "#/components/parameters/expiryFrom" },
+          { "$ref": "#/components/parameters/expiryTo" },
+          { "$ref": "#/components/parameters/availableOnly" },
+          { "$ref": "#/components/parameters/includeZero" },
+          { "$ref": "#/components/parameters/inventorySort" },
+          { "$ref": "#/components/parameters/descending" },
+          { "$ref": "#/components/parameters/ownerKind" },
+          { "$ref": "#/components/parameters/inventoryOwnerId" },
+          { "$ref": "#/components/parameters/ownerCodeSnapshot" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/InventoryPage" },
+          "400": { "$ref": "#/components/responses/ProblemDetails" },
+          "401": { "$ref": "#/components/responses/ProblemDetails" },
+          "403": { "$ref": "#/components/responses/ProblemDetails" },
+          "429": { "$ref": "#/components/responses/ProblemDetails" }
+        }
+      }
+    },
+    "/api/v1/reports/movements": {
+      "get": {
+        "operationId": "queryMovementReportV1",
+        "summary": "Query the warehouse-scoped movement ledger",
+        "parameters": [
+          { "$ref": "#/components/parameters/fromDate" },
+          { "$ref": "#/components/parameters/toDate" },
+          { "$ref": "#/components/parameters/warehouseId" },
+          { "$ref": "#/components/parameters/searchTerm" },
+          { "$ref": "#/components/parameters/itemSku" },
+          { "$ref": "#/components/parameters/locationCode" },
+          { "$ref": "#/components/parameters/movementType" },
+          { "$ref": "#/components/parameters/userId" },
+          { "$ref": "#/components/parameters/referenceNumber" },
+          { "$ref": "#/components/parameters/lotNumber" },
+          { "$ref": "#/components/parameters/serialNumber" },
+          { "$ref": "#/components/parameters/licensePlateNumber" },
+          { "$ref": "#/components/parameters/reportSort" },
+          { "$ref": "#/components/parameters/descending" },
+          { "$ref": "#/components/parameters/displayUnitOfMeasure" },
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/MovementPage" },
+          "400": { "$ref": "#/components/responses/ProblemDetails" },
+          "401": { "$ref": "#/components/responses/ProblemDetails" },
+          "403": { "$ref": "#/components/responses/ProblemDetails" },
+          "429": { "$ref": "#/components/responses/ProblemDetails" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "WareCommand.Auth",
+        "description": "Authenticated WareCommand session. Machine-to-machine bearer credentials are tracked by issue #89 and are not implied by this foundation document."
+      }
+    },
+    "parameters": {
+      "searchTerm": { "name": "searchTerm", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+      "category": { "name": "category", "in": "query", "schema": { "type": "string", "maxLength": 100 } },
+      "includeInactive": { "name": "includeInactive", "in": "query", "schema": { "type": "boolean", "default": false } },
+      "page": { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+      "pageSize": { "name": "pageSize", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 } },
+      "warehouseId": { "name": "warehouseId", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+      "locationId": { "name": "locationId", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+      "itemId": { "name": "itemId", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+      "lotId": { "name": "lotId", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+      "serialNumberId": { "name": "serialNumberId", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+      "licensePlateId": { "name": "licensePlateId", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+      "inventoryStatusId": { "name": "inventoryStatusId", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+      "scanValue": { "name": "scanValue", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+      "expiryFrom": { "name": "expiryFrom", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+      "expiryTo": { "name": "expiryTo", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+      "availableOnly": { "name": "availableOnly", "in": "query", "schema": { "type": "boolean", "default": false } },
+      "includeZero": { "name": "includeZero", "in": "query", "schema": { "type": "boolean", "default": false } },
+      "descending": { "name": "descending", "in": "query", "schema": { "type": "boolean", "default": false } },
+      "ownerKind": { "name": "ownerKind", "in": "query", "schema": { "type": "string" } },
+      "inventoryOwnerId": { "name": "inventoryOwnerId", "in": "query", "schema": { "type": "integer", "minimum": 1 } },
+      "ownerCodeSnapshot": { "name": "ownerCodeSnapshot", "in": "query", "schema": { "type": "string", "maxLength": 100 } },
+      "itemType": { "name": "type", "in": "query", "schema": { "type": "string" } },
+      "itemLifecycleStatus": { "name": "lifecycleStatus", "in": "query", "schema": { "type": "string" } },
+      "itemSortBy": { "name": "sortBy", "in": "query", "schema": { "type": "string", "default": "Sku" } },
+      "locationType": { "name": "type", "in": "query", "schema": { "type": "string" } },
+      "inventorySort": { "name": "sort", "in": "query", "schema": { "type": "string", "default": "ItemSku" } },
+      "fromDate": { "name": "fromDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+      "toDate": { "name": "toDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+      "itemSku": { "name": "itemSku", "in": "query", "schema": { "type": "string", "maxLength": 100 } },
+      "locationCode": { "name": "locationCode", "in": "query", "schema": { "type": "string", "maxLength": 100 } },
+      "movementType": { "name": "movementType", "in": "query", "schema": { "type": "string" } },
+      "userId": { "name": "userId", "in": "query", "schema": { "type": "string", "maxLength": 450 } },
+      "referenceNumber": { "name": "referenceNumber", "in": "query", "schema": { "type": "string", "maxLength": 100 } },
+      "lotNumber": { "name": "lotNumber", "in": "query", "schema": { "type": "string", "maxLength": 100 } },
+      "serialNumber": { "name": "serialNumber", "in": "query", "schema": { "type": "string", "maxLength": 100 } },
+      "licensePlateNumber": { "name": "licensePlateNumber", "in": "query", "schema": { "type": "string", "maxLength": 100 } },
+      "reportSort": { "name": "sort", "in": "query", "schema": { "type": "string", "default": "Timestamp" } },
+      "displayUnitOfMeasure": { "name": "displayUnitOfMeasure", "in": "query", "schema": { "type": "string", "maxLength": 50 } }
+    },
+    "responses": {
+      "ProblemDetails": {
+        "description": "RFC 9457-compatible problem details with stable errorCode and retryable extensions",
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/ProblemDetails" }
+          }
+        }
+      },
+      "WarehousePage": {
+        "description": "Paged warehouse records",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WarehousePage" } } }
+      },
+      "ItemPage": {
+        "description": "Paged item records",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ItemPage" } } }
+      },
+      "LocationPage": {
+        "description": "Paged location records",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LocationPage" } } }
+      },
+      "InventoryPage": {
+        "description": "Paged stock records",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InventoryPage" } } }
+      },
+      "MovementPage": {
+        "description": "Paged movement report records with query metadata",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MovementPage" } } }
+      }
+    },
+    "schemas": {
+      "ApiVersionInfo": {
+        "type": "object",
+        "required": ["version", "status", "openApi", "authentication", "deprecationPolicy", "queryResources", "commandResources"],
+        "properties": {
+          "version": { "type": "string", "const": "v1" },
+          "status": { "type": "string" },
+          "openApi": { "type": "string", "const": "3.1.0" },
+          "authentication": { "type": "string" },
+          "deprecationPolicy": { "type": "string" },
+          "queryResources": { "type": "array", "items": { "type": "string" } },
+          "commandResources": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "PageFields": {
+        "type": "object",
+        "required": ["items", "page", "pageSize", "totalCount", "totalPages"],
+        "properties": {
+          "page": { "type": "integer", "minimum": 1 },
+          "pageSize": { "type": "integer", "minimum": 1, "maximum": 200 },
+          "totalCount": { "type": "integer", "minimum": 0 },
+          "totalPages": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "Warehouse": {
+        "type": "object",
+        "required": ["id", "code", "name", "arabicName", "isActive", "workflowEnabled", "workflowReady", "locationCount", "activeLocationCount", "configuredOperationalLocationCount", "assignedUserCount"],
+        "properties": {
+          "id": { "type": "integer" }, "code": { "type": "string" }, "name": { "type": "string" }, "arabicName": { "type": "string" },
+          "isActive": { "type": "boolean" }, "workflowEnabled": { "type": "boolean" }, "workflowReady": { "type": "boolean" },
+          "locationCount": { "type": "integer" }, "activeLocationCount": { "type": "integer" }, "configuredOperationalLocationCount": { "type": "integer" }, "assignedUserCount": { "type": "integer" }
+        }
+      },
+      "Item": {
+        "type": "object",
+        "required": ["id", "sku", "name", "localizedName", "unitOfMeasure", "purchaseUnit", "salesUnit", "type", "lifecycleStatus", "isActive", "requiresLot", "requiresSerial", "requiresExpiry", "shelfLifeDays", "barcodes", "createdAt"],
+        "properties": {
+          "id": { "type": "integer" }, "sku": { "type": "string" }, "name": { "type": "string" }, "localizedName": { "type": "string" }, "category": { "type": ["string", "null"] }, "brand": { "type": ["string", "null"] },
+          "unitOfMeasure": { "type": "string" }, "purchaseUnit": { "type": "string" }, "salesUnit": { "type": "string" }, "type": { "type": "string" }, "lifecycleStatus": { "type": "string" },
+          "isActive": { "type": "boolean" }, "requiresLot": { "type": "boolean" }, "requiresSerial": { "type": "boolean" }, "requiresExpiry": { "type": "boolean" }, "shelfLifeDays": { "type": "integer" },
+          "barcodes": { "type": "array", "items": { "type": "string" } }, "createdAt": { "type": "string", "format": "date-time" }, "updatedAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "Location": {
+        "type": "object",
+        "required": ["id", "code", "name", "warehouseId", "type", "isPickable", "isReceivable", "isCountable", "isActive", "capacity", "fullPath", "createdAt"],
+        "properties": {
+          "id": { "type": "integer" }, "code": { "type": "string" }, "name": { "type": "string" }, "warehouseId": { "type": "integer" }, "parentLocationId": { "type": ["integer", "null"] }, "type": { "type": "string" }, "barcode": { "type": ["string", "null"] },
+          "isPickable": { "type": "boolean" }, "isReceivable": { "type": "boolean" }, "isCountable": { "type": "boolean" }, "isActive": { "type": "boolean" }, "capacity": { "type": "integer" }, "fullPath": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }, "updatedAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "InventoryStock": {
+        "type": "object",
+        "required": ["id", "itemId", "itemSku", "itemName", "locationId", "locationCode", "locationName", "quantityAvailable", "quantityReserved", "availableQuantity", "inventoryStatusCode", "inventoryStatusName", "isAllocatable", "isPickable", "isShippable", "ownerKind", "ownerCodeSnapshot", "createdAt"],
+        "properties": {
+          "id": { "type": "integer" }, "itemId": { "type": "integer" }, "itemSku": { "type": "string" }, "itemName": { "type": "string" }, "locationId": { "type": "integer" }, "locationCode": { "type": "string" }, "locationName": { "type": "string" },
+          "lotId": { "type": ["integer", "null"] }, "lotNumber": { "type": ["string", "null"] }, "serialNumber": { "type": ["string", "null"] }, "quantityAvailable": { "type": "number" }, "quantityReserved": { "type": "number" }, "availableQuantity": { "type": "number" },
+          "availableToPromiseQuantity": { "type": ["number", "null"] }, "heldQuantity": { "type": ["number", "null"] }, "inTransitQuantity": { "type": ["number", "null"] }, "orderedQuantity": { "type": ["number", "null"] }, "expiryDate": { "type": ["string", "null"], "format": "date-time" },
+          "inventoryStatusCode": { "type": "string" }, "inventoryStatusName": { "type": "string" }, "isAllocatable": { "type": "boolean" }, "isPickable": { "type": "boolean" }, "isShippable": { "type": "boolean" }, "licensePlateId": { "type": ["integer", "null"] }, "licensePlateNumber": { "type": ["string", "null"] },
+          "ownerKind": { "type": "string" }, "inventoryOwnerId": { "type": ["integer", "null"] }, "ownerCodeSnapshot": { "type": "string" }, "createdAt": { "type": "string", "format": "date-time" }, "updatedAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "Movement": {
+        "type": "object",
+        "required": ["id", "type", "itemSku", "itemName", "quantity", "baseQuantity", "baseUnitOfMeasure", "displayQuantity", "displayUnitOfMeasure", "userId", "timestamp", "ownerKind", "ownerCodeSnapshot"],
+        "properties": {
+          "id": { "type": "integer" }, "type": { "type": "string" }, "itemSku": { "type": "string" }, "itemName": { "type": "string" }, "fromLocationCode": { "type": ["string", "null"] }, "toLocationCode": { "type": ["string", "null"] },
+          "quantity": { "type": "number" }, "baseQuantity": { "type": "number" }, "baseUnitOfMeasure": { "type": "string" }, "displayQuantity": { "type": "number" }, "displayUnitOfMeasure": { "type": "string" },
+          "lotNumber": { "type": ["string", "null"] }, "serialNumber": { "type": ["string", "null"] }, "userId": { "type": "string" }, "referenceNumber": { "type": ["string", "null"] }, "notes": { "type": ["string", "null"] }, "timestamp": { "type": "string", "format": "date-time" },
+          "ownerKind": { "type": "string" }, "inventoryOwnerId": { "type": ["integer", "null"] }, "ownerCodeSnapshot": { "type": "string" }
+        }
+      },
+      "ReportMetadata": {
+        "type": "object",
+        "required": ["reportName", "generatedAtUtc", "dataCutoffUtc", "timeZoneId", "filters"],
+        "properties": {
+          "reportName": { "type": "string" }, "generatedAtUtc": { "type": "string", "format": "date-time" }, "dataCutoffUtc": { "type": "string", "format": "date-time" }, "timeZoneId": { "type": "string" }, "userId": { "type": ["string", "null"] }, "filters": { "type": "object", "additionalProperties": { "type": ["string", "null"] } }
+        }
+      },
+      "WarehousePage": { "allOf": [{ "$ref": "#/components/schemas/PageFields" }, { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Warehouse" } } } }] },
+      "ItemPage": { "allOf": [{ "$ref": "#/components/schemas/PageFields" }, { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Item" } } } }] },
+      "LocationPage": { "allOf": [{ "$ref": "#/components/schemas/PageFields" }, { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Location" } } } }] },
+      "InventoryPage": { "allOf": [{ "$ref": "#/components/schemas/PageFields" }, { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/InventoryStock" } } } }] },
+      "MovementPage": { "allOf": [{ "$ref": "#/components/schemas/PageFields" }, { "type": "object", "required": ["metadata"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Movement" } }, "metadata": { "$ref": "#/components/schemas/ReportMetadata" } } }] },
+      "ProblemDetails": {
+        "type": "object",
+        "required": ["title", "status", "detail", "type", "instance", "errorCode", "retryable"],
+        "properties": {
+          "title": { "type": "string" }, "status": { "type": "integer" }, "detail": { "type": "string" }, "type": { "type": "string", "format": "uri" }, "instance": { "type": "string" }, "errorCode": { "type": "string" }, "retryable": { "type": "boolean" }, "fieldErrors": { "type": ["object", "null"] }
+        }
+      }
+    }
+  }
+}
