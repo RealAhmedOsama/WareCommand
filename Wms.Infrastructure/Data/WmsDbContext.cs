@@ -60,6 +60,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<WarehouseWorkEntity> WarehouseWorks => Set<WarehouseWorkEntity>();
     public DbSet<WarehouseWorkLine> WarehouseWorkLines => Set<WarehouseWorkLine>();
     public DbSet<WarehouseWorkCommand> WarehouseWorkCommands => Set<WarehouseWorkCommand>();
+    public DbSet<PackingStation> PackingStations => Set<PackingStation>();
+    public DbSet<PackingSession> PackingSessions => Set<PackingSession>();
+    public DbSet<ShipmentPackage> ShipmentPackages => Set<ShipmentPackage>();
+    public DbSet<ShipmentPackageContent> ShipmentPackageContents => Set<ShipmentPackageContent>();
+    public DbSet<PackingCommand> PackingCommands => Set<PackingCommand>();
     public DbSet<PutawayRule> PutawayRules => Set<PutawayRule>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
@@ -142,6 +147,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WarehouseWorkConfiguration());
         builder.ApplyConfiguration(new WarehouseWorkLineConfiguration());
         builder.ApplyConfiguration(new WarehouseWorkCommandConfiguration());
+        builder.ApplyConfiguration(new PackingStationConfiguration());
+        builder.ApplyConfiguration(new PackingSessionConfiguration());
+        builder.ApplyConfiguration(new ShipmentPackageConfiguration());
+        builder.ApplyConfiguration(new ShipmentPackageContentConfiguration());
+        builder.ApplyConfiguration(new PackingCommandConfiguration());
         builder.ApplyConfiguration(new PutawayRuleConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());

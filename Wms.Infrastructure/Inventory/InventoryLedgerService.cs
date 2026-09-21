@@ -262,11 +262,12 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
 
         var legacyOpeningQuantity = existingLegacyStock.QuantityAvailable.Value;
         var legacyOpeningReserved = existingLegacyStock.QuantityReserved.Value;
-        if (_context.Entry(existingLegacyStock).State == EntityState.Modified)
+        if (_context.Entry(existingLegacyStock).State is EntityState.Modified or EntityState.Deleted)
         {
-            // Mutation services update the compatibility Stock projection before
-            // calling the ledger. Seed a cutover balance from the persisted
-            // pre-mutation values, not the tracked post-mutation snapshot.
+            // Mutation services update or remove the compatibility Stock
+            // projection before calling the ledger. Seed a cutover balance from
+            // the persisted pre-mutation values, not the tracked post-mutation
+            // snapshot (which is zero for a fully drained/deleted row).
             var databaseValues = await _context.Entry(existingLegacyStock)
                 .GetDatabaseValuesAsync(cancellationToken);
             if (databaseValues is not null)

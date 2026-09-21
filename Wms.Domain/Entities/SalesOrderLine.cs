@@ -156,6 +156,19 @@ public sealed class SalesOrderLine : Entity
         Touch();
     }
 
+    public void ReversePacked(decimal baseQuantity)
+    {
+        ValidateIncrement(baseQuantity, nameof(baseQuantity));
+        if (baseQuantity > PackedBaseQuantity - ShippedBaseQuantity)
+        {
+            throw new InvalidOperationException(
+                "Packed quantity cannot be reversed after it has been shipped.");
+        }
+
+        PackedBaseQuantity -= baseQuantity;
+        Touch();
+    }
+
     public void RecordShipped(decimal baseQuantity)
     {
         ValidateIncrement(baseQuantity, nameof(baseQuantity));
