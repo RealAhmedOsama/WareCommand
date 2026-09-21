@@ -82,6 +82,10 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File './scripts/verify-migrations.ps1'
 
+      - name: Repeat deterministic unit category
+        shell: pwsh
+        run: pwsh -NoProfile -File './scripts/verify-unit-tests.ps1' -Repetitions 2
+
       - name: Publish job summary
         if: always()
         shell: bash
