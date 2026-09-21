@@ -449,6 +449,19 @@ public sealed class ReceiptService : IReceiptService
             return Result.Failure(WmsErrors.NotFound("receipt.line_not_found", "The receipt line was not found."));
         }
 
+        var hasOpenInboundException = await _context.InboundExceptions.AnyAsync(
+            exception => exception.ReceiptId == receipt.Id &&
+                         (exception.ReceiptLineId == null || exception.ReceiptLineId == line.Id) &&
+                         exception.Status != InboundExceptionStatus.Resolved &&
+                         exception.Status != InboundExceptionStatus.Cancelled,
+            cancellationToken);
+        if (hasOpenInboundException)
+        {
+            return Result.Failure(WmsErrors.BusinessRule(
+                "receipt.inbound_exception_open",
+                "This receipt line is blocked by an open inbound exception. Resolve it before receiving more stock."));
+        }
+
         if (movement.Type != MovementType.Receipt ||
             movement.ReceiptId != receipt.Id ||
             movement.ReceiptLineId != line.Id ||

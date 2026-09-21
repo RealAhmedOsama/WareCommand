@@ -151,6 +151,38 @@ public sealed class ReceiptServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task FinalizeRejectsReceiptLineWithOpenInboundException()
+    {
+        var opened = await _service.OpenForReceivingAsync(CreateReceivingInput(5m), "receiver-1");
+        var movement = Movement.CreateReceipt(
+            _item.Id,
+            _receivingLocation.Id,
+            new Quantity(5m),
+            "receiver-1",
+            referenceNumber: opened.Value.DocumentNumber,
+            timestampUtc: DateTime.UtcNow);
+        movement.LinkReceipt(opened.Value.ReceiptId, opened.Value.ReceiptLineId);
+        _context.Movements.Add(movement);
+        _context.InboundExceptions.Add(new InboundException(
+            _warehouse.Id,
+            "INB-EX-RECEIPT-1",
+            "receipt-exception-1",
+            InboundExceptionCode.DocumentMismatch,
+            InboundExceptionSeverity.High,
+            "Source document mismatch",
+            receiptId: opened.Value.ReceiptId,
+            receiptLineId: opened.Value.ReceiptLineId,
+            createdByUserId: "receiver-1"));
+        await _context.SaveChangesAsync();
+
+        var finalized = await _service.FinalizeReceivingAsync(opened.Value, movement, "receiver-1");
+
+        finalized.ErrorCode.Should().Be("receipt.inbound_exception_open");
+        (await _context.ReceiptLineMovements.CountAsync()).Should().Be(0);
+        (await _context.Receipts.SingleAsync()).Status.Should().Be(ReceiptStatus.Open);
+    }
+
+    [Fact]
     public async Task FinalizeRejectsMovementThatDoesNotMatchThePersistedReceiptLine()
     {
         var opened = await _service.OpenForReceivingAsync(CreateReceivingInput(5m), "receiver-1");

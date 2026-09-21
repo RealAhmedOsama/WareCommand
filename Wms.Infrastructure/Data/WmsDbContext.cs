@@ -39,6 +39,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<AdvanceShippingNoticeReceiptAllocation>();
     public DbSet<AdvanceShippingNoticeDiscrepancy> AdvanceShippingNoticeDiscrepancies =>
         Set<AdvanceShippingNoticeDiscrepancy>();
+    public DbSet<InboundException> InboundExceptions => Set<InboundException>();
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<ReceiptLine> ReceiptLines => Set<ReceiptLine>();
     public DbSet<ReceiptLineMovement> ReceiptLineMovements => Set<ReceiptLineMovement>();
@@ -115,6 +116,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new AdvanceShippingNoticeLineConfiguration());
         builder.ApplyConfiguration(new AdvanceShippingNoticeReceiptAllocationConfiguration());
         builder.ApplyConfiguration(new AdvanceShippingNoticeDiscrepancyConfiguration());
+        builder.ApplyConfiguration(new InboundExceptionConfiguration());
         builder.ApplyConfiguration(new ReceiptConfiguration());
         builder.ApplyConfiguration(new ReceiptLineConfiguration());
         builder.ApplyConfiguration(new ReceiptLineMovementConfiguration());

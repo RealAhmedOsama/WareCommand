@@ -191,7 +191,7 @@ public sealed class Receipt : Entity
 
     public void MarkException()
     {
-        if (Status is not (ReceiptStatus.Receiving or ReceiptStatus.PartiallyCompleted or ReceiptStatus.Completed))
+        if (Status is ReceiptStatus.Reversed or ReceiptStatus.Corrected or ReceiptStatus.Cancelled or ReceiptStatus.Exception)
         {
             throw new InvalidOperationException($"A receipt in {Status} cannot be marked as an exception.");
         }
@@ -199,6 +199,20 @@ public sealed class Receipt : Entity
         Status = ReceiptStatus.Exception;
         Revision++;
         SetUpdatedAt();
+    }
+
+    public void ResumeException(string userId, DateTime resumedAtUtc)
+    {
+        EnsureUser(userId);
+        if (Status != ReceiptStatus.Exception)
+        {
+            throw new InvalidOperationException($"A receipt in {Status} is not waiting on an exception resolution.");
+        }
+
+        Status = ReceiptStatus.Receiving;
+        ReceivedAtUtc ??= NormalizeUtc(resumedAtUtc);
+        Revision++;
+        SetUpdatedAt(resumedAtUtc);
     }
 
     public void Cancel(string userId, DateTime cancelledAtUtc)

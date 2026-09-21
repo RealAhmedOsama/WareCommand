@@ -283,7 +283,9 @@ public sealed class AdvanceShippingNotice : Entity
 
     public void MarkException()
     {
-        if (Status is not (AdvanceShippingNoticeStatus.Arrived or AdvanceShippingNoticeStatus.Receiving))
+        if (Status is AdvanceShippingNoticeStatus.Completed or
+            AdvanceShippingNoticeStatus.Cancelled or
+            AdvanceShippingNoticeStatus.Exception)
         {
             throw new InvalidOperationException($"An ASN in {Status} cannot be marked as an exception after check-in.");
         }
@@ -291,6 +293,18 @@ public sealed class AdvanceShippingNotice : Entity
         Status = AdvanceShippingNoticeStatus.Exception;
         Revision++;
         SetUpdatedAt();
+    }
+
+    public void ResumeException(DateTime resumedAtUtc)
+    {
+        if (Status != AdvanceShippingNoticeStatus.Exception)
+        {
+            throw new InvalidOperationException($"An ASN in {Status} is not waiting on an exception resolution.");
+        }
+
+        Status = AdvanceShippingNoticeStatus.Receiving;
+        Revision++;
+        SetUpdatedAt(resumedAtUtc);
     }
 
     public void Complete(string userId, DateTime completedAtUtc)

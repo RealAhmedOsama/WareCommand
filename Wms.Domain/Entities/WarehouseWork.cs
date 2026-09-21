@@ -207,6 +207,24 @@ public sealed class WarehouseWork : Entity
         Touch(occurredAtUtc);
     }
 
+    public void ResolveException(string userId, string reason, DateTime resolvedAtUtc)
+    {
+        if (Status != WarehouseWorkStatus.Exception)
+        {
+            throw new InvalidOperationException($"Work in {Status} is not waiting on an exception resolution.");
+        }
+
+        var normalizedUserId = Required(userId, 450, nameof(userId));
+        ExceptionReason = Required(reason, 1_000, nameof(reason));
+        ExceptionByUserId = normalizedUserId;
+        Status = WarehouseWorkStatus.Available;
+        AssignedUserId = null;
+        AssignedTeamCode = null;
+        AssignedByUserId = null;
+        AssignedAtUtc = null;
+        Touch(resolvedAtUtc);
+    }
+
     public void Complete(
         string userId,
         DateTime completedAtUtc,

@@ -60,6 +60,10 @@ public static class WmsAuditActions
     public const string ReceivingSessionCancelled = "inbound.receiving_session.cancelled";
     public const string ReceivingScanCompleted = "inbound.receiving_scan.completed";
     public const string ReceivingScanCorrected = "inbound.receiving_scan.corrected";
+    public const string InboundExceptionCreated = "inbound.exception.created";
+    public const string InboundExceptionAssigned = "inbound.exception.assigned";
+    public const string InboundExceptionReviewStarted = "inbound.exception.review_started";
+    public const string InboundExceptionResolved = "inbound.exception.resolved";
     public const string QualityProfileCreated = "quality.profile.created";
     public const string QualityProfileChanged = "quality.profile.changed";
     public const string QualityInspectionGenerated = "quality.inspection.generated";
@@ -184,6 +188,10 @@ public static class WmsAuditActions
         ReceivingSessionCancelled,
         ReceivingScanCompleted,
         ReceivingScanCorrected,
+        InboundExceptionCreated,
+        InboundExceptionAssigned,
+        InboundExceptionReviewStarted,
+        InboundExceptionResolved,
         QualityProfileCreated,
         QualityProfileChanged,
         QualityInspectionGenerated,
@@ -272,6 +280,7 @@ public static class WmsAuditEntityTypes
     public const string ReceiptLineLink = "ReceiptLineLink";
     public const string ReceivingSession = "ReceivingSession";
     public const string ReceivingSessionScan = "ReceivingSessionScan";
+    public const string InboundException = "InboundException";
     public const string QualityProfile = "QualityProfile";
     public const string QualityProfileTest = "QualityProfileTest";
     public const string QualityInspection = "QualityInspection";
