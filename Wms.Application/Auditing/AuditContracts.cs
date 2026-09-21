@@ -24,6 +24,14 @@ public static class WmsAuditActions
     public const string SupplierDeleted = "master.supplier.deleted";
     public const string SupplierBulkImported = "master.supplier.bulk_imported";
     public const string SupplierItemReferencesChanged = "master.supplier.item_references_changed";
+    public const string CustomerCreated = "master.customer.created";
+    public const string CustomerUpdated = "master.customer.updated";
+    public const string CustomerActivated = "master.customer.activated";
+    public const string CustomerDeactivated = "master.customer.deactivated";
+    public const string CustomerDeleted = "master.customer.deleted";
+    public const string CustomerBulkImported = "master.customer.bulk_imported";
+    public const string CustomerShipToChanged = "master.customer.ship_to_changed";
+    public const string CustomerItemReferencesChanged = "master.customer.item_references_changed";
     public const string PurchaseOrderCreated = "inbound.purchase_order.created";
     public const string PurchaseOrderUpdated = "inbound.purchase_order.updated";
     public const string PurchaseOrderConfirmed = "inbound.purchase_order.confirmed";
@@ -152,6 +160,14 @@ public static class WmsAuditActions
         SupplierDeleted,
         SupplierBulkImported,
         SupplierItemReferencesChanged,
+        CustomerCreated,
+        CustomerUpdated,
+        CustomerActivated,
+        CustomerDeactivated,
+        CustomerDeleted,
+        CustomerBulkImported,
+        CustomerShipToChanged,
+        CustomerItemReferencesChanged,
         PurchaseOrderCreated,
         PurchaseOrderUpdated,
         PurchaseOrderConfirmed,
@@ -267,6 +283,9 @@ public static class WmsAuditEntityTypes
     public const string AccessAssignment = "AccessAssignment";
     public const string Item = "Item";
     public const string Supplier = "Supplier";
+    public const string Customer = "Customer";
+    public const string CustomerShipToAddress = "CustomerShipToAddress";
+    public const string CustomerItemReference = "CustomerItemReference";
     public const string PurchaseOrder = "PurchaseOrder";
     public const string PurchaseOrderLine = "PurchaseOrderLine";
     public const string PurchaseOrderReceiptAllocation = "PurchaseOrderReceiptAllocation";

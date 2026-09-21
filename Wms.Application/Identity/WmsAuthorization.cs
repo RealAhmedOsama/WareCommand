@@ -36,6 +36,8 @@ public static class WmsPermissions
     public const string ItemsManage = "items.manage";
     public const string SuppliersRead = "suppliers.read";
     public const string SuppliersManage = "suppliers.manage";
+    public const string CustomersRead = "customers.read";
+    public const string CustomersManage = "customers.manage";
     public const string PurchaseOrdersRead = "purchase_orders.read";
     public const string PurchaseOrdersManage = "purchase_orders.manage";
     public const string AdvanceShippingNoticesRead = "advance_shipping_notices.read";
@@ -75,6 +77,8 @@ public static class WmsPermissions
         ItemsManage,
         SuppliersRead,
         SuppliersManage,
+        CustomersRead,
+        CustomersManage,
         PurchaseOrdersRead,
         PurchaseOrdersManage,
         AdvanceShippingNoticesRead,
@@ -116,6 +120,8 @@ public static class WmsPermissions
             [ItemsManage] = "Create and update item master data",
             [SuppliersRead] = "View supplier master data",
             [SuppliersManage] = "Create and update supplier master data",
+            [CustomersRead] = "View customer and ship-to master data",
+            [CustomersManage] = "Create and update customer and ship-to master data",
             [PurchaseOrdersRead] = "View purchase orders and inbound demand",
             [PurchaseOrdersManage] = "Create, confirm, cancel, and close purchase orders",
             [AdvanceShippingNoticesRead] = "View advance shipping notices and expected inbound loads",
@@ -166,6 +172,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsManage,
                 WmsPermissions.SuppliersRead,
                 WmsPermissions.SuppliersManage,
+                WmsPermissions.CustomersRead,
+                WmsPermissions.CustomersManage,
                 WmsPermissions.PurchaseOrdersRead,
                 WmsPermissions.PurchaseOrdersManage,
                 WmsPermissions.AdvanceShippingNoticesRead,
@@ -201,6 +209,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.DashboardView,
                 WmsPermissions.ItemsRead,
                 WmsPermissions.SuppliersRead,
+                WmsPermissions.CustomersRead,
                 WmsPermissions.PurchaseOrdersRead,
                 WmsPermissions.AdvanceShippingNoticesRead,
                 WmsPermissions.AdvanceShippingNoticesManage,

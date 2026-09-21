@@ -29,6 +29,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ItemPackaging> ItemPackagings => Set<ItemPackaging>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<SupplierItemReference> SupplierItemReferences => Set<SupplierItemReference>();
+    public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<CustomerShipToAddress> CustomerShipToAddresses => Set<CustomerShipToAddress>();
+    public DbSet<CustomerItemReference> CustomerItemReferences => Set<CustomerItemReference>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
     public DbSet<PurchaseOrderReceiptAllocation> PurchaseOrderReceiptAllocations =>
@@ -109,6 +112,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ItemPackagingConfiguration());
         builder.ApplyConfiguration(new SupplierConfiguration());
         builder.ApplyConfiguration(new SupplierItemReferenceConfiguration());
+        builder.ApplyConfiguration(new CustomerConfiguration());
+        builder.ApplyConfiguration(new CustomerShipToAddressConfiguration());
+        builder.ApplyConfiguration(new CustomerItemReferenceConfiguration());
         builder.ApplyConfiguration(new PurchaseOrderConfiguration());
         builder.ApplyConfiguration(new PurchaseOrderLineConfiguration());
         builder.ApplyConfiguration(new PurchaseOrderReceiptAllocationConfiguration());
