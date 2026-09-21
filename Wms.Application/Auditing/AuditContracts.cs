@@ -66,6 +66,15 @@ public static class WmsAuditActions
     public const string QualityInspectionResultRecorded = "quality.inspection.result_recorded";
     public const string QualityDispositionRecorded = "quality.inspection.disposition_recorded";
     public const string QualityInspectionClosed = "quality.inspection.closed";
+    public const string WarehouseWorkCreated = "warehouse.work.created";
+    public const string WarehouseWorkAssigned = "warehouse.work.assigned";
+    public const string WarehouseWorkReleased = "warehouse.work.released";
+    public const string WarehouseWorkStarted = "warehouse.work.started";
+    public const string WarehouseWorkPaused = "warehouse.work.paused";
+    public const string WarehouseWorkResumed = "warehouse.work.resumed";
+    public const string WarehouseWorkException = "warehouse.work.exception";
+    public const string WarehouseWorkCancelled = "warehouse.work.cancelled";
+    public const string WarehouseWorkCompleted = "warehouse.work.completed";
     public const string UnitOfMeasureCreated = "master.uom.created";
     public const string UnitOfMeasureUpdated = "master.uom.updated";
     public const string UnitOfMeasureActivated = "master.uom.activated";
@@ -177,6 +186,15 @@ public static class WmsAuditActions
         QualityInspectionResultRecorded,
         QualityDispositionRecorded,
         QualityInspectionClosed,
+        WarehouseWorkCreated,
+        WarehouseWorkAssigned,
+        WarehouseWorkReleased,
+        WarehouseWorkStarted,
+        WarehouseWorkPaused,
+        WarehouseWorkResumed,
+        WarehouseWorkException,
+        WarehouseWorkCancelled,
+        WarehouseWorkCompleted,
         UnitOfMeasureCreated,
         UnitOfMeasureUpdated,
         UnitOfMeasureActivated,
@@ -251,6 +269,9 @@ public static class WmsAuditEntityTypes
     public const string QualityInspection = "QualityInspection";
     public const string QualityInspectionTestResult = "QualityInspectionTestResult";
     public const string QualityInspectionDisposition = "QualityInspectionDisposition";
+    public const string WarehouseWork = "WarehouseWork";
+    public const string WarehouseWorkLine = "WarehouseWorkLine";
+    public const string WarehouseWorkCommand = "WarehouseWorkCommand";
     public const string UnitOfMeasure = "UnitOfMeasure";
     public const string Location = "Location";
     public const string Warehouse = "Warehouse";

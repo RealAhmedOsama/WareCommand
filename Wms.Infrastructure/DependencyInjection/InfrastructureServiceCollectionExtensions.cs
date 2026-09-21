@@ -23,6 +23,7 @@ using Wms.Application.Inbound;
 using Wms.Application.Receiving;
 using Wms.Application.Units;
 using Wms.Application.Warehouses;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Infrastructure.Auditing;
@@ -50,6 +51,7 @@ using Wms.Infrastructure.Receiving;
 using Wms.Infrastructure.Telemetry;
 using Wms.Infrastructure.Units;
 using Wms.Infrastructure.Warehouses;
+using Wms.Infrastructure.WarehouseWork;
 
 namespace Wms.Infrastructure.DependencyInjection;
 
@@ -97,6 +99,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IAdvanceShippingNoticeService, AdvanceShippingNoticeService>();
         services.AddScoped<IReceiptService, ReceiptService>();
         services.AddScoped<IQualityInspectionService, QualityInspectionService>();
+        services.AddScoped<IWarehouseWorkService, WarehouseWorkService>();
         services.AddScoped<IReceivingExecutionService, ReceivingExecutionService>();
         services.AddScoped<IIdentificationRegistry, IdentificationRegistry>();
         services.AddScoped<IIdentificationService, IdentificationService>();

@@ -52,6 +52,10 @@ public static class WmsPermissions
     public const string QualityInspect = "quality.inspect";
     public const string QualityManage = "quality.manage";
     public const string QualityOverride = "quality.override";
+    public const string WorkRead = "work.read";
+    public const string WorkExecute = "work.execute";
+    public const string WorkManage = "work.manage";
+    public const string WorkOverride = "work.override";
     public const string PutawayExecute = "putaway.execute";
     public const string PickingExecute = "picking.execute";
     public const string PackingExecute = "packing.execute";
@@ -87,6 +91,10 @@ public static class WmsPermissions
         QualityInspect,
         QualityManage,
         QualityOverride,
+        WorkRead,
+        WorkExecute,
+        WorkManage,
+        WorkOverride,
         PutawayExecute,
         PickingExecute,
         PackingExecute,
@@ -124,6 +132,10 @@ public static class WmsPermissions
             [QualityInspect] = "Record quality test results and dispositions",
             [QualityManage] = "Manage quality profiles and sampling rules",
             [QualityOverride] = "Authorize quality inspection overrides",
+            [WorkRead] = "View warehouse work queues and details",
+            [WorkExecute] = "Claim and execute warehouse work",
+            [WorkManage] = "Create, assign, and cancel warehouse work",
+            [WorkOverride] = "Authorize warehouse work overrides",
             [PutawayExecute] = "Execute putaway",
             [PickingExecute] = "Execute picking",
             [PackingExecute] = "Execute packing",
@@ -170,6 +182,10 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.QualityInspect,
                 WmsPermissions.QualityManage,
                 WmsPermissions.QualityOverride,
+                WmsPermissions.WorkRead,
+                WmsPermissions.WorkExecute,
+                WmsPermissions.WorkManage,
+                WmsPermissions.WorkOverride,
                 WmsPermissions.PutawayExecute,
                 WmsPermissions.PickingExecute,
                 WmsPermissions.PackingExecute,
@@ -193,6 +209,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.ReceivingExecute,
+                WmsPermissions.WorkRead,
+                WmsPermissions.WorkExecute,
                 WmsPermissions.PutawayExecute
             ],
             [WmsRoleNames.Picker] =
@@ -201,6 +219,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.WorkRead,
+                WmsPermissions.WorkExecute,
                 WmsPermissions.PickingExecute
             ],
             [WmsRoleNames.Packer] =
@@ -209,6 +229,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.WorkRead,
+                WmsPermissions.WorkExecute,
                 WmsPermissions.PackingExecute
             ],
             [WmsRoleNames.InventoryController] =
@@ -223,6 +245,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.QualityRead,
                 WmsPermissions.QualityInspect,
                 WmsPermissions.QualityOverride,
+                WmsPermissions.WorkRead,
+                WmsPermissions.WorkExecute,
+                WmsPermissions.WorkOverride,
                 WmsPermissions.ReportsRead
             ],
             [WmsRoleNames.Auditor] =
@@ -235,6 +260,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.QualityRead,
+                WmsPermissions.WorkRead,
                 WmsPermissions.ReportsRead,
                 WmsPermissions.AuditRead
             ],
@@ -248,6 +274,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.QualityRead,
+                WmsPermissions.WorkRead,
                 WmsPermissions.ReportsRead
             ],
             [WmsRoleNames.WarehouseStaff] =
@@ -262,6 +289,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ReceiptsManage,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.WorkRead,
+                WmsPermissions.WorkExecute,
                 WmsPermissions.ReceivingExecute,
                 WmsPermissions.PutawayExecute,
                 WmsPermissions.PickingExecute
