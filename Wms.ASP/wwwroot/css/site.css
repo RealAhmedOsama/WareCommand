@@ -922,7 +922,8 @@ body.wms-shell {
 }
 
 .wms-main-content:focus {
-  outline: 0;
+  outline: 3px solid var(--wms-focus);
+  outline-offset: .35rem;
 }
 
 .wms-page-header {
@@ -1111,6 +1112,7 @@ body.wms-shell a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .wms-skip-link,
   .wms-quick-scan,
+  .wms-skeleton,
   main {
     transition: none !important;
     animation: none !important;
