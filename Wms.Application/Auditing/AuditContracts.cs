@@ -158,6 +158,8 @@ public static class WmsAuditActions
     public const string LicensePlateNumberingConfigured = "inventory.license_plate.numbering_configured";
     public const string ReplenishmentPolicyChanged = "inventory.replenishment_policy.changed";
     public const string ReplenishmentSignalRaised = "inventory.replenishment_signal.raised";
+    public const string CycleCountPlanChanged = "inventory.cycle_count_plan.changed";
+    public const string CycleCountTaskGenerated = "inventory.cycle_count_task.generated";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -312,7 +314,9 @@ public static class WmsAuditActions
         LicensePlateShipped,
         LicensePlateNumberingConfigured,
         ReplenishmentPolicyChanged,
-        ReplenishmentSignalRaised
+        ReplenishmentSignalRaised,
+        CycleCountPlanChanged,
+        CycleCountTaskGenerated
     ];
 }
 

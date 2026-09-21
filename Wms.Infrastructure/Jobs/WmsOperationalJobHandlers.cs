@@ -310,20 +310,37 @@ public sealed class WmsDatabaseBackupJob(
     }
 }
 
-public sealed class WmsCycleCountGenerationJob(ILogger<WmsCycleCountGenerationJob> logger) : IWmsJobHandler
+public sealed class WmsCycleCountGenerationJob(
+    ICycleCountService cycleCountService,
+    ILogger<WmsCycleCountGenerationJob> logger) : IWmsJobHandler
 {
     public string JobName => WmsJobNames.CycleCountGeneration;
 
-    public Task<WmsJobExecutionResult> ExecuteAsync(
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
         WmsJobContext context,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        cancellationToken.ThrowIfCancellationRequested();
+        var result = await cycleCountService.GenerateAsync(
+            new CycleCountGenerationQuery(
+                WarehouseId: context.Envelope.WarehouseId,
+                Limit: 1_000),
+            context.Envelope.ActorUserId ?? "system",
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Cycle-count work generation failed: {result.Error}");
+        }
+
         logger.LogInformation(
-            "Cycle-count generation job found no cycle-count policy model in the current domain");
-        return Task.FromResult(new WmsJobExecutionResult(
-            Summary: "No cycle-count policy model is registered; no work was generated."));
+            "Cycle-count generation examined {PlanCount} plans and created {TaskCount} tasks",
+            result.Value.PlansExamined,
+            result.Value.TasksCreated);
+        return new WmsJobExecutionResult(
+            result.Value.PlansExamined,
+            result.Value.TasksCreated,
+            $"Examined {result.Value.PlansExamined} plans; created {result.Value.TasksCreated}, reused {result.Value.TasksReused}, and captured {result.Value.LinesCreated} lines.");
     }
 }
 

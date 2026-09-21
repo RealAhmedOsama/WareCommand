@@ -232,6 +232,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryInquiryService, InventoryInquiryService>();
         services.AddScoped<IInventoryReplenishmentPolicyService, InventoryReplenishmentPolicyService>();
         services.AddScoped<IReplenishmentExecutionService, ReplenishmentExecutionService>();
+        services.AddScoped<ICycleCountService, CycleCountService>();
         services.AddScoped<IInventoryReconciliationService, InventoryReconciliationService>();
         return services;
     }
