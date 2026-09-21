@@ -4659,6 +4659,478 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.ToTable("PackingStations", (string)null);
                 });
 
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("CreationKey")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("MaxContainers")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxOrders")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("MaxVolumeCubicMeters")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<decimal?>("MaxWeightKg")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<string>("PlanNumber")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int?>("PolicyId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Strategy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("WaveId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlanNumber")
+                        .IsUnique();
+
+                    b.HasIndex("PolicyId");
+
+                    b.HasIndex("WaveId");
+
+                    b.HasIndex("WarehouseId", "CreationKey")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId", "Status", "Strategy");
+
+                    b.ToTable("PickingPlans", (string)null);
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlanContainer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContainerKey")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExpectedScanCode")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("PickingPlanId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("SalesOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ScannedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ScannedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TargetLicensePlateId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("TargetScanRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ZoneLocationId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SalesOrderId");
+
+                    b.HasIndex("TargetLicensePlateId");
+
+                    b.HasIndex("ZoneLocationId");
+
+                    b.HasIndex("PickingPlanId", "ContainerKey")
+                        .IsUnique();
+
+                    b.HasIndex("PickingPlanId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("PickingPlanContainers", (string)null);
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlanHandoff", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CompletedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ExpectedContainerScanCode")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<int>("FromZoneLocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PickingPlanContainerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PickingPlanId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ToZoneLocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromZoneLocationId");
+
+                    b.HasIndex("PickingPlanContainerId");
+
+                    b.HasIndex("ToZoneLocationId");
+
+                    b.HasIndex("PickingPlanId", "Sequence")
+                        .IsUnique();
+
+                    b.HasIndex("PickingPlanId", "Status");
+
+                    b.ToTable("PickingPlanHandoffs", (string)null);
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlanLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BaseUnitOfMeasure")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("BatchKey")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("ContainerSequence")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("InventoryStatusId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ItemSkuSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OrderNumberSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<decimal>("PickedQuantity")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<int?>("PickingPlanContainerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PickingPlanHandoffId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PickingPlanId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("PlannedQuantity")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<int?>("ReservationAllocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ReservationId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SalesOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SalesOrderLineId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("SerialNumberId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceLicensePlateId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceLocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("UnitVolumeCubicMeters")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<decimal?>("UnitWeightKg")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("WarehouseWorkId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WarehouseWorkLineId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ZoneLocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ZoneSequence")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryStatusId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("LotId");
+
+                    b.HasIndex("PickingPlanContainerId");
+
+                    b.HasIndex("PickingPlanHandoffId");
+
+                    b.HasIndex("ReservationAllocationId");
+
+                    b.HasIndex("ReservationId");
+
+                    b.HasIndex("SalesOrderId");
+
+                    b.HasIndex("SalesOrderLineId");
+
+                    b.HasIndex("SerialNumberId");
+
+                    b.HasIndex("SourceLicensePlateId");
+
+                    b.HasIndex("SourceLocationId");
+
+                    b.HasIndex("WarehouseWorkId");
+
+                    b.HasIndex("WarehouseWorkLineId")
+                        .IsUnique();
+
+                    b.HasIndex("ZoneLocationId");
+
+                    b.HasIndex("PickingPlanId", "Sequence")
+                        .IsUnique();
+
+                    b.HasIndex("PickingPlanId", "SalesOrderId", "ItemId", "SourceLocationId");
+
+                    b.ToTable("PickingPlanLines", (string)null);
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingStrategyPolicy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EffectiveFromUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EffectiveToUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LocationZoneId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxContainers")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxOrders")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("MaxVolumeCubicMeters")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<decimal?>("MaxWeightKg")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("OrderProfileCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("PackageProfileCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("PolicyKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SequenceMode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Strategy")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("WaveTemplateId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("LocationZoneId");
+
+                    b.HasIndex("WaveTemplateId");
+
+                    b.HasIndex("WarehouseId", "PolicyKey")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId", "IsActive", "Priority");
+
+                    b.ToTable("PickingStrategyPolicies", (string)null);
+                });
+
             modelBuilder.Entity("Wms.Domain.Entities.PurchaseOrder", b =>
                 {
                     b.Property<int>("Id")
@@ -11085,6 +11557,250 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Navigation("Warehouse");
                 });
 
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlan", b =>
+                {
+                    b.HasOne("Wms.Domain.Entities.PickingStrategyPolicy", "Policy")
+                        .WithMany()
+                        .HasForeignKey("PolicyId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.Wave", "Wave")
+                        .WithMany()
+                        .HasForeignKey("WaveId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Policy");
+
+                    b.Navigation("Warehouse");
+
+                    b.Navigation("Wave");
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlanContainer", b =>
+                {
+                    b.HasOne("Wms.Domain.Entities.PickingPlan", "Plan")
+                        .WithMany("Containers")
+                        .HasForeignKey("PickingPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.SalesOrder", "SalesOrder")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.LicensePlate", "TargetLicensePlate")
+                        .WithMany()
+                        .HasForeignKey("TargetLicensePlateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Location", "ZoneLocation")
+                        .WithMany()
+                        .HasForeignKey("ZoneLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Plan");
+
+                    b.Navigation("SalesOrder");
+
+                    b.Navigation("TargetLicensePlate");
+
+                    b.Navigation("ZoneLocation");
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlanHandoff", b =>
+                {
+                    b.HasOne("Wms.Domain.Entities.Location", "FromZoneLocation")
+                        .WithMany()
+                        .HasForeignKey("FromZoneLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.PickingPlanContainer", "Container")
+                        .WithMany("Handoffs")
+                        .HasForeignKey("PickingPlanContainerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.PickingPlan", "Plan")
+                        .WithMany("Handoffs")
+                        .HasForeignKey("PickingPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.Location", "ToZoneLocation")
+                        .WithMany()
+                        .HasForeignKey("ToZoneLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Container");
+
+                    b.Navigation("FromZoneLocation");
+
+                    b.Navigation("Plan");
+
+                    b.Navigation("ToZoneLocation");
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlanLine", b =>
+                {
+                    b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
+                        .WithMany()
+                        .HasForeignKey("InventoryStatusId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.Lot", "Lot")
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.PickingPlanContainer", "Container")
+                        .WithMany("Lines")
+                        .HasForeignKey("PickingPlanContainerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.PickingPlanHandoff", "Handoff")
+                        .WithMany()
+                        .HasForeignKey("PickingPlanHandoffId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.PickingPlan", "Plan")
+                        .WithMany("Lines")
+                        .HasForeignKey("PickingPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.InventoryReservationAllocation", "ReservationAllocation")
+                        .WithMany()
+                        .HasForeignKey("ReservationAllocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.InventoryReservation", "Reservation")
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.SalesOrder", "SalesOrder")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.SalesOrderLine", "SalesOrderLine")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.SerialNumber", "Serial")
+                        .WithMany()
+                        .HasForeignKey("SerialNumberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.LicensePlate", "SourceLicensePlate")
+                        .WithMany()
+                        .HasForeignKey("SourceLicensePlateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Location", "SourceLocation")
+                        .WithMany()
+                        .HasForeignKey("SourceLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.WarehouseWork", "Work")
+                        .WithMany()
+                        .HasForeignKey("WarehouseWorkId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.WarehouseWorkLine", "WorkLine")
+                        .WithMany()
+                        .HasForeignKey("WarehouseWorkLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.Location", "ZoneLocation")
+                        .WithMany()
+                        .HasForeignKey("ZoneLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Container");
+
+                    b.Navigation("Handoff");
+
+                    b.Navigation("InventoryStatus");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Lot");
+
+                    b.Navigation("Plan");
+
+                    b.Navigation("Reservation");
+
+                    b.Navigation("ReservationAllocation");
+
+                    b.Navigation("SalesOrder");
+
+                    b.Navigation("SalesOrderLine");
+
+                    b.Navigation("Serial");
+
+                    b.Navigation("SourceLicensePlate");
+
+                    b.Navigation("SourceLocation");
+
+                    b.Navigation("Work");
+
+                    b.Navigation("WorkLine");
+
+                    b.Navigation("ZoneLocation");
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingStrategyPolicy", b =>
+                {
+                    b.HasOne("Wms.Domain.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Location", "LocationZone")
+                        .WithMany()
+                        .HasForeignKey("LocationZoneId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.WaveTemplate", "WaveTemplate")
+                        .WithMany()
+                        .HasForeignKey("WaveTemplateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Item");
+
+                    b.Navigation("LocationZone");
+
+                    b.Navigation("Warehouse");
+
+                    b.Navigation("WaveTemplate");
+                });
+
             modelBuilder.Entity("Wms.Domain.Entities.PurchaseOrder", b =>
                 {
                     b.HasOne("Wms.Domain.Entities.Supplier", "Supplier")
@@ -12499,6 +13215,22 @@ namespace Wms.Infrastructure.Database.Migrations
             modelBuilder.Entity("Wms.Domain.Entities.PackingSession", b =>
                 {
                     b.Navigation("Packages");
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlan", b =>
+                {
+                    b.Navigation("Containers");
+
+                    b.Navigation("Handoffs");
+
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.PickingPlanContainer", b =>
+                {
+                    b.Navigation("Handoffs");
+
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Wms.Domain.Entities.PurchaseOrder", b =>
