@@ -173,6 +173,9 @@ public static class WmsAuditActions
     public const string PickingPlanCreated = "outbound.picking_plan.created";
     public const string PickingContainerScanned = "outbound.picking_container.scanned";
     public const string PickingHandoffCompleted = "outbound.picking_handoff.completed";
+    public const string CrossDockPolicyChanged = "inbound.crossdock_policy.changed";
+    public const string CrossDockPlanCreated = "inbound.crossdock_plan.created";
+    public const string CrossDockPlanCancelled = "inbound.crossdock_plan.cancelled";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -342,7 +345,10 @@ public static class WmsAuditActions
         PickingStrategyPolicyChanged,
         PickingPlanCreated,
         PickingContainerScanned,
-        PickingHandoffCompleted
+        PickingHandoffCompleted,
+        CrossDockPolicyChanged,
+        CrossDockPlanCreated,
+        CrossDockPlanCancelled
     ];
 }
 
@@ -415,6 +421,8 @@ public static class WmsAuditEntityTypes
     public const string PickingPlan = "PickingPlan";
     public const string PickingPlanContainer = "PickingPlanContainer";
     public const string PickingPlanHandoff = "PickingPlanHandoff";
+    public const string CrossDockPolicy = "CrossDockPolicy";
+    public const string CrossDockPlan = "CrossDockPlan";
 }
 
 /// <summary>

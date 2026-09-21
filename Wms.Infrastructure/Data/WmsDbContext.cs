@@ -130,6 +130,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<PickingPlanLine> PickingPlanLines => Set<PickingPlanLine>();
     public DbSet<PickingPlanContainer> PickingPlanContainers => Set<PickingPlanContainer>();
     public DbSet<PickingPlanHandoff> PickingPlanHandoffs => Set<PickingPlanHandoff>();
+    public DbSet<CrossDockPolicy> CrossDockPolicies => Set<CrossDockPolicy>();
+    public DbSet<CrossDockPlan> CrossDockPlans => Set<CrossDockPlan>();
+    public DbSet<CrossDockPlanLine> CrossDockPlanLines => Set<CrossDockPlanLine>();
     public DbSet<CycleCountPlan> CycleCountPlans => Set<CycleCountPlan>();
     public DbSet<CycleCountTask> CycleCountTasks => Set<CycleCountTask>();
     public DbSet<CycleCountLine> CycleCountLines => Set<CycleCountLine>();
@@ -247,6 +250,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new PickingPlanLineConfiguration());
         builder.ApplyConfiguration(new PickingPlanContainerConfiguration());
         builder.ApplyConfiguration(new PickingPlanHandoffConfiguration());
+        builder.ApplyConfiguration(new CrossDockPolicyConfiguration());
+        builder.ApplyConfiguration(new CrossDockPlanConfiguration());
+        builder.ApplyConfiguration(new CrossDockPlanLineConfiguration());
         builder.ApplyConfiguration(new CycleCountPlanConfiguration());
         builder.ApplyConfiguration(new CycleCountTaskConfiguration());
         builder.ApplyConfiguration(new CycleCountLineConfiguration());

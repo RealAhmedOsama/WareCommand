@@ -118,6 +118,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ISalesOrderAllocationService, SalesOrderAllocationService>();
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
         services.AddScoped<IAdvanceShippingNoticeService, AdvanceShippingNoticeService>();
+        services.AddScoped<ICrossDockService, CrossDockService>();
         services.AddScoped<IInboundExceptionService, InboundExceptionService>();
         services.AddScoped<IOutboundExceptionService, OutboundExceptionService>();
         services.AddScoped<IWaveService, WaveService>();
