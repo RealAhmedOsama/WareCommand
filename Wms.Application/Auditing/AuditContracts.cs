@@ -8,6 +8,17 @@ public static class WmsAuditActions
     public const string AccountCreated = "security.account.created";
     public const string AccountStatusChanged = "security.account.status_changed";
     public const string AccessChanged = "security.access.changed";
+    public const string ReasonCodeCreated = "approval.reason_code.created";
+    public const string ReasonCodeChanged = "approval.reason_code.changed";
+    public const string ApprovalPolicyChanged = "approval.policy.changed";
+    public const string ApprovalRequested = "approval.requested";
+    public const string ApprovalApproved = "approval.approved";
+    public const string ApprovalRejected = "approval.rejected";
+    public const string ApprovalCancelled = "approval.cancelled";
+    public const string ApprovalEscalated = "approval.escalated";
+    public const string ApprovalExpired = "approval.expired";
+    public const string ApprovalExecutionStarted = "approval.execution.started";
+    public const string ApprovalExecuted = "approval.executed";
 
     public const string ItemCreated = "master.item.created";
     public const string ItemUpdated = "master.item.updated";
@@ -224,6 +235,17 @@ public static class WmsAuditActions
         AccountCreated,
         AccountStatusChanged,
         AccessChanged,
+        ReasonCodeCreated,
+        ReasonCodeChanged,
+        ApprovalPolicyChanged,
+        ApprovalRequested,
+        ApprovalApproved,
+        ApprovalRejected,
+        ApprovalCancelled,
+        ApprovalEscalated,
+        ApprovalExpired,
+        ApprovalExecutionStarted,
+        ApprovalExecuted,
         ItemCreated,
         ItemUpdated,
         ItemActivated,
@@ -503,6 +525,12 @@ public static class WmsAuditEntityTypes
     public const string InventoryDispositionPolicy = "InventoryDispositionPolicy";
     public const string InventoryDisposition = "InventoryDisposition";
     public const string InventoryRecallCase = "InventoryRecallCase";
+    public const string ReasonCode = "ReasonCode";
+    public const string ApprovalPolicy = "ApprovalPolicy";
+    public const string ApprovalRequest = "ApprovalRequest";
+    public const string ApprovalDecision = "ApprovalDecision";
+    public const string ApprovalExecution = "ApprovalExecution";
+    public const string ApprovalInboxItem = "ApprovalInboxItem";
     public const string WaveTemplate = "WaveTemplate";
     public const string Wave = "Wave";
     public const string WaveLine = "WaveLine";

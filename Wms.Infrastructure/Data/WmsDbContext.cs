@@ -163,6 +163,12 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<WarehouseWorkRoute> WarehouseWorkRoutes => Set<WarehouseWorkRoute>();
     public DbSet<WarehouseWorkInterleavingPolicy> WarehouseWorkInterleavingPolicies =>
         Set<WarehouseWorkInterleavingPolicy>();
+    public DbSet<ReasonCode> ReasonCodes => Set<ReasonCode>();
+    public DbSet<ApprovalPolicy> ApprovalPolicies => Set<ApprovalPolicy>();
+    public DbSet<ApprovalRequest> ApprovalRequests => Set<ApprovalRequest>();
+    public DbSet<ApprovalDecision> ApprovalDecisions => Set<ApprovalDecision>();
+    public DbSet<ApprovalExecution> ApprovalExecutions => Set<ApprovalExecution>();
+    public DbSet<ApprovalInboxItem> ApprovalInboxItems => Set<ApprovalInboxItem>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
 
@@ -480,6 +486,12 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WmsPrintJobConfiguration());
         builder.ApplyConfiguration(new WarehouseWorkRouteConfiguration());
         builder.ApplyConfiguration(new WarehouseWorkInterleavingPolicyConfiguration());
+        builder.ApplyConfiguration(new ReasonCodeConfiguration());
+        builder.ApplyConfiguration(new ApprovalPolicyConfiguration());
+        builder.ApplyConfiguration(new ApprovalRequestConfiguration());
+        builder.ApplyConfiguration(new ApprovalDecisionConfiguration());
+        builder.ApplyConfiguration(new ApprovalExecutionConfiguration());
+        builder.ApplyConfiguration(new ApprovalInboxItemConfiguration());
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -619,6 +631,13 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         {
             throw new InvalidOperationException(
                 "Inventory reservation events are immutable and cannot be updated or deleted.");
+        }
+
+        if (ChangeTracker.Entries<ApprovalDecision>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException(
+                "Approval decisions are immutable and cannot be updated or deleted.");
         }
     }
 }

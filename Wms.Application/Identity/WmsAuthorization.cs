@@ -77,6 +77,8 @@ public static class WmsPermissions
     public const string WarehouseManage = "warehouse.manage";
     public const string SettingsManage = "settings.manage";
     public const string AccessManage = "access.manage";
+    public const string ApprovalRead = "approval.read";
+    public const string ApprovalManage = "approval.manage";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -125,7 +127,9 @@ public static class WmsPermissions
         AuditRead,
         WarehouseManage,
         SettingsManage,
-        AccessManage
+        AccessManage,
+        ApprovalRead,
+        ApprovalManage
     ];
 
     public static IReadOnlyDictionary<string, string> Descriptions { get; } =
@@ -176,7 +180,9 @@ public static class WmsPermissions
             [AuditRead] = "View immutable audit history",
             [WarehouseManage] = "Manage warehouse master data",
             [SettingsManage] = "Manage system and warehouse settings",
-            [AccessManage] = "Manage users, roles, permissions, and warehouse access"
+            [AccessManage] = "Manage users, roles, permissions, and warehouse access",
+            [ApprovalRead] = "View reason codes, approval requests, decisions, and inbox items",
+            [ApprovalManage] = "Manage reason codes and approval policies and decide approval requests"
         };
 
     public static bool IsKnown(string permission) =>
@@ -234,7 +240,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.CountingExecute,
                 WmsPermissions.ReportsRead,
                 WmsPermissions.AuditRead,
-                WmsPermissions.WarehouseManage
+                WmsPermissions.WarehouseManage,
+                WmsPermissions.ApprovalRead,
+                WmsPermissions.ApprovalManage
             ],
             [WmsRoleNames.Receiver] =
             [
@@ -307,7 +315,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
                 WmsPermissions.WorkOverride,
-                WmsPermissions.ReportsRead
+                WmsPermissions.ReportsRead,
+                WmsPermissions.ApprovalRead,
+                WmsPermissions.ApprovalManage
             ],
             [WmsRoleNames.Auditor] =
             [
@@ -324,7 +334,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.ReportsRead,
-                WmsPermissions.AuditRead
+                WmsPermissions.AuditRead,
+                WmsPermissions.ApprovalRead
             ],
             [WmsRoleNames.Viewer] =
             [
