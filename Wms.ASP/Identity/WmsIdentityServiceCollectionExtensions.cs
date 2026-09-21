@@ -57,6 +57,11 @@ public static class WmsIdentityServiceCollectionExtensions
             .AddEntityFrameworkStores<Wms.Infrastructure.Data.WmsDbContext>()
             .AddDefaultTokenProviders();
 
+        services.AddAuthentication()
+            .AddScheme<AuthenticationSchemeOptions, WmsApiClientAuthenticationHandler>(
+                WmsApiClientAuthenticationDefaults.Scheme,
+                _ => { });
+
         services.Configure<SecurityStampValidatorOptions>(options =>
         {
             options.ValidationInterval = TimeSpan.Zero;

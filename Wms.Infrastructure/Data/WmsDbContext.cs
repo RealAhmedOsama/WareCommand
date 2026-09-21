@@ -7,6 +7,7 @@ using Wms.Application.Context;
 using Wms.Domain.Common;
 using Wms.Domain.Entities;
 using Wms.Infrastructure.Auditing;
+using Wms.Infrastructure.ApiClients;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Jobs;
@@ -172,6 +173,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ApprovalExecution> ApprovalExecutions => Set<ApprovalExecution>();
     public DbSet<ApprovalInboxItem> ApprovalInboxItems => Set<ApprovalInboxItem>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+
+    public DbSet<WmsApiClientEntity> ApiClients => Set<WmsApiClientEntity>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
 
@@ -515,6 +518,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ApprovalExecutionConfiguration());
         builder.ApplyConfiguration(new ApprovalInboxItemConfiguration());
         builder.ApplyConfiguration(new AttachmentConfiguration());
+        builder.ApplyConfiguration(new WmsApiClientConfiguration());
         builder.ApplyConfiguration(new WmsNotificationConfiguration());
         builder.ApplyConfiguration(new WmsNotificationRecipientConfiguration());
         builder.ApplyConfiguration(new WmsNotificationPreferenceConfiguration());

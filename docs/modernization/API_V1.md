@@ -18,7 +18,8 @@ Each operation has a bounded `page`/`pageSize` contract. The infrastructure serv
 
 ## Boundary rules
 
-- All versioned resources require authentication and the existing permission policy for that resource.
+- All versioned resources require a bearer API-client credential and the existing permission policy for that resource. Human WareCommand session cookies are deliberately not accepted on this surface.
+- The credential format is `Authorization: Bearer <clientId>.<one-time-secret>`. The secret is shown only by the administrator create/rotate response and is stored as a PBKDF2 hash.
 - The API rate-limit policy applies to every versioned endpoint.
 - `X-Correlation-ID`, `X-Operation-ID`, `X-Reference-ID`, and `Idempotency-Key` remain host-level propagation headers. Query operations are side-effect free; mutating commands will only be published after the idempotency and credential boundaries are complete.
 - Failures use `application/problem+json` with a stable `errorCode`, retryability, and optional field errors. Correlation references remain in the response headers and unexpected failures stay provider-safe.

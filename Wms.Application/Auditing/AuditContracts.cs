@@ -8,6 +8,10 @@ public static class WmsAuditActions
     public const string AccountCreated = "security.account.created";
     public const string AccountStatusChanged = "security.account.status_changed";
     public const string AccessChanged = "security.access.changed";
+    public const string ApiClientCreated = "security.api_client.created";
+    public const string ApiClientRotated = "security.api_client.rotated";
+    public const string ApiClientRevoked = "security.api_client.revoked";
+    public const string ApiClientRejected = "security.api_client.rejected";
     public const string ReasonCodeCreated = "approval.reason_code.created";
     public const string ReasonCodeChanged = "approval.reason_code.changed";
     public const string ApprovalPolicyChanged = "approval.policy.changed";
@@ -558,6 +562,7 @@ public static class WmsAuditEntityTypes
     public const string ApprovalExecution = "ApprovalExecution";
     public const string ApprovalInboxItem = "ApprovalInboxItem";
     public const string Attachment = "Attachment";
+    public const string ApiClient = "ApiClient";
     public const string Notification = "Notification";
     public const string NotificationPreference = "NotificationPreference";
     public const string RetentionPolicy = "RetentionPolicy";

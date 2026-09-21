@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Wms.Application.ApiClients;
 using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
@@ -11,7 +12,8 @@ public sealed class WarehouseAccessService(
     WmsDbContext context,
     ICurrentUser currentUser,
     IClock clock,
-    ILogger<WarehouseAccessService> logger) : IWarehouseAccessService
+    ILogger<WarehouseAccessService> logger,
+    IApiClientContextAccessor apiClientContext) : IWarehouseAccessService
 {
     public async Task<bool> HasPermissionAsync(
         string permission,
@@ -20,6 +22,11 @@ public sealed class WarehouseAccessService(
         if (!IsPermissionValueAllowed(permission))
         {
             return false;
+        }
+
+        if (apiClientContext.Current is { } apiClient)
+        {
+            return apiClient.HasScope(permission);
         }
 
         var userId = await GetActiveUserIdAsync(cancellationToken);
@@ -37,6 +44,37 @@ public sealed class WarehouseAccessService(
             return Result.Failure(WmsErrors.Validation(
                 "authorization.permission_invalid",
                 "The requested permission is not recognized."));
+        }
+
+        if (apiClientContext.Current is { } apiClient)
+        {
+            if (!apiClient.HasScope(permission))
+            {
+                return Result.Failure(WmsErrors.Forbidden(
+                    "authorization.permission_denied",
+                    "The API client does not have the requested scope."));
+            }
+
+            if (!warehouseId.HasValue)
+            {
+                return Result.Success();
+            }
+
+            var apiWarehouseExists = await context.Warehouses
+                .AsNoTracking()
+                .AnyAsync(warehouse => warehouse.Id == warehouseId.Value && warehouse.IsActive, cancellationToken);
+            if (!apiWarehouseExists)
+            {
+                return Result.Failure(WmsErrors.NotFound(
+                    "warehouse.not_found",
+                    "The requested warehouse was not found or is inactive."));
+            }
+
+            return apiClient.CanAccessWarehouse(warehouseId.Value)
+                ? Result.Success()
+                : Result.Failure(WmsErrors.Forbidden(
+                    "authorization.warehouse_scope_denied",
+                    "The API client is not assigned to the requested warehouse."));
         }
 
         var userId = await GetActiveUserIdAsync(cancellationToken);
@@ -86,6 +124,13 @@ public sealed class WarehouseAccessService(
     public async Task<WarehouseAccessScope> GetScopeAsync(
         CancellationToken cancellationToken = default)
     {
+        if (apiClientContext.Current is { } apiClient)
+        {
+            return new WarehouseAccessScope(
+                apiClient.HasGlobalWarehouseAccess,
+                apiClient.WarehouseIds);
+        }
+
         var userId = await GetActiveUserIdAsync(cancellationToken);
         if (userId is null)
         {
@@ -114,6 +159,28 @@ public sealed class WarehouseAccessService(
         if (authorization.IsFailure)
         {
             return [];
+        }
+
+        if (apiClientContext.Current is { } apiClient)
+        {
+            var apiScope = await GetScopeAsync(cancellationToken);
+            var apiWarehousesQuery = context.Warehouses
+                .AsNoTracking()
+                .Where(warehouse => warehouse.IsActive);
+            if (!apiScope.HasGlobalAccess)
+            {
+                apiWarehousesQuery = apiWarehousesQuery
+                    .Where(warehouse => apiScope.WarehouseIds.Contains(warehouse.Id));
+            }
+
+            return await apiWarehousesQuery
+                .OrderBy(warehouse => warehouse.Code)
+                .Select(warehouse => new WmsWarehouseOption(
+                    warehouse.Id,
+                    warehouse.Code,
+                    warehouse.Name,
+                    false))
+                .ToListAsync(cancellationToken);
         }
 
         var userId = await GetActiveUserIdAsync(cancellationToken);

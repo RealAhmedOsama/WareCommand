@@ -12,7 +12,7 @@
     { "url": "/" }
   ],
   "security": [
-    { "cookieAuth": [] }
+    { "apiClientAuth": [] }
   ],
   "paths": {
     "/api/v1": {
@@ -181,11 +181,11 @@
   },
   "components": {
     "securitySchemes": {
-      "cookieAuth": {
+      "apiClientAuth": {
         "type": "apiKey",
-        "in": "cookie",
-        "name": "WareCommand.Auth",
-        "description": "Authenticated WareCommand session. Machine-to-machine bearer credentials are tracked by issue #89 and are not implied by this foundation document."
+        "in": "header",
+        "name": "Authorization",
+        "description": "Bearer API-client credential in the form Bearer <clientId>.<one-time-secret>. Human WareCommand session cookies are not accepted on versioned resources."
       }
     },
     "parameters": {

@@ -260,6 +260,18 @@ public static class WmsSecurityRegistration
 
     private static string GetClientKey(HttpContext httpContext, string policyName)
     {
+        var authorization = httpContext.Request.Headers.Authorization.ToString();
+        if (authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            var token = authorization["Bearer ".Length..].Trim();
+            var separator = token.IndexOf('.', StringComparison.Ordinal);
+            if (separator > 0 && separator <= 100)
+            {
+                var clientId = token[..separator];
+                return string.Concat(policyName, ":api-client:", clientId);
+            }
+        }
+
         var remoteAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         return string.Concat(policyName, ":", remoteAddress);
     }

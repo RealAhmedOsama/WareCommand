@@ -10,6 +10,7 @@ using Wms.Application.Items;
 using Wms.Application.Locations;
 using Wms.Application.Reporting;
 using Wms.Application.Warehouses;
+using Wms.ASP.Identity;
 using Wms.ASP.Security;
 using Wms.Domain.Enums;
 
@@ -17,7 +18,7 @@ namespace Wms.ASP.Controllers;
 
 [ApiController]
 [Route("api/v1")]
-[Authorize]
+[Authorize(AuthenticationSchemes = WmsApiClientAuthenticationDefaults.Scheme)]
 [EnableRateLimiting(WmsRateLimitPolicies.Api)]
 public sealed class ApiV1Controller(
     IWarehouseManagementService warehouseService,
@@ -33,7 +34,7 @@ public sealed class ApiV1Controller(
         WmsApiV1.Version,
         "foundation",
         "3.1.0",
-        "WareCommand authenticated session cookie; machine credentials and bearer scopes are reserved for issue #89.",
+        "Bearer API-client credentials with explicit scopes and warehouse restrictions; human WareCommand session cookies are not accepted on versioned resources.",
         "v1 is additive. Breaking changes require a new version; deprecated operations remain documented for at least one release cycle.",
         WmsApiV1.QueryResources,
         WmsApiV1.CommandResources));

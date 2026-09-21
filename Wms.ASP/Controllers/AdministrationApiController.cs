@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Wms.Application.ApiClients;
 using Wms.Application.Administration;
 using Wms.Application.Common;
 using Wms.Application.Identity;
@@ -13,7 +14,10 @@ namespace Wms.ASP.Controllers;
 [Route("api/administration")]
 [Authorize(Policy = WmsPermissions.AccessManage)]
 [EnableRateLimiting(WmsRateLimitPolicies.Api)]
-public sealed class AdministrationApiController(IAdministrationService administrationService) : ControllerBase
+public sealed class AdministrationApiController(
+    IAdministrationService administrationService,
+    IApiClientCredentialService apiClientCredentialService,
+    ICurrentUser currentUser) : ControllerBase
 {
     [HttpGet("catalog")]
     public async Task<IActionResult> Catalog(CancellationToken cancellationToken = default) =>
@@ -46,6 +50,44 @@ public sealed class AdministrationApiController(IAdministrationService administr
                 entityType,
                 page,
                 pageSize),
+            cancellationToken));
+
+    [HttpGet("clients")]
+    public async Task<IActionResult> Clients(CancellationToken cancellationToken = default) =>
+        ToActionResult(await apiClientCredentialService.ListAsync(
+            currentUser.RequireUserId(),
+            cancellationToken));
+
+    [HttpPost("clients")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateClient(
+        [FromBody] ApiClientCreateRequest request,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await apiClientCredentialService.CreateAsync(
+            request,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
+    [HttpPost("clients/{clientId}/rotate")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RotateClient(
+        string clientId,
+        [FromBody] ApiClientRotateRequest request,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await apiClientCredentialService.RotateAsync(
+            clientId,
+            request,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
+    [HttpPost("clients/{clientId}/revoke")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevokeClient(
+        string clientId,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await apiClientCredentialService.RevokeAsync(
+            clientId,
+            currentUser.RequireUserId(),
             cancellationToken));
 
     private IActionResult ToActionResult<T>(Result<T> result)
