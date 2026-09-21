@@ -184,6 +184,18 @@ public sealed class ShipmentPackage : Entity
         Touch();
     }
 
+    public void MarkShipped(DateTime shippedAtUtc)
+    {
+        if (Status != ShipmentPackageStatus.Closed)
+        {
+            throw new InvalidOperationException("Only a closed package can be shipped.");
+        }
+
+        Status = ShipmentPackageStatus.Shipped;
+        ClosedAtUtc ??= DateTime.SpecifyKind(shippedAtUtc, DateTimeKind.Utc);
+        Touch();
+    }
+
     private void EnsureOpen()
     {
         if (Status != ShipmentPackageStatus.Open)

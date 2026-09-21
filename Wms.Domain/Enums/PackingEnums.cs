@@ -28,7 +28,8 @@ public enum ShipmentPackageStatus
 {
     Open = 1,
     Closed = 2,
-    Voided = 3
+    Voided = 3,
+    Shipped = 4
 }
 
 public enum PackingPackageType

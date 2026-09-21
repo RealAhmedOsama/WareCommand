@@ -369,6 +369,31 @@ public sealed class SalesOrder : Entity
         Touch();
     }
 
+    public void MarkPartiallyShipped()
+    {
+        if (Status is SalesOrderStatus.Cancelled or SalesOrderStatus.Closed or SalesOrderStatus.Shipped)
+        {
+            throw new InvalidOperationException($"A sales order in {Status} cannot be marked partially shipped.");
+        }
+
+        Status = SalesOrderStatus.PartiallyShipped;
+        Touch();
+    }
+
+    public void MarkShipped(string userId, DateTime shippedAtUtc)
+    {
+        EnsureUser(userId);
+        if (Status is SalesOrderStatus.Cancelled or SalesOrderStatus.Closed)
+        {
+            throw new InvalidOperationException($"A sales order in {Status} cannot be marked shipped.");
+        }
+
+        Status = SalesOrderStatus.Shipped;
+        ConfirmedByUserId = userId.Trim();
+        ConfirmedAtUtc ??= NormalizeUtcValue(shippedAtUtc);
+        Touch();
+    }
+
     private void EnsureDraft()
     {
         if (!CanEdit)
