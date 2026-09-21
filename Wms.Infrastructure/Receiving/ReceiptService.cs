@@ -9,6 +9,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Inbound;
 using Wms.Application.Purchasing;
+using Wms.Application.Quality;
 using Wms.Application.Receiving;
 using Wms.Application.Units;
 using Wms.Domain.Entities;
@@ -30,6 +31,7 @@ public sealed class ReceiptService : IReceiptService
     private readonly IAuditWriter _auditWriter;
     private readonly IClock _clock;
     private readonly ILogger<ReceiptService> _logger;
+    private readonly IQualityInspectionService? _qualityInspectionService;
 
     public ReceiptService(
         WmsDbContext context,
@@ -40,7 +42,8 @@ public sealed class ReceiptService : IReceiptService
         IStockMovementService stockMovementService,
         IAuditWriter auditWriter,
         IClock clock,
-        ILogger<ReceiptService> logger)
+        ILogger<ReceiptService> logger,
+        IQualityInspectionService? qualityInspectionService = null)
     {
         _context = context;
         _warehouseAccessService = warehouseAccessService;
@@ -51,6 +54,7 @@ public sealed class ReceiptService : IReceiptService
         _auditWriter = auditWriter;
         _clock = clock;
         _logger = logger;
+        _qualityInspectionService = qualityInspectionService;
     }
 
     public async Task<Result<ReceiptPageDto>> ListAsync(
@@ -502,6 +506,20 @@ public sealed class ReceiptService : IReceiptService
                 if (purchaseOrderResult.IsFailure)
                 {
                     return purchaseOrderResult;
+                }
+            }
+
+            if (_qualityInspectionService is not null)
+            {
+                var inspectionResult = await _qualityInspectionService.EnsureForReceiptAsync(
+                    receipt.Id,
+                    line.Id,
+                    movement,
+                    userId,
+                    cancellationToken);
+                if (inspectionResult.IsFailure)
+                {
+                    return Result.Failure(inspectionResult.Errors);
                 }
             }
 

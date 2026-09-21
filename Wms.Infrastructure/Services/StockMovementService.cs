@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.InventoryStatuses;
+using Wms.Application.Quality;
 using Wms.Application.Logging;
 using Wms.Application.SerialNumbers;
 using Wms.Application.Telemetry;
@@ -29,6 +30,7 @@ public class StockMovementService : IStockMovementService
     private readonly ISerialNumberService? _serialNumberService;
     private readonly IInventoryStatusService? _inventoryStatusService;
     private readonly IInventoryLedgerService? _inventoryLedgerService;
+    private readonly IQualityInspectionService? _qualityInspectionService;
 
     public StockMovementService(
         IUnitOfWork unitOfWork,
@@ -39,7 +41,8 @@ public class StockMovementService : IStockMovementService
         IClock clock,
         ISerialNumberService? serialNumberService = null,
         IInventoryStatusService? inventoryStatusService = null,
-        IInventoryLedgerService? inventoryLedgerService = null)
+        IInventoryLedgerService? inventoryLedgerService = null,
+        IQualityInspectionService? qualityInspectionService = null)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -50,6 +53,7 @@ public class StockMovementService : IStockMovementService
         _serialNumberService = serialNumberService;
         _inventoryStatusService = inventoryStatusService;
         _inventoryLedgerService = inventoryLedgerService;
+        _qualityInspectionService = qualityInspectionService;
     }
 
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
@@ -1426,9 +1430,18 @@ public class StockMovementService : IStockMovementService
 
         var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
             ?? throw new InvalidOperationException($"Item {itemId} was not found.");
+        var qualityRequired = item.QualityInspectionRequired;
+        if (!qualityRequired && _qualityInspectionService is not null)
+        {
+            qualityRequired = await _qualityInspectionService.RequiresInboundInspectionAsync(
+                location.WarehouseId,
+                itemId,
+                cancellationToken);
+        }
+
         var result = await _inventoryStatusService.ResolveInboundStatusAsync(
             location,
-            item.QualityInspectionRequired,
+            qualityRequired,
             cancellationToken);
         return result.IsSuccess
             ? result.Value.Id

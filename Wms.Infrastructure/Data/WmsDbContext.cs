@@ -45,6 +45,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ReceivingSession> ReceivingSessions => Set<ReceivingSession>();
     public DbSet<ReceivingSessionLine> ReceivingSessionLines => Set<ReceivingSessionLine>();
     public DbSet<ReceivingSessionScan> ReceivingSessionScans => Set<ReceivingSessionScan>();
+    public DbSet<QualityProfile> QualityProfiles => Set<QualityProfile>();
+    public DbSet<QualityProfileTest> QualityProfileTests => Set<QualityProfileTest>();
+    public DbSet<QualityInspection> QualityInspections => Set<QualityInspection>();
+    public DbSet<QualityInspectionTestResult> QualityInspectionTestResults => Set<QualityInspectionTestResult>();
+    public DbSet<QualityInspectionDisposition> QualityInspectionDispositions => Set<QualityInspectionDisposition>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -112,6 +117,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ReceivingSessionConfiguration());
         builder.ApplyConfiguration(new ReceivingSessionLineConfiguration());
         builder.ApplyConfiguration(new ReceivingSessionScanConfiguration());
+        builder.ApplyConfiguration(new QualityProfileConfiguration());
+        builder.ApplyConfiguration(new QualityProfileTestConfiguration());
+        builder.ApplyConfiguration(new QualityInspectionConfiguration());
+        builder.ApplyConfiguration(new QualityInspectionTestResultConfiguration());
+        builder.ApplyConfiguration(new QualityInspectionDispositionConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());
         builder.ApplyConfiguration(new WarehouseConfiguration());

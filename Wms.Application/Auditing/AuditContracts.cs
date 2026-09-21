@@ -60,6 +60,12 @@ public static class WmsAuditActions
     public const string ReceivingSessionCancelled = "inbound.receiving_session.cancelled";
     public const string ReceivingScanCompleted = "inbound.receiving_scan.completed";
     public const string ReceivingScanCorrected = "inbound.receiving_scan.corrected";
+    public const string QualityProfileCreated = "quality.profile.created";
+    public const string QualityProfileChanged = "quality.profile.changed";
+    public const string QualityInspectionGenerated = "quality.inspection.generated";
+    public const string QualityInspectionResultRecorded = "quality.inspection.result_recorded";
+    public const string QualityDispositionRecorded = "quality.inspection.disposition_recorded";
+    public const string QualityInspectionClosed = "quality.inspection.closed";
     public const string UnitOfMeasureCreated = "master.uom.created";
     public const string UnitOfMeasureUpdated = "master.uom.updated";
     public const string UnitOfMeasureActivated = "master.uom.activated";
@@ -165,6 +171,12 @@ public static class WmsAuditActions
         ReceivingSessionCancelled,
         ReceivingScanCompleted,
         ReceivingScanCorrected,
+        QualityProfileCreated,
+        QualityProfileChanged,
+        QualityInspectionGenerated,
+        QualityInspectionResultRecorded,
+        QualityDispositionRecorded,
+        QualityInspectionClosed,
         UnitOfMeasureCreated,
         UnitOfMeasureUpdated,
         UnitOfMeasureActivated,
@@ -234,6 +246,11 @@ public static class WmsAuditEntityTypes
     public const string ReceiptLineLink = "ReceiptLineLink";
     public const string ReceivingSession = "ReceivingSession";
     public const string ReceivingSessionScan = "ReceivingSessionScan";
+    public const string QualityProfile = "QualityProfile";
+    public const string QualityProfileTest = "QualityProfileTest";
+    public const string QualityInspection = "QualityInspection";
+    public const string QualityInspectionTestResult = "QualityInspectionTestResult";
+    public const string QualityInspectionDisposition = "QualityInspectionDisposition";
     public const string UnitOfMeasure = "UnitOfMeasure";
     public const string Location = "Location";
     public const string Warehouse = "Warehouse";

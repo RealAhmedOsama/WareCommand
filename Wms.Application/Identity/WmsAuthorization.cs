@@ -48,6 +48,10 @@ public static class WmsPermissions
     public const string InventoryAdjust = "inventory.adjust";
     public const string ReceivingExecute = "receiving.execute";
     public const string ReceivingOverride = "receiving.override";
+    public const string QualityRead = "quality.read";
+    public const string QualityInspect = "quality.inspect";
+    public const string QualityManage = "quality.manage";
+    public const string QualityOverride = "quality.override";
     public const string PutawayExecute = "putaway.execute";
     public const string PickingExecute = "picking.execute";
     public const string PackingExecute = "packing.execute";
@@ -79,6 +83,10 @@ public static class WmsPermissions
         InventoryAdjust,
         ReceivingExecute,
         ReceivingOverride,
+        QualityRead,
+        QualityInspect,
+        QualityManage,
+        QualityOverride,
         PutawayExecute,
         PickingExecute,
         PackingExecute,
@@ -112,6 +120,10 @@ public static class WmsPermissions
             [InventoryAdjust] = "Adjust inventory quantities",
             [ReceivingExecute] = "Execute receiving",
             [ReceivingOverride] = "Authorize receiving supervisor overrides",
+            [QualityRead] = "View quality profiles and inspections",
+            [QualityInspect] = "Record quality test results and dispositions",
+            [QualityManage] = "Manage quality profiles and sampling rules",
+            [QualityOverride] = "Authorize quality inspection overrides",
             [PutawayExecute] = "Execute putaway",
             [PickingExecute] = "Execute picking",
             [PackingExecute] = "Execute packing",
@@ -154,6 +166,10 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.InventoryAdjust,
                 WmsPermissions.ReceivingExecute,
                 WmsPermissions.ReceivingOverride,
+                WmsPermissions.QualityRead,
+                WmsPermissions.QualityInspect,
+                WmsPermissions.QualityManage,
+                WmsPermissions.QualityOverride,
                 WmsPermissions.PutawayExecute,
                 WmsPermissions.PickingExecute,
                 WmsPermissions.PackingExecute,
@@ -204,6 +220,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.InventoryAdjust,
                 WmsPermissions.CountingExecute,
                 WmsPermissions.AllocationManage,
+                WmsPermissions.QualityRead,
+                WmsPermissions.QualityInspect,
+                WmsPermissions.QualityOverride,
                 WmsPermissions.ReportsRead
             ],
             [WmsRoleNames.Auditor] =
@@ -215,6 +234,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ReceiptsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.QualityRead,
                 WmsPermissions.ReportsRead,
                 WmsPermissions.AuditRead
             ],
@@ -227,6 +247,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ReceiptsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.QualityRead,
                 WmsPermissions.ReportsRead
             ],
             [WmsRoleNames.WarehouseStaff] =
