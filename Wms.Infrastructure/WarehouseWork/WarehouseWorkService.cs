@@ -239,7 +239,11 @@ public sealed class WarehouseWorkService(
                 input.QueueCode,
                 input.DueAtUtc,
                 input.TeamCode,
-                input.Notes);
+                input.Notes,
+                input.AllocationStrategyPolicyId,
+                input.AllocationStrategyKey,
+                input.AllocationStrategy,
+                input.AllocationStrategyRevision);
             foreach (var line in lines)
             {
                 work.AddLine(new WarehouseWorkLine(
@@ -951,7 +955,11 @@ public sealed class WarehouseWorkService(
         work.Revision,
         work.Lines.OrderBy(line => line.Sequence).Select(Map).ToArray(),
         work.IsTerminal,
-        work.HasExceptions);
+        work.HasExceptions,
+        work.AllocationStrategyPolicyId,
+        work.AllocationStrategyKey,
+        work.AllocationStrategy,
+        work.AllocationStrategyRevision);
 
     private static WarehouseWorkLineDto Map(WarehouseWorkLine line) => new(
         line.Id,

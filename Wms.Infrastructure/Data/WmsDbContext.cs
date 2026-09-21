@@ -119,6 +119,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<InventoryClassification>();
     public DbSet<InventoryClassificationHistory> InventoryClassificationHistories =>
         Set<InventoryClassificationHistory>();
+    public DbSet<InventoryAllocationStrategyPolicy> InventoryAllocationStrategyPolicies =>
+        Set<InventoryAllocationStrategyPolicy>();
     public DbSet<CycleCountPlan> CycleCountPlans => Set<CycleCountPlan>();
     public DbSet<CycleCountTask> CycleCountTasks => Set<CycleCountTask>();
     public DbSet<CycleCountLine> CycleCountLines => Set<CycleCountLine>();
@@ -226,6 +228,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new InventoryClassificationPolicyConfiguration());
         builder.ApplyConfiguration(new InventoryClassificationConfiguration());
         builder.ApplyConfiguration(new InventoryClassificationHistoryConfiguration());
+        builder.ApplyConfiguration(new InventoryAllocationStrategyPolicyConfiguration());
         builder.ApplyConfiguration(new CycleCountPlanConfiguration());
         builder.ApplyConfiguration(new CycleCountTaskConfiguration());
         builder.ApplyConfiguration(new CycleCountLineConfiguration());

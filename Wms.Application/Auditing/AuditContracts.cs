@@ -163,6 +163,7 @@ public static class WmsAuditActions
     public const string InventoryClassificationPolicyChanged = "inventory.classification_policy.changed";
     public const string InventoryClassificationRecalculated = "inventory.classification.recalculated";
     public const string InventoryClassificationOverrideChanged = "inventory.classification.override_changed";
+    public const string InventoryAllocationStrategyPolicyChanged = "inventory.allocation_strategy_policy.changed";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -322,7 +323,8 @@ public static class WmsAuditActions
         CycleCountTaskGenerated,
         InventoryClassificationPolicyChanged,
         InventoryClassificationRecalculated,
-        InventoryClassificationOverrideChanged
+        InventoryClassificationOverrideChanged,
+        InventoryAllocationStrategyPolicyChanged
     ];
 }
 
@@ -387,6 +389,7 @@ public static class WmsAuditEntityTypes
     public const string InventoryClassificationPolicy = "InventoryClassificationPolicy";
     public const string InventoryClassification = "InventoryClassification";
     public const string InventoryClassificationHistory = "InventoryClassificationHistory";
+    public const string InventoryAllocationStrategyPolicy = "InventoryAllocationStrategyPolicy";
 }
 
 /// <summary>

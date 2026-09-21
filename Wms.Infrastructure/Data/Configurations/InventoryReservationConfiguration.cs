@@ -40,6 +40,16 @@ public sealed class InventoryReservationConfiguration
             .HasMaxLength(100);
         builder.Property(reservation => reservation.SelectorBaseUnitOfMeasure)
             .HasMaxLength(20);
+        builder.Property(reservation => reservation.AllocationStrategyKey)
+            .HasMaxLength(80);
+        builder.Property(reservation => reservation.AllocationStrategy)
+            .HasConversion<int>();
+        builder.Property(reservation => reservation.AllocationStrategyMissingExpiryFallback)
+            .HasConversion<int>();
+        builder.Property(reservation => reservation.AllocationStrategyMinimumShelfLifeDays)
+            .IsRequired();
+        builder.Property(reservation => reservation.AllocationStrategyPreferWholeLicensePlate)
+            .IsRequired();
         builder.Property(reservation => reservation.ActorUserId)
             .HasMaxLength(450)
             .IsRequired();

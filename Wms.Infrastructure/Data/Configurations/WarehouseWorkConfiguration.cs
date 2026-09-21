@@ -28,6 +28,8 @@ public sealed class WarehouseWorkConfiguration : IEntityTypeConfiguration<Wareho
         builder.Property(work => work.ExceptionReason).HasMaxLength(1_000);
         builder.Property(work => work.ExceptionByUserId).HasMaxLength(450);
         builder.Property(work => work.OverrideReason).HasMaxLength(1_000);
+        builder.Property(work => work.AllocationStrategyKey).HasMaxLength(80);
+        builder.Property(work => work.AllocationStrategy).HasConversion<int>();
         builder.Property(work => work.Revision).IsRequired().IsConcurrencyToken();
         builder.Property(work => work.DueAtUtc).HasColumnType("timestamp with time zone");
         builder.Property(work => work.AssignedAtUtc).HasColumnType("timestamp with time zone");

@@ -87,6 +87,14 @@ public sealed class InventoryReservation : Entity
     public string? SelectorBaseUnitOfMeasure { get; private set; }
     public string ActorUserId { get; private set; } = string.Empty;
     public string CorrelationId { get; private set; } = string.Empty;
+    public int? AllocationStrategyPolicyId { get; private set; }
+    public string? AllocationStrategyKey { get; private set; }
+    public InventoryAllocationStrategyKind? AllocationStrategy { get; private set; }
+    public long? AllocationStrategyRevision { get; private set; }
+    public int? AllocationStrategyFixedLocationId { get; private set; }
+    public bool AllocationStrategyPreferWholeLicensePlate { get; private set; }
+    public int AllocationStrategyMinimumShelfLifeDays { get; private set; }
+    public InventoryAllocationMissingExpiryFallback? AllocationStrategyMissingExpiryFallback { get; private set; }
     public long Revision { get; private set; }
 
     public Warehouse Warehouse { get; private set; } = null!;
@@ -126,6 +134,43 @@ public sealed class InventoryReservation : Entity
                 SelectorInventoryStatusId,
                 SelectorBaseUnitOfMeasure)
             : null;
+
+    public void SetAllocationStrategySnapshot(
+        int? policyId,
+        string strategyKey,
+        InventoryAllocationStrategyKind strategy,
+        long revision,
+        int? fixedLocationId = null,
+        bool preferWholeLicensePlate = false,
+        int minimumShelfLifeDays = 0,
+        InventoryAllocationMissingExpiryFallback missingExpiryFallback = InventoryAllocationMissingExpiryFallback.Last)
+    {
+        if (AllocationStrategyKey is not null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(strategyKey) || strategyKey.Length > 80)
+        {
+            throw new ArgumentException("An allocation strategy key between 1 and 80 characters is required.", nameof(strategyKey));
+        }
+
+        if (!Enum.IsDefined(strategy) || revision < 0 || minimumShelfLifeDays < 0 ||
+            !Enum.IsDefined(missingExpiryFallback))
+        {
+            throw new ArgumentOutOfRangeException(nameof(strategy));
+        }
+
+        AllocationStrategyPolicyId = policyId;
+        AllocationStrategyKey = strategyKey.Trim();
+        AllocationStrategy = strategy;
+        AllocationStrategyRevision = revision;
+        AllocationStrategyFixedLocationId = fixedLocationId;
+        AllocationStrategyPreferWholeLicensePlate = preferWholeLicensePlate;
+        AllocationStrategyMinimumShelfLifeDays = minimumShelfLifeDays;
+        AllocationStrategyMissingExpiryFallback = missingExpiryFallback;
+        Touch();
+    }
 
     public void SetStatus(InventoryReservationStatus status, string? reason = null)
     {

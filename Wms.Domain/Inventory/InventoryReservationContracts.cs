@@ -52,7 +52,11 @@ public sealed record InventoryReservationResult(
     InventoryReservationStatus Status,
     DateTime? ExpiresAtUtc,
     IReadOnlyList<InventoryReservationAllocationResult> Allocations,
-    IReadOnlyList<InventoryReservationEventResult> Events);
+    IReadOnlyList<InventoryReservationEventResult> Events,
+    int? AllocationStrategyPolicyId = null,
+    string? AllocationStrategyKey = null,
+    InventoryAllocationStrategyKind? AllocationStrategy = null,
+    long? AllocationStrategyRevision = null);
 
 public sealed record InventoryReservationCandidateResult(
     int BalanceId,

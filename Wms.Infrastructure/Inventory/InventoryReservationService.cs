@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.Inventory;
 using Wms.Application.Time;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -23,7 +24,8 @@ public sealed class InventoryReservationService(
     IInventoryLedgerService inventoryLedgerService,
     IWarehouseAccessService warehouseAccessService,
     IClock clock,
-    ILogger<InventoryReservationService> logger) : IInventoryReservationService
+    ILogger<InventoryReservationService> logger,
+    IInventoryAllocationStrategyService? allocationStrategyService = null) : IInventoryReservationService
 {
     public async Task<InventoryReservationResult> ReserveAsync(
         InventoryReservationRequest request,
@@ -109,14 +111,19 @@ public sealed class InventoryReservationService(
                     reason: request.Reason ?? "reservation created"),
                 cancellationToken);
 
-            var candidates = await GetEligibleBalancesAsync(
+            var candidateSelection = await GetEligibleBalancesAsync(
                 request,
                 item,
                 warehouse,
                 cancellationToken);
+            if (reservation.AllocationStrategyKey is null)
+            {
+                SetStrategySnapshot(reservation, candidateSelection.Snapshot);
+            }
+
             var allocations = await AddAllocationsAsync(
                 reservation,
-                candidates,
+                candidateSelection.OrderedCandidates,
                 actorUserId,
                 request.Reason,
                 cancellationToken);
@@ -212,14 +219,35 @@ public sealed class InventoryReservationService(
             request,
             item,
             cancellationToken);
-        var eligible = candidates
+        CandidateSelection resolution;
+        if (allocationStrategyService is null)
+        {
+            resolution = CreateLegacyResolution(request, item, candidates);
+        }
+        else
+        {
+            var strategyResolution = await allocationStrategyService.ResolveAsync(
+                request,
+                item,
+                warehouse,
+                candidates,
+                businessDate,
+                asOfUtc: clock.UtcNow.UtcDateTime,
+                cancellationToken: cancellationToken);
+            resolution = new CandidateSelection(
+                strategyResolution.Snapshot,
+                strategyResolution.OrderedCandidates,
+                strategyResolution.RejectedReasons,
+                strategyResolution.SelectionReasons);
+        }
+        var eligible = resolution.OrderedCandidates
             .Where(balance => GetEligibilityReason(
                 balance,
                 item,
                 request.WarehouseId,
                 businessDate) is null)
             .ToArray();
-        var orderedEligible = OrderCandidates(eligible, item).ToArray();
+        var orderedEligible = eligible.ToArray();
         var proposedByBalance = new Dictionary<int, decimal>();
         var remaining = request.RequestedQuantity;
         foreach (var balance in orderedEligible)
@@ -250,11 +278,14 @@ public sealed class InventoryReservationService(
                     businessDate);
                 var proposed = proposedByBalance.GetValueOrDefault(balance.Id);
                 var selected = proposed > 0m;
+                var strategyRejected = resolution.RejectedReasons.TryGetValue(
+                    balance.Id,
+                    out var strategyRejectionReason);
                 var reason = selected
-                    ? (item.UseFefo
-                        ? "Selected by FEFO, location priority, receipt age, and balance ID."
-                        : "Selected by location priority, FIFO receipt age, and balance ID.")
-                    : eligibilityReason ?? (remaining <= 0m
+                    ? resolution.SelectionReasons.GetValueOrDefault(
+                        balance.Id,
+                        "Selected by the effective allocation strategy.")
+                    : eligibilityReason ?? strategyRejectionReason ?? (remaining <= 0m
                         ? "Demand was already fully satisfied by higher-priority candidates."
                         : "The eligible balance has no quantity remaining after reservation filters.");
                 return new InventoryReservationCandidateResult(
@@ -452,14 +483,19 @@ public sealed class InventoryReservationService(
                 ActorUserId: actor,
                 CorrelationId: correlation,
                 Reason: request.Reason);
-            var candidates = await GetEligibleBalancesAsync(
+            var candidateSelection = await GetEligibleBalancesAsync(
                 reallocationRequest,
                 item,
                 warehouse,
-                cancellationToken);
+                cancellationToken,
+                ToSnapshot(reservation));
+            if (reservation.AllocationStrategyKey is null)
+            {
+                SetStrategySnapshot(reservation, candidateSelection.Snapshot);
+            }
             var allocations = await AddAllocationsAsync(
                 reservation,
-                candidates,
+                candidateSelection.OrderedCandidates,
                 actor,
                 request.Reason ?? "reservation reallocated",
                 cancellationToken);
@@ -796,11 +832,12 @@ public sealed class InventoryReservationService(
         }
     }
 
-    private async Task<IReadOnlyList<InventoryBalance>> GetEligibleBalancesAsync(
+    private async Task<CandidateSelection> GetEligibleBalancesAsync(
         InventoryReservationRequest request,
         Item item,
         Warehouse warehouse,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InventoryAllocationStrategySnapshot? pinnedSnapshot = null)
     {
         var selector = request.Selector;
         if (!string.IsNullOrWhiteSpace(selector?.BaseUnitOfMeasure) &&
@@ -862,11 +899,37 @@ public sealed class InventoryReservationService(
             clock.UtcNow,
             warehouse.TimeZone);
         var candidates = await query.ToListAsync(cancellationToken);
-        var eligible = candidates
+        CandidateSelection resolution;
+        if (allocationStrategyService is null)
+        {
+            resolution = CreateLegacyResolution(request, item, candidates);
+        }
+        else
+        {
+            var strategyResolution = await allocationStrategyService.ResolveAsync(
+                request,
+                item,
+                warehouse,
+                candidates,
+                businessDate,
+                pinnedSnapshot,
+                asOfUtc: clock.UtcNow.UtcDateTime,
+                cancellationToken: cancellationToken);
+            resolution = new CandidateSelection(
+                strategyResolution.Snapshot,
+                strategyResolution.OrderedCandidates,
+                strategyResolution.RejectedReasons,
+                strategyResolution.SelectionReasons);
+        }
+        var eligible = resolution.OrderedCandidates
             .Where(balance => IsEligible(balance, item, request.WarehouseId, businessDate))
             .ToArray();
 
-        return OrderCandidates(eligible, item).ToArray();
+        return new CandidateSelection(
+            resolution.Snapshot,
+            eligible,
+            resolution.RejectedReasons,
+            resolution.SelectionReasons);
     }
 
     private async Task<IReadOnlyList<InventoryBalance>> GetSimulationBalancesAsync(
@@ -946,6 +1009,35 @@ public sealed class InventoryReservationService(
                 .OrderBy(balance => balance.Location.Priority)
                 .ThenBy(balance => balance.CreatedAt)
                 .ThenBy(balance => balance.Id);
+
+    private static CandidateSelection CreateLegacyResolution(
+        InventoryReservationRequest request,
+        Item item,
+        IReadOnlyList<InventoryBalance> candidates)
+    {
+        var strategy = item.UseFefo
+            ? InventoryAllocationStrategyKind.Fefo
+            : InventoryAllocationStrategyKind.Fifo;
+        var ordered = OrderCandidates(candidates, item).ToArray();
+        var reasons = ordered.ToDictionary(
+            balance => balance.Id,
+            balance => item.UseFefo
+                ? "Selected by legacy FEFO, location priority, receipt age, and balance ID."
+                : "Selected by legacy FIFO receipt age, location priority, and balance ID.");
+        return new CandidateSelection(
+            new InventoryAllocationStrategySnapshot(
+                null,
+                item.UseFefo ? "legacy:item-fefo" : "legacy:fifo",
+                strategy,
+                0,
+                null,
+                false,
+                0,
+                InventoryAllocationMissingExpiryFallback.Last),
+            ordered,
+            new Dictionary<int, string>(),
+            reasons);
+    }
 
     private async Task<IReadOnlyList<InventoryReservationAllocation>> AddAllocationsAsync(
         InventoryReservation reservation,
@@ -1254,8 +1346,42 @@ public sealed class InventoryReservationService(
                     reservationEvent.OccurredAtUtc,
                     reservationEvent.CorrelationId,
                     reservationEvent.Reason))
-                .ToArray());
+                .ToArray(),
+            reservation.AllocationStrategyPolicyId,
+            reservation.AllocationStrategyKey,
+            reservation.AllocationStrategy,
+            reservation.AllocationStrategyRevision);
     }
+
+    private static void SetStrategySnapshot(
+        InventoryReservation reservation,
+        InventoryAllocationStrategySnapshot snapshot) =>
+        reservation.SetAllocationStrategySnapshot(
+            snapshot.PolicyId,
+            snapshot.StrategyKey,
+            snapshot.Strategy,
+            snapshot.Revision,
+            snapshot.FixedLocationId,
+            snapshot.PreferWholeLicensePlate,
+            snapshot.MinimumShelfLifeDays,
+            snapshot.MissingExpiryFallback);
+
+    private static InventoryAllocationStrategySnapshot? ToSnapshot(
+        InventoryReservation reservation) =>
+        reservation.AllocationStrategyKey is null ||
+        !reservation.AllocationStrategy.HasValue ||
+        !reservation.AllocationStrategyRevision.HasValue ||
+        !reservation.AllocationStrategyMissingExpiryFallback.HasValue
+            ? null
+            : new InventoryAllocationStrategySnapshot(
+                reservation.AllocationStrategyPolicyId,
+                reservation.AllocationStrategyKey,
+                reservation.AllocationStrategy.Value,
+                reservation.AllocationStrategyRevision.Value,
+                reservation.AllocationStrategyFixedLocationId,
+                reservation.AllocationStrategyPreferWholeLicensePlate,
+                reservation.AllocationStrategyMinimumShelfLifeDays,
+                reservation.AllocationStrategyMissingExpiryFallback.Value);
 
     private static void EnsureSameDemand(
         InventoryReservation existing,
@@ -1337,4 +1463,10 @@ public sealed class InventoryReservationService(
         string.IsNullOrWhiteSpace(value)
             ? Guid.NewGuid().ToString("N")
             : value.Trim();
+
+    private sealed record CandidateSelection(
+        InventoryAllocationStrategySnapshot Snapshot,
+        IReadOnlyList<InventoryBalance> OrderedCandidates,
+        IReadOnlyDictionary<int, string> RejectedReasons,
+        IReadOnlyDictionary<int, string> SelectionReasons);
 }

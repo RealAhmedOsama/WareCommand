@@ -36,7 +36,11 @@ public sealed record WarehouseWorkInput(
     string? TeamCode = null,
     string? Notes = null,
     bool MakeAvailable = true,
-    IReadOnlyList<WarehouseWorkLineInput>? Lines = null);
+    IReadOnlyList<WarehouseWorkLineInput>? Lines = null,
+    int? AllocationStrategyPolicyId = null,
+    string? AllocationStrategyKey = null,
+    InventoryAllocationStrategyKind? AllocationStrategy = null,
+    long? AllocationStrategyRevision = null);
 
 public sealed record WarehouseWorkAssignmentInput(
     string? UserId,
@@ -163,7 +167,11 @@ public sealed record WarehouseWorkDto(
     long Revision,
     IReadOnlyList<WarehouseWorkLineDto> Lines,
     bool IsTerminal,
-    bool HasExceptions);
+    bool HasExceptions,
+    int? AllocationStrategyPolicyId = null,
+    string? AllocationStrategyKey = null,
+    InventoryAllocationStrategyKind? AllocationStrategy = null,
+    long? AllocationStrategyRevision = null);
 
 public sealed record WarehouseWorkPageDto(
     IReadOnlyList<WarehouseWorkDto> Work,

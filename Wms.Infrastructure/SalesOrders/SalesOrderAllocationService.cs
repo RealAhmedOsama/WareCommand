@@ -599,7 +599,11 @@ public sealed class SalesOrderAllocationService(
                                 SourceReference: $"reservation:{reservation.ReservationId}:allocation:{allocation.AllocationId}",
                                 ReservationId: reservation.ReservationId,
                                 ReservationAllocationId: allocation.AllocationId)
-                        ]),
+                        ],
+                        AllocationStrategyPolicyId: reservation.AllocationStrategyPolicyId,
+                        AllocationStrategyKey: reservation.AllocationStrategyKey,
+                        AllocationStrategy: reservation.AllocationStrategy,
+                        AllocationStrategyRevision: reservation.AllocationStrategyRevision),
                     userId,
                     cancellationToken);
                 if (workResult.IsFailure)

@@ -23,7 +23,11 @@ public sealed class WarehouseWork : Entity
         string? queueCode = null,
         DateTime? dueAtUtc = null,
         string? teamCode = null,
-        string? notes = null)
+        string? notes = null,
+        int? allocationStrategyPolicyId = null,
+        string? allocationStrategyKey = null,
+        InventoryAllocationStrategyKind? allocationStrategy = null,
+        long? allocationStrategyRevision = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(warehouseId);
         if (!Enum.IsDefined(type))
@@ -43,6 +47,10 @@ public sealed class WarehouseWork : Entity
         DueAtUtc = dueAtUtc.HasValue ? NormalizeUtc(dueAtUtc.Value) : null;
         TeamCode = OptionalUpper(teamCode, 50);
         Notes = Optional(notes, 2_000);
+        AllocationStrategyPolicyId = allocationStrategyPolicyId;
+        AllocationStrategyKey = Optional(allocationStrategyKey, 80);
+        AllocationStrategy = allocationStrategy;
+        AllocationStrategyRevision = allocationStrategyRevision;
         Status = WarehouseWorkStatus.Open;
         Revision = 1;
     }
@@ -77,6 +85,10 @@ public sealed class WarehouseWork : Entity
     public DateTime? ExceptionAtUtc { get; private set; }
     public bool SupervisorOverride { get; private set; }
     public string? OverrideReason { get; private set; }
+    public int? AllocationStrategyPolicyId { get; private set; }
+    public string? AllocationStrategyKey { get; private set; }
+    public InventoryAllocationStrategyKind? AllocationStrategy { get; private set; }
+    public long? AllocationStrategyRevision { get; private set; }
     public long Revision { get; private set; }
 
     public Warehouse Warehouse { get; private set; } = null!;
