@@ -8,6 +8,7 @@ using Wms.Application.Lots;
 using Wms.Application.Settings;
 using Wms.Application.Time;
 using Wms.Application.Idempotency;
+using Wms.Application.Integrations;
 using Wms.Application.Inventory;
 using Wms.Application.Outbound;
 using Wms.Application.Notifications;
@@ -239,6 +240,7 @@ public sealed class WmsReportGenerationJob(
 
 public sealed class WmsIntegrationRetryJob(
     INotificationDeliveryService notificationDeliveryService,
+    IIntegrationOutboxDispatcher integrationOutboxDispatcher,
     ILogger<WmsIntegrationRetryJob> logger) : IWmsJobHandler
 {
     public string JobName => WmsJobNames.IntegrationRetries;
@@ -251,13 +253,17 @@ public sealed class WmsIntegrationRetryJob(
         cancellationToken.ThrowIfCancellationRequested();
         var notificationCount = await notificationDeliveryService.DispatchPendingAsync(
             cancellationToken: cancellationToken);
+        var integrationResult = await integrationOutboxDispatcher.DispatchAsync(
+            cancellationToken: cancellationToken);
         logger.LogInformation(
-            "Integration retry job dispatched {NotificationCount} pending notification deliveries; no other integration outbox adapter is registered",
-            notificationCount);
+            "Integration retry job dispatched {NotificationCount} notifications, {DeliveryCount} webhook deliveries, and claimed {EventCount} outbox events",
+            notificationCount,
+            integrationResult.DeliveriesAttempted,
+            integrationResult.EventsClaimed);
         return new WmsJobExecutionResult(
-            ItemsExamined: notificationCount,
-            ItemsCreated: 0,
-            Summary: $"Dispatched {notificationCount} pending notification deliveries; no other integration outbox adapter is registered yet.");
+            ItemsExamined: notificationCount + integrationResult.EventsClaimed,
+            ItemsCreated: integrationResult.DeliveriesSucceeded,
+            Summary: $"Dispatched {notificationCount} notifications and {integrationResult.DeliveriesSucceeded}/{integrationResult.DeliveriesAttempted} webhook deliveries; {integrationResult.EventsDeadLettered} event dead-lettered.");
     }
 }
 

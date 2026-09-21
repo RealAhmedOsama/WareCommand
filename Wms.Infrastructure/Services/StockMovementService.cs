@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.InventoryStatuses;
+using Wms.Application.Integrations;
 using Wms.Application.Quality;
 using Wms.Application.Logging;
 using Wms.Application.SerialNumbers;
@@ -31,6 +32,7 @@ public class StockMovementService : IStockMovementService
     private readonly IInventoryStatusService? _inventoryStatusService;
     private readonly IInventoryLedgerService? _inventoryLedgerService;
     private readonly IQualityInspectionService? _qualityInspectionService;
+    private readonly IIntegrationEventWriter? _integrationEventWriter;
 
     public StockMovementService(
         IUnitOfWork unitOfWork,
@@ -42,7 +44,8 @@ public class StockMovementService : IStockMovementService
         ISerialNumberService? serialNumberService = null,
         IInventoryStatusService? inventoryStatusService = null,
         IInventoryLedgerService? inventoryLedgerService = null,
-        IQualityInspectionService? qualityInspectionService = null)
+        IQualityInspectionService? qualityInspectionService = null,
+        IIntegrationEventWriter? integrationEventWriter = null)
     {
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -54,6 +57,7 @@ public class StockMovementService : IStockMovementService
         _inventoryStatusService = inventoryStatusService;
         _inventoryLedgerService = inventoryLedgerService;
         _qualityInspectionService = qualityInspectionService;
+        _integrationEventWriter = integrationEventWriter;
     }
 
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
@@ -246,6 +250,12 @@ public class StockMovementService : IStockMovementService
                 quantity.Value,
                 locationId);
 
+            await EnqueueMovementEventAsync(
+                WmsIntegrationEventTypes.InventoryMovementRecorded,
+                movement,
+                userId,
+                location?.WarehouseId,
+                cancellationToken);
             telemetryScope.Complete(quantity.Value);
             return movement;
         }
@@ -410,6 +420,12 @@ public class StockMovementService : IStockMovementService
                 ActorUserId: userId),
             cancellationToken);
 
+        await EnqueueMovementEventAsync(
+            WmsIntegrationEventTypes.InventoryMovementRecorded,
+            reversal,
+            userId,
+            location.WarehouseId,
+            cancellationToken);
         return reversal;
     }
 
@@ -669,6 +685,12 @@ public class StockMovementService : IStockMovementService
                 "Inventory putaway completed for item {ItemId}, quantity {Quantity}, from {FromLocationId} to {ToLocationId}",
                 itemId, quantity.Value, fromLocationId, toLocationId);
 
+            await EnqueueMovementEventAsync(
+                WmsIntegrationEventTypes.InventoryMovementRecorded,
+                movement,
+                userId,
+                fromLocation?.WarehouseId ?? toLocation?.WarehouseId,
+                cancellationToken);
             telemetryScope.Complete(quantity.Value);
             return movement;
         }
@@ -846,6 +868,12 @@ public class StockMovementService : IStockMovementService
                 quantity.Value,
                 fromLocationId);
 
+            await EnqueueMovementEventAsync(
+                WmsIntegrationEventTypes.InventoryMovementRecorded,
+                movement,
+                userId,
+                location?.WarehouseId,
+                cancellationToken);
             telemetryScope.Complete(quantity.Value);
             return movement;
         }
@@ -1078,6 +1106,12 @@ public class StockMovementService : IStockMovementService
                 newQuantity.Value,
                 locationId);
 
+            await EnqueueMovementEventAsync(
+                WmsIntegrationEventTypes.InventoryStockAdjusted,
+                movement,
+                userId,
+                location?.WarehouseId,
+                cancellationToken);
             telemetryScope.Complete(newQuantity.Value);
             return movement;
         }
@@ -1655,6 +1689,47 @@ public class StockMovementService : IStockMovementService
                 violation.Code,
                 violation.Message);
         }
+    }
+
+    private Task EnqueueMovementEventAsync(
+        string eventType,
+        Movement movement,
+        string userId,
+        int? warehouseId,
+        CancellationToken cancellationToken)
+    {
+        if (_integrationEventWriter is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var aggregateKey = movement.Id > 0
+            ? movement.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : $"{movement.Type}:{movement.Timestamp.Ticks}:{movement.ItemId}:{movement.ToLocationId ?? movement.FromLocationId}";
+        return _integrationEventWriter.EnqueueAsync(
+            new IntegrationEventDraft(
+                eventType,
+                "Movement",
+                aggregateKey,
+                new
+                {
+                    movementId = movement.Id,
+                    movementType = movement.Type.ToString(),
+                    itemId = movement.ItemId,
+                    fromLocationId = movement.FromLocationId,
+                    toLocationId = movement.ToLocationId,
+                    quantity = movement.Quantity.Value,
+                    userId,
+                    movement.Timestamp,
+                    referenceNumber = movement.ReferenceNumber,
+                    receiptId = movement.ReceiptId,
+                    receiptLineId = movement.ReceiptLineId
+                },
+                warehouseId,
+                _requestContext.CorrelationId,
+                _operationContextAccessor.Current?.OperationId,
+                new DateTimeOffset(DateTime.SpecifyKind(movement.Timestamp, DateTimeKind.Utc))),
+            cancellationToken);
     }
 
     private async Task<Lot?> ValidateLotAsync(

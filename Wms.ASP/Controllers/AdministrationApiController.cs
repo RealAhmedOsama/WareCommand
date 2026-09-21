@@ -6,6 +6,7 @@ using Wms.Application.ApiClients;
 using Wms.Application.Administration;
 using Wms.Application.Common;
 using Wms.Application.Identity;
+using Wms.Application.Integrations;
 using Wms.ASP.Security;
 
 namespace Wms.ASP.Controllers;
@@ -17,7 +18,8 @@ namespace Wms.ASP.Controllers;
 public sealed class AdministrationApiController(
     IAdministrationService administrationService,
     IApiClientCredentialService apiClientCredentialService,
-    ICurrentUser currentUser) : ControllerBase
+    ICurrentUser currentUser,
+    IWebhookSubscriptionService webhookSubscriptionService) : ControllerBase
 {
     [HttpGet("catalog")]
     public async Task<IActionResult> Catalog(CancellationToken cancellationToken = default) =>
@@ -90,6 +92,41 @@ public sealed class AdministrationApiController(
             currentUser.RequireUserId(),
             cancellationToken));
 
+    [HttpGet("webhooks")]
+    public async Task<IActionResult> Webhooks(CancellationToken cancellationToken = default) =>
+        Ok(await webhookSubscriptionService.ListAsync(cancellationToken));
+
+    [HttpPost("webhooks")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateWebhook(
+        [FromBody] WebhookSubscriptionCreateRequest request,
+        CancellationToken cancellationToken = default) =>
+        Ok(await webhookSubscriptionService.CreateAsync(request, cancellationToken));
+
+    [HttpPost("webhooks/{subscriptionId:long}/rotate")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RotateWebhookSecret(
+        long subscriptionId,
+        [FromQuery] TimeSpan? overlap,
+        CancellationToken cancellationToken = default) =>
+        Ok(await webhookSubscriptionService.RotateSecretAsync(
+            subscriptionId,
+            overlap ?? TimeSpan.FromHours(1),
+            cancellationToken));
+
+    [HttpPost("webhooks/{subscriptionId:long}/status")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetWebhookStatus(
+        long subscriptionId,
+        [FromBody] WebhookStatusRequest request,
+        CancellationToken cancellationToken = default) =>
+        await webhookSubscriptionService.SetStatusAsync(
+                subscriptionId,
+                request.Status,
+                cancellationToken)
+            ? Ok()
+            : NotFound();
+
     private IActionResult ToActionResult<T>(Result<T> result)
     {
         if (result.IsSuccess)
@@ -120,4 +157,6 @@ public sealed class AdministrationApiController(
                 ["retryable"] = error.IsRetryable
             });
     }
+
+    public sealed record WebhookStatusRequest(string Status);
 }

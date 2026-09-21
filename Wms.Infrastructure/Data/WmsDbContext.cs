@@ -10,6 +10,7 @@ using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.ApiClients;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.Integrations;
 using Wms.Infrastructure.Jobs;
 using Wms.Infrastructure.Labels;
 using Wms.Infrastructure.Notifications;
@@ -198,6 +199,15 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<WmsNotificationPreferenceEntity> NotificationPreferences =>
         Set<WmsNotificationPreferenceEntity>();
+
+    public DbSet<WmsIntegrationOutboxEntity> IntegrationOutbox => Set<WmsIntegrationOutboxEntity>();
+
+    public DbSet<WmsIntegrationInboxEntity> IntegrationInbox => Set<WmsIntegrationInboxEntity>();
+
+    public DbSet<WmsWebhookSubscriptionEntity> WebhookSubscriptions =>
+        Set<WmsWebhookSubscriptionEntity>();
+
+    public DbSet<WmsWebhookDeliveryEntity> WebhookDeliveries => Set<WmsWebhookDeliveryEntity>();
 
     public DbSet<WmsRetentionPolicyEntity> RetentionPolicies => Set<WmsRetentionPolicyEntity>();
 
@@ -522,6 +532,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WmsNotificationConfiguration());
         builder.ApplyConfiguration(new WmsNotificationRecipientConfiguration());
         builder.ApplyConfiguration(new WmsNotificationPreferenceConfiguration());
+        builder.ApplyConfiguration(new WmsIntegrationOutboxConfiguration());
+        builder.ApplyConfiguration(new WmsIntegrationInboxConfiguration());
+        builder.ApplyConfiguration(new WmsWebhookSubscriptionConfiguration());
+        builder.ApplyConfiguration(new WmsWebhookDeliveryConfiguration());
         builder.ApplyConfiguration(new WmsRetentionPolicyConfiguration());
         builder.ApplyConfiguration(new WmsRetentionHoldConfiguration());
         builder.ApplyConfiguration(new WmsRetentionRunConfiguration());

@@ -12,6 +12,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Identification;
 using Wms.Application.Idempotency;
+using Wms.Application.Integrations;
 using Wms.Application.Inventory;
 using Wms.Application.InventoryStatuses;
 using Wms.Application.LicensePlates;
@@ -55,6 +56,7 @@ using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Identification;
+using Wms.Infrastructure.Integrations;
 using Wms.Infrastructure.Inventory;
 using Wms.Infrastructure.InventoryStatuses;
 using Wms.Infrastructure.Transfers;
@@ -106,6 +108,7 @@ public static class InfrastructureServiceCollectionExtensions
         IConfiguration? configuration = null)
     {
         services.AddPersistence(connectionString, provider);
+        services.AddDataProtection();
         services.AddAttachmentInfrastructure(configuration);
         services.AddInventoryInfrastructure();
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
@@ -121,6 +124,12 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IAdministrationService, AdministrationService>();
         services.AddScoped<IApiClientContextAccessor, ApiClientContextAccessor>();
         services.AddScoped<IApiClientCredentialService, ApiClientCredentialService>();
+        services.AddScoped<IIntegrationEventWriter, IntegrationEventWriter>();
+        services.AddScoped<IIntegrationInboxService, IntegrationInboxService>();
+        services.AddScoped<IIntegrationOutboxDispatcher, IntegrationOutboxDispatcher>();
+        services.AddScoped<IWebhookSubscriptionService, WebhookSubscriptionService>();
+        services.AddScoped<IWebhookSecretProtector, DataProtectionWebhookSecretProtector>();
+        services.AddScoped<IWebhookDeliveryTransport, UnconfiguredWebhookDeliveryTransport>();
         services.AddScoped<IApprovalRoleDirectory, ApprovalRoleDirectory>();
         services.AddScoped<IApprovalService, ApprovalService>();
         services.AddScoped<INotificationRecipientDirectory, NotificationRecipientDirectory>();
