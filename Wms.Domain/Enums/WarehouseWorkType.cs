@@ -27,7 +27,7 @@ public enum WarehouseWorkStatus
 
 public enum WarehouseWorkExceptionType
 {
-    Short = 1,
+    Shortage = 1,
     Blocked = 2,
     Damaged = 3,
     NotFound = 4,

@@ -291,7 +291,7 @@ public sealed class WarehouseWork : Entity
         }
     }
 
-    private void ValidateOverride(bool supervisorOverride, string? overrideReason)
+    private static void ValidateOverride(bool supervisorOverride, string? overrideReason)
     {
         if (supervisorOverride && string.IsNullOrWhiteSpace(overrideReason))
         {
