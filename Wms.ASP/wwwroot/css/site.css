@@ -742,6 +742,35 @@ body.wms-shell {
   z-index: 10;
 }
 
+.wms-connectivity-banner {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin-block-start: .75rem;
+  padding: .65rem .85rem;
+  border: 1px solid #f0c36a;
+  border-radius: var(--wms-radius-sm);
+  background: #fff8e6;
+  color: #6f4d00;
+  box-shadow: var(--wms-shadow-sm);
+}
+
+.wms-connectivity-banner[data-wms-connectivity-state="reconnecting"] {
+  border-color: #8bb9d2;
+  background: #edf7fb;
+  color: var(--wms-primary-strong);
+}
+
+.wms-connectivity-banner[data-wms-connectivity-state="blocked"] {
+  border-color: #e4a6a0;
+  background: #fff0ee;
+  color: var(--wms-danger);
+}
+
+.wms-connectivity-banner [data-wms-connectivity-icon] {
+  font-size: 1.1rem;
+}
+
 .wms-shell-header .navbar {
   min-height: 4rem;
   background: linear-gradient(112deg, var(--wms-primary-strong), var(--wms-primary)) !important;

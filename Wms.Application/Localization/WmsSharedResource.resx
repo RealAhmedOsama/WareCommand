@@ -1009,4 +1009,12 @@
   <data name="Shell.QuickScan" xml:space="preserve"><value>Quick scan or search</value></data>
   <data name="Shell.QuickScanPlaceholder" xml:space="preserve"><value>Scan a barcode, SKU, or location</value></data>
   <data name="Shell.ShortcutHint" xml:space="preserve"><value>Press / or Ctrl+K to focus</value></data>
+  <data name="Pwa.Offline" xml:space="preserve"><value>Offline — changes are not being sent.</value></data>
+  <data name="Pwa.Reconnecting" xml:space="preserve"><value>Reconnecting…</value></data>
+  <data name="Pwa.OfflineMutationBlocked" xml:space="preserve"><value>This action needs a connection. Nothing was submitted.</value></data>
+  <data name="Pwa.UpdateAvailable" xml:space="preserve"><value>A new version is ready. Refresh when current work is safe.</value></data>
+  <data name="Pwa.Refresh" xml:space="preserve"><value>Refresh</value></data>
+  <data name="Pwa.TryAgain" xml:space="preserve"><value>Try again</value></data>
+  <data name="Pwa.OfflineTitle" xml:space="preserve"><value>WareCommand is offline</value></data>
+  <data name="Pwa.OfflineBody" xml:space="preserve"><value>The static shell is available, but no inventory command was queued or accepted offline. Reconnect before submitting work.</value></data>
 </root>

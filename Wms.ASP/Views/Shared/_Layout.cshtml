@@ -34,6 +34,12 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="theme-color" content="#0b4f6c"/>
+    <meta name="mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <link rel="manifest" href="~/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="~/icons/warecommand.svg" />
     <title>@ViewData["Title"] - @T["App.Name"]</title>
     @if (isRtl)
     {
@@ -50,7 +56,11 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&amp;display=swap" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
-<body class="wms-shell" data-wms-direction="@(isRtl ? "rtl" : "ltr")" data-wms-persistent-scan="@(scannerRoute ? "true" : "false")">
+<body class="wms-shell" data-wms-direction="@(isRtl ? "rtl" : "ltr")" data-wms-persistent-scan="@(scannerRoute ? "true" : "false")"
+      data-wms-offline-message="@T["Pwa.Offline"]"
+      data-wms-reconnecting-message="@T["Pwa.Reconnecting"]"
+      data-wms-offline-mutation-message="@T["Pwa.OfflineMutationBlocked"]"
+      data-wms-update-message="@T["Pwa.UpdateAvailable"]">
 <a class="wms-skip-link" href="#main-content">@T["Shell.SkipToContent"]</a>
 <header class="wms-shell-header">
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow">
@@ -328,6 +338,17 @@
         </div>
     }
 </header>
+
+<div class="container wms-connectivity-banner" data-wms-connectivity role="status" aria-live="polite" hidden>
+    <i class="bi bi-wifi-off" data-wms-connectivity-icon aria-hidden="true"></i>
+    <span data-wms-connectivity-text></span>
+    <button type="button" class="btn btn-sm btn-outline-primary wms-touch-target" data-wms-connectivity-retry hidden>
+        @T["Pwa.TryAgain"]
+    </button>
+    <button type="button" class="btn btn-sm btn-primary wms-touch-target ms-auto" data-wms-update hidden>
+        @T["Pwa.Refresh"]
+    </button>
+</div>
 
 <div class="container py-4 wms-page-frame">
     @if (TempData["SuccessMessage"] != null)

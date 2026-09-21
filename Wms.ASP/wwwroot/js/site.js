@@ -92,4 +92,165 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   }
+
+  const connectivityBanner = document.querySelector('[data-wms-connectivity]');
+  const connectivityText = connectivityBanner?.querySelector('[data-wms-connectivity-text]');
+  const connectivityIcon = connectivityBanner?.querySelector('[data-wms-connectivity-icon]');
+  const connectivityRetry = connectivityBanner?.querySelector('[data-wms-connectivity-retry]');
+  const updateButton = connectivityBanner?.querySelector('[data-wms-update]');
+  const connectivityMessages = {
+    offline: document.body.dataset.wmsOfflineMessage || 'Offline — changes are not being sent.',
+    reconnecting: document.body.dataset.wmsReconnectingMessage || 'Reconnecting…',
+    update: document.body.dataset.wmsUpdateMessage || 'A new version is ready.'
+  };
+
+  const setConnectivity = function (state, message) {
+    if (!(connectivityBanner instanceof HTMLElement)) {
+      return;
+    }
+
+    connectivityBanner.dataset.wmsConnectivityState = state;
+    connectivityBanner.hidden = state === 'online' && !message;
+    if (connectivityText instanceof HTMLElement) {
+      connectivityText.textContent = message || connectivityMessages[state] || '';
+    }
+
+    if (connectivityIcon instanceof HTMLElement) {
+      connectivityIcon.className = state === 'reconnecting' || state === 'update'
+        ? 'bi bi-arrow-repeat'
+        : state === 'blocked'
+          ? 'bi bi-exclamation-triangle'
+          : 'bi bi-wifi-off';
+      connectivityIcon.setAttribute('aria-hidden', 'true');
+    }
+
+    if (connectivityRetry instanceof HTMLButtonElement) {
+      connectivityRetry.hidden = state !== 'offline' && state !== 'blocked';
+    }
+  };
+
+  const checkConnectivity = function () {
+    if (!navigator.onLine) {
+      setConnectivity('offline');
+      return;
+    }
+
+    setConnectivity('reconnecting');
+    fetch('/health/live', {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: { 'X-Wms-Connectivity': '1' }
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error('Connectivity probe failed.');
+      }
+      setConnectivity('online');
+    }).catch(function () {
+      setConnectivity('offline');
+    });
+  };
+
+  window.addEventListener('offline', function () {
+    setConnectivity('offline');
+  });
+  window.addEventListener('online', checkConnectivity);
+  connectivityRetry?.addEventListener('click', checkConnectivity);
+  if (!navigator.onLine) {
+    setConnectivity('offline');
+  }
+
+  document.addEventListener('submit', function (event) {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || navigator.onLine || form.dataset.wmsOfflineCommand === 'true') {
+      return;
+    }
+
+    const method = (form.getAttribute('method') || 'get').toLowerCase();
+    if (method === 'get') {
+      return;
+    }
+
+    event.preventDefault();
+    const message = document.body.dataset.wmsOfflineMutationMessage || 'This action needs a connection. Nothing was submitted.';
+    setConnectivity('blocked', message);
+    window.setTimeout(function () {
+      if (!navigator.onLine) {
+        setConnectivity('offline');
+      }
+    }, 4000);
+  }, true);
+
+  if (quickScanInput instanceof HTMLInputElement) {
+    const sessionStorageKey = 'wms.quick-scan.v1';
+    try {
+      const savedValue = window.sessionStorage.getItem(sessionStorageKey);
+      if (!quickScanInput.value && savedValue) {
+        quickScanInput.value = savedValue;
+      }
+
+      quickScanInput.addEventListener('input', function () {
+        if (quickScanInput.value) {
+          window.sessionStorage.setItem(sessionStorageKey, quickScanInput.value);
+        } else {
+          window.sessionStorage.removeItem(sessionStorageKey);
+        }
+      });
+
+      quickScanInput.form?.addEventListener('submit', function () {
+        window.sessionStorage.removeItem(sessionStorageKey);
+      });
+    } catch {
+      // Storage may be unavailable in a private or restricted browser context.
+    }
+  }
+
+  let serviceWorkerRegistration = null;
+  let refreshingForServiceWorker = false;
+  const announceUpdate = function () {
+    setConnectivity('update');
+    if (updateButton instanceof HTMLButtonElement) {
+      updateButton.hidden = false;
+    }
+  };
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
+        .then(function (registration) {
+          serviceWorkerRegistration = registration;
+          if (registration.waiting && navigator.serviceWorker.controller) {
+            announceUpdate();
+          }
+
+          registration.addEventListener('updatefound', function () {
+            const worker = registration.installing;
+            worker?.addEventListener('statechange', function () {
+              if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                announceUpdate();
+              }
+            });
+          });
+        })
+        .catch(function () {
+          // PWA support is progressive; the MVC shell remains usable without it.
+        });
+    });
+
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (refreshingForServiceWorker) {
+        return;
+      }
+
+      refreshingForServiceWorker = true;
+      window.location.reload();
+    });
+  }
+
+  updateButton?.addEventListener('click', function () {
+    if (serviceWorkerRegistration?.waiting) {
+      serviceWorkerRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    } else {
+      window.location.reload();
+    }
+  });
 });

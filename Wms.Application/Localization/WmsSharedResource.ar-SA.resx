@@ -1009,4 +1009,12 @@
   <data name="Shell.QuickScan" xml:space="preserve"><value>مسح سريع أو بحث</value></data>
   <data name="Shell.QuickScanPlaceholder" xml:space="preserve"><value>امسح باركود أو أدخل الصنف أو الموقع</value></data>
   <data name="Shell.ShortcutHint" xml:space="preserve"><value>اضغط / أو Ctrl+K للتركيز</value></data>
+  <data name="Pwa.Offline" xml:space="preserve"><value>أنت غير متصل — لم يتم إرسال أي تغييرات.</value></data>
+  <data name="Pwa.Reconnecting" xml:space="preserve"><value>جارٍ إعادة الاتصال…</value></data>
+  <data name="Pwa.OfflineMutationBlocked" xml:space="preserve"><value>يتطلب هذا الإجراء اتصالاً. لم يتم إرسال أي شيء.</value></data>
+  <data name="Pwa.UpdateAvailable" xml:space="preserve"><value>يتوفر إصدار جديد. حدّث الصفحة عندما يصبح العمل الحالي آمناً.</value></data>
+  <data name="Pwa.Refresh" xml:space="preserve"><value>تحديث</value></data>
+  <data name="Pwa.TryAgain" xml:space="preserve"><value>حاول مرة أخرى</value></data>
+  <data name="Pwa.OfflineTitle" xml:space="preserve"><value>WareCommand غير متصل</value></data>
+  <data name="Pwa.OfflineBody" xml:space="preserve"><value>الواجهة الثابتة متاحة، لكن لم تتم جدولة أو قبول أي أمر مخزون أثناء عدم الاتصال. أعد الاتصال قبل إرسال العمل.</value></data>
 </root>

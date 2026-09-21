@@ -1,0 +1,41 @@
+{
+  "name": "WareCommand Warehouse Management",
+  "short_name": "WareCommand",
+  "description": "Scanner-first warehouse operations for WareCommand.",
+  "lang": "en-US",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#eef3f7",
+  "theme_color": "#0b4f6c",
+  "icons": [
+    {
+      "src": "/icons/warecommand.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/warecommand.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Inventory",
+      "short_name": "Inventory",
+      "url": "/Inventory",
+      "icons": [{ "src": "/icons/warecommand.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Picking",
+      "short_name": "Picking",
+      "url": "/Picking",
+      "icons": [{ "src": "/icons/warecommand.svg", "sizes": "192x192", "type": "image/svg+xml" }]
+    }
+  ]
+}

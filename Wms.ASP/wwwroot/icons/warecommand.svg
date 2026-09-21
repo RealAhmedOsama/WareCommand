@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">WareCommand</title>
+  <desc id="desc">A warehouse box and scan mark</desc>
+  <rect width="512" height="512" rx="112" fill="#0b4f6c"/>
+  <path d="M111 174 256 96l145 78v164l-145 78-145-78V174Z" fill="#fff" opacity=".96"/>
+  <path d="m111 174 145 79 145-79M256 253v163" fill="none" stroke="#0b4f6c" stroke-linecap="round" stroke-linejoin="round" stroke-width="22"/>
+  <path d="M169 205v-34m24 34v-34m126 34v-34m24 34v-34" fill="none" stroke="#f29f05" stroke-linecap="round" stroke-width="16"/>
+</svg>
