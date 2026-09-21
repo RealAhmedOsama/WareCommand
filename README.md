@@ -22,6 +22,17 @@ production-readiness or deployment claim.
 - The authoritative implementation checkpoint is
   [`docs/implementation/EXECUTION_STATUS.md`](docs/implementation/EXECUTION_STATUS.md).
 
+## Supported clients
+
+The ASP.NET Core Web host is the primary supported WareCommand client. The
+WinForms host is an optional retained workstation client during the transition
+period for scanner-heavy stations; it uses the same Application/Infrastructure
+services, Identity session, warehouse scope, and database migrations. It is
+not a second business-rule or persistence product. See
+[`docs/modernization/WINFORMS_TRANSITION.md`](docs/modernization/WINFORMS_TRANSITION.md)
+for the complete capability inventory, parity gates, distribution boundary,
+and no-deletion rollback policy.
+
 ## Quick start
 
 From the repository root:

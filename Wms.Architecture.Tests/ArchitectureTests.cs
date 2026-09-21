@@ -118,6 +118,72 @@ public sealed class ArchitectureTests
     }
 
     [Fact]
+    public void WinFormsTransitionInventoryCoversEveryCurrentCapability()
+    {
+        var root = FindRepositoryRoot();
+        var transition = File.ReadAllText(
+            Path.Combine(root, "docs", "modernization", "WINFORMS_TRANSITION.md"));
+        var expectedForms = new[]
+        {
+            "LoginForm.cs",
+            "MainForm.cs",
+            "DashboardForm.cs",
+            "ReceivingForm.cs",
+            "PutawayForm.cs",
+            "PickingForm.cs",
+            "InventoryForm.cs",
+            "StockAdjustmentDialog.cs",
+            "ItemManagementForm.cs",
+            "ItemEditDialog.cs",
+            "LocationManagementForm.cs",
+            "LocationEditDialog.cs",
+            "ReportsForm.cs"
+        };
+
+        foreach (var form in expectedForms)
+        {
+            Assert.Contains($"`{form}`", transition, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("F1–F8", transition, StringComparison.Ordinal);
+        Assert.Contains("Enter", transition, StringComparison.Ordinal);
+        Assert.Contains("Arabic/English", transition, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WinFormsOperationalPathsUseSharedAuthenticatedBoundaries()
+    {
+        var root = FindRepositoryRoot();
+        var program = File.ReadAllText(Path.Combine(root, "Warehouse Management System", "Program.cs"));
+        Assert.Contains("AddWmsInfrastructure", program, StringComparison.Ordinal);
+        Assert.Contains("AddWmsApplication", program, StringComparison.Ordinal);
+        Assert.Contains("AddWmsDesktopIdentity", program, StringComparison.Ordinal);
+        Assert.Contains("LoginForm", program, StringComparison.Ordinal);
+
+        var requiredMarkers = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["ReceivingForm.cs"] = ["IReceiveItemUseCase", "RequireUserId"],
+            ["PutawayForm.cs"] = ["IPutawayUseCase", "RequireUserId"],
+            ["PickingForm.cs"] = ["IPickOrderUseCase", "RequireUserId"],
+            ["InventoryForm.cs"] = ["IStockAdjustmentUseCase", "RequireUserId"],
+            ["ItemEditDialog.cs"] = ["ICreateItemUseCase", "RequireUserId"],
+            ["LocationEditDialog.cs"] = ["ICreateLocationUseCase", "RequireUserId"]
+        };
+
+        foreach (var (fileName, markers) in requiredMarkers)
+        {
+            var source = File.ReadAllText(Path.Combine(root, "Warehouse Management System", "Forms", fileName));
+            foreach (var marker in markers)
+            {
+                Assert.Contains(marker, source, StringComparison.Ordinal);
+            }
+
+            Assert.DoesNotContain("\"SYSTEM\"", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("WEB_USER", source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void CurrentApplicationFoldersMapToCapabilityModules()
     {
         var root = FindRepositoryRoot();
