@@ -141,6 +141,15 @@ public static class WmsAuditActions
     public const string PackCompleted = "outbound.pack.completed";
     public const string ShipmentCompleted = "outbound.shipment.completed";
     public const string ReturnProcessed = "outbound.return.processed";
+    public const string SupplierReturnCreated = "inbound.supplier_return.created";
+    public const string SupplierReturnApproved = "inbound.supplier_return.approved";
+    public const string SupplierReturnReleased = "inbound.supplier_return.released";
+    public const string SupplierReturnPacked = "inbound.supplier_return.packed";
+    public const string SupplierReturnShipped = "inbound.supplier_return.shipped";
+    public const string SupplierReturnAcknowledged = "inbound.supplier_return.acknowledged";
+    public const string SupplierReturnClosed = "inbound.supplier_return.closed";
+    public const string SupplierReturnCancelled = "inbound.supplier_return.cancelled";
+    public const string SupplierReturnException = "inbound.supplier_return.exception";
     public const string SettingsChanged = "settings.changed";
     public const string IntegrationAction = "integration.action";
     public const string LabelTemplateVersionCreated = "labels.template.version_created";
@@ -335,6 +344,15 @@ public static class WmsAuditActions
         PackCompleted,
         ShipmentCompleted,
         ReturnProcessed,
+        SupplierReturnCreated,
+        SupplierReturnApproved,
+        SupplierReturnReleased,
+        SupplierReturnPacked,
+        SupplierReturnShipped,
+        SupplierReturnAcknowledged,
+        SupplierReturnClosed,
+        SupplierReturnCancelled,
+        SupplierReturnException,
         SettingsChanged,
         IntegrationAction,
         IdentifierResolved,
@@ -438,6 +456,7 @@ public static class WmsAuditEntityTypes
     public const string Package = "Package";
     public const string Shipment = "Shipment";
     public const string Return = "Return";
+    public const string SupplierReturn = "SupplierReturn";
     public const string Settings = "Settings";
     public const string Integration = "Integration";
     public const string Identifier = "Identifier";

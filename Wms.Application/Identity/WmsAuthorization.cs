@@ -52,6 +52,8 @@ public static class WmsPermissions
     public const string InventoryAdjust = "inventory.adjust";
     public const string ReceivingExecute = "receiving.execute";
     public const string ReceivingOverride = "receiving.override";
+    public const string SupplierReturnsRead = "supplier_returns.read";
+    public const string SupplierReturnsManage = "supplier_returns.manage";
     public const string QualityRead = "quality.read";
     public const string QualityInspect = "quality.inspect";
     public const string QualityManage = "quality.manage";
@@ -95,6 +97,8 @@ public static class WmsPermissions
         InventoryAdjust,
         ReceivingExecute,
         ReceivingOverride,
+        SupplierReturnsRead,
+        SupplierReturnsManage,
         QualityRead,
         QualityInspect,
         QualityManage,
@@ -140,6 +144,8 @@ public static class WmsPermissions
             [InventoryAdjust] = "Adjust inventory quantities",
             [ReceivingExecute] = "Execute receiving",
             [ReceivingOverride] = "Authorize receiving supervisor overrides",
+            [SupplierReturnsRead] = "View supplier returns and return-to-vendor traceability",
+            [SupplierReturnsManage] = "Create, approve, release, pack, acknowledge, close, and cancel supplier returns",
             [QualityRead] = "View quality profiles and inspections",
             [QualityInspect] = "Record quality test results and dispositions",
             [QualityManage] = "Manage quality profiles and sampling rules",
@@ -194,6 +200,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.InventoryAdjust,
                 WmsPermissions.ReceivingExecute,
                 WmsPermissions.ReceivingOverride,
+                WmsPermissions.SupplierReturnsRead,
+                WmsPermissions.SupplierReturnsManage,
                 WmsPermissions.QualityRead,
                 WmsPermissions.QualityInspect,
                 WmsPermissions.QualityManage,
@@ -224,6 +232,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.AdvanceShippingNoticesManage,
                 WmsPermissions.ReceiptsRead,
                 WmsPermissions.ReceiptsManage,
+                WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.ReceivingExecute,
@@ -237,6 +246,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
                 WmsPermissions.PickingExecute
@@ -247,6 +257,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
                 WmsPermissions.PackingExecute
@@ -263,6 +274,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.QualityRead,
                 WmsPermissions.QualityInspect,
                 WmsPermissions.QualityOverride,
+                WmsPermissions.SupplierReturnsRead,
+                WmsPermissions.SupplierReturnsManage,
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
                 WmsPermissions.WorkOverride,
@@ -278,6 +291,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.QualityRead,
+                WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.ReportsRead,
                 WmsPermissions.AuditRead
@@ -292,6 +306,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.QualityRead,
+                WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.ReportsRead
             ],
@@ -305,6 +320,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.AdvanceShippingNoticesManage,
                 WmsPermissions.ReceiptsRead,
                 WmsPermissions.ReceiptsManage,
+                WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.WorkRead,

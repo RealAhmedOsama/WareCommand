@@ -85,6 +85,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ReturnReceipt> ReturnReceipts => Set<ReturnReceipt>();
     public DbSet<ReturnDisposition> ReturnDispositions => Set<ReturnDisposition>();
     public DbSet<ReturnCommand> ReturnCommands => Set<ReturnCommand>();
+    public DbSet<SupplierReturn> SupplierReturns => Set<SupplierReturn>();
+    public DbSet<SupplierReturnLine> SupplierReturnLines => Set<SupplierReturnLine>();
+    public DbSet<SupplierReturnCommand> SupplierReturnCommands => Set<SupplierReturnCommand>();
     public DbSet<PutawayRule> PutawayRules => Set<PutawayRule>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
@@ -229,6 +232,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ReturnReceiptConfiguration());
         builder.ApplyConfiguration(new ReturnDispositionConfiguration());
         builder.ApplyConfiguration(new ReturnCommandConfiguration());
+        builder.ApplyConfiguration(new SupplierReturnConfiguration());
+        builder.ApplyConfiguration(new SupplierReturnLineConfiguration());
+        builder.ApplyConfiguration(new SupplierReturnCommandConfiguration());
         builder.ApplyConfiguration(new PutawayRuleConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());
