@@ -121,6 +121,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<InventoryClassificationHistory>();
     public DbSet<InventoryAllocationStrategyPolicy> InventoryAllocationStrategyPolicies =>
         Set<InventoryAllocationStrategyPolicy>();
+    public DbSet<WaveTemplate> WaveTemplates => Set<WaveTemplate>();
+    public DbSet<Wave> Waves => Set<Wave>();
+    public DbSet<WaveLine> WaveLines => Set<WaveLine>();
+    public DbSet<WaveProcessingHistory> WaveProcessingHistory => Set<WaveProcessingHistory>();
     public DbSet<CycleCountPlan> CycleCountPlans => Set<CycleCountPlan>();
     public DbSet<CycleCountTask> CycleCountTasks => Set<CycleCountTask>();
     public DbSet<CycleCountLine> CycleCountLines => Set<CycleCountLine>();
@@ -229,6 +233,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new InventoryClassificationConfiguration());
         builder.ApplyConfiguration(new InventoryClassificationHistoryConfiguration());
         builder.ApplyConfiguration(new InventoryAllocationStrategyPolicyConfiguration());
+        builder.ApplyConfiguration(new WaveTemplateConfiguration());
+        builder.ApplyConfiguration(new WaveConfiguration());
+        builder.ApplyConfiguration(new WaveLineConfiguration());
+        builder.ApplyConfiguration(new WaveProcessingHistoryConfiguration());
         builder.ApplyConfiguration(new CycleCountPlanConfiguration());
         builder.ApplyConfiguration(new CycleCountTaskConfiguration());
         builder.ApplyConfiguration(new CycleCountLineConfiguration());

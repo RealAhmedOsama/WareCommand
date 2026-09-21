@@ -538,7 +538,7 @@ public sealed class SalesOrderAllocationService(
         SalesOrder order,
         SalesOrderAllocationCommand command,
         string userId,
-        IReadOnlyDictionary<int, InventoryReservationResult> reservations,
+        Dictionary<int, InventoryReservationResult> reservations,
         CancellationToken cancellationToken)
     {
         if (reservations.Count == 0)
@@ -548,7 +548,21 @@ public sealed class SalesOrderAllocationService(
                 "The sales order has no reservation-backed demand to release."));
         }
 
-        var backorder = order.Lines.Sum(line => line.BackorderBaseQuantity);
+        var selectedLineIds = NormalizeLineIds(command.LineIds, order);
+        var selectedLines = order.Lines
+            .Where(line => selectedLineIds is null || selectedLineIds.Contains(line.Id))
+            .ToArray();
+        var selectedReservations = reservations
+            .Where(pair => selectedLineIds is null || selectedLineIds.Contains(pair.Key))
+            .ToDictionary(pair => pair.Key, pair => pair.Value);
+        if (selectedReservations.Count == 0)
+        {
+            return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.BusinessRule(
+                "allocation.nothing_to_release",
+                "The selected sales-order lines have no reservation-backed demand to release."));
+        }
+
+        var backorder = selectedLines.Sum(line => line.BackorderBaseQuantity);
         if (backorder > 0m && !order.AllowPartialShipmentSnapshot)
         {
             return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.BusinessRule(
@@ -556,9 +570,9 @@ public sealed class SalesOrderAllocationService(
                 "The order has a backorder and does not allow partial shipment."));
         }
 
-        foreach (var line in order.Lines)
+        foreach (var line in selectedLines)
         {
-            if (!reservations.TryGetValue(line.Id, out var reservation))
+            if (!selectedReservations.TryGetValue(line.Id, out var reservation))
             {
                 continue;
             }
@@ -613,17 +627,28 @@ public sealed class SalesOrderAllocationService(
             }
         }
 
-        if (order.Status != SalesOrderStatus.Released)
+        var allDemandLineIds = order.Lines
+            .Where(line => GetDemandQuantity(line) > 0m)
+            .Select(line => line.Id)
+            .ToHashSet();
+        if (selectedLineIds is null || allDemandLineIds.IsSubsetOf(selectedLineIds))
         {
-            order.SetAllocationStatus(SalesOrderStatus.Released);
+            if (order.Status != SalesOrderStatus.Released)
+            {
+                order.SetAllocationStatus(SalesOrderStatus.Released);
+            }
+        }
+        else if (order.Status != SalesOrderStatus.PartiallyAllocated)
+        {
+            order.SetAllocationStatus(SalesOrderStatus.PartiallyAllocated);
         }
 
         await auditWriter.RecordAsync(
             CreateAllocationAudit(
                 order,
                 "release",
-                reservations.Values.Sum(value => value.AllocatedQuantity),
-                reservations.Values.Sum(value => value.BackorderQuantity),
+                selectedReservations.Values.Sum(value => value.AllocatedQuantity),
+                selectedReservations.Values.Sum(value => value.BackorderQuantity),
                 userId),
             cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
@@ -659,7 +684,17 @@ public sealed class SalesOrderAllocationService(
         {
             var order = loaded.Value;
             var reservations = await LoadReservationResultsAsync(order, cancellationToken);
-            if (reservations.Values.Any(value => value.ConsumedQuantity > 0m))
+            var selectedLineIds = NormalizeLineIds(command.LineIds, order);
+            var selectedReservations = reservations
+                .Where(pair => selectedLineIds is null || selectedLineIds.Contains(pair.Key))
+                .ToDictionary(pair => pair.Key, pair => pair.Value);
+            if (selectedReservations.Count == 0)
+            {
+                return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.BusinessRule(
+                    "allocation.nothing_to_cancel",
+                    "The selected sales-order lines have no reservation-backed demand."));
+            }
+            if (selectedReservations.Values.Any(value => value.ConsumedQuantity > 0m))
             {
                 return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.Conflict(
                     "allocation.execution_started",
@@ -667,6 +702,14 @@ public sealed class SalesOrderAllocationService(
             }
 
             var work = await LoadOrderWorkAsync(order, cancellationToken);
+            if (selectedLineIds is not null)
+            {
+                work = work
+                    .Where(value =>
+                        int.TryParse(value.SourceEntityId, out var lineId) &&
+                        selectedLineIds.Contains(lineId))
+                    .ToArray();
+            }
             if (work.Any(value => value.Status is WarehouseWorkStatus.InProgress or
                 WarehouseWorkStatus.Paused or
                 WarehouseWorkStatus.Exception or
@@ -692,7 +735,7 @@ public sealed class SalesOrderAllocationService(
                 }
             }
 
-            foreach (var reservation in reservations.Values)
+            foreach (var reservation in selectedReservations.Values)
             {
                 if (reservation.ActiveQuantity <= 0m)
                 {
@@ -713,7 +756,8 @@ public sealed class SalesOrderAllocationService(
             }
 
             var refreshed = await LoadReservationResultsAsync(order, cancellationToken);
-            foreach (var line in order.Lines)
+            foreach (var line in order.Lines.Where(line =>
+                         selectedLineIds is null || selectedLineIds.Contains(line.Id)))
             {
                 if (refreshed.TryGetValue(line.Id, out var reservation))
                 {
@@ -721,20 +765,37 @@ public sealed class SalesOrderAllocationService(
                 }
             }
 
-            if (order.Status is SalesOrderStatus.Allocating or
+            var allDemandLineIds = order.Lines
+                .Where(line => GetDemandQuantity(line) > 0m)
+                .Select(line => line.Id)
+                .ToHashSet();
+            if ((selectedLineIds is null || allDemandLineIds.IsSubsetOf(selectedLineIds)) &&
+                order.Status is SalesOrderStatus.Allocating or
                 SalesOrderStatus.PartiallyAllocated or
                 SalesOrderStatus.Released or
                 SalesOrderStatus.Exception)
             {
                 order.RestoreConfirmedAfterAllocationCancellation();
             }
+            else if (order.Status is SalesOrderStatus.Allocating or
+                     SalesOrderStatus.Released or
+                     SalesOrderStatus.Exception)
+            {
+                order.SetAllocationStatus(SalesOrderStatus.PartiallyAllocated);
+            }
 
             await auditWriter.RecordAsync(
                 CreateAllocationAudit(
                     order,
                     cancelReservations ? "cancel" : "unrelease",
-                    refreshed.Values.Sum(value => value.AllocatedQuantity),
-                    refreshed.Values.Sum(value => value.BackorderQuantity),
+                    selectedLineIds is null
+                        ? refreshed.Values.Sum(value => value.AllocatedQuantity)
+                        : refreshed.Where(pair => selectedLineIds.Contains(pair.Key))
+                            .Sum(pair => pair.Value.AllocatedQuantity),
+                    selectedLineIds is null
+                        ? refreshed.Values.Sum(value => value.BackorderQuantity)
+                        : refreshed.Where(pair => selectedLineIds.Contains(pair.Key))
+                            .Sum(pair => pair.Value.BackorderQuantity),
                     userId),
                 cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
@@ -1171,6 +1232,35 @@ public sealed class SalesOrderAllocationService(
         }
 
         return null;
+    }
+
+    private static HashSet<int>? NormalizeLineIds(
+        IReadOnlyList<int>? lineIds,
+        SalesOrder order)
+    {
+        if (lineIds is null)
+        {
+            return null;
+        }
+
+        if (lineIds.Count == 0 ||
+            lineIds.Any(id => id <= 0) ||
+            lineIds.Distinct().Count() != lineIds.Count)
+        {
+            throw new ArgumentException(
+                "Selected sales-order line IDs must be positive and unique.",
+                nameof(lineIds));
+        }
+
+        var selected = lineIds.ToHashSet();
+        if (selected.Except(order.Lines.Select(line => line.Id)).Any())
+        {
+            throw new ArgumentException(
+                "One or more selected lines do not belong to the sales order.",
+                nameof(lineIds));
+        }
+
+        return selected;
     }
 
     private static ResultError? ValidateIdempotencyKey(string? key)

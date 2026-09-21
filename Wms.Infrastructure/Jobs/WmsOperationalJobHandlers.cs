@@ -9,6 +9,7 @@ using Wms.Application.Settings;
 using Wms.Application.Time;
 using Wms.Application.Idempotency;
 using Wms.Application.Inventory;
+using Wms.Application.Outbound;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Jobs;
@@ -23,6 +24,7 @@ public sealed class WmsJobHandlerCatalog(
     WmsInventoryClassificationRecalculationJob inventoryClassificationRecalculationJob,
     WmsCycleCountGenerationJob cycleCountGenerationJob,
     WmsReplenishmentGenerationJob replenishmentGenerationJob,
+    WmsWavePlanningJob wavePlanningJob,
     WmsInventoryHealthCheckJob inventoryHealthCheckJob,
     WmsInventoryReconciliationJob inventoryReconciliationJob)
 {
@@ -38,6 +40,7 @@ public sealed class WmsJobHandlerCatalog(
             inventoryClassificationRecalculationJob,
             cycleCountGenerationJob,
             replenishmentGenerationJob,
+            wavePlanningJob,
             inventoryHealthCheckJob,
             inventoryReconciliationJob
         }.ToDictionary(handler => handler.JobName, StringComparer.Ordinal);
@@ -415,6 +418,39 @@ public sealed class WmsReplenishmentGenerationJob(
             result.Value.SignalsExamined,
             result.Value.WorkCreated,
             $"Examined {result.Value.SignalsExamined} signals; created {result.Value.WorkCreated}, reused {result.Value.WorkReused}, blocked {result.Value.Blocked}.");
+    }
+}
+
+public sealed class WmsWavePlanningJob(
+    IWaveService waveService,
+    ILogger<WmsWavePlanningJob> logger) : IWmsJobHandler
+{
+    public string JobName => WmsJobNames.WavePlanning;
+
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
+        WmsJobContext context,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var result = await waveService.RunScheduledAsync(
+            context.Envelope.WarehouseId,
+            context.Envelope.ActorUserId ?? "system",
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Outbound wave planning failed: {result.Error}");
+        }
+
+        logger.LogInformation(
+            "Outbound wave planning examined {TemplateCount} templates and created {WaveCount} waves with {LineCount} selected lines",
+            result.Value.TemplatesExamined,
+            result.Value.WavesCreated,
+            result.Value.LinesSelected);
+        return new WmsJobExecutionResult(
+            result.Value.TemplatesExamined,
+            result.Value.WavesCreated,
+            $"Examined {result.Value.TemplatesExamined} templates; created {result.Value.WavesCreated} waves and selected {result.Value.LinesSelected} lines.");
     }
 }
 

@@ -164,6 +164,11 @@ public static class WmsAuditActions
     public const string InventoryClassificationRecalculated = "inventory.classification.recalculated";
     public const string InventoryClassificationOverrideChanged = "inventory.classification.override_changed";
     public const string InventoryAllocationStrategyPolicyChanged = "inventory.allocation_strategy_policy.changed";
+    public const string WaveTemplateChanged = "outbound.wave_template.changed";
+    public const string WaveCreated = "outbound.wave.created";
+    public const string WaveProcessed = "outbound.wave.processed";
+    public const string WaveLineRemoved = "outbound.wave.line_removed";
+    public const string WaveCancelled = "outbound.wave.cancelled";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -324,7 +329,12 @@ public static class WmsAuditActions
         InventoryClassificationPolicyChanged,
         InventoryClassificationRecalculated,
         InventoryClassificationOverrideChanged,
-        InventoryAllocationStrategyPolicyChanged
+        InventoryAllocationStrategyPolicyChanged,
+        WaveTemplateChanged,
+        WaveCreated,
+        WaveProcessed,
+        WaveLineRemoved,
+        WaveCancelled
     ];
 }
 
@@ -390,6 +400,9 @@ public static class WmsAuditEntityTypes
     public const string InventoryClassification = "InventoryClassification";
     public const string InventoryClassificationHistory = "InventoryClassificationHistory";
     public const string InventoryAllocationStrategyPolicy = "InventoryAllocationStrategyPolicy";
+    public const string WaveTemplate = "WaveTemplate";
+    public const string Wave = "Wave";
+    public const string WaveLine = "WaveLine";
 }
 
 /// <summary>

@@ -32,6 +32,7 @@ public static class WmsJobNames
     public const string InventoryClassificationRecalculation = "wms.inventory-classification-recalculation";
     public const string CycleCountGeneration = "wms.cycle-count-generation";
     public const string ReplenishmentGeneration = "wms.replenishment-generation";
+    public const string WavePlanning = "wms.wave-planning";
     public const string InventoryHealthCheck = "wms.inventory-health-check";
     public const string InventoryReconciliation = "wms.inventory-reconciliation";
 }
@@ -122,6 +123,13 @@ public static class WmsJobCatalog
             TimeSpan.FromDays(1),
             TimeSpan.FromMinutes(10),
             "Generate future replenishment work from inventory policy."),
+        new(
+            WmsJobNames.WavePlanning,
+            WmsJobQueues.Maintenance,
+            "*/5 * * * *",
+            TimeSpan.FromMinutes(5),
+            TimeSpan.FromMinutes(20),
+            "Create deterministic outbound waves from active scheduled templates."),
         new(
             WmsJobNames.InventoryHealthCheck,
             WmsJobQueues.Maintenance,

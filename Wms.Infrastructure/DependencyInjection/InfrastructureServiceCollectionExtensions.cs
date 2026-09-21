@@ -104,6 +104,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<WmsInventoryClassificationRecalculationJob>();
         services.AddScoped<WmsCycleCountGenerationJob>();
         services.AddScoped<WmsReplenishmentGenerationJob>();
+        services.AddScoped<WmsWavePlanningJob>();
         services.AddScoped<WmsInventoryHealthCheckJob>();
         services.AddScoped<WmsInventoryReconciliationJob>();
         services.AddSingleton<WmsSettingsCache>();
@@ -119,6 +120,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IAdvanceShippingNoticeService, AdvanceShippingNoticeService>();
         services.AddScoped<IInboundExceptionService, InboundExceptionService>();
         services.AddScoped<IOutboundExceptionService, OutboundExceptionService>();
+        services.AddScoped<IWaveService, WaveService>();
         services.AddScoped<ITransferService, TransferService>();
         services.AddScoped<IReceiptService, ReceiptService>();
         services.AddScoped<IQualityInspectionService, QualityInspectionService>();
