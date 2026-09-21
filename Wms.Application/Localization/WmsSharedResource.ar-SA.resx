@@ -65,6 +65,7 @@
   <data name="Nav.Picking" xml:space="preserve"><value>التجهيز</value></data>
   <data name="Nav.Inventory" xml:space="preserve"><value>المخزون</value></data>
   <data name="Nav.Management" xml:space="preserve"><value>الإدارة</value></data>
+  <data name="Nav.Administration" xml:space="preserve"><value>إدارة النظام</value></data>
   <data name="Nav.Items" xml:space="preserve"><value>الأصناف</value></data>
   <data name="Nav.Locations" xml:space="preserve"><value>المواقع</value></data>
   <data name="Nav.AuditLog" xml:space="preserve"><value>سجل التدقيق</value></data>

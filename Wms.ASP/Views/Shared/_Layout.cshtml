@@ -22,6 +22,7 @@
     var canWarehouses = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.WarehouseManage)).Succeeded;
     var canSettings = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SettingsManage)).Succeeded;
     var canAccess = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AccessManage)).Succeeded;
+    var canAdministration = canAccess;
     var accessibleWarehouses = User.Identity?.IsAuthenticated == true
         ? await WarehouseAccessService.GetAccessibleWarehousesAsync(WmsPermissions.DashboardView)
         : Array.Empty<WmsWarehouseOption>();
@@ -140,7 +141,7 @@
                         </a>
                     </li>
                     }
-                    @if (canItems || canSuppliers || canPurchaseOrders || canAdvanceShippingNotices || canReceipts || canLocations || canAudit || canWarehouses || canSettings)
+                    @if (canItems || canSuppliers || canPurchaseOrders || canAdvanceShippingNotices || canReceipts || canLocations || canAudit || canWarehouses || canSettings || canAdministration)
                     {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle px-3 py-2 rounded-pill mx-1" href="#" id="managementDropdown" role="button"
@@ -148,6 +149,14 @@
                             <i class="bi bi-gear me-1"></i>@T["Nav.Management"]
                         </a>
                         <ul class="dropdown-menu shadow border-0 mt-2">
+                            @if (canAdministration)
+                            {
+                            <li>
+                                <a class="dropdown-item py-2" asp-controller="Administration" asp-action="Index">
+                                    <i class="bi bi-grid-1x2 me-2 text-primary"></i>@T["Nav.Administration"]
+                                </a>
+                            </li>
+                            }
                             @if (canItems)
                             {
                             <li>
