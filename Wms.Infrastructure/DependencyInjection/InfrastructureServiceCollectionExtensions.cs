@@ -121,6 +121,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInboundExceptionService, InboundExceptionService>();
         services.AddScoped<IOutboundExceptionService, OutboundExceptionService>();
         services.AddScoped<IWaveService, WaveService>();
+        services.AddScoped<IPickingStrategyService, PickingStrategyService>();
         services.AddScoped<ITransferService, TransferService>();
         services.AddScoped<IReceiptService, ReceiptService>();
         services.AddScoped<IQualityInspectionService, QualityInspectionService>();

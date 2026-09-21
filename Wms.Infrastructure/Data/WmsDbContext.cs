@@ -125,6 +125,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<Wave> Waves => Set<Wave>();
     public DbSet<WaveLine> WaveLines => Set<WaveLine>();
     public DbSet<WaveProcessingHistory> WaveProcessingHistory => Set<WaveProcessingHistory>();
+    public DbSet<PickingStrategyPolicy> PickingStrategyPolicies => Set<PickingStrategyPolicy>();
+    public DbSet<PickingPlan> PickingPlans => Set<PickingPlan>();
+    public DbSet<PickingPlanLine> PickingPlanLines => Set<PickingPlanLine>();
+    public DbSet<PickingPlanContainer> PickingPlanContainers => Set<PickingPlanContainer>();
+    public DbSet<PickingPlanHandoff> PickingPlanHandoffs => Set<PickingPlanHandoff>();
     public DbSet<CycleCountPlan> CycleCountPlans => Set<CycleCountPlan>();
     public DbSet<CycleCountTask> CycleCountTasks => Set<CycleCountTask>();
     public DbSet<CycleCountLine> CycleCountLines => Set<CycleCountLine>();
@@ -237,6 +242,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WaveConfiguration());
         builder.ApplyConfiguration(new WaveLineConfiguration());
         builder.ApplyConfiguration(new WaveProcessingHistoryConfiguration());
+        builder.ApplyConfiguration(new PickingStrategyPolicyConfiguration());
+        builder.ApplyConfiguration(new PickingPlanConfiguration());
+        builder.ApplyConfiguration(new PickingPlanLineConfiguration());
+        builder.ApplyConfiguration(new PickingPlanContainerConfiguration());
+        builder.ApplyConfiguration(new PickingPlanHandoffConfiguration());
         builder.ApplyConfiguration(new CycleCountPlanConfiguration());
         builder.ApplyConfiguration(new CycleCountTaskConfiguration());
         builder.ApplyConfiguration(new CycleCountLineConfiguration());

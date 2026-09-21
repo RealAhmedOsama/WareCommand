@@ -169,6 +169,10 @@ public static class WmsAuditActions
     public const string WaveProcessed = "outbound.wave.processed";
     public const string WaveLineRemoved = "outbound.wave.line_removed";
     public const string WaveCancelled = "outbound.wave.cancelled";
+    public const string PickingStrategyPolicyChanged = "outbound.picking_strategy_policy.changed";
+    public const string PickingPlanCreated = "outbound.picking_plan.created";
+    public const string PickingContainerScanned = "outbound.picking_container.scanned";
+    public const string PickingHandoffCompleted = "outbound.picking_handoff.completed";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -334,7 +338,11 @@ public static class WmsAuditActions
         WaveCreated,
         WaveProcessed,
         WaveLineRemoved,
-        WaveCancelled
+        WaveCancelled,
+        PickingStrategyPolicyChanged,
+        PickingPlanCreated,
+        PickingContainerScanned,
+        PickingHandoffCompleted
     ];
 }
 
@@ -403,6 +411,10 @@ public static class WmsAuditEntityTypes
     public const string WaveTemplate = "WaveTemplate";
     public const string Wave = "Wave";
     public const string WaveLine = "WaveLine";
+    public const string PickingStrategyPolicy = "PickingStrategyPolicy";
+    public const string PickingPlan = "PickingPlan";
+    public const string PickingPlanContainer = "PickingPlanContainer";
+    public const string PickingPlanHandoff = "PickingPlanHandoff";
 }
 
 /// <summary>
