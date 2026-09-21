@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,6 +11,7 @@ using Wms.Application.Identity;
 using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Repositories;
 using Wms.Infrastructure.Data;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
@@ -17,6 +19,7 @@ namespace Wms.Infrastructure.WarehouseWork;
 
 public sealed class WarehouseWorkService(
     WmsDbContext context,
+    IUnitOfWork unitOfWork,
     IWarehouseAccessService warehouseAccessService,
     IAuditWriter auditWriter,
     IClock clock,
@@ -26,13 +29,131 @@ public sealed class WarehouseWorkService(
     private readonly IReadOnlyList<IWarehouseWorkCompletionHandler> _completionHandlers =
         completionHandlers.ToArray();
 
-    public async Task<Result<WarehouseWorkDto>> CreateAsync(
+    public Task<Result<WarehouseWorkDto>> CreateAsync(
         WarehouseWorkInput input,
+        string userId,
+        CancellationToken cancellationToken = default) =>
+        CreateInternalAsync(
+            input,
+            userId,
+            WmsPermissions.WorkManage,
+            cancellationToken);
+
+    public async Task<Result<IReadOnlyList<WarehouseWorkDto>>> EnsurePutawayForReceiptAsync(
+        PutawayWorkGenerationInput input,
         string userId,
         CancellationToken cancellationToken = default)
     {
         var authorization = await warehouseAccessService.AuthorizeAsync(
-            WmsPermissions.WorkManage,
+            WmsPermissions.WorkExecute,
+            input.WarehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<IReadOnlyList<WarehouseWorkDto>>();
+        }
+
+        if (input.QualityInspectionPending)
+        {
+            return Result.Success<IReadOnlyList<WarehouseWorkDto>>([]);
+        }
+
+        if (string.IsNullOrWhiteSpace(input.MovementKey))
+        {
+            return Result.Failure<IReadOnlyList<WarehouseWorkDto>>(WmsErrors.Validation(
+                "work.movement_key_required",
+                "A receipt movement key is required to generate putaway work."));
+        }
+
+        try
+        {
+            var creationKey = $"receipt:{input.ReceiptId.ToString(CultureInfo.InvariantCulture)}" +
+                              $":line:{input.ReceiptLineId.ToString(CultureInfo.InvariantCulture)}" +
+                              $":movement:{input.MovementKey.Trim()}";
+            var existing = await context.WarehouseWorks
+                .Include(work => work.Lines)
+                .SingleOrDefaultAsync(
+                    work => work.WarehouseId == input.WarehouseId &&
+                            work.CreationKey == creationKey,
+                    cancellationToken);
+            if (existing is not null)
+            {
+                return Result.Success<IReadOnlyList<WarehouseWorkDto>>([Map(existing)]);
+            }
+
+            var workResult = await CreateInternalAsync(
+                new WarehouseWorkInput(
+                    CreationKey: creationKey,
+                    Type: WarehouseWorkType.Putaway,
+                    WarehouseId: input.WarehouseId,
+                    SourceEntityType: "ReceiptLine",
+                    SourceEntityId: input.ReceiptLineId.ToString(CultureInfo.InvariantCulture),
+                    Priority: input.Priority,
+                    SourceLineReference: $"{input.ReceiptId.ToString(CultureInfo.InvariantCulture)}:{input.ReceiptLineId.ToString(CultureInfo.InvariantCulture)}",
+                    QueueCode: "PUTAWAY",
+                    Notes: input.Notes,
+                    MakeAvailable: true,
+                    Lines:
+                    [
+                        new WarehouseWorkLineInput(
+                            Sequence: 1,
+                            WarehouseId: input.WarehouseId,
+                            ItemId: input.ItemId,
+                            PlannedQuantity: input.Quantity,
+                            BaseUnitOfMeasure: input.BaseUnitOfMeasure,
+                            SourceLocationId: input.SourceLocationId,
+                            LotId: input.LotId,
+                            SerialNumberId: input.SerialNumberId,
+                            SerialNumber: input.SerialNumber,
+                            LicensePlateId: input.LicensePlateId,
+                            InventoryStatusId: input.InventoryStatusId,
+                            SourceReference: input.SourceReference)
+                    ]),
+                userId,
+                WmsPermissions.WorkExecute,
+                cancellationToken);
+            return workResult.IsFailure
+                ? workResult.ToFailure<IReadOnlyList<WarehouseWorkDto>>()
+                : Result.Success<IReadOnlyList<WarehouseWorkDto>>([workResult.Value]);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (ArgumentException exception)
+        {
+            return Result.Failure<IReadOnlyList<WarehouseWorkDto>>(WmsErrors.Validation(
+                "work.putaway_generation_invalid",
+                exception.Message));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Result.Failure<IReadOnlyList<WarehouseWorkDto>>(WmsErrors.BusinessRule(
+                "work.putaway_generation_invalid",
+                exception.Message));
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "Putaway work generation failed for receipt {ReceiptId} line {ReceiptLineId}",
+                input.ReceiptId,
+                input.ReceiptLineId);
+            return Result.Failure<IReadOnlyList<WarehouseWorkDto>>(WmsErrors.FromException(
+                exception,
+                "work.putaway_generation_failed",
+                "Putaway work could not be generated."));
+        }
+    }
+
+    private async Task<Result<WarehouseWorkDto>> CreateInternalAsync(
+        WarehouseWorkInput input,
+        string userId,
+        string permission,
+        CancellationToken cancellationToken)
+    {
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            permission,
             input.WarehouseId,
             cancellationToken);
         if (authorization.IsFailure)
@@ -454,8 +575,17 @@ public sealed class WarehouseWorkService(
                 isRetryable: false));
         }
 
+        if (input.SupervisorOverride && string.IsNullOrWhiteSpace(input.OverrideReason))
+        {
+            return Result.Failure<WarehouseWorkDto>(WmsErrors.Validation(
+                "work.override_reason_required",
+                "A supervisor override reason is required."));
+        }
+
+        var transactionStarted = true;
         try
         {
+            await unitOfWork.BeginTransactionAsync(cancellationToken);
             var execution = await handler.ExecuteAsync(
                 loaded.Value,
                 input,
@@ -510,7 +640,13 @@ public sealed class WarehouseWorkService(
                     ActorUserId: userId),
                 cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
+            await unitOfWork.CommitTransactionAsync(cancellationToken);
+            transactionStarted = false;
             return Result.Success(Map(loaded.Value));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -537,6 +673,13 @@ public sealed class WarehouseWorkService(
                 exception,
                 "work.complete_failed",
                 "Warehouse work could not be completed."));
+        }
+        finally
+        {
+            if (transactionStarted)
+            {
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            }
         }
     }
 

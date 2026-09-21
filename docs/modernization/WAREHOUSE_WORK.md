@@ -26,22 +26,33 @@ change with its command ledger entry.
 
 `IWarehouseWorkCompletionHandler` is selected by `WarehouseWorkType`. The
 engine invokes exactly one handler for completion, requires actual quantities
-for every line, and only then transitions the aggregate to `Completed`. This
-keeps stock movement, allocation, scanner validation, and destination rules in
-the type-specific modules instead of embedding them in the generic engine.
+for every line, and only then transitions the aggregate to `Completed`. Work
+completion runs inside the scoped unit-of-work transaction, so movement,
+inventory, work-line actuals, command idempotency, audit, and the terminal
+state commit or roll back together.
 
-The reusable engine is implemented in issue #54. No concrete putaway handler
-is registered yet; issue #48 must add that handler and connect receipt,
-quality, license-plate, location-capacity, scanner, and inventory movement
-rules. PostgreSQL contention qualification, handheld UI, productivity
-reporting, and the downstream work consumers remain open gates.
+Issue #48 now registers `PutawayWarehouseWorkCompletionHandler`. A finalized
+receipt generates one available putaway work item per receipt movement using a
+receipt/line/movement creation key. A required inbound quality inspection holds
+generation until a later quality-disposition integration releases it. The
+completion API accepts typed scans containing line, item, source, destination,
+quantity, license plate, and explicit destination-override identity. The
+handler validates those identities server-side and delegates stock, location
+capacity, status, lot, serial, and whole-license-plate movement rules to the
+existing `IStockMovementService.PutawayAsync` boundary.
+
+The current slice supports whole-LPN and non-LPN putaway. Partial-LPN content
+movement, suggested-location selection, exception-to-return-staging flows,
+the legacy manual putaway route, handheld/browser UI and RTL/LTR qualification,
+productivity reporting, and PostgreSQL contention/provider qualification remain
+open gates for #48 and its downstream issues.
 
 ## Persistence and tests
 
 The `WarehouseWorks`, `WarehouseWorkLines`, and `WarehouseWorkCommands` tables
 are added by the `AddWarehouseWorkEngine` migration. Focused tests cover domain
 transitions, assignment ownership, override reasons, quantity bounds,
-creation-key idempotency, command replay, completion replay, and missing
-handler dependency behavior. SQLite tests are local qualification only; the
-PostgreSQL harness and contention tests remain part of the later qualification
-work.
+creation-key idempotency, receipt putaway generation, command replay,
+completion replay, scan identity validation, and missing handler dependency
+behavior. SQLite tests are local qualification only; the PostgreSQL harness and
+contention tests remain part of the later qualification work.

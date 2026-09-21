@@ -9,6 +9,7 @@ using Wms.Application.Inbound;
 using Wms.Application.Purchasing;
 using Wms.Application.Receiving;
 using Wms.Application.Units;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Services;
@@ -27,6 +28,7 @@ public sealed class ReceiptServiceTests : IDisposable
     private readonly Mock<IPurchaseOrderService> _purchaseOrders = new();
     private readonly Mock<IAdvanceShippingNoticeService> _asns = new();
     private readonly Mock<IStockMovementService> _stockMovements = new();
+    private readonly Mock<IWarehouseWorkService> _warehouseWork = new();
     private readonly WmsDbContext _context;
     private readonly ReceiptService _service;
     private readonly Warehouse _warehouse;
@@ -56,6 +58,12 @@ public sealed class ReceiptServiceTests : IDisposable
                 It.IsAny<AuditRecord>(),
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _warehouseWork
+            .Setup(service => service.EnsurePutawayForReceiptAsync(
+                It.IsAny<PutawayWorkGenerationInput>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success<IReadOnlyList<WarehouseWorkDto>>([]));
 
         _warehouse = new Warehouse("RCPT-WH", "Receipt Warehouse");
         _item = new Item("RCPT-ITEM", "Receipt Widget", "EA");
@@ -92,7 +100,9 @@ public sealed class ReceiptServiceTests : IDisposable
             _stockMovements.Object,
             _audit.Object,
             new FixedClock(new DateTimeOffset(2026, 9, 21, 12, 0, 0, TimeSpan.Zero)),
-            NullLogger<ReceiptService>.Instance);
+            NullLogger<ReceiptService>.Instance,
+            null,
+            _warehouseWork.Object);
     }
 
     [Fact]
@@ -129,6 +139,15 @@ public sealed class ReceiptServiceTests : IDisposable
         receipt.Lines.Single().AcceptedBaseQuantity.Should().Be(5m);
         (await _context.ReceiptLineMovements.CountAsync()).Should().Be(1);
         (await _context.Movements.SingleAsync()).ReceiptId.Should().Be(receipt.Id);
+        _warehouseWork.Verify(service => service.EnsurePutawayForReceiptAsync(
+            It.Is<PutawayWorkGenerationInput>(input =>
+                input.ReceiptId == receipt.Id &&
+                input.ReceiptLineId == receipt.Lines.Single().Id &&
+                input.SourceLocationId == _receivingLocation.Id &&
+                input.Quantity == 5m &&
+                !input.QualityInspectionPending),
+            "receiver-1",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

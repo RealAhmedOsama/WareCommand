@@ -12,6 +12,7 @@ using Wms.Application.Purchasing;
 using Wms.Application.Quality;
 using Wms.Application.Receiving;
 using Wms.Application.Units;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Services;
@@ -32,6 +33,7 @@ public sealed class ReceiptService : IReceiptService
     private readonly IClock _clock;
     private readonly ILogger<ReceiptService> _logger;
     private readonly IQualityInspectionService? _qualityInspectionService;
+    private readonly IWarehouseWorkService? _warehouseWorkService;
 
     public ReceiptService(
         WmsDbContext context,
@@ -43,7 +45,8 @@ public sealed class ReceiptService : IReceiptService
         IAuditWriter auditWriter,
         IClock clock,
         ILogger<ReceiptService> logger,
-        IQualityInspectionService? qualityInspectionService = null)
+        IQualityInspectionService? qualityInspectionService = null,
+        IWarehouseWorkService? warehouseWorkService = null)
     {
         _context = context;
         _warehouseAccessService = warehouseAccessService;
@@ -55,6 +58,7 @@ public sealed class ReceiptService : IReceiptService
         _clock = clock;
         _logger = logger;
         _qualityInspectionService = qualityInspectionService;
+        _warehouseWorkService = warehouseWorkService;
     }
 
     public async Task<Result<ReceiptPageDto>> ListAsync(
@@ -456,6 +460,13 @@ public sealed class ReceiptService : IReceiptService
                 "The stock movement does not match the persisted receipt line."));
         }
 
+        if (movement.ToLocationId is null)
+        {
+            return Result.Failure(WmsErrors.Validation(
+                "receipt.receiving_location_missing",
+                "A receipt movement must have a receiving location before putaway work can be generated."));
+        }
+
         try
         {
             receipt.StartReceiving(userId, movement.Timestamp);
@@ -509,6 +520,7 @@ public sealed class ReceiptService : IReceiptService
                 }
             }
 
+            var qualityInspectionPending = false;
             if (_qualityInspectionService is not null)
             {
                 var inspectionResult = await _qualityInspectionService.EnsureForReceiptAsync(
@@ -520,6 +532,41 @@ public sealed class ReceiptService : IReceiptService
                 if (inspectionResult.IsFailure)
                 {
                     return Result.Failure(inspectionResult.Errors);
+                }
+
+                qualityInspectionPending = inspectionResult.Value is not null;
+            }
+
+            if (_warehouseWorkService is not null)
+            {
+                var movementKey = movement.Id > 0
+                    ? $"id:{movement.Id.ToString(CultureInfo.InvariantCulture)}"
+                    : $"ts:{movement.Timestamp.Ticks.ToString(CultureInfo.InvariantCulture)}" +
+                      $":qty:{movement.Quantity.Value.ToString("G29", CultureInfo.InvariantCulture)}" +
+                      $":lpn:{movement.LicensePlateId?.ToString(CultureInfo.InvariantCulture) ?? "none"}";
+                var workResult = await _warehouseWorkService.EnsurePutawayForReceiptAsync(
+                    new PutawayWorkGenerationInput(
+                        receipt.Id,
+                        line.Id,
+                        receipt.WarehouseId,
+                        line.ItemId,
+                        movement.Quantity.Value,
+                        movement.BaseUnitOfMeasure,
+                        movement.ToLocationId.Value,
+                        movement.ToLicensePlateId ?? movement.LicensePlateId,
+                        movement.LotId,
+                        movement.SerialNumberId,
+                        movement.SerialNumber,
+                        movement.InventoryStatusId,
+                        movement.ReferenceNumber,
+                        movementKey,
+                        qualityInspectionPending,
+                        Notes: line.Notes),
+                    userId,
+                    cancellationToken);
+                if (workResult.IsFailure)
+                {
+                    return Result.Failure(workResult.Errors);
                 }
             }
 

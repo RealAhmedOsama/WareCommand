@@ -56,12 +56,41 @@ public sealed record WarehouseWorkLineActualInput(
     int LineId,
     decimal ActualQuantity);
 
+public sealed record WarehouseWorkScanInput(
+    int LineId,
+    int ItemId,
+    int SourceLocationId,
+    int DestinationLocationId,
+    decimal ActualQuantity,
+    int? LicensePlateId = null,
+    bool DestinationOverride = false);
+
 public sealed record WarehouseWorkCompletionInput(
     string IdempotencyKey,
     IReadOnlyList<WarehouseWorkLineActualInput>? Lines = null,
     bool SupervisorOverride = false,
     string? OverrideReason = null,
-    string? CompletionReference = null);
+    string? CompletionReference = null,
+    IReadOnlyList<WarehouseWorkScanInput>? Scans = null);
+
+public sealed record PutawayWorkGenerationInput(
+    int ReceiptId,
+    int ReceiptLineId,
+    int WarehouseId,
+    int ItemId,
+    decimal Quantity,
+    string BaseUnitOfMeasure,
+    int SourceLocationId,
+    int? LicensePlateId,
+    int? LotId,
+    int? SerialNumberId,
+    string? SerialNumber,
+    int InventoryStatusId,
+    string? SourceReference,
+    string MovementKey,
+    bool QualityInspectionPending,
+    int Priority = 50,
+    string? Notes = null);
 
 public sealed record WarehouseWorkQuery(
     int? WarehouseId = null,
@@ -155,6 +184,11 @@ public interface IWarehouseWorkService
 {
     Task<Result<WarehouseWorkDto>> CreateAsync(
         WarehouseWorkInput input,
+        string userId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<IReadOnlyList<WarehouseWorkDto>>> EnsurePutawayForReceiptAsync(
+        PutawayWorkGenerationInput input,
         string userId,
         CancellationToken cancellationToken = default);
 

@@ -100,6 +100,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IReceiptService, ReceiptService>();
         services.AddScoped<IQualityInspectionService, QualityInspectionService>();
         services.AddScoped<IWarehouseWorkService, WarehouseWorkService>();
+        services.AddScoped<IWarehouseWorkCompletionHandler, PutawayWarehouseWorkCompletionHandler>();
         services.AddScoped<IReceivingExecutionService, ReceivingExecutionService>();
         services.AddScoped<IIdentificationRegistry, IdentificationRegistry>();
         services.AddScoped<IIdentificationService, IdentificationService>();

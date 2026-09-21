@@ -8,6 +8,7 @@ using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Infrastructure.Data;
+using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.WarehouseWork;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
@@ -23,6 +24,7 @@ public sealed class WarehouseWorkServiceTests : IDisposable
     private readonly WarehouseWorkService _service;
     private readonly Warehouse _warehouse;
     private readonly Item _item;
+    private readonly Location _sourceLocation;
 
     public WarehouseWorkServiceTests()
     {
@@ -49,6 +51,7 @@ public sealed class WarehouseWorkServiceTests : IDisposable
 
         _service = new WarehouseWorkService(
             _context,
+            new UnitOfWork(_context, _access.Object),
             _access.Object,
             _audit.Object,
             new FixedClock(new DateTimeOffset(2026, 9, 21, 12, 0, 0, TimeSpan.Zero)),
@@ -58,6 +61,14 @@ public sealed class WarehouseWorkServiceTests : IDisposable
         _warehouse = new Warehouse("WORK-WH", "Work Warehouse");
         _item = new Item("WORK-ITEM", "Work Item", "EA");
         _context.AddRange(_warehouse, _item);
+        _context.SaveChanges();
+        _sourceLocation = new Location(
+            "WORK-RECEIVE",
+            "Work receiving",
+            _warehouse.Id,
+            type: LocationType.Receiving,
+            isPickable: false);
+        _context.Add(_sourceLocation);
         _context.SaveChanges();
     }
 
@@ -137,6 +148,39 @@ public sealed class WarehouseWorkServiceTests : IDisposable
         result.IsFailure.Should().BeTrue();
         result.ErrorCode.Should().Be("work.handler_missing");
         (await _context.WarehouseWorks.SingleAsync()).Status.Should().Be(WarehouseWorkStatus.InProgress);
+    }
+
+    [Fact]
+    public async Task EnsurePutawayForReceiptIsIdempotentAndAvailable()
+    {
+        var input = new PutawayWorkGenerationInput(
+            ReceiptId: 41,
+            ReceiptLineId: 42,
+            WarehouseId: _warehouse.Id,
+            ItemId: _item.Id,
+            Quantity: 12m,
+            BaseUnitOfMeasure: "EA",
+            SourceLocationId: _sourceLocation.Id,
+            LicensePlateId: null,
+            LotId: null,
+            SerialNumberId: null,
+            SerialNumber: null,
+            InventoryStatusId: InventoryStatusSystemIds.Available,
+            SourceReference: "RCPT-41",
+            MovementKey: "id:movement-41",
+            QualityInspectionPending: false);
+
+        var first = await _service.EnsurePutawayForReceiptAsync(input, "receiver-1");
+        var second = await _service.EnsurePutawayForReceiptAsync(input, "receiver-2");
+
+        first.IsSuccess.Should().BeTrue(first.Error);
+        second.IsSuccess.Should().BeTrue(second.Error);
+        first.Value.Should().ContainSingle();
+        second.Value.Should().ContainSingle();
+        second.Value.Single().Id.Should().Be(first.Value.Single().Id);
+        second.Value.Single().Status.Should().Be(WarehouseWorkStatus.Available);
+        second.Value.Single().Type.Should().Be(WarehouseWorkType.Putaway);
+        (await _context.WarehouseWorks.CountAsync()).Should().Be(1);
     }
 
     public void Dispose()

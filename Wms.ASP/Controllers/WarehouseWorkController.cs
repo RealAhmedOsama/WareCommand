@@ -361,6 +361,8 @@ public sealed class WarehouseWorkCompletionRequest
 
     public IReadOnlyList<WarehouseWorkLineActualRequest>? Lines { get; init; }
 
+    public IReadOnlyList<WarehouseWorkScanRequest>? Scans { get; init; }
+
     public bool SupervisorOverride { get; init; }
 
     [StringLength(1_000)]
@@ -374,7 +376,8 @@ public sealed class WarehouseWorkCompletionRequest
         Lines?.Select(line => line.ToInput()).ToArray(),
         SupervisorOverride,
         OverrideReason,
-        CompletionReference);
+        CompletionReference,
+        Scans?.Select(scan => scan.ToInput()).ToArray());
 }
 
 public sealed class WarehouseWorkLineActualRequest
@@ -386,4 +389,35 @@ public sealed class WarehouseWorkLineActualRequest
     public decimal ActualQuantity { get; init; }
 
     public WarehouseWorkLineActualInput ToInput() => new(LineId, ActualQuantity);
+}
+
+public sealed class WarehouseWorkScanRequest
+{
+    [Range(1, int.MaxValue)]
+    public int LineId { get; init; }
+
+    [Range(1, int.MaxValue)]
+    public int ItemId { get; init; }
+
+    [Range(1, int.MaxValue)]
+    public int SourceLocationId { get; init; }
+
+    [Range(1, int.MaxValue)]
+    public int DestinationLocationId { get; init; }
+
+    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    public decimal ActualQuantity { get; init; }
+
+    public int? LicensePlateId { get; init; }
+
+    public bool DestinationOverride { get; init; }
+
+    public WarehouseWorkScanInput ToInput() => new(
+        LineId,
+        ItemId,
+        SourceLocationId,
+        DestinationLocationId,
+        ActualQuantity,
+        LicensePlateId,
+        DestinationOverride);
 }
