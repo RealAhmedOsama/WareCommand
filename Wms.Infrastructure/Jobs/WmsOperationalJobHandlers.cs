@@ -20,6 +20,7 @@ public sealed class WmsJobHandlerCatalog(
     WmsIntegrationRetryJob integrationRetryJob,
     WmsCleanupJob cleanupJob,
     WmsDatabaseBackupJob databaseBackupJob,
+    WmsInventoryClassificationRecalculationJob inventoryClassificationRecalculationJob,
     WmsCycleCountGenerationJob cycleCountGenerationJob,
     WmsReplenishmentGenerationJob replenishmentGenerationJob,
     WmsInventoryHealthCheckJob inventoryHealthCheckJob,
@@ -34,6 +35,7 @@ public sealed class WmsJobHandlerCatalog(
             integrationRetryJob,
             cleanupJob,
             databaseBackupJob,
+            inventoryClassificationRecalculationJob,
             cycleCountGenerationJob,
             replenishmentGenerationJob,
             inventoryHealthCheckJob,
@@ -307,6 +309,42 @@ public sealed class WmsDatabaseBackupJob(
             artifact.SizeBytes);
         return new WmsJobExecutionResult(
             Summary: $"Created and replicated backup {Path.GetFileName(artifact.ArtifactPath)}.");
+    }
+}
+
+public sealed class WmsInventoryClassificationRecalculationJob(
+    IInventoryClassificationService classificationService,
+    ILogger<WmsInventoryClassificationRecalculationJob> logger) : IWmsJobHandler
+{
+    public string JobName => WmsJobNames.InventoryClassificationRecalculation;
+
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
+        WmsJobContext context,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var result = await classificationService.RecalculateAsync(
+            new InventoryClassificationRecalculationQuery(
+                WarehouseId: context.Envelope.WarehouseId,
+                Limit: 1_000),
+            context.Envelope.ActorUserId ?? "system",
+            internalExecution: true,
+            cancellationToken: cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Inventory classification recalculation failed: {result.Error}");
+        }
+
+        logger.LogInformation(
+            "Inventory classification recalculation examined {PolicyCount} policies and {ItemCount} items; changed {ChangedCount} classifications",
+            result.Value.PoliciesExamined,
+            result.Value.ItemsExamined,
+            result.Value.ClassificationsChanged);
+        return new WmsJobExecutionResult(
+            result.Value.ItemsExamined,
+            result.Value.ClassificationsChanged,
+            $"Examined {result.Value.ItemsExamined} items across {result.Value.PoliciesExamined} policies; changed {result.Value.ClassificationsChanged}, skipped {result.Value.ManualOverridesSkipped} active overrides.");
     }
 }
 

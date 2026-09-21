@@ -459,8 +459,31 @@ public sealed class CycleCountService(
                 balance.Location.IsActive &&
                 balance.InventoryStatus.IsCountable &&
                 (!plan.LocationId.HasValue || balance.LocationId == plan.LocationId.Value) &&
-                (!plan.ItemId.HasValue || balance.ItemId == plan.ItemId.Value) &&
-                (string.IsNullOrWhiteSpace(plan.ItemClass) || balance.Item.Category == plan.ItemClass));
+                (!plan.ItemId.HasValue || balance.ItemId == plan.ItemId.Value));
+        if (!string.IsNullOrWhiteSpace(plan.ItemClass))
+        {
+            if (!Enum.TryParse<InventoryClassificationClass>(
+                    plan.ItemClass,
+                    ignoreCase: true,
+                    out var classificationClass))
+            {
+                return [];
+            }
+
+            var asOfUtc = DateTime.SpecifyKind(clock.UtcNow.UtcDateTime, DateTimeKind.Utc);
+            var classifiedItemIds = await context.InventoryClassifications
+                .AsNoTracking()
+                .Where(classification =>
+                    classification.WarehouseId == plan.WarehouseId &&
+                    classification.Classification == classificationClass &&
+                    (classification.Source != InventoryClassificationSource.ManualOverride ||
+                     !classification.ManualOverrideExpiresAtUtc.HasValue ||
+                     classification.ManualOverrideExpiresAtUtc.Value > asOfUtc))
+                .Select(classification => classification.ItemId)
+                .ToListAsync(cancellationToken);
+            balances = balances.Where(balance => classifiedItemIds.Contains(balance.ItemId));
+        }
+
         var rows = await balances
             .OrderBy(balance => balance.LocationId)
             .ThenBy(balance => balance.ItemId)

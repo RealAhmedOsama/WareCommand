@@ -29,6 +29,7 @@ public static class WmsJobNames
     public const string IntegrationRetries = "wms.integration-retries";
     public const string Cleanup = "wms.cleanup";
     public const string DatabaseBackup = "wms.database-backup";
+    public const string InventoryClassificationRecalculation = "wms.inventory-classification-recalculation";
     public const string CycleCountGeneration = "wms.cycle-count-generation";
     public const string ReplenishmentGeneration = "wms.replenishment-generation";
     public const string InventoryHealthCheck = "wms.inventory-health-check";
@@ -100,6 +101,13 @@ public static class WmsJobCatalog
             TimeSpan.FromDays(1),
             TimeSpan.FromMinutes(30),
             "Create, verify, and replicate the scheduled encrypted PostgreSQL backup."),
+        new(
+            WmsJobNames.InventoryClassificationRecalculation,
+            WmsJobQueues.Maintenance,
+            "15 3 * * *",
+            TimeSpan.FromDays(1),
+            TimeSpan.FromMinutes(20),
+            "Recalculate warehouse ABC classifications from a deterministic input window."),
         new(
             WmsJobNames.CycleCountGeneration,
             WmsJobQueues.Maintenance,

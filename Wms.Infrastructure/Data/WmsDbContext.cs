@@ -113,6 +113,12 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<InventoryReservationEvent>();
     public DbSet<InventoryReplenishmentPolicy> InventoryReplenishmentPolicies =>
         Set<InventoryReplenishmentPolicy>();
+    public DbSet<InventoryClassificationPolicy> InventoryClassificationPolicies =>
+        Set<InventoryClassificationPolicy>();
+    public DbSet<InventoryClassification> InventoryClassifications =>
+        Set<InventoryClassification>();
+    public DbSet<InventoryClassificationHistory> InventoryClassificationHistories =>
+        Set<InventoryClassificationHistory>();
     public DbSet<CycleCountPlan> CycleCountPlans => Set<CycleCountPlan>();
     public DbSet<CycleCountTask> CycleCountTasks => Set<CycleCountTask>();
     public DbSet<CycleCountLine> CycleCountLines => Set<CycleCountLine>();
@@ -217,6 +223,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new InventoryReservationAllocationConfiguration());
         builder.ApplyConfiguration(new InventoryReservationEventConfiguration());
         builder.ApplyConfiguration(new InventoryReplenishmentPolicyConfiguration());
+        builder.ApplyConfiguration(new InventoryClassificationPolicyConfiguration());
+        builder.ApplyConfiguration(new InventoryClassificationConfiguration());
+        builder.ApplyConfiguration(new InventoryClassificationHistoryConfiguration());
         builder.ApplyConfiguration(new CycleCountPlanConfiguration());
         builder.ApplyConfiguration(new CycleCountTaskConfiguration());
         builder.ApplyConfiguration(new CycleCountLineConfiguration());

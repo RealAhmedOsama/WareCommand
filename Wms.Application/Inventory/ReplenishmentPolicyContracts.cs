@@ -76,7 +76,8 @@ public sealed record InventoryReplenishmentSignalDto(
     decimal MaximumQuantity,
     InventoryReplenishmentSignalKind SignalKind,
     decimal ShortfallQuantity,
-    DateTime EvaluatedAtUtc);
+    DateTime EvaluatedAtUtc,
+    string? ClassificationClass = null);
 
 public interface IInventoryReplenishmentPolicyService
 {

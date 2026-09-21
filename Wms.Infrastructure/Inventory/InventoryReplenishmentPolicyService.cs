@@ -322,6 +322,26 @@ public sealed class InventoryReplenishmentPolicyService(
                 .Include(policy => policy.Warehouse)
                 .Include(policy => policy.Location)
                 .ToListAsync(cancellationToken);
+            var policyItemIds = policyRows
+                .Select(policy => policy.ItemId)
+                .Distinct()
+                .ToArray();
+            var classificationRows = policyItemIds.Length == 0
+                ? []
+                : await context.InventoryClassifications
+                    .AsNoTracking()
+                    .Where(classification =>
+                        policyItemIds.Contains(classification.ItemId) &&
+                        classification.CalculatedAtUtc <= now)
+                    .ToListAsync(cancellationToken);
+            var activeClassifications = classificationRows
+                .Where(classification =>
+                    classification.Source != InventoryClassificationSource.ManualOverride ||
+                    !classification.ManualOverrideExpiresAtUtc.HasValue ||
+                    classification.ManualOverrideExpiresAtUtc.Value > now)
+                .ToDictionary(
+                    classification => (classification.WarehouseId, classification.ItemId),
+                    classification => classification.Classification.ToString());
 
             var balances = ApplyBalanceScope(context.InventoryBalances.AsNoTracking(), scope);
             if (query.WarehouseId.HasValue)
@@ -388,6 +408,10 @@ public sealed class InventoryReplenishmentPolicyService(
                     continue;
                 }
 
+                activeClassifications.TryGetValue(
+                    (policy.WarehouseId, policy.ItemId),
+                    out var classificationClass);
+
                 signals.Add(new InventoryReplenishmentSignalDto(
                     policy.Id,
                     policy.ItemId,
@@ -412,7 +436,8 @@ public sealed class InventoryReplenishmentPolicyService(
                     policy.MaximumQuantity,
                     signalKind.Value,
                     Math.Max(0m, policy.TargetQuantity - evaluatedQuantity),
-                    now));
+                    now,
+                    classificationClass));
             }
 
             var limit = query.Limit switch
@@ -424,6 +449,7 @@ public sealed class InventoryReplenishmentPolicyService(
             return Result.Success<IReadOnlyList<InventoryReplenishmentSignalDto>>(
                 signals
                     .OrderBy(signal => signal.SignalKind)
+                    .ThenBy(signal => ClassificationPriority(signal.ClassificationClass))
                     .ThenBy(signal => signal.WarehouseCode)
                     .ThenBy(signal => signal.ItemSku)
                     .ThenBy(signal => signal.LocationCode)
@@ -454,6 +480,16 @@ public sealed class InventoryReplenishmentPolicyService(
                 : evaluatedQuantity > policy.MaximumQuantity
                     ? InventoryReplenishmentSignalKind.Overstock
                     : null;
+
+    private static int ClassificationPriority(string? classificationClass) =>
+        classificationClass switch
+        {
+            nameof(InventoryClassificationClass.A) => 0,
+            nameof(InventoryClassificationClass.B) => 1,
+            nameof(InventoryClassificationClass.C) => 2,
+            nameof(InventoryClassificationClass.Unclassified) => 3,
+            _ => 4
+        };
 
     private static InventoryReplenishmentPolicyDto MapPolicy(
         InventoryReplenishmentPolicy policy,
