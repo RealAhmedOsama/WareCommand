@@ -3,6 +3,7 @@ using Wms.Domain.Enums;
 
 namespace Wms.Domain.Repositories;
 
+#pragma warning disable CA1068
 public interface ILicensePlateRepository : IRepository<LicensePlate>
 {
     Task<LicensePlate?> GetByIdWithContentsAsync(
@@ -33,7 +34,10 @@ public interface ILicensePlateRepository : IRepository<LicensePlate>
         int? serialNumberId,
         int inventoryStatusId,
         int? itemPackagingId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null);
 
     Task<LicensePlateContent> AddContentAsync(
         LicensePlateContent content,
@@ -70,3 +74,4 @@ public interface ILicensePlateRepository : IRepository<LicensePlate>
         LicensePlateNumberSequence sequence,
         CancellationToken cancellationToken = default);
 }
+#pragma warning restore CA1068

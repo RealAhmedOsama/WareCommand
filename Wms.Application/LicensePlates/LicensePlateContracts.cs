@@ -1,5 +1,6 @@
 using Wms.Application.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Application.LicensePlates;
 
@@ -17,7 +18,10 @@ public sealed record LicensePlateContentDto(
     string? InventoryStatusCode,
     int? ItemPackagingId,
     string? ItemPackagingCode,
-    decimal Quantity);
+    decimal Quantity,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public sealed record LicensePlateDto(
     int Id,
@@ -79,7 +83,10 @@ public sealed record LicensePlateContentInput(
     int? LotId = null,
     int? SerialNumberId = null,
     int InventoryStatusId = 1,
-    int? ItemPackagingId = null);
+    int? ItemPackagingId = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record LicensePlateSearchQuery(
     int? WarehouseId = null,

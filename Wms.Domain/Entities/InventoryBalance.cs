@@ -1,4 +1,5 @@
 using Wms.Domain.Common;
+using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
 
 namespace Wms.Domain.Entities;
@@ -26,6 +27,9 @@ public sealed class InventoryBalance : Entity
         LicensePlateId = key.LicensePlateId;
         InventoryStatusId = key.InventoryStatusId;
         BaseUnitOfMeasure = key.BaseUnitOfMeasure;
+        OwnerKind = key.OwnerKind;
+        InventoryOwnerId = key.InventoryOwnerId;
+        OwnerCodeSnapshot = key.OwnerCodeSnapshot;
     }
 
     public int WarehouseId { get; private set; }
@@ -37,6 +41,9 @@ public sealed class InventoryBalance : Entity
     public int? LicensePlateId { get; private set; }
     public int InventoryStatusId { get; private set; }
     public string BaseUnitOfMeasure { get; private set; } = string.Empty;
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public decimal OnHandQuantity { get; private set; }
     public decimal ReservedQuantity { get; private set; }
     public long Revision { get; private set; }
@@ -49,6 +56,7 @@ public sealed class InventoryBalance : Entity
     public SerialNumber? Serial { get; private set; }
     public LicensePlate? LicensePlate { get; private set; }
     public InventoryStatus InventoryStatus { get; private set; } = null!;
+    public InventoryOwner? InventoryOwner { get; private set; }
 
     public InventoryBalanceKey GetKey() => new(
         WarehouseId,
@@ -59,7 +67,10 @@ public sealed class InventoryBalance : Entity
         SerialNumber,
         LicensePlateId,
         InventoryStatusId,
-        BaseUnitOfMeasure);
+        BaseUnitOfMeasure,
+        OwnerKind,
+        InventoryOwnerId,
+        OwnerCodeSnapshot);
 
     public void Apply(
         decimal quantityDelta,

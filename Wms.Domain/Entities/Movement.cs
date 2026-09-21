@@ -2,6 +2,7 @@
 
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Domain.Entities;
@@ -27,7 +28,10 @@ public class Movement : Entity
         int? toLicensePlateId = null,
         decimal? adjustmentBeforeQuantity = null,
         decimal? adjustmentDelta = null,
-        decimal? adjustmentAfterQuantity = null)
+        decimal? adjustmentAfterQuantity = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         if (string.IsNullOrWhiteSpace(userId))
             throw new ArgumentException("User ID is required", nameof(userId));
@@ -46,6 +50,12 @@ public class Movement : Entity
         LicensePlateId = licensePlateId;
         FromLicensePlateId = fromLicensePlateId;
         ToLicensePlateId = toLicensePlateId;
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         AdjustmentBeforeQuantity = adjustmentBeforeQuantity;
         AdjustmentDelta = adjustmentDelta;
         AdjustmentAfterQuantity = adjustmentAfterQuantity;
@@ -98,6 +108,9 @@ public class Movement : Entity
     public int? LicensePlateId { get; private set; }
     public int? FromLicensePlateId { get; private set; }
     public int? ToLicensePlateId { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public decimal? AdjustmentBeforeQuantity { get; private set; }
     public decimal? AdjustmentDelta { get; private set; }
     public decimal? AdjustmentAfterQuantity { get; private set; }
@@ -151,6 +164,7 @@ public class Movement : Entity
     public LicensePlate? LicensePlate { get; private set; }
     public LicensePlate? FromLicensePlate { get; private set; }
     public LicensePlate? ToLicensePlate { get; private set; }
+    public InventoryOwner? InventoryOwner { get; private set; }
     public PurchaseOrder? PurchaseOrder { get; private set; }
     public PurchaseOrderLine? PurchaseOrderLine { get; private set; }
     public AdvanceShippingNotice? AdvanceShippingNotice { get; private set; }
@@ -308,6 +322,19 @@ public class Movement : Entity
         }
 
         ToLocationId = destinationLocationId;
+    }
+
+    public void SetOwnership(
+        InventoryOwnerKind ownerKind,
+        int? inventoryOwnerId,
+        string? ownerCodeSnapshot = null)
+    {
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
     }
 
     public static Movement CreateShip(int itemId, int fromLocationId, Quantity quantity, string userId,

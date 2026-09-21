@@ -594,6 +594,10 @@ public sealed class ShipmentService(
                             stock.SerialNumberId,
                             stock.InventoryStatusId,
                             plate.Id);
+                        movement.SetOwnership(
+                            stock.OwnerKind,
+                            stock.InventoryOwnerId,
+                            stock.OwnerCodeSnapshot);
                         context.Movements.Add(movement);
                         ledgerEntries.Add(new InventoryLedgerEntryRequest(
                             InventoryTransactionType.Ship,
@@ -606,7 +610,10 @@ public sealed class ShipmentService(
                                 stock.SerialNumber,
                                 plate.Id,
                                 stock.InventoryStatusId,
-                                item.UnitOfMeasure),
+                                item.UnitOfMeasure,
+                                stock.OwnerKind,
+                                stock.InventoryOwnerId,
+                                stock.OwnerCodeSnapshot),
                             -stock.QuantityAvailable.Value,
                             ActorUserId: userId,
                             ReferenceType: "Shipment",

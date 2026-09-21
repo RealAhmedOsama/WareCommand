@@ -19,6 +19,12 @@ public sealed class InventoryReservationAllocationConfiguration
         builder.Property(allocation => allocation.BaseUnitOfMeasure)
             .HasMaxLength(20)
             .IsRequired();
+        builder.Property(allocation => allocation.OwnerKind)
+            .HasConversion<int>()
+            .IsRequired();
+        builder.Property(allocation => allocation.OwnerCodeSnapshot)
+            .HasMaxLength(80)
+            .IsRequired();
         builder.Property(allocation => allocation.AllocatedQuantity)
             .HasColumnType("decimal(28,12)")
             .IsRequired();
@@ -76,6 +82,10 @@ public sealed class InventoryReservationAllocationConfiguration
             .WithMany()
             .HasForeignKey(allocation => allocation.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(allocation => allocation.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(allocation => allocation.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(allocation => new
         {
@@ -91,5 +101,6 @@ public sealed class InventoryReservationAllocationConfiguration
         builder.HasIndex(allocation => allocation.LotId);
         builder.HasIndex(allocation => allocation.SerialNumberId);
         builder.HasIndex(allocation => allocation.LicensePlateId);
+        builder.HasIndex(allocation => allocation.InventoryOwnerId);
     }
 }

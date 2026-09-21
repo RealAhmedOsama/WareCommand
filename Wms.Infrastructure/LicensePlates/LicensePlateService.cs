@@ -295,6 +295,10 @@ public sealed class LicensePlateService : ILicensePlateService
                             stock.InventoryStatusId,
                             current.Id,
                             current.Id);
+                        movement.SetOwnership(
+                            stock.OwnerKind,
+                            stock.InventoryOwnerId,
+                            stock.OwnerCodeSnapshot);
                         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
                         if (_inventoryLedgerService is not null)
                         {
@@ -317,7 +321,10 @@ public sealed class LicensePlateService : ILicensePlateService
                                             stock.SerialNumber,
                                             current.Id,
                                             stock.InventoryStatusId,
-                                            item.UnitOfMeasure),
+                                            item.UnitOfMeasure,
+                                            stock.OwnerKind,
+                                            stock.InventoryOwnerId,
+                                            stock.OwnerCodeSnapshot),
                                         -stock.QuantityAvailable.Value,
                                         ActorUserId: userId,
                                         ReferenceType: "Movement",
@@ -340,7 +347,10 @@ public sealed class LicensePlateService : ILicensePlateService
                                             stock.SerialNumber,
                                             current.Id,
                                             stock.InventoryStatusId,
-                                            item.UnitOfMeasure),
+                                            item.UnitOfMeasure,
+                                            stock.OwnerKind,
+                                            stock.InventoryOwnerId,
+                                            stock.OwnerCodeSnapshot),
                                         stock.QuantityAvailable.Value,
                                         ActorUserId: userId,
                                         ReferenceType: "Movement",
@@ -598,6 +608,10 @@ public sealed class LicensePlateService : ILicensePlateService
                             stock.SerialNumberId,
                             stock.InventoryStatusId,
                             current.Id);
+                        movement.SetOwnership(
+                            stock.OwnerKind,
+                            stock.InventoryOwnerId,
+                            stock.OwnerCodeSnapshot);
                         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
                         if (_inventoryLedgerService is not null)
                         {
@@ -620,7 +634,10 @@ public sealed class LicensePlateService : ILicensePlateService
                                             stock.SerialNumber,
                                             current.Id,
                                             stock.InventoryStatusId,
-                                            item.UnitOfMeasure),
+                                            item.UnitOfMeasure,
+                                            stock.OwnerKind,
+                                            stock.InventoryOwnerId,
+                                            stock.OwnerCodeSnapshot),
                                         -stock.QuantityAvailable.Value,
                                         ActorUserId: userId,
                                         ReferenceType: "Movement",
@@ -728,7 +745,10 @@ public sealed class LicensePlateService : ILicensePlateService
                             content.SerialNumber?.Number,
                             content.SerialNumberId,
                             content.InventoryStatusId,
-                            current.Id);
+                            current.Id,
+                            content.OwnerKind,
+                            content.InventoryOwnerId,
+                            content.OwnerCodeSnapshot);
                         await _unitOfWork.Stock.AddAsync(stock, cancellationToken);
                         var movement = Movement.CreateReceipt(
                             content.ItemId,
@@ -743,6 +763,10 @@ public sealed class LicensePlateService : ILicensePlateService
                             content.SerialNumberId,
                             content.InventoryStatusId,
                             current.Id);
+                        movement.SetOwnership(
+                            content.OwnerKind,
+                            content.InventoryOwnerId,
+                            content.OwnerCodeSnapshot);
                         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
                         if (_inventoryLedgerService is not null)
                         {
@@ -765,7 +789,10 @@ public sealed class LicensePlateService : ILicensePlateService
                                             content.SerialNumber?.Number,
                                             current.Id,
                                             content.InventoryStatusId,
-                                            item.UnitOfMeasure),
+                                            item.UnitOfMeasure,
+                                            content.OwnerKind,
+                                            content.InventoryOwnerId,
+                                            content.OwnerCodeSnapshot),
                                         content.Quantity.Value,
                                         ActorUserId: userId,
                                         ReferenceType: "Movement",
@@ -1091,7 +1118,10 @@ public sealed class LicensePlateService : ILicensePlateService
             input.SerialNumberId,
             input.InventoryStatusId,
             input.ItemPackagingId,
-            cancellationToken);
+            cancellationToken,
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot);
         var existingStock = await FindStockAsync(plate, input, cancellationToken);
         if ((existingContent is null) != (existingStock is null))
         {
@@ -1110,7 +1140,10 @@ public sealed class LicensePlateService : ILicensePlateService
                     input.LotId,
                     input.SerialNumberId,
                     input.InventoryStatusId,
-                    input.ItemPackagingId),
+                    input.ItemPackagingId,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot),
                 cancellationToken);
             var stock = new Stock(
                 input.ItemId,
@@ -1120,7 +1153,10 @@ public sealed class LicensePlateService : ILicensePlateService
                 validation.Serial?.Number,
                 input.SerialNumberId,
                 input.InventoryStatusId,
-                plate.Id);
+                plate.Id,
+                input.OwnerKind,
+                input.InventoryOwnerId,
+                input.OwnerCodeSnapshot);
             await _unitOfWork.Stock.AddAsync(stock, cancellationToken);
         }
         else
@@ -1144,6 +1180,10 @@ public sealed class LicensePlateService : ILicensePlateService
             input.SerialNumberId,
             input.InventoryStatusId,
             plate.Id);
+        movement.SetOwnership(
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot);
         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
         if (_inventoryLedgerService is not null)
         {
@@ -1162,7 +1202,10 @@ public sealed class LicensePlateService : ILicensePlateService
                             validation.Serial?.Number,
                             plate.Id,
                             input.InventoryStatusId,
-                            validation.Item.UnitOfMeasure),
+                            validation.Item.UnitOfMeasure,
+                            input.OwnerKind,
+                            input.InventoryOwnerId,
+                            input.OwnerCodeSnapshot),
                         quantity.Value,
                         ActorUserId: userId,
                         ReferenceType: "Movement",
@@ -1229,9 +1272,12 @@ public sealed class LicensePlateService : ILicensePlateService
             input.ItemId,
             input.LotId,
             input.SerialNumberId,
-            input.InventoryStatusId,
-            input.ItemPackagingId,
-            cancellationToken)
+                    input.InventoryStatusId,
+                    input.ItemPackagingId,
+                    cancellationToken,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot)
             ?? throw new InvalidOperationException("The source license plate does not contain the requested inventory identity.");
         var sourceStock = await FindStockAsync(source, input, cancellationToken)
             ?? throw new InvalidOperationException("The source license plate content has no matching stock balance.");
@@ -1250,7 +1296,10 @@ public sealed class LicensePlateService : ILicensePlateService
             input.SerialNumberId,
             input.InventoryStatusId,
             input.ItemPackagingId,
-            cancellationToken);
+            cancellationToken,
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot);
         var targetStock = await FindStockAsync(target, input, cancellationToken);
         if ((targetContent is null) != (targetStock is null))
         {
@@ -1288,7 +1337,10 @@ public sealed class LicensePlateService : ILicensePlateService
                     input.LotId,
                     input.SerialNumberId,
                     input.InventoryStatusId,
-                    input.ItemPackagingId),
+                    input.ItemPackagingId,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot),
                 cancellationToken);
             await _unitOfWork.Stock.AddAsync(
                 new Stock(
@@ -1299,7 +1351,10 @@ public sealed class LicensePlateService : ILicensePlateService
                     validation.Serial?.Number,
                     input.SerialNumberId,
                     input.InventoryStatusId,
-                    target.Id),
+                    target.Id,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot),
                 cancellationToken);
         }
         else
@@ -1325,6 +1380,10 @@ public sealed class LicensePlateService : ILicensePlateService
             input.InventoryStatusId,
             source.Id,
             target.Id);
+        movement.SetOwnership(
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot);
         await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
         if (_inventoryLedgerService is not null)
         {
@@ -1338,7 +1397,10 @@ public sealed class LicensePlateService : ILicensePlateService
                 validation.Serial?.Number,
                 source.Id,
                 sourceStock.InventoryStatusId,
-                validation.Item.UnitOfMeasure);
+                validation.Item.UnitOfMeasure,
+                input.OwnerKind,
+                input.InventoryOwnerId,
+                input.OwnerCodeSnapshot);
             var targetKey = new InventoryBalanceKey(
                 target.WarehouseId,
                 target.CurrentLocationId.Value,
@@ -1348,7 +1410,10 @@ public sealed class LicensePlateService : ILicensePlateService
                 validation.Serial?.Number,
                 target.Id,
                 input.InventoryStatusId,
-                validation.Item.UnitOfMeasure);
+                validation.Item.UnitOfMeasure,
+                input.OwnerKind,
+                input.InventoryOwnerId,
+                input.OwnerCodeSnapshot);
             await _inventoryLedgerService.RecordAsync(
                 new[]
                 {
@@ -1519,6 +1584,18 @@ public sealed class LicensePlateService : ILicensePlateService
             cancellationToken)
             ?? throw new InvalidOperationException($"Location {target.CurrentLocationId.Value} was not found.");
         var contents = await _unitOfWork.LicensePlates.GetContentsAsync(target.Id, cancellationToken);
+        var ownerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot);
+        if (contents.Any(content =>
+                content.OwnerKind != input.OwnerKind ||
+                content.InventoryOwnerId != input.InventoryOwnerId ||
+                content.OwnerCodeSnapshot != ownerCode))
+        {
+            throw new InvalidOperationException(
+                "A license plate cannot contain inventory owned by different owners.");
+        }
         if (!location.AllowMixedItems && contents.Any(content => content.ItemId != input.ItemId))
         {
             throw new InvalidOperationException(
@@ -1548,6 +1625,12 @@ public sealed class LicensePlateService : ILicensePlateService
             stock.SerialNumberId == input.SerialNumberId &&
             stock.InventoryStatusId == input.InventoryStatusId &&
             stock.LicensePlateId == plate.Id &&
+            stock.OwnerKind == input.OwnerKind &&
+            stock.InventoryOwnerId == input.InventoryOwnerId &&
+            stock.OwnerCodeSnapshot == InventoryOwnershipDimension.NormalizeOwnerCode(
+                input.OwnerKind,
+                input.InventoryOwnerId,
+                input.OwnerCodeSnapshot) &&
             stock.QuantityAvailable.Value > 0);
     }
 
@@ -1803,7 +1886,10 @@ public sealed class LicensePlateService : ILicensePlateService
                     content.InventoryStatus?.Code,
                     content.ItemPackagingId,
                     content.ItemPackaging?.Code,
-                    content.Quantity.Value))
+                    content.Quantity.Value,
+                    content.OwnerKind,
+                    content.InventoryOwnerId,
+                    content.OwnerCodeSnapshot))
                 .ToArray());
 
     private static LicensePlateHistoryDto ToHistoryDto(LicensePlateHistory history) =>
@@ -1834,7 +1920,10 @@ public sealed class LicensePlateService : ILicensePlateService
             content.LotId,
             content.SerialNumberId,
             content.InventoryStatusId,
-            content.ItemPackagingId);
+            content.ItemPackagingId,
+            content.OwnerKind,
+            content.InventoryOwnerId,
+            content.OwnerCodeSnapshot);
 
     private static LicensePlateNumberingDto ToDto(LicensePlateNumberSequence sequence) =>
         new(

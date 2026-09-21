@@ -68,6 +68,8 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
             .ThenBy(value => value.request.Key.SerialNumber ?? string.Empty, StringComparer.Ordinal)
             .ThenBy(value => value.request.Key.LicensePlateId ?? 0)
             .ThenBy(value => value.request.Key.InventoryStatusId)
+            .ThenBy(value => value.request.Key.OwnerKind)
+            .ThenBy(value => value.request.Key.InventoryOwnerId ?? 0)
             .ThenBy(value => value.request.Key.BaseUnitOfMeasure, StringComparer.Ordinal)
             .ThenBy(value => value.index)
             .Select(value => value.request);
@@ -183,7 +185,10 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
                 transaction.SerialNumber,
                 transaction.LicensePlateId,
                 transaction.InventoryStatusId,
-                transaction.BaseUnitOfMeasure));
+                transaction.BaseUnitOfMeasure,
+                transaction.OwnerKind,
+                transaction.InventoryOwnerId,
+                transaction.OwnerCodeSnapshot));
 
         foreach (var group in transactionGroups)
         {
@@ -225,6 +230,9 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
                     transaction.SerialNumber == balance.SerialNumber &&
                     transaction.LicensePlateId == balance.LicensePlateId &&
                     transaction.InventoryStatusId == balance.InventoryStatusId &&
+                    transaction.OwnerKind == balance.OwnerKind &&
+                    transaction.InventoryOwnerId == balance.InventoryOwnerId &&
+                    transaction.OwnerCodeSnapshot == balance.OwnerCodeSnapshot &&
                     transaction.BaseUnitOfMeasure == balance.BaseUnitOfMeasure))
             {
                 continue;
@@ -352,6 +360,21 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
         {
             throw new InvalidOperationException(
                 $"Inventory status {key.InventoryStatusId} was not found.");
+        }
+
+        if (key.OwnerKind == InventoryOwnerKind.CompanyOwned)
+        {
+            return;
+        }
+
+        var owner = await _context.InventoryOwners
+            .AsNoTracking()
+            .SingleOrDefaultAsync(value => value.Id == key.InventoryOwnerId, cancellationToken);
+        if (owner is null || !owner.IsActive || owner.Kind != key.OwnerKind ||
+            !string.Equals(owner.OwnerCode, key.OwnerCodeSnapshot, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "The inventory ledger owner dimension is missing, inactive, or does not match its snapshot.");
         }
     }
 

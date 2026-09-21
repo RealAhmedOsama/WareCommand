@@ -3,6 +3,7 @@
 using Microsoft.EntityFrameworkCore;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
@@ -87,7 +88,9 @@ public class StockRepository : Repository<Stock>, IStockRepository
 
     public async Task<Stock?> GetByItemAndLocationAsync(int itemId, int locationId, int? lotId = null,
         string? serialNumber = null, int? serialNumberId = null,
-        CancellationToken cancellationToken = default, int? licensePlateId = null)
+        CancellationToken cancellationToken = default, int? licensePlateId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null)
     {
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = DbSet
@@ -98,6 +101,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(s => s.InventoryStatus)
             .Include(s => s.LicensePlate)
             .Where(s => s.ItemId == itemId && s.LocationId == locationId)
+            .Where(s => s.OwnerKind == ownerKind && s.InventoryOwnerId == inventoryOwnerId)
             .AsQueryable();
         query = ApplyScope(query, scope);
 
@@ -136,7 +140,9 @@ public class StockRepository : Repository<Stock>, IStockRepository
         int locationId,
         string? serialNumber = null,
         CancellationToken cancellationToken = default,
-        int? licensePlateId = null)
+        int? licensePlateId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null)
     {
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = DbSet
@@ -147,6 +153,7 @@ public class StockRepository : Repository<Stock>, IStockRepository
             .Include(stock => stock.InventoryStatus)
             .Include(stock => stock.LicensePlate)
             .Where(stock => stock.ItemId == itemId && stock.LocationId == locationId)
+            .Where(stock => stock.OwnerKind == ownerKind && stock.InventoryOwnerId == inventoryOwnerId)
             .AsQueryable();
         query = ApplyScope(query, scope);
 

@@ -1,5 +1,6 @@
 using Wms.Application.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Application.Transfers;
 
@@ -15,7 +16,10 @@ public sealed record TransferLineInput(
     int? LicensePlateId = null,
     int SourceInventoryStatusId = InventoryStatusSystemIds.Available,
     int DestinationInventoryStatusId = InventoryStatusSystemIds.Available,
-    string? Notes = null);
+    string? Notes = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record TransferOrderInput(
     string TransferNumber,
@@ -53,7 +57,10 @@ public sealed record InternalMovementInput(
     string? SerialNumber = null,
     int? LicensePlateId = null,
     int InventoryStatusId = InventoryStatusSystemIds.Available,
-    string? Reason = null);
+    string? Reason = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record TransferQuery(
     int? SourceWarehouseId = null,
@@ -82,7 +89,10 @@ public sealed record TransferOrderLineDto(
     int SourceInventoryStatusId,
     int DestinationInventoryStatusId,
     TransferLineStatus Status,
-    long Revision);
+    long Revision,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public sealed record TransferOrderDto(
     int Id,
@@ -131,7 +141,10 @@ public sealed record InternalMovementDto(
     InternalMovementStatus Status,
     DateTime CreatedAtUtc,
     DateTime? CompletedAtUtc,
-    long Revision);
+    long Revision,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public interface ITransferService
 {

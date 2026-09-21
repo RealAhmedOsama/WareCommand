@@ -512,6 +512,9 @@ public sealed class PackingService(
                     input.SerialNumber,
                     input.InventoryStatusId,
                     input.SourceLicensePlateId,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot,
                     cancellationToken);
                 if (sourceStock is null || sourceStock.GetAvailableQuantity().Value < input.Quantity)
                 {
@@ -539,6 +542,10 @@ public sealed class PackingService(
                     input.InventoryStatusId,
                     input.SourceLicensePlateId,
                     targetPlate.Id);
+                movement.SetOwnership(
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot);
                 context.Movements.Add(movement);
 
                 sourceStock.RemoveQuantity(quantity);
@@ -555,6 +562,9 @@ public sealed class PackingService(
                     serial?.Number ?? input.SerialNumber,
                     input.InventoryStatusId,
                     targetPlate.Id,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot,
                     cancellationToken);
                 if (targetStock is null)
                 {
@@ -566,7 +576,10 @@ public sealed class PackingService(
                         serial?.Number ?? input.SerialNumber,
                         input.SerialNumberId,
                         input.InventoryStatusId,
-                        targetPlate.Id);
+                        targetPlate.Id,
+                        input.OwnerKind,
+                        input.InventoryOwnerId,
+                        input.OwnerCodeSnapshot);
                     context.Stock.Add(targetStock);
                 }
                 else
@@ -580,7 +593,13 @@ public sealed class PackingService(
                         content.ItemId == input.ItemId &&
                         content.LotId == input.LotId &&
                         content.SerialNumberId == input.SerialNumberId &&
-                        content.InventoryStatusId == input.InventoryStatusId,
+                        content.InventoryStatusId == input.InventoryStatusId &&
+                        content.OwnerKind == input.OwnerKind &&
+                        content.InventoryOwnerId == input.InventoryOwnerId &&
+                        content.OwnerCodeSnapshot == InventoryOwnershipDimension.NormalizeOwnerCode(
+                            input.OwnerKind,
+                            input.InventoryOwnerId,
+                            input.OwnerCodeSnapshot),
                         cancellationToken);
                 if (targetContent is null)
                 {
@@ -590,7 +609,10 @@ public sealed class PackingService(
                         quantity,
                         input.LotId,
                         input.SerialNumberId,
-                        input.InventoryStatusId));
+                        input.InventoryStatusId,
+                        ownerKind: input.OwnerKind,
+                        inventoryOwnerId: input.InventoryOwnerId,
+                        ownerCodeSnapshot: input.OwnerCodeSnapshot));
                 }
                 else
                 {
@@ -632,7 +654,10 @@ public sealed class PackingService(
                                 serial?.Number ?? input.SerialNumber,
                                 targetPlate.Id,
                                 input.InventoryStatusId,
-                                item.UnitOfMeasure),
+                                item.UnitOfMeasure,
+                                input.OwnerKind,
+                                input.InventoryOwnerId,
+                                input.OwnerCodeSnapshot),
                             input.Quantity,
                             ActorUserId: userId,
                             ReferenceType: "ShipmentPackage",
@@ -656,7 +681,13 @@ public sealed class PackingService(
                     value.SourceLicensePlateId == input.SourceLicensePlateId &&
                     value.LotId == input.LotId &&
                     value.SerialNumberId == input.SerialNumberId &&
-                    value.InventoryStatusId == input.InventoryStatusId);
+                    value.InventoryStatusId == input.InventoryStatusId &&
+                    value.OwnerKind == input.OwnerKind &&
+                    value.InventoryOwnerId == input.InventoryOwnerId &&
+                    value.OwnerCodeSnapshot == InventoryOwnershipDimension.NormalizeOwnerCode(
+                        input.OwnerKind,
+                        input.InventoryOwnerId,
+                        input.OwnerCodeSnapshot));
                 if (content is null)
                 {
                     current.AddContent(new ShipmentPackageContent(
@@ -671,7 +702,10 @@ public sealed class PackingService(
                         input.SerialNumberId,
                         serial?.Number ?? input.SerialNumber,
                         input.InventoryStatusId,
-                        expectedWeight));
+                        expectedWeight,
+                        input.OwnerKind,
+                        input.InventoryOwnerId,
+                        input.OwnerCodeSnapshot));
                 }
                 else
                 {
@@ -829,7 +863,13 @@ public sealed class PackingService(
                     value.SourceLicensePlateId == input.SourceLicensePlateId &&
                     value.LotId == input.LotId &&
                     value.SerialNumberId == input.SerialNumberId &&
-                    value.InventoryStatusId == input.InventoryStatusId);
+                    value.InventoryStatusId == input.InventoryStatusId &&
+                    value.OwnerKind == input.OwnerKind &&
+                    value.InventoryOwnerId == input.InventoryOwnerId &&
+                    value.OwnerCodeSnapshot == InventoryOwnershipDimension.NormalizeOwnerCode(
+                        input.OwnerKind,
+                        input.InventoryOwnerId,
+                        input.OwnerCodeSnapshot));
                 if (content is null)
                 {
                     throw new InvalidOperationException("The package does not contain the scanned identity.");
@@ -854,6 +894,9 @@ public sealed class PackingService(
                     input.SerialNumber,
                     input.InventoryStatusId,
                     targetPlate.Id,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot,
                     cancellationToken)
                     ?? throw new InvalidOperationException("The package target stock was not found.");
                 if (targetStock.GetAvailableQuantity().Value < input.Quantity)
@@ -869,6 +912,9 @@ public sealed class PackingService(
                     input.SerialNumber,
                     input.InventoryStatusId,
                     input.SourceLicensePlateId,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot,
                     cancellationToken);
                 var sourceLocation = await context.Locations
                     .SingleAsync(value => value.Id == input.SourceLocationId, cancellationToken);
@@ -894,6 +940,10 @@ public sealed class PackingService(
                     input.InventoryStatusId,
                     targetPlate.Id,
                     input.SourceLicensePlateId);
+                movement.SetOwnership(
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot);
                 context.Movements.Add(movement);
 
                 targetStock.RemoveQuantity(quantity);
@@ -912,7 +962,10 @@ public sealed class PackingService(
                         serial?.Number ?? input.SerialNumber,
                         input.SerialNumberId,
                         input.InventoryStatusId,
-                        input.SourceLicensePlateId);
+                        input.SourceLicensePlateId,
+                        input.OwnerKind,
+                        input.InventoryOwnerId,
+                        input.OwnerCodeSnapshot);
                     context.Stock.Add(sourceStock);
                 }
                 else
@@ -926,7 +979,13 @@ public sealed class PackingService(
                         contentRow.ItemId == input.ItemId &&
                         contentRow.LotId == input.LotId &&
                         contentRow.SerialNumberId == input.SerialNumberId &&
-                        contentRow.InventoryStatusId == input.InventoryStatusId,
+                        contentRow.InventoryStatusId == input.InventoryStatusId &&
+                        contentRow.OwnerKind == input.OwnerKind &&
+                        contentRow.InventoryOwnerId == input.InventoryOwnerId &&
+                        contentRow.OwnerCodeSnapshot == InventoryOwnershipDimension.NormalizeOwnerCode(
+                            input.OwnerKind,
+                            input.InventoryOwnerId,
+                            input.OwnerCodeSnapshot),
                         cancellationToken);
                 targetContent.RemoveQuantity(quantity);
                 if (targetContent.Quantity.Value == 0m)
@@ -962,7 +1021,10 @@ public sealed class PackingService(
                                 serial?.Number ?? input.SerialNumber,
                                 targetPlate.Id,
                                 input.InventoryStatusId,
-                                item.UnitOfMeasure),
+                                item.UnitOfMeasure,
+                                input.OwnerKind,
+                                input.InventoryOwnerId,
+                                input.OwnerCodeSnapshot),
                             -input.Quantity,
                             ActorUserId: userId,
                             ReferenceType: "ShipmentPackage",
@@ -1322,6 +1384,9 @@ public sealed class PackingService(
         string? serialNumber,
         int inventoryStatusId,
         int? licensePlateId,
+        InventoryOwnerKind ownerKind,
+        int? inventoryOwnerId,
+        string? ownerCodeSnapshot,
         CancellationToken cancellationToken) =>
         await context.Stock.SingleOrDefaultAsync(stock =>
             stock.ItemId == itemId &&
@@ -1330,7 +1395,13 @@ public sealed class PackingService(
             stock.SerialNumberId == serialNumberId &&
             stock.SerialNumber == serialNumber &&
             stock.InventoryStatusId == inventoryStatusId &&
-            stock.LicensePlateId == licensePlateId,
+            stock.LicensePlateId == licensePlateId &&
+            stock.OwnerKind == ownerKind &&
+            stock.InventoryOwnerId == inventoryOwnerId &&
+            stock.OwnerCodeSnapshot == InventoryOwnershipDimension.NormalizeOwnerCode(
+                ownerKind,
+                inventoryOwnerId,
+                ownerCodeSnapshot),
             cancellationToken);
 
     private async Task<SerialNumber?> ResolveSerialAsync(
@@ -1388,7 +1459,10 @@ public sealed class PackingService(
             stock.SerialNumber,
             stock.LicensePlateId,
             stock.InventoryStatusId,
-            item.UnitOfMeasure);
+            item.UnitOfMeasure,
+            stock.OwnerKind,
+            stock.InventoryOwnerId,
+            stock.OwnerCodeSnapshot);
 
     private static void EnsureStationAvailable(
         PackingStation station,
@@ -1486,5 +1560,8 @@ public sealed class PackingService(
         content.SerialNumber,
         content.InventoryStatusId,
         content.ExpectedWeightKg,
-        content.Revision);
+        content.Revision,
+        content.OwnerKind,
+        content.InventoryOwnerId,
+        content.OwnerCodeSnapshot);
 }

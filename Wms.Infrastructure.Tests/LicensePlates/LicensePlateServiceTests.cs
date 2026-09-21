@@ -143,6 +143,38 @@ public sealed class LicensePlateServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ContentRejectsMixingOwnerDimensionsOnOnePlate()
+    {
+        var owner = new InventoryOwner(
+            "EXT-LP-OWNER",
+            InventoryOwnerKind.ExternalOwner,
+            "External LPN owner",
+            externalOwnerReference: "EXT-LP-OWNER");
+        _context.InventoryOwners.Add(owner);
+        await _context.SaveChangesAsync();
+        var plate = await CreatePlateAsync("OWNER");
+
+        var owned = await _service.AddContentAsync(
+            plate.Id,
+            new LicensePlateContentInput(
+                _item.Id,
+                2m,
+                OwnerKind: InventoryOwnerKind.ExternalOwner,
+                InventoryOwnerId: owner.Id,
+                OwnerCodeSnapshot: owner.OwnerCode),
+            "user-1");
+        owned.IsSuccess.Should().BeTrue(owned.Error);
+
+        var mixed = await _service.AddContentAsync(
+            plate.Id,
+            new LicensePlateContentInput(_item.Id, 1m),
+            "user-1");
+
+        mixed.IsFailure.Should().BeTrue();
+        mixed.ErrorCode.Should().Be("license_plate.rule_violation");
+    }
+
+    [Fact]
     public async Task NestingRejectsCyclesAndClosedPlatesCannotReceiveContent()
     {
         var parent = await CreatePlateAsync("PARENT");

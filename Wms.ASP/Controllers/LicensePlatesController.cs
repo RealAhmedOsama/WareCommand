@@ -366,7 +366,10 @@ public sealed class LicensePlatesController(
             request.LotId,
             request.SerialNumberId,
             request.InventoryStatusId,
-            request.ItemPackagingId);
+            request.ItemPackagingId,
+            request.OwnerKind,
+            request.InventoryOwnerId,
+            request.OwnerCodeSnapshot);
 
     private IActionResult ToActionResult<T>(Result<T> result)
     {
@@ -453,6 +456,14 @@ public class LicensePlateContentRequest
 
     [Range(1, int.MaxValue)]
     public int? ItemPackagingId { get; init; }
+
+    public InventoryOwnerKind OwnerKind { get; init; } = InventoryOwnerKind.CompanyOwned;
+
+    [Range(1, int.MaxValue)]
+    public int? InventoryOwnerId { get; init; }
+
+    [StringLength(80)]
+    public string? OwnerCodeSnapshot { get; init; }
 
     [StringLength(100)]
     public string? ReferenceNumber { get; init; }

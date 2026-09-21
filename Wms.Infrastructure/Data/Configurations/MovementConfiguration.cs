@@ -31,6 +31,13 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.Property(e => e.InventoryStatusId)
             .IsRequired();
 
+        builder.Property(e => e.OwnerKind)
+            .HasConversion<int>()
+            .IsRequired();
+        builder.Property(e => e.OwnerCodeSnapshot)
+            .HasMaxLength(80)
+            .IsRequired();
+
         builder.Property(e => e.LicensePlateId);
         builder.Property(e => e.FromLicensePlateId);
         builder.Property(e => e.ToLicensePlateId);
@@ -166,6 +173,10 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
             .WithMany()
             .HasForeignKey(e => e.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(e => e.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.FromInventoryStatus)
             .WithMany()
@@ -229,6 +240,7 @@ public class MovementConfiguration : IEntityTypeConfiguration<Movement>
         builder.HasIndex(e => e.PackagingCode);
         builder.HasIndex(e => e.SerialNumberId);
         builder.HasIndex(e => e.InventoryStatusId);
+        builder.HasIndex(e => e.InventoryOwnerId);
         builder.HasIndex(e => e.LicensePlateId);
         builder.HasIndex(e => e.FromLicensePlateId);
         builder.HasIndex(e => e.ToLicensePlateId);

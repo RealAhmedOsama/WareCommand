@@ -151,6 +151,51 @@ public sealed class ReceiptServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task OpenAndFinalize_PreservesExplicitOwnerDimension()
+    {
+        var owner = new InventoryOwner(
+            "EXT-RCPT-OWNER",
+            InventoryOwnerKind.ExternalOwner,
+            "External receipt owner",
+            externalOwnerReference: "EXT-RCPT-OWNER");
+        _context.InventoryOwners.Add(owner);
+        await _context.SaveChangesAsync();
+
+        var opened = await _service.OpenForReceivingAsync(
+            CreateReceivingInput(5m) with
+            {
+                OwnerKind = InventoryOwnerKind.ExternalOwner,
+                InventoryOwnerId = owner.Id,
+                OwnerCodeSnapshot = owner.OwnerCode
+            },
+            "receiver-1");
+        opened.IsSuccess.Should().BeTrue(opened.Error);
+
+        var movement = Movement.CreateReceipt(
+            _item.Id,
+            _receivingLocation.Id,
+            new Quantity(5m),
+            "receiver-1",
+            referenceNumber: opened.Value.DocumentNumber,
+            timestampUtc: DateTime.UtcNow);
+        movement.SetOwnership(
+            InventoryOwnerKind.ExternalOwner,
+            owner.Id,
+            owner.OwnerCode);
+        movement.LinkReceipt(opened.Value.ReceiptId, opened.Value.ReceiptLineId);
+        _context.Movements.Add(movement);
+        await _context.SaveChangesAsync();
+
+        var finalized = await _service.FinalizeReceivingAsync(opened.Value, movement, "receiver-1");
+        finalized.IsSuccess.Should().BeTrue(finalized.Error);
+
+        var line = await _context.ReceiptLines.SingleAsync();
+        line.OwnerKind.Should().Be(InventoryOwnerKind.ExternalOwner);
+        line.InventoryOwnerId.Should().Be(owner.Id);
+        line.OwnerCodeSnapshot.Should().Be(owner.OwnerCode);
+    }
+
+    [Fact]
     public async Task FinalizeRejectsReceiptLineWithOpenInboundException()
     {
         var opened = await _service.OpenForReceivingAsync(CreateReceivingInput(5m), "receiver-1");

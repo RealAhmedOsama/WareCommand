@@ -186,6 +186,53 @@ public sealed class InventoryReservationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DefaultDemandCannotConsumeExternalOwnerStockButExplicitOwnerCan()
+    {
+        var externalOwner = new InventoryOwner(
+            "EXT-RES-1",
+            InventoryOwnerKind.ExternalOwner,
+            "External reservation owner",
+            externalOwnerReference: "EXT-RES-1");
+        _context.InventoryOwners.Add(externalOwner);
+        await _context.SaveChangesAsync();
+
+        await RecordReceiptForKeyAsync(
+            new InventoryBalanceKey(
+                _warehouse.Id,
+                _location.Id,
+                _item.Id,
+                null,
+                null,
+                null,
+                null,
+                _availableStatus.Id,
+                _item.UnitOfMeasure,
+                InventoryOwnerKind.ExternalOwner,
+                externalOwner.Id,
+                externalOwner.OwnerCode),
+            "receipt-external-owner");
+
+        var companyDemand = await _service.ReserveAsync(CreateRequest("SO-COMPANY-OWNER", 1m));
+        companyDemand.AllocatedQuantity.Should().Be(0m);
+        companyDemand.Status.Should().Be(InventoryReservationStatus.Pending);
+
+        var ownerDemand = await _service.ReserveAsync(
+            CreateRequest(
+                "SO-EXTERNAL-OWNER",
+                1m,
+                selector: new InventoryReservationSelector(
+                    OwnerKind: InventoryOwnerKind.ExternalOwner,
+                    InventoryOwnerId: externalOwner.Id,
+                    OwnerCodeSnapshot: externalOwner.OwnerCode)));
+
+        ownerDemand.AllocatedQuantity.Should().Be(1m);
+        ownerDemand.Allocations.Should().ContainSingle(allocation =>
+            allocation.OwnerKind == InventoryOwnerKind.ExternalOwner &&
+            allocation.InventoryOwnerId == externalOwner.Id &&
+            allocation.OwnerCodeSnapshot == externalOwner.OwnerCode);
+    }
+
+    [Fact]
     public async Task ExpiredLotsHeldSerialsAndClosedLicensePlatesAreExcluded()
     {
         var expiredLot = new Lot(
@@ -338,7 +385,8 @@ public sealed class InventoryReservationServiceTests : IDisposable
     private InventoryReservationRequest CreateRequest(
         string demandId,
         decimal requestedQuantity,
-        DateTime? expiresAtUtc = null) =>
+        DateTime? expiresAtUtc = null,
+        InventoryReservationSelector? selector = null) =>
         new(
             "SalesOrder",
             demandId,
@@ -349,6 +397,7 @@ public sealed class InventoryReservationServiceTests : IDisposable
             InventoryReservationMode.Hard,
             Priority: 10,
             ExpiresAtUtc: expiresAtUtc,
+            Selector: selector,
             ActorUserId: "allocator-1",
             CorrelationId: $"correlation-{demandId}",
             Reason: "outbound demand");

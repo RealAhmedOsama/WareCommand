@@ -88,6 +88,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<SupplierReturn> SupplierReturns => Set<SupplierReturn>();
     public DbSet<SupplierReturnLine> SupplierReturnLines => Set<SupplierReturnLine>();
     public DbSet<SupplierReturnCommand> SupplierReturnCommands => Set<SupplierReturnCommand>();
+    public DbSet<InventoryOwner> InventoryOwners => Set<InventoryOwner>();
+    public DbSet<InventoryOwnershipTransfer> InventoryOwnershipTransfers => Set<InventoryOwnershipTransfer>();
     public DbSet<PutawayRule> PutawayRules => Set<PutawayRule>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
@@ -235,6 +237,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new SupplierReturnConfiguration());
         builder.ApplyConfiguration(new SupplierReturnLineConfiguration());
         builder.ApplyConfiguration(new SupplierReturnCommandConfiguration());
+        builder.ApplyConfiguration(new InventoryOwnerConfiguration());
+        builder.ApplyConfiguration(new InventoryOwnershipTransferConfiguration());
         builder.ApplyConfiguration(new PutawayRuleConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());

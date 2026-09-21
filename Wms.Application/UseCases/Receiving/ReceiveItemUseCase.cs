@@ -400,7 +400,10 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                         advanceShippingNoticeReceiptPlan,
                         request.ReferenceNumber,
                         request.Notes,
-                        SessionReference: request.SessionReference),
+                        SessionReference: request.SessionReference,
+                        OwnerKind: request.OwnerKind,
+                        InventoryOwnerId: request.InventoryOwnerId,
+                        OwnerCodeSnapshot: request.OwnerCodeSnapshot),
                     userId,
                     cancellationToken);
                 if (receiptResult.IsFailure)
@@ -419,7 +422,10 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 cancellationToken: cancellationToken,
                 licensePlateId: request.LicensePlateId,
                 receiptId: receiptPlan?.ReceiptId,
-                receiptLineId: receiptPlan?.ReceiptLineId);
+                receiptLineId: receiptPlan?.ReceiptLineId,
+                ownerKind: request.OwnerKind,
+                inventoryOwnerId: request.InventoryOwnerId,
+                ownerCodeSnapshot: request.OwnerCodeSnapshot);
 
             if (receiptPlan is not null)
             {

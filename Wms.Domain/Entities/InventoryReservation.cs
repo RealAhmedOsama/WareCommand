@@ -64,6 +64,9 @@ public sealed class InventoryReservation : Entity
         SelectorLicensePlateId = selector?.LicensePlateId;
         SelectorInventoryStatusId = selector?.InventoryStatusId;
         SelectorBaseUnitOfMeasure = NormalizeOptional(selector?.BaseUnitOfMeasure, 20)?.ToUpperInvariant();
+        SelectorOwnerKind = selector?.OwnerKind ?? InventoryOwnerKind.CompanyOwned;
+        SelectorInventoryOwnerId = selector?.InventoryOwnerId;
+        SelectorOwnerCodeSnapshot = NormalizeOptional(selector?.OwnerCodeSnapshot, 80)?.ToUpperInvariant();
     }
 
     public string DemandType { get; private set; } = string.Empty;
@@ -85,6 +88,9 @@ public sealed class InventoryReservation : Entity
     public int? SelectorLicensePlateId { get; private set; }
     public int? SelectorInventoryStatusId { get; private set; }
     public string? SelectorBaseUnitOfMeasure { get; private set; }
+    public InventoryOwnerKind SelectorOwnerKind { get; private set; }
+    public int? SelectorInventoryOwnerId { get; private set; }
+    public string? SelectorOwnerCodeSnapshot { get; private set; }
     public string ActorUserId { get; private set; } = string.Empty;
     public string CorrelationId { get; private set; } = string.Empty;
     public int? AllocationStrategyPolicyId { get; private set; }
@@ -125,6 +131,9 @@ public sealed class InventoryReservation : Entity
         SelectorLicensePlateId.HasValue ||
         SelectorInventoryStatusId.HasValue ||
         !string.IsNullOrWhiteSpace(SelectorBaseUnitOfMeasure)
+            || SelectorOwnerKind != InventoryOwnerKind.CompanyOwned
+            || SelectorInventoryOwnerId.HasValue
+            || !string.IsNullOrWhiteSpace(SelectorOwnerCodeSnapshot)
             ? new InventoryReservationSelector(
                 SelectorLocationId,
                 SelectorLotId,
@@ -132,7 +141,10 @@ public sealed class InventoryReservation : Entity
                 SelectorSerialNumber,
                 SelectorLicensePlateId,
                 SelectorInventoryStatusId,
-                SelectorBaseUnitOfMeasure)
+                SelectorBaseUnitOfMeasure,
+                SelectorOwnerKind,
+                SelectorInventoryOwnerId,
+                SelectorOwnerCodeSnapshot)
             : null;
 
     public void SetAllocationStrategySnapshot(

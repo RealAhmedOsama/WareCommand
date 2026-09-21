@@ -327,6 +327,9 @@ public sealed class PackingScanRequest
     [StringLength(250)] public string? SerialNumber { get; init; }
     [Required, StringLength(250)] public string IdempotencyKey { get; init; } = string.Empty;
     [StringLength(250)] public string? ScanReference { get; init; }
+    public InventoryOwnerKind OwnerKind { get; init; } = InventoryOwnerKind.CompanyOwned;
+    [Range(1, int.MaxValue)] public int? InventoryOwnerId { get; init; }
+    [StringLength(80)] public string? OwnerCodeSnapshot { get; init; }
 
     public PackingScanInput ToInput(int packageId) => new(
         packageId,
@@ -340,7 +343,10 @@ public sealed class PackingScanRequest
         SerialNumberId,
         SerialNumber,
         IdempotencyKey,
-        ScanReference);
+        ScanReference,
+        OwnerKind,
+        InventoryOwnerId,
+        OwnerCodeSnapshot);
 }
 
 public sealed class PackingPackageMeasureRequest

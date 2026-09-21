@@ -23,6 +23,13 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
         builder.Property(e => e.InventoryStatusId)
             .IsRequired();
 
+        builder.Property(e => e.OwnerKind)
+            .HasConversion<int>()
+            .IsRequired();
+        builder.Property(e => e.OwnerCodeSnapshot)
+            .HasMaxLength(80)
+            .IsRequired();
+
         builder.Property(e => e.LicensePlateId);
 
         builder.Property(e => e.CreatedAt)
@@ -76,6 +83,10 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
             .WithMany()
             .HasForeignKey(e => e.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(e => e.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(e => e.LicensePlate)
             .WithMany()
@@ -90,7 +101,9 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
             e.LotId,
             e.SerialNumber,
             e.InventoryStatusId,
-            e.LicensePlateId
+            e.LicensePlateId,
+            e.OwnerKind,
+            e.InventoryOwnerId
         })
             .IsUnique()
             .AreNullsDistinct(false);

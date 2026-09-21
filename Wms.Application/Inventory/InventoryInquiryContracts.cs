@@ -1,5 +1,6 @@
 using Wms.Application.Common;
 using Wms.Application.DTOs;
+using Wms.Domain.Enums;
 
 namespace Wms.Application.Inventory;
 
@@ -33,7 +34,10 @@ public sealed record InventoryInquiryQuery(
     InventoryInquirySort Sort = InventoryInquirySort.ItemSku,
     bool Descending = false,
     int Page = 1,
-    int PageSize = 50);
+    int PageSize = 50,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record InventoryInquiryPageDto(
     IReadOnlyList<StockDto> Items,

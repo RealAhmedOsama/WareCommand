@@ -1282,6 +1282,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<decimal>("ExpectedQuantity")
                         .HasColumnType("decimal(28,12)");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -1295,6 +1298,14 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
                         .HasColumnType("integer");
 
                     b.Property<long>("Revision")
@@ -1328,6 +1339,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("InventoryStatusId");
 
                     b.HasIndex("ItemId");
@@ -1338,10 +1351,12 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("SerialNumberId");
 
+                    b.HasIndex("OwnerKind", "InventoryOwnerId");
+
                     b.HasIndex("TaskId", "Sequence")
                         .IsUnique();
 
-                    b.HasIndex("WarehouseId", "LocationId", "ItemId", "LotId", "SerialNumberId", "LicensePlateId", "InventoryStatusId");
+                    b.HasIndex("WarehouseId", "LocationId", "ItemId", "LotId", "SerialNumberId", "LicensePlateId", "InventoryStatusId", "OwnerKind", "InventoryOwnerId");
 
                     b.ToTable("CycleCountLines", null, t =>
                         {
@@ -1731,6 +1746,9 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -1741,6 +1759,14 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("Quantity")
@@ -1784,6 +1810,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("DestinationLocationId");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("ItemId");
 
                     b.HasIndex("LicensePlateId");
@@ -1793,6 +1821,8 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.HasIndex("SerialNumberId");
 
                     b.HasIndex("SourceLocationId");
+
+                    b.HasIndex("OwnerKind", "InventoryOwnerId");
 
                     b.HasIndex("WarehouseId", "IdempotencyKey")
                         .IsUnique();
@@ -1893,6 +1923,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -1910,6 +1943,14 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.Property<decimal>("OnHandQuantity")
                         .HasColumnType("decimal(28,12)");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("ReservedQuantity")
                         .HasColumnType("decimal(28,12)");
@@ -1934,6 +1975,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("InventoryStatusId");
 
                     b.HasIndex("ItemId");
@@ -1948,10 +1991,10 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("WarehouseId", "LocationId");
 
-                    b.HasIndex("WarehouseId", "LocationId", "ItemId", "LotId", "SerialNumberId", "SerialNumber", "LicensePlateId", "InventoryStatusId", "BaseUnitOfMeasure")
+                    b.HasIndex("WarehouseId", "LocationId", "ItemId", "LotId", "SerialNumberId", "SerialNumber", "LicensePlateId", "InventoryStatusId", "OwnerKind", "InventoryOwnerId", "BaseUnitOfMeasure")
                         .IsUnique();
 
-                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("WarehouseId", "LocationId", "ItemId", "LotId", "SerialNumberId", "SerialNumber", "LicensePlateId", "InventoryStatusId", "BaseUnitOfMeasure"), false);
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("WarehouseId", "LocationId", "ItemId", "LotId", "SerialNumberId", "SerialNumber", "LicensePlateId", "InventoryStatusId", "OwnerKind", "InventoryOwnerId", "BaseUnitOfMeasure"), false);
 
                     b.ToTable("InventoryBalances", null, t =>
                         {
@@ -2550,6 +2593,224 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.ToTable("InventoryDispositionPolicies", (string)null);
                 });
 
+            modelBuilder.Entity("Wms.Domain.Entities.InventoryOwner", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CustomerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ExternalOwnerReference")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LocalizedName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("OwnerCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("SupplierId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("OwnerCode")
+                        .IsUnique();
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("Kind", "SupplierId", "CustomerId", "ExternalOwnerReference")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("Kind", "SupplierId", "CustomerId", "ExternalOwnerReference"), false);
+
+                    b.ToTable("InventoryOwners", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_InventoryOwners_LinkedOwner", "(\"Kind\" = 2 AND \"SupplierId\" IS NOT NULL AND \"CustomerId\" IS NULL AND \"ExternalOwnerReference\" IS NULL) OR (\"Kind\" = 3 AND \"SupplierId\" IS NULL AND \"CustomerId\" IS NOT NULL AND \"ExternalOwnerReference\" IS NULL) OR (\"Kind\" = 4 AND \"SupplierId\" IS NULL AND \"CustomerId\" IS NULL AND \"ExternalOwnerReference\" IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.InventoryOwnershipTransfer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BaseUnitOfMeasure")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CancelledByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CompletedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int?>("DestinationInventoryOwnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DestinationOwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("DestinationOwnerKind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ExceptionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<int>("InventoryStatusId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LicensePlateId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(28,12)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("SerialNumberId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceInventoryOwnerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceOwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("SourceOwnerKind")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TransferNumber")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("WarehouseId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationInventoryOwnerId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("InventoryStatusId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("LicensePlateId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("LotId");
+
+                    b.HasIndex("SerialNumberId");
+
+                    b.HasIndex("SourceInventoryOwnerId");
+
+                    b.HasIndex("WarehouseId", "TransferNumber")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId", "ItemId", "Status");
+
+                    b.ToTable("InventoryOwnershipTransfers", (string)null);
+                });
+
             modelBuilder.Entity("Wms.Domain.Entities.InventoryRecallCase", b =>
                 {
                     b.Property<int>("Id")
@@ -2809,6 +3070,9 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int?>("SelectorInventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("SelectorInventoryStatusId")
                         .HasColumnType("integer");
 
@@ -2819,6 +3083,13 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("SelectorLotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SelectorOwnerCodeSnapshot")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("SelectorOwnerKind")
                         .HasColumnType("integer");
 
                     b.Property<string>("SelectorSerialNumber")
@@ -2880,6 +3151,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -2893,6 +3167,14 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
                         .HasColumnType("integer");
 
                     b.Property<string>("Reason")
@@ -2926,6 +3208,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InventoryOwnerId");
 
                     b.HasIndex("InventoryStatusId");
 
@@ -3652,6 +3936,9 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("character varying(250)");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -3672,6 +3959,14 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.Property<DateTime>("OccurredAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("QuantityAfter")
                         .HasColumnType("decimal(28,12)");
@@ -3731,6 +4026,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InventoryOwnerId");
 
                     b.HasIndex("InventoryStatusId");
 
@@ -4225,6 +4522,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -4238,6 +4538,14 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("Quantity")
@@ -4256,6 +4564,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("InventoryStatusId");
 
                     b.HasIndex("ItemId");
@@ -4266,10 +4576,10 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("SerialNumberId");
 
-                    b.HasIndex("LicensePlateId", "ItemId", "LotId", "SerialNumberId", "InventoryStatusId", "ItemPackagingId")
+                    b.HasIndex("LicensePlateId", "ItemId", "LotId", "SerialNumberId", "InventoryStatusId", "ItemPackagingId", "OwnerKind", "InventoryOwnerId")
                         .IsUnique();
 
-                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("LicensePlateId", "ItemId", "LotId", "SerialNumberId", "InventoryStatusId", "ItemPackagingId"), false);
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("LicensePlateId", "ItemId", "LotId", "SerialNumberId", "InventoryStatusId", "ItemPackagingId", "OwnerKind", "InventoryOwnerId"), false);
 
                     b.ToTable("LicensePlateContents", null, t =>
                         {
@@ -4660,6 +4970,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<int?>("FromLocationId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -4675,6 +4988,14 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
+                        .HasColumnType("integer");
 
                     b.Property<string>("PackagingCode")
                         .HasMaxLength(40)
@@ -4792,6 +5113,8 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.HasIndex("FromLicensePlateId");
 
                     b.HasIndex("FromLocationId");
+
+                    b.HasIndex("InventoryOwnerId");
 
                     b.HasIndex("InventoryStatusId");
 
@@ -6860,6 +7183,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<DateTime?>("ExpiryDateSnapshot")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("InventoryStatusCodeSnapshot")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -6904,6 +7230,14 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
+                        .HasColumnType("integer");
 
                     b.Property<string>("PackagingCode")
                         .HasMaxLength(40)
@@ -6994,6 +7328,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("AdvanceShippingNoticeLineId");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("InventoryStatusId");
 
                     b.HasIndex("ItemId");
@@ -7005,6 +7341,8 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.HasIndex("PurchaseOrderLineId");
 
                     b.HasIndex("ReceivingLocationId");
+
+                    b.HasIndex("OwnerKind", "InventoryOwnerId");
 
                     b.HasIndex("ReceiptId", "LineNumber")
                         .IsUnique();
@@ -8609,6 +8947,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<decimal?>("ExpectedWeightKg")
                         .HasColumnType("decimal(28,12)");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -8616,6 +8957,14 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("Quantity")
@@ -8649,6 +8998,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("InventoryStatusId");
 
                     b.HasIndex("ItemId");
@@ -8663,7 +9014,7 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("SalesOrderLineId", "ItemId");
 
-                    b.HasIndex("ShipmentPackageId", "SalesOrderLineId", "ItemId", "LotId", "SerialNumberId", "SourceLicensePlateId");
+                    b.HasIndex("ShipmentPackageId", "SalesOrderLineId", "ItemId", "LotId", "SerialNumberId", "SourceLicensePlateId", "OwnerKind", "InventoryOwnerId");
 
                     b.ToTable("ShipmentPackageContents", (string)null);
                 });
@@ -8999,6 +9350,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -9012,6 +9366,14 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("QuantityAvailable")
@@ -9037,6 +9399,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("InventoryStatusId");
 
                     b.HasIndex("ItemId");
@@ -9049,10 +9413,10 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("SerialNumberId");
 
-                    b.HasIndex("ItemId", "LocationId", "LotId", "SerialNumber", "InventoryStatusId", "LicensePlateId")
+                    b.HasIndex("ItemId", "LocationId", "LotId", "SerialNumber", "InventoryStatusId", "LicensePlateId", "OwnerKind", "InventoryOwnerId")
                         .IsUnique();
 
-                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("ItemId", "LocationId", "LotId", "SerialNumber", "InventoryStatusId", "LicensePlateId"), false);
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("ItemId", "LocationId", "LotId", "SerialNumber", "InventoryStatusId", "LicensePlateId", "OwnerKind", "InventoryOwnerId"), false);
 
                     b.ToTable("Stock", null, t =>
                         {
@@ -9789,6 +10153,9 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<int>("DestinationLocationId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("ItemId")
                         .HasColumnType("integer");
 
@@ -9801,6 +10168,14 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("ReceivedQuantity")
                         .HasColumnType("numeric(28,12)");
@@ -9846,6 +10221,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("DestinationLocationId");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("LicensePlateId");
 
                     b.HasIndex("LotId");
@@ -9853,6 +10230,8 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.HasIndex("SerialNumberId");
 
                     b.HasIndex("SourceLocationId");
+
+                    b.HasIndex("OwnerKind", "InventoryOwnerId");
 
                     b.HasIndex("TransferOrderId", "Sequence")
                         .IsUnique();
@@ -10376,6 +10755,9 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<int?>("InventoryOwnerId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("InventoryStatusId")
                         .HasColumnType("integer");
 
@@ -10386,6 +10768,14 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("LotId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OwnerCodeSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("OwnerKind")
                         .HasColumnType("integer");
 
                     b.Property<decimal>("PlannedQuantity")
@@ -10431,6 +10821,8 @@ namespace Wms.Infrastructure.Database.Migrations
 
                     b.HasIndex("DestinationLocationId");
 
+                    b.HasIndex("InventoryOwnerId");
+
                     b.HasIndex("InventoryStatusId");
 
                     b.HasIndex("LicensePlateId");
@@ -10442,6 +10834,8 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.HasIndex("SourceLocationId");
 
                     b.HasIndex("WarehouseId");
+
+                    b.HasIndex("OwnerKind", "InventoryOwnerId");
 
                     b.HasIndex("ReservationId", "ReservationAllocationId");
 
@@ -12202,6 +12596,11 @@ namespace Wms.Infrastructure.Database.Migrations
 
             modelBuilder.Entity("Wms.Domain.Entities.CycleCountLine", b =>
                 {
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -12247,6 +12646,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasPrincipalKey("WarehouseId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -12407,6 +12808,11 @@ namespace Wms.Infrastructure.Database.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.Item", "Item")
                         .WithMany()
                         .HasForeignKey("ItemId")
@@ -12441,6 +12847,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .IsRequired();
 
                     b.Navigation("DestinationLocation");
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("Item");
 
@@ -12483,6 +12891,11 @@ namespace Wms.Infrastructure.Database.Migrations
 
             modelBuilder.Entity("Wms.Domain.Entities.InventoryBalance", b =>
                 {
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -12522,6 +12935,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasPrincipalKey("WarehouseId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -12692,6 +13107,93 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Navigation("Warehouse");
                 });
 
+            modelBuilder.Entity("Wms.Domain.Entities.InventoryOwner", b =>
+                {
+                    b.HasOne("Wms.Domain.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("Wms.Domain.Entities.InventoryOwnershipTransfer", b =>
+                {
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "DestinationOwner")
+                        .WithMany()
+                        .HasForeignKey("DestinationInventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
+                        .WithMany()
+                        .HasForeignKey("InventoryStatusId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.LicensePlate", "LicensePlate")
+                        .WithMany()
+                        .HasForeignKey("LicensePlateId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Wms.Domain.Entities.Lot", "Lot")
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.SerialNumber", "Serial")
+                        .WithMany()
+                        .HasForeignKey("SerialNumberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "SourceOwner")
+                        .WithMany()
+                        .HasForeignKey("SourceInventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Wms.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("DestinationOwner");
+
+                    b.Navigation("InventoryStatus");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("LicensePlate");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("Lot");
+
+                    b.Navigation("Serial");
+
+                    b.Navigation("SourceOwner");
+
+                    b.Navigation("Warehouse");
+                });
+
             modelBuilder.Entity("Wms.Domain.Entities.InventoryRecallCase", b =>
                 {
                     b.HasOne("Wms.Domain.Entities.Item", "Item")
@@ -12779,6 +13281,11 @@ namespace Wms.Infrastructure.Database.Migrations
 
             modelBuilder.Entity("Wms.Domain.Entities.InventoryReservationAllocation", b =>
                 {
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -12824,6 +13331,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasPrincipalKey("WarehouseId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -12891,6 +13400,11 @@ namespace Wms.Infrastructure.Database.Migrations
 
             modelBuilder.Entity("Wms.Domain.Entities.InventoryTransaction", b =>
                 {
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -12940,6 +13454,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasPrincipalKey("WarehouseId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -13044,6 +13560,11 @@ namespace Wms.Infrastructure.Database.Migrations
 
             modelBuilder.Entity("Wms.Domain.Entities.LicensePlateContent", b =>
                 {
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -13076,6 +13597,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .WithMany()
                         .HasForeignKey("SerialNumberId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -13190,6 +13713,11 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasForeignKey("FromLocationId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -13266,6 +13794,8 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Navigation("FromLicensePlate");
 
                     b.Navigation("FromLocation");
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -14030,6 +14560,11 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasForeignKey("AdvanceShippingNoticeLineId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -14071,6 +14606,8 @@ namespace Wms.Infrastructure.Database.Migrations
                     b.Navigation("AdvanceShippingNotice");
 
                     b.Navigation("AdvanceShippingNoticeLine");
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -14559,6 +15096,11 @@ namespace Wms.Infrastructure.Database.Migrations
 
             modelBuilder.Entity("Wms.Domain.Entities.ShipmentPackageContent", b =>
                 {
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -14603,6 +15145,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasForeignKey("SourceLocationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -14715,6 +15259,11 @@ namespace Wms.Infrastructure.Database.Migrations
 
             modelBuilder.Entity("Wms.Domain.Entities.Stock", b =>
                 {
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -14747,6 +15296,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .WithMany()
                         .HasForeignKey("SerialNumberId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 
@@ -15018,6 +15569,11 @@ namespace Wms.Infrastructure.Database.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.Item", "Item")
                         .WithMany()
                         .HasForeignKey("ItemId")
@@ -15052,6 +15608,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .IsRequired();
 
                     b.Navigation("DestinationLocation");
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("Item");
 
@@ -15144,6 +15702,11 @@ namespace Wms.Infrastructure.Database.Migrations
                         .HasForeignKey("DestinationLocationId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Wms.Domain.Entities.InventoryOwner", "InventoryOwner")
+                        .WithMany()
+                        .HasForeignKey("InventoryOwnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Wms.Domain.Entities.InventoryStatus", "InventoryStatus")
                         .WithMany()
                         .HasForeignKey("InventoryStatusId")
@@ -15188,6 +15751,8 @@ namespace Wms.Infrastructure.Database.Migrations
                         .IsRequired();
 
                     b.Navigation("DestinationLocation");
+
+                    b.Navigation("InventoryOwner");
 
                     b.Navigation("InventoryStatus");
 

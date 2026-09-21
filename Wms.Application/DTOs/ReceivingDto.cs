@@ -1,5 +1,7 @@
 // Wms.Application/DTOs/ReceivingDto.cs
 
+using Wms.Domain.Enums;
+
 namespace Wms.Application.DTOs;
 
 public record ReceiveItemDto(
@@ -19,7 +21,10 @@ public record ReceiveItemDto(
     int? PurchaseOrderLineId = null,
     int? AdvanceShippingNoticeId = null,
     int? AdvanceShippingNoticeLineId = null,
-    string? SessionReference = null
+    string? SessionReference = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null
 );
 
 public record PutawayDto(

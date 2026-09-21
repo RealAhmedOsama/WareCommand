@@ -1,6 +1,7 @@
 // Wms.Domain/Services/IStockMovementService.cs
 
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Domain.Services;
@@ -13,7 +14,9 @@ public interface IStockMovementService
     Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
         string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null, int? receiptId = null, int? receiptLineId = null);
+        int? licensePlateId = null, int? receiptId = null, int? receiptLineId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null);
 
     Task<Movement> ReverseReceiptAsync(
         int receiptId,
@@ -26,15 +29,20 @@ public interface IStockMovementService
     Task<Movement> PutawayAsync(int itemId, int fromLocationId, int toLocationId,
         Quantity quantity, string userId, int? lotId = null, string? serialNumber = null,
         string? referenceNumber = null, string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null);
+        int? licensePlateId = null, InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null);
 
     Task<Movement> PickAsync(int itemId, int fromLocationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
         string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null, int? inventoryStatusId = null, bool recordLedger = true);
+        int? licensePlateId = null, int? inventoryStatusId = null, bool recordLedger = true,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null);
 
     Task<Movement> AdjustAsync(int itemId, int locationId, Quantity newQuantity, string userId,
         string reason, int? lotId = null, string? serialNumber = null,
-        CancellationToken cancellationToken = default, int? licensePlateId = null);
+        CancellationToken cancellationToken = default, int? licensePlateId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null);
 }
 #pragma warning restore CA1068

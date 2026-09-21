@@ -27,6 +27,8 @@ public sealed class LicensePlateContentConfiguration : IEntityTypeConfiguration<
         builder.Property(content => content.Revision)
             .IsRequired()
             .IsConcurrencyToken();
+        builder.Property(content => content.OwnerKind).HasConversion<int>().IsRequired();
+        builder.Property(content => content.OwnerCodeSnapshot).HasMaxLength(80).IsRequired();
 
         builder.HasOne(content => content.LicensePlate)
             .WithMany(plate => plate.Contents)
@@ -52,6 +54,10 @@ public sealed class LicensePlateContentConfiguration : IEntityTypeConfiguration<
             .WithMany()
             .HasForeignKey(content => content.ItemPackagingId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(content => content.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(content => content.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(content => new
         {
@@ -60,7 +66,9 @@ public sealed class LicensePlateContentConfiguration : IEntityTypeConfiguration<
             content.LotId,
             content.SerialNumberId,
             content.InventoryStatusId,
-            content.ItemPackagingId
+            content.ItemPackagingId,
+            content.OwnerKind,
+            content.InventoryOwnerId
         })
             .IsUnique()
             .AreNullsDistinct(false);

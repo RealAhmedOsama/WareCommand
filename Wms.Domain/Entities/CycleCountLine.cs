@@ -1,5 +1,6 @@
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Domain.Entities;
 
@@ -22,7 +23,10 @@ public sealed class CycleCountLine : Entity
         string? serialNumber,
         int? licensePlateId,
         int inventoryStatusId,
-        bool emptyLocationCandidate)
+        bool emptyLocationCandidate,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(taskId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequence);
@@ -49,6 +53,12 @@ public sealed class CycleCountLine : Entity
         LicensePlateId = licensePlateId;
         InventoryStatusId = inventoryStatusId;
         EmptyLocationCandidate = emptyLocationCandidate;
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         Status = CycleCountLineStatus.Pending;
         Revision = 1;
     }
@@ -67,6 +77,9 @@ public sealed class CycleCountLine : Entity
     public string? SerialNumber { get; private set; }
     public int? LicensePlateId { get; private set; }
     public int InventoryStatusId { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public bool EmptyLocationCandidate { get; private set; }
     public bool EmptyLocationConfirmed { get; private set; }
     public CycleCountLineStatus Status { get; private set; }
@@ -80,6 +93,7 @@ public sealed class CycleCountLine : Entity
     public SerialNumber? Serial { get; private set; }
     public LicensePlate? LicensePlate { get; private set; }
     public InventoryStatus InventoryStatus { get; private set; } = null!;
+    public InventoryOwner? InventoryOwner { get; private set; }
 
     public void RecordCount(decimal countedQuantity, bool emptyLocationConfirmed = false)
     {

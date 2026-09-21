@@ -1,6 +1,7 @@
 // Wms.Domain/Repositories/IStockRepository.cs
 
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Domain.Repositories;
@@ -15,14 +16,18 @@ public interface IStockRepository : IRepository<Stock>
 
     Task<Stock?> GetByItemAndLocationAsync(int itemId, int locationId, int? lotId = null,
         string? serialNumber = null, int? serialNumberId = null,
-        CancellationToken cancellationToken = default, int? licensePlateId = null);
+        CancellationToken cancellationToken = default, int? licensePlateId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null);
 
     Task<IEnumerable<Stock>> GetByItemAndLocationCandidatesAsync(
         int itemId,
         int locationId,
         string? serialNumber = null,
         CancellationToken cancellationToken = default,
-        int? licensePlateId = null);
+        int? licensePlateId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null);
 
     Task<IEnumerable<Stock>> GetByLotIdAsync(
         int lotId,

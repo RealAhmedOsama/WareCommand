@@ -59,7 +59,9 @@ public class StockMovementService : IStockMovementService
     public async Task<Movement> ReceiveAsync(int itemId, int locationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
         string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null, int? receiptId = null, int? receiptLineId = null)
+        int? licensePlateId = null, int? receiptId = null, int? receiptLineId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -101,7 +103,9 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 inboundStatusId,
                 licensePlateId,
-                cancellationToken);
+                cancellationToken,
+                ownerKind,
+                inventoryOwnerId);
             await EnsureInboundCapacityAsync(
                 location,
                 itemId,
@@ -121,6 +125,7 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 inboundStatusId,
                 toLicensePlateId: licensePlateId);
+            movement.SetOwnership(ownerKind, inventoryOwnerId, ownerCodeSnapshot);
 
             if (receiptId.HasValue != receiptLineId.HasValue)
             {
@@ -151,7 +156,10 @@ public class StockMovementService : IStockMovementService
                     serial?.Number ?? serialNumber,
                     serial?.Id,
                     inboundStatusId,
-                    licensePlateId);
+                    licensePlateId,
+                    ownerKind,
+                    inventoryOwnerId,
+                    ownerCodeSnapshot);
                 await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
             }
 
@@ -194,7 +202,10 @@ public class StockMovementService : IStockMovementService
                                 serial?.Number ?? serialNumber,
                                 licensePlateId,
                                 inboundStatusId,
-                                item.UnitOfMeasure),
+                                item.UnitOfMeasure,
+                                ownerKind,
+                                inventoryOwnerId,
+                                ownerCodeSnapshot),
                             quantity.Value,
                             ActorUserId: userId,
                             ReferenceType: "Movement",
@@ -291,7 +302,9 @@ public class StockMovementService : IStockMovementService
             originalMovement.SerialNumberId,
             originalMovement.InventoryStatusId,
             licensePlateId,
-            cancellationToken);
+            cancellationToken,
+            originalMovement.OwnerKind,
+            originalMovement.InventoryOwnerId);
         if (stock is null || stock.GetAvailableQuantity() < quantity)
         {
             throw new InvalidOperationException(
@@ -318,6 +331,10 @@ public class StockMovementService : IStockMovementService
             before,
             -quantity.Value,
             after);
+        reversal.SetOwnership(
+            originalMovement.OwnerKind,
+            originalMovement.InventoryOwnerId,
+            originalMovement.OwnerCodeSnapshot);
         reversal.LinkReceipt(
             receiptId,
             receiptLineId,
@@ -355,7 +372,10 @@ public class StockMovementService : IStockMovementService
                             originalMovement.SerialNumber,
                             licensePlateId,
                             originalMovement.InventoryStatusId,
-                            item.UnitOfMeasure),
+                            item.UnitOfMeasure,
+                            originalMovement.OwnerKind,
+                            originalMovement.InventoryOwnerId,
+                            originalMovement.OwnerCodeSnapshot),
                         -quantity.Value,
                         ActorUserId: userId,
                         ReferenceType: "Receipt",
@@ -396,7 +416,8 @@ public class StockMovementService : IStockMovementService
     public async Task<Movement> PutawayAsync(int itemId, int fromLocationId, int toLocationId,
         Quantity quantity, string userId, int? lotId = null, string? serialNumber = null,
         string? referenceNumber = null, string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null)
+        int? licensePlateId = null, InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null)
     {
         var fromLocation = await _unitOfWork.Locations.GetByIdAsync(fromLocationId, cancellationToken);
         var toLocation = await _unitOfWork.Locations.GetByIdAsync(toLocationId, cancellationToken);
@@ -438,7 +459,9 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 statusId: null,
                 licensePlateId,
-                cancellationToken);
+                cancellationToken,
+                ownerKind,
+                inventoryOwnerId);
 
             if (sourceStock == null)
             {
@@ -471,7 +494,9 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 destinationStatusId,
                 licensePlateId,
-                cancellationToken);
+                cancellationToken,
+                sourceStock.OwnerKind,
+                sourceStock.InventoryOwnerId);
             await EnsureInboundCapacityAsync(
                 toLocation,
                 itemId,
@@ -503,6 +528,10 @@ public class StockMovementService : IStockMovementService
                 destinationStatusId,
                 fromLicensePlateId: licensePlateId,
                 toLicensePlateId: licensePlateId);
+            movement.SetOwnership(
+                sourceStock.OwnerKind,
+                sourceStock.InventoryOwnerId,
+                sourceStock.OwnerCodeSnapshot);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -526,7 +555,10 @@ public class StockMovementService : IStockMovementService
                     serial?.Number ?? serialNumber,
                     serial?.Id,
                     destinationStatusId,
-                    licensePlateId);
+                    licensePlateId,
+                    sourceStock.OwnerKind,
+                    sourceStock.InventoryOwnerId,
+                    sourceStock.OwnerCodeSnapshot);
                 await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
             }
 
@@ -560,7 +592,10 @@ public class StockMovementService : IStockMovementService
                     serial?.Number ?? serialNumber,
                     licensePlateId,
                     sourceStock.InventoryStatusId,
-                    item.UnitOfMeasure);
+                    item.UnitOfMeasure,
+                    sourceStock.OwnerKind,
+                    sourceStock.InventoryOwnerId,
+                    sourceStock.OwnerCodeSnapshot);
                 var destinationKey = new InventoryBalanceKey(
                     toLocation!.WarehouseId,
                     toLocationId,
@@ -570,7 +605,10 @@ public class StockMovementService : IStockMovementService
                     serial?.Number ?? serialNumber,
                     licensePlateId,
                     destinationStatusId,
-                    item.UnitOfMeasure);
+                    item.UnitOfMeasure,
+                    sourceStock.OwnerKind,
+                    sourceStock.InventoryOwnerId,
+                    sourceStock.OwnerCodeSnapshot);
                 await _inventoryLedgerService.RecordAsync(
                     new[]
                     {
@@ -654,7 +692,9 @@ public class StockMovementService : IStockMovementService
     public async Task<Movement> PickAsync(int itemId, int fromLocationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
         string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null, int? inventoryStatusId = null, bool recordLedger = true)
+        int? licensePlateId = null, int? inventoryStatusId = null, bool recordLedger = true,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(fromLocationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -695,7 +735,9 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 statusId: inventoryStatusId,
                 licensePlateId,
-                cancellationToken);
+                cancellationToken,
+                ownerKind,
+                inventoryOwnerId);
 
             if (sourceStock == null)
             {
@@ -724,6 +766,10 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 sourceStock.InventoryStatusId,
                 fromLicensePlateId: licensePlateId);
+            movement.SetOwnership(
+                sourceStock.OwnerKind,
+                sourceStock.InventoryOwnerId,
+                sourceStock.OwnerCodeSnapshot);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -756,7 +802,10 @@ public class StockMovementService : IStockMovementService
                                 serial?.Number ?? serialNumber,
                                 sourceStock.LicensePlateId,
                                 sourceStock.InventoryStatusId,
-                                item.UnitOfMeasure),
+                                item.UnitOfMeasure,
+                                sourceStock.OwnerKind,
+                                sourceStock.InventoryOwnerId,
+                                sourceStock.OwnerCodeSnapshot),
                             -quantity.Value,
                             ActorUserId: userId,
                             ReferenceType: "Movement",
@@ -819,7 +868,9 @@ public class StockMovementService : IStockMovementService
 
     public async Task<Movement> AdjustAsync(int itemId, int locationId, Quantity newQuantity, string userId,
         string reason, int? lotId = null, string? serialNumber = null,
-        CancellationToken cancellationToken = default, int? licensePlateId = null)
+        CancellationToken cancellationToken = default, int? licensePlateId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -858,7 +909,9 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 statusId: null,
                 licensePlateId,
-                cancellationToken);
+                cancellationToken,
+                ownerKind,
+                inventoryOwnerId);
             var adjustmentStatusId = stock?.InventoryStatusId ?? await ResolveInboundStatusIdAsync(
                 location,
                 itemId,
@@ -886,7 +939,10 @@ public class StockMovementService : IStockMovementService
                         serial?.Number ?? serialNumber,
                         serial?.Id,
                         adjustmentStatusId,
-                        licensePlateId);
+                        licensePlateId,
+                        ownerKind,
+                        inventoryOwnerId,
+                        ownerCodeSnapshot);
                     await _unitOfWork.Stock.AddAsync(newStock, cancellationToken);
                 }
             }
@@ -919,6 +975,7 @@ public class StockMovementService : IStockMovementService
                 adjustmentBeforeQuantity: quantityBefore,
                 adjustmentDelta: adjustmentDelta,
                 adjustmentAfterQuantity: newQuantity.Value);
+            movement.SetOwnership(ownerKind, inventoryOwnerId, ownerCodeSnapshot);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
 
@@ -977,7 +1034,10 @@ public class StockMovementService : IStockMovementService
                                 serial?.Number ?? serialNumber,
                                 licensePlateId,
                                 adjustmentStatusId,
-                                item.UnitOfMeasure),
+                                item.UnitOfMeasure,
+                                ownerKind,
+                                inventoryOwnerId,
+                                ownerCodeSnapshot),
                             adjustmentDelta,
                             ActorUserId: userId,
                             ReferenceType: "Movement",
@@ -1379,18 +1439,30 @@ public class StockMovementService : IStockMovementService
         int? serialNumberId,
         int? statusId,
         int? licensePlateId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
+        var normalizedOwnerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         if (_inventoryStatusService is null && !statusId.HasValue)
         {
-            return await _unitOfWork.Stock.GetByItemAndLocationAsync(
+            var stock = await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 itemId,
                 locationId,
                 lotId,
                 serialNumber,
                 serialNumberId,
                 cancellationToken,
-                licensePlateId);
+                licensePlateId,
+                ownerKind,
+                inventoryOwnerId);
+            return stock is null || stock.OwnerCodeSnapshot == normalizedOwnerCode
+                ? stock
+                : null;
         }
 
         var candidates = (await _unitOfWork.Stock.GetByLocationIdAsync(
@@ -1401,7 +1473,10 @@ public class StockMovementService : IStockMovementService
                 stock,
                 serialNumber,
                 serialNumberId))
-            .Where(stock => stock.LicensePlateId == licensePlateId);
+            .Where(stock => stock.LicensePlateId == licensePlateId)
+            .Where(stock => stock.OwnerKind == ownerKind &&
+                            stock.InventoryOwnerId == inventoryOwnerId &&
+                            stock.OwnerCodeSnapshot == normalizedOwnerCode);
         if (statusId.HasValue)
         {
             candidates = candidates.Where(stock => stock.InventoryStatusId == statusId.Value);

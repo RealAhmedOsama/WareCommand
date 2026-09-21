@@ -147,7 +147,10 @@ public sealed class PutawayWarehouseWorkCompletionHandler(
                 work.WorkNumber,
                 input.CompletionReference,
                 cancellationToken,
-                line.LicensePlateId);
+                line.LicensePlateId,
+                line.OwnerKind,
+                line.InventoryOwnerId,
+                line.OwnerCodeSnapshot);
             if (movement.Id > 0)
             {
                 movementIds.Add(movement.Id);

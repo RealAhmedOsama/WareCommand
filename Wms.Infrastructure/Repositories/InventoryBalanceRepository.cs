@@ -35,6 +35,8 @@ public sealed class InventoryBalanceRepository : IInventoryBalanceRepository
                        balance.SerialNumber == key.SerialNumber &&
                        balance.LicensePlateId == key.LicensePlateId &&
                        balance.InventoryStatusId == key.InventoryStatusId &&
+                       balance.OwnerKind == key.OwnerKind &&
+                       balance.InventoryOwnerId == key.InventoryOwnerId &&
                        balance.BaseUnitOfMeasure == key.BaseUnitOfMeasure,
             cancellationToken);
     }
@@ -52,6 +54,8 @@ public sealed class InventoryBalanceRepository : IInventoryBalanceRepository
                             stock.LocationId == key.LocationId &&
                             stock.LotId == key.LotId &&
                             stock.InventoryStatusId == key.InventoryStatusId &&
+                            stock.OwnerKind == key.OwnerKind &&
+                            stock.InventoryOwnerId == key.InventoryOwnerId &&
                             stock.LicensePlateId == key.LicensePlateId &&
                             stock.Item.UnitOfMeasure == key.BaseUnitOfMeasure)
             .Where(stock => key.SerialNumberId.HasValue

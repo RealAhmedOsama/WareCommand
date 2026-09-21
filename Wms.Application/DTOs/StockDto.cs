@@ -1,5 +1,8 @@
 // Wms.Application/DTOs/StockDto.cs
 
+using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
+
 namespace Wms.Application.DTOs;
 
 public record StockDto(
@@ -31,7 +34,10 @@ public record StockDto(
     decimal? HeldQuantity = null,
     decimal? InTransitQuantity = null,
     decimal? OrderedQuantity = null,
-    DateTime? ExpiryDate = null
+    DateTime? ExpiryDate = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode
 );
 
 public record StockSummaryDto(
@@ -43,5 +49,8 @@ public record StockSummaryDto(
     int LocationCount,
     string? InventoryStatusCode = null,
     string? InventoryStatusName = null,
-    bool IsAllocatable = false
+    bool IsAllocatable = false,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode
 );

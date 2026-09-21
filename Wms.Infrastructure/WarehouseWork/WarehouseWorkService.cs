@@ -148,7 +148,10 @@ public sealed class WarehouseWorkService(
                             SerialNumber: input.SerialNumber,
                             LicensePlateId: input.LicensePlateId,
                             InventoryStatusId: input.InventoryStatusId,
-                            SourceReference: input.SourceReference)
+                            SourceReference: input.SourceReference,
+                            OwnerKind: input.OwnerKind,
+                            InventoryOwnerId: input.InventoryOwnerId,
+                            OwnerCodeSnapshot: input.OwnerCodeSnapshot)
                     ]),
                 userId,
                 WmsPermissions.WorkExecute,
@@ -265,7 +268,10 @@ public sealed class WarehouseWorkService(
                     line.SourceReference,
                     line.DimensionsSnapshot,
                     line.ReservationId,
-                    line.ReservationAllocationId));
+                    line.ReservationAllocationId,
+                    line.OwnerKind,
+                    line.InventoryOwnerId,
+                    line.OwnerCodeSnapshot));
             }
 
             if (input.MakeAvailable)
@@ -1053,5 +1059,8 @@ public sealed class WarehouseWorkService(
         line.DimensionsSnapshot,
         line.Revision,
         line.ReservationId,
-        line.ReservationAllocationId);
+        line.ReservationAllocationId,
+        line.OwnerKind,
+        line.InventoryOwnerId,
+        line.OwnerCodeSnapshot);
 }

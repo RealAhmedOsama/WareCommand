@@ -18,6 +18,8 @@ public sealed class CycleCountLineConfiguration : IEntityTypeConfiguration<Cycle
         builder.Property(line => line.BaseUnitOfMeasure).HasMaxLength(20).IsRequired();
         builder.Property(line => line.SerialNumber).HasMaxLength(100);
         builder.Property(line => line.Status).HasConversion<int>().IsRequired();
+        builder.Property(line => line.OwnerKind).HasConversion<int>().IsRequired();
+        builder.Property(line => line.OwnerCodeSnapshot).HasMaxLength(80).IsRequired();
         builder.Property(line => line.Revision).IsRequired().IsConcurrencyToken();
         builder.Property(line => line.CreatedAt).HasColumnType("timestamp with time zone").IsRequired();
         builder.Property(line => line.UpdatedAt).HasColumnType("timestamp with time zone");
@@ -55,6 +57,10 @@ public sealed class CycleCountLineConfiguration : IEntityTypeConfiguration<Cycle
             .WithMany()
             .HasForeignKey(line => line.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(line => line.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(line => line.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(line => new { line.TaskId, line.Sequence }).IsUnique();
         builder.HasIndex(line => new
         {
@@ -64,7 +70,10 @@ public sealed class CycleCountLineConfiguration : IEntityTypeConfiguration<Cycle
             line.LotId,
             line.SerialNumberId,
             line.LicensePlateId,
-            line.InventoryStatusId
+            line.InventoryStatusId,
+            line.OwnerKind,
+            line.InventoryOwnerId
         });
+        builder.HasIndex(line => new { line.OwnerKind, line.InventoryOwnerId });
     }
 }

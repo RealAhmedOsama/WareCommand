@@ -224,7 +224,10 @@ public sealed class InventoryReconciliationService(
                         transaction.SerialNumber,
                         transaction.LicensePlateId,
                         transaction.InventoryStatusId,
-                        transaction.BaseUnitOfMeasure
+                        transaction.BaseUnitOfMeasure,
+                        transaction.OwnerKind,
+                        transaction.InventoryOwnerId,
+                        transaction.OwnerCodeSnapshot
                     })
                     .Distinct()
                     .ToListAsync(cancellationToken))
@@ -237,7 +240,10 @@ public sealed class InventoryReconciliationService(
                     row.SerialNumber,
                     row.LicensePlateId,
                     row.InventoryStatusId,
-                    row.BaseUnitOfMeasure))
+                    row.BaseUnitOfMeasure,
+                    row.OwnerKind,
+                    row.InventoryOwnerId,
+                    row.OwnerCodeSnapshot))
                 .ToHashSet();
 
             foreach (var balance in balanceBatch)
@@ -595,7 +601,10 @@ public sealed class InventoryReconciliationService(
                         allocation.SerialNumber,
                         allocation.LicensePlateId,
                         allocation.InventoryStatusId,
-                        allocation.BaseUnitOfMeasure
+                        allocation.BaseUnitOfMeasure,
+                        allocation.OwnerKind,
+                        allocation.InventoryOwnerId,
+                        allocation.OwnerCodeSnapshot
                     })
                     .Distinct()
                     .ToListAsync(cancellationToken))
@@ -608,7 +617,10 @@ public sealed class InventoryReconciliationService(
                     row.SerialNumber,
                     row.LicensePlateId,
                     row.InventoryStatusId,
-                    row.BaseUnitOfMeasure))
+                    row.BaseUnitOfMeasure,
+                    row.OwnerKind,
+                    row.InventoryOwnerId,
+                    row.OwnerCodeSnapshot))
                 .ToHashSet();
 
             foreach (var balance in balanceBatch)
@@ -1275,7 +1287,10 @@ public sealed class InventoryReconciliationService(
                 transaction.SerialNumber,
                 transaction.LicensePlateId,
                 transaction.InventoryStatusId,
-                transaction.BaseUnitOfMeasure
+                transaction.BaseUnitOfMeasure,
+                transaction.OwnerKind,
+                transaction.InventoryOwnerId,
+                transaction.OwnerCodeSnapshot
             })
             .Select(group => new LedgerAggregateRow
             {
@@ -1310,7 +1325,10 @@ public sealed class InventoryReconciliationService(
                 allocation.SerialNumber,
                 allocation.LicensePlateId,
                 allocation.InventoryStatusId,
-                allocation.BaseUnitOfMeasure
+                allocation.BaseUnitOfMeasure,
+                allocation.OwnerKind,
+                allocation.InventoryOwnerId,
+                allocation.OwnerCodeSnapshot
             })
             .Select(group => new AllocationAggregateRow
             {
@@ -1393,7 +1411,10 @@ public sealed class InventoryReconciliationService(
             key.SerialNumberId,
             key.LicensePlateId,
             key.InventoryStatusId,
-            key.BaseUnitOfMeasure);
+            key.BaseUnitOfMeasure,
+            key.OwnerKind,
+            key.InventoryOwnerId,
+            key.OwnerCodeSnapshot);
 
     private static string FormatDimension(
         int warehouseId,
@@ -1403,14 +1424,18 @@ public sealed class InventoryReconciliationService(
         int? serialNumberId,
         int? licensePlateId,
         int inventoryStatusId,
-        string baseUnitOfMeasure) =>
+        string baseUnitOfMeasure,
+        InventoryOwnerKind ownerKind,
+        int? inventoryOwnerId,
+        string ownerCodeSnapshot) =>
         $"warehouse={warehouseId.ToString(CultureInfo.InvariantCulture)};" +
         $"location={locationId.ToString(CultureInfo.InvariantCulture)};" +
         $"item={itemId.ToString(CultureInfo.InvariantCulture)};" +
         $"lot={lotId?.ToString(CultureInfo.InvariantCulture) ?? "-"};" +
         $"serial={serialNumberId?.ToString(CultureInfo.InvariantCulture) ?? "-"};" +
         $"lpn={licensePlateId?.ToString(CultureInfo.InvariantCulture) ?? "-"};" +
-        $"status={inventoryStatusId.ToString(CultureInfo.InvariantCulture)};uom={baseUnitOfMeasure}";
+        $"status={inventoryStatusId.ToString(CultureInfo.InvariantCulture)};uom={baseUnitOfMeasure};" +
+        $"owner={ownerKind}:{inventoryOwnerId?.ToString(CultureInfo.InvariantCulture) ?? "-"}:{ownerCodeSnapshot}";
 
     private static InventoryBalanceKey ToKey(LedgerAggregateRow row) => new(
         row.WarehouseId,
@@ -1421,7 +1446,10 @@ public sealed class InventoryReconciliationService(
         row.SerialNumber,
         row.LicensePlateId,
         row.InventoryStatusId,
-        row.BaseUnitOfMeasure);
+        row.BaseUnitOfMeasure,
+        row.OwnerKind,
+        row.InventoryOwnerId,
+        row.OwnerCodeSnapshot);
 
     private static InventoryBalanceKey ToKey(AllocationAggregateRow row) => new(
         row.WarehouseId,
@@ -1432,7 +1460,10 @@ public sealed class InventoryReconciliationService(
         row.SerialNumber,
         row.LicensePlateId,
         row.InventoryStatusId,
-        row.BaseUnitOfMeasure);
+        row.BaseUnitOfMeasure,
+        row.OwnerKind,
+        row.InventoryOwnerId,
+        row.OwnerCodeSnapshot);
 
     private static Expression<Func<InventoryBalance, bool>> BuildBalanceKeyPredicate(
         IReadOnlyCollection<InventoryBalanceKey> keys) =>
@@ -1457,45 +1488,53 @@ public sealed class InventoryReconciliationService(
                 Expression.Equal(
                     Expression.Property(parameter, nameof(InventoryBalance.WarehouseId)),
                     Expression.Constant(key.WarehouseId)),
-                Expression.AndAlso(
-                    Expression.Equal(
-                        Expression.Property(parameter, nameof(InventoryBalance.LocationId)),
-                        Expression.Constant(key.LocationId)),
-                    Expression.AndAlso(
-                        Expression.Equal(
-                            Expression.Property(parameter, nameof(InventoryBalance.ItemId)),
-                            Expression.Constant(key.ItemId)),
-                        Expression.AndAlso(
-                            EqualNullable(
-                                parameter,
-                                nameof(InventoryBalance.LotId),
-                                key.LotId),
-                            Expression.AndAlso(
-                                EqualNullable(
-                                    parameter,
-                                    nameof(InventoryBalance.SerialNumberId),
-                                    key.SerialNumberId),
-                                Expression.AndAlso(
-                                    EqualNullable(
-                                        parameter,
-                                        nameof(InventoryBalance.SerialNumber),
-                                        key.SerialNumber),
-                                    Expression.AndAlso(
-                                        EqualNullable(
-                                            parameter,
-                                            nameof(InventoryBalance.LicensePlateId),
-                                            key.LicensePlateId),
-                                        Expression.AndAlso(
-                                            Expression.Equal(
-                                                Expression.Property(
-                                                    parameter,
-                                                    nameof(InventoryBalance.InventoryStatusId)),
-                                                Expression.Constant(key.InventoryStatusId)),
-                                            Expression.Equal(
-                                                Expression.Property(
-                                                    parameter,
-                                                    nameof(InventoryBalance.BaseUnitOfMeasure)),
-                                                Expression.Constant(key.BaseUnitOfMeasure))))))))));
+                Expression.Equal(
+                    Expression.Property(parameter, nameof(InventoryBalance.LocationId)),
+                    Expression.Constant(key.LocationId)));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                Expression.Equal(
+                    Expression.Property(parameter, nameof(InventoryBalance.ItemId)),
+                    Expression.Constant(key.ItemId)));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                EqualNullable(parameter, nameof(InventoryBalance.LotId), key.LotId));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                EqualNullable(parameter, nameof(InventoryBalance.SerialNumberId), key.SerialNumberId));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                EqualNullable(parameter, nameof(InventoryBalance.SerialNumber), key.SerialNumber));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                EqualNullable(parameter, nameof(InventoryBalance.LicensePlateId), key.LicensePlateId));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                Expression.Equal(
+                    Expression.Property(parameter, nameof(InventoryBalance.InventoryStatusId)),
+                    Expression.Constant(key.InventoryStatusId)));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                Expression.Equal(
+                    Expression.Property(parameter, nameof(InventoryBalance.BaseUnitOfMeasure)),
+                    Expression.Constant(key.BaseUnitOfMeasure)));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                Expression.Equal(
+                    Expression.Property(parameter, nameof(InventoryBalance.OwnerKind)),
+                    Expression.Constant(key.OwnerKind)));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                EqualNullable(
+                    parameter,
+                    nameof(InventoryBalance.InventoryOwnerId),
+                    key.InventoryOwnerId));
+            keyPredicate = Expression.AndAlso(
+                keyPredicate,
+                EqualNullable(
+                    parameter,
+                    nameof(InventoryBalance.OwnerCodeSnapshot),
+                    key.OwnerCodeSnapshot));
             predicate = predicate is null
                 ? keyPredicate
                 : Expression.OrElse(predicate, keyPredicate);
@@ -1534,6 +1573,9 @@ public sealed class InventoryReconciliationService(
         public int? LicensePlateId { get; init; }
         public int InventoryStatusId { get; init; }
         public string BaseUnitOfMeasure { get; init; } = string.Empty;
+        public InventoryOwnerKind OwnerKind { get; init; }
+        public int? InventoryOwnerId { get; init; }
+        public string OwnerCodeSnapshot { get; init; } = InventoryOwnershipDimension.CompanyOwnerCode;
         public decimal OnHandQuantity { get; init; }
         public decimal ReservedQuantity { get; init; }
     }
@@ -1549,6 +1591,9 @@ public sealed class InventoryReconciliationService(
         public int? LicensePlateId { get; init; }
         public int InventoryStatusId { get; init; }
         public string BaseUnitOfMeasure { get; init; } = string.Empty;
+        public InventoryOwnerKind OwnerKind { get; init; }
+        public int? InventoryOwnerId { get; init; }
+        public string OwnerCodeSnapshot { get; init; } = InventoryOwnershipDimension.CompanyOwnerCode;
         public decimal RemainingQuantity { get; init; }
     }
 

@@ -252,6 +252,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryReservationService, InventoryReservationService>();
         services.AddScoped<IInventoryCommandIdempotencyService, InventoryCommandIdempotencyService>();
         services.AddScoped<IInventoryInquiryService, InventoryInquiryService>();
+        services.AddScoped<IInventoryOwnershipService, InventoryOwnershipService>();
+        services.AddScoped<IInventoryOwnershipReportService, InventoryOwnershipReportService>();
         services.AddScoped<IInventoryReplenishmentPolicyService, InventoryReplenishmentPolicyService>();
         services.AddScoped<IReplenishmentExecutionService, ReplenishmentExecutionService>();
         services.AddScoped<IInventoryClassificationService, InventoryClassificationService>();

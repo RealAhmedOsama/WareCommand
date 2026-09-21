@@ -17,6 +17,8 @@ public sealed class TransferOrderLineConfiguration : IEntityTypeConfiguration<Tr
         builder.Property(value => value.BaseUnitOfMeasure).HasMaxLength(20).IsRequired();
         builder.Property(value => value.SerialNumber).HasMaxLength(100);
         builder.Property(value => value.Notes).HasMaxLength(1_000);
+        builder.Property(value => value.OwnerKind).HasConversion<int>().IsRequired();
+        builder.Property(value => value.OwnerCodeSnapshot).HasMaxLength(80).IsRequired();
         builder.Property(value => value.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(value => value.Revision).IsRequired().IsConcurrencyToken();
         builder.HasOne(value => value.TransferOrder).WithMany(value => value.Lines).HasForeignKey(value => value.TransferOrderId).OnDelete(DeleteBehavior.Cascade);
@@ -26,7 +28,9 @@ public sealed class TransferOrderLineConfiguration : IEntityTypeConfiguration<Tr
         builder.HasOne(value => value.Lot).WithMany().HasForeignKey(value => value.LotId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(value => value.Serial).WithMany().HasForeignKey(value => value.SerialNumberId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(value => value.LicensePlate).WithMany().HasForeignKey(value => value.LicensePlateId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(value => value.InventoryOwner).WithMany().HasForeignKey(value => value.InventoryOwnerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(value => new { value.TransferOrderId, value.Sequence }).IsUnique();
         builder.HasIndex(value => new { value.ItemId, value.SourceLocationId, value.LotId, value.SerialNumberId, value.LicensePlateId });
+        builder.HasIndex(value => new { value.OwnerKind, value.InventoryOwnerId });
     }
 }

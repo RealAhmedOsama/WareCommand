@@ -148,7 +148,10 @@ public class GetStockUseCase : IGetStockUseCase
                     {
                         Code = s.InventoryStatus?.Code ?? InventoryStatusCodes.Available,
                         Name = s.InventoryStatus?.Name ?? "Available",
-                        IsAllocatable = s.InventoryStatus?.IsAllocatable ?? true
+                        IsAllocatable = s.InventoryStatus?.IsAllocatable ?? true,
+                        s.OwnerKind,
+                        s.InventoryOwnerId,
+                        s.OwnerCodeSnapshot
                     })
                     .Select(statusGroup => new StockSummaryDto(
                         g.Key.Sku,
@@ -159,7 +162,10 @@ public class GetStockUseCase : IGetStockUseCase
                         statusGroup.Select(s => s.LocationId).Distinct().Count(),
                         statusGroup.Key.Code,
                         statusGroup.Key.Name,
-                        statusGroup.Key.IsAllocatable)));
+                        statusGroup.Key.IsAllocatable,
+                        statusGroup.Key.OwnerKind,
+                        statusGroup.Key.InventoryOwnerId,
+                        statusGroup.Key.OwnerCodeSnapshot)));
 
             return Result.Success(summaries);
         }
@@ -208,7 +214,10 @@ public class GetStockUseCase : IGetStockUseCase
             isPickable,
             isShippable,
             stock.LicensePlateId,
-            stock.LicensePlate?.Number
+            stock.LicensePlate?.Number,
+            OwnerKind: stock.OwnerKind,
+            InventoryOwnerId: stock.InventoryOwnerId,
+            OwnerCodeSnapshot: stock.OwnerCodeSnapshot
         );
     }
 }

@@ -7,6 +7,7 @@ using Wms.Application.Identity;
 using Wms.Application.Inventory;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Inventory;
@@ -115,7 +116,10 @@ public sealed class InventoryInquiryService(
                     balance.InventoryStatusId,
                     StatusCode = balance.InventoryStatus.Code,
                     StatusName = balance.InventoryStatus.Name,
-                    balance.InventoryStatus.IsAllocatable
+                    balance.InventoryStatus.IsAllocatable,
+                    balance.OwnerKind,
+                    balance.InventoryOwnerId,
+                    balance.OwnerCodeSnapshot
                 })
                 .Select(group => new
                 {
@@ -128,7 +132,10 @@ public sealed class InventoryInquiryService(
                     LocationCount = group.Select(balance => balance.LocationId).Distinct().Count(),
                     group.Key.StatusCode,
                     group.Key.StatusName,
-                    group.Key.IsAllocatable
+                    group.Key.IsAllocatable,
+                    group.Key.OwnerKind,
+                    group.Key.InventoryOwnerId,
+                    group.Key.OwnerCodeSnapshot
                 })
                 .OrderBy(summary => summary.Sku)
                 .ThenBy(summary => summary.StatusCode)
@@ -144,7 +151,10 @@ public sealed class InventoryInquiryService(
                     summary.LocationCount,
                     summary.StatusCode,
                     summary.StatusName,
-                    summary.IsAllocatable))
+                    summary.IsAllocatable,
+                    summary.OwnerKind,
+                    summary.InventoryOwnerId,
+                    summary.OwnerCodeSnapshot))
                 .ToList();
 
             return Result.Success<IReadOnlyList<StockSummaryDto>>(summaries);
@@ -227,6 +237,10 @@ public sealed class InventoryInquiryService(
         WarehouseAccessScope scope)
     {
         var balances = context.InventoryBalances.AsNoTracking();
+        var ownerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            query.OwnerKind,
+            query.InventoryOwnerId,
+            query.OwnerCodeSnapshot);
 
         if (!scope.HasGlobalAccess)
         {
@@ -267,6 +281,11 @@ public sealed class InventoryInquiryService(
         {
             balances = balances.Where(balance => balance.InventoryStatusId == query.InventoryStatusId.Value);
         }
+
+        balances = balances.Where(balance =>
+            balance.OwnerKind == query.OwnerKind &&
+            balance.InventoryOwnerId == query.InventoryOwnerId &&
+            balance.OwnerCodeSnapshot == ownerCode);
 
         if (!query.IncludeZero)
         {
@@ -327,6 +346,10 @@ public sealed class InventoryInquiryService(
         WarehouseAccessScope scope)
     {
         var stock = context.Stock.AsNoTracking();
+        var ownerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            query.OwnerKind,
+            query.InventoryOwnerId,
+            query.OwnerCodeSnapshot);
 
         if (!scope.HasGlobalAccess)
         {
@@ -367,6 +390,11 @@ public sealed class InventoryInquiryService(
         {
             stock = stock.Where(row => row.InventoryStatusId == query.InventoryStatusId.Value);
         }
+
+        stock = stock.Where(row =>
+            row.OwnerKind == query.OwnerKind &&
+            row.InventoryOwnerId == query.InventoryOwnerId &&
+            row.OwnerCodeSnapshot == ownerCode);
 
         if (!query.IncludeZero)
         {
@@ -546,7 +574,10 @@ public sealed class InventoryInquiryService(
                 StatusName = row.InventoryStatus == null
                     ? "Available"
                     : row.InventoryStatus.Name,
-                IsAllocatable = row.InventoryStatus == null || row.InventoryStatus.IsAllocatable
+                IsAllocatable = row.InventoryStatus == null || row.InventoryStatus.IsAllocatable,
+                row.OwnerKind,
+                row.InventoryOwnerId,
+                row.OwnerCodeSnapshot
             })
             .Select(group => new
             {
@@ -559,7 +590,10 @@ public sealed class InventoryInquiryService(
                 LocationCount = group.Select(row => row.LocationId).Distinct().Count(),
                 group.Key.StatusCode,
                 group.Key.StatusName,
-                group.Key.IsAllocatable
+                group.Key.IsAllocatable,
+                group.Key.OwnerKind,
+                group.Key.InventoryOwnerId,
+                group.Key.OwnerCodeSnapshot
             })
             .OrderBy(summary => summary.Sku)
             .ThenBy(summary => summary.StatusCode)
@@ -575,7 +609,10 @@ public sealed class InventoryInquiryService(
                 summary.LocationCount,
                 summary.StatusCode,
                 summary.StatusName,
-                summary.IsAllocatable))
+                summary.IsAllocatable,
+                summary.OwnerKind,
+                summary.InventoryOwnerId,
+                summary.OwnerCodeSnapshot))
             .ToList();
 
         return Result.Success<IReadOnlyList<StockSummaryDto>>(summaries);
@@ -767,7 +804,10 @@ public sealed class InventoryInquiryService(
                 : 0m,
             0m,
             0m,
-            balance.Lot == null ? null : balance.Lot.ExpiryDate);
+            balance.Lot == null ? null : balance.Lot.ExpiryDate,
+            balance.OwnerKind,
+            balance.InventoryOwnerId,
+            balance.OwnerCodeSnapshot);
 
     private static Expression<Func<Stock, StockDto>> ProjectLegacyStockDto() => stock =>
         new StockDto(
@@ -814,7 +854,10 @@ public sealed class InventoryInquiryService(
                 : 0m,
             0m,
             0m,
-            stock.Lot == null ? null : stock.Lot.ExpiryDate);
+            stock.Lot == null ? null : stock.Lot.ExpiryDate,
+            stock.OwnerKind,
+            stock.InventoryOwnerId,
+            stock.OwnerCodeSnapshot);
 
     private static string? Normalize(string? value)
     {

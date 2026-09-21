@@ -1,4 +1,6 @@
 using Wms.Domain.Common;
+using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Domain.Entities;
 
@@ -20,7 +22,10 @@ public sealed class ShipmentPackageContent : Entity
         int? serialNumberId,
         string? serialNumber,
         int inventoryStatusId,
-        decimal? expectedWeightKg)
+        decimal? expectedWeightKg,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(shipmentPackageId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(salesOrderLineId);
@@ -46,6 +51,12 @@ public sealed class ShipmentPackageContent : Entity
         SerialNumber = Optional(serialNumber, 100);
         InventoryStatusId = inventoryStatusId;
         ExpectedWeightKg = expectedWeightKg;
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         Revision = 1;
     }
 
@@ -60,6 +71,9 @@ public sealed class ShipmentPackageContent : Entity
     public int? SerialNumberId { get; private set; }
     public string? SerialNumber { get; private set; }
     public int InventoryStatusId { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public decimal? ExpectedWeightKg { get; private set; }
     public long Revision { get; private set; }
 
@@ -71,6 +85,7 @@ public sealed class ShipmentPackageContent : Entity
     public Lot? Lot { get; private set; }
     public SerialNumber? SerialNumberEntity { get; private set; }
     public InventoryStatus InventoryStatus { get; private set; } = null!;
+    public InventoryOwner? InventoryOwner { get; private set; }
 
     public void AddQuantity(decimal quantity, decimal? expectedWeightKg = null)
     {

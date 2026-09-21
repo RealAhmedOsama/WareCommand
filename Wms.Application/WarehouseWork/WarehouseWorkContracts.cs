@@ -1,6 +1,7 @@
 using Wms.Application.Common;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
 namespace Wms.Application.WarehouseWork;
@@ -21,7 +22,10 @@ public sealed record WarehouseWorkLineInput(
     string? SourceReference = null,
     string? DimensionsSnapshot = null,
     int? ReservationId = null,
-    int? ReservationAllocationId = null);
+    int? ReservationAllocationId = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record WarehouseWorkInput(
     string CreationKey,
@@ -104,7 +108,10 @@ public sealed record PutawayWorkGenerationInput(
     string MovementKey,
     bool QualityInspectionPending,
     int Priority = 50,
-    string? Notes = null);
+    string? Notes = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record WarehouseWorkQuery(
     int? WarehouseId = null,
@@ -135,7 +142,10 @@ public sealed record WarehouseWorkLineDto(
     string? DimensionsSnapshot,
     long Revision,
     int? ReservationId,
-    int? ReservationAllocationId);
+    int? ReservationAllocationId,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public sealed record WarehouseWorkDto(
     int Id,

@@ -1,5 +1,6 @@
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Domain.Entities;
 
@@ -250,7 +251,10 @@ public sealed class TransferOrderLine : Entity
         int? licensePlateId = null,
         int sourceInventoryStatusId = InventoryStatusSystemIds.Available,
         int destinationInventoryStatusId = InventoryStatusSystemIds.Available,
-        string? notes = null)
+        string? notes = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         if (sequence <= 0 || itemId <= 0 || requestedQuantity <= 0 || sourceLocationId <= 0 || destinationLocationId <= 0)
         {
@@ -275,6 +279,12 @@ public sealed class TransferOrderLine : Entity
         SourceInventoryStatusId = Positive(sourceInventoryStatusId, nameof(sourceInventoryStatusId));
         DestinationInventoryStatusId = Positive(destinationInventoryStatusId, nameof(destinationInventoryStatusId));
         Notes = Optional(notes, 1_000);
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         Status = TransferLineStatus.Open;
         Revision = 1;
     }
@@ -295,6 +305,9 @@ public sealed class TransferOrderLine : Entity
     public int SourceInventoryStatusId { get; private set; }
     public int DestinationInventoryStatusId { get; private set; }
     public string? Notes { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public TransferLineStatus Status { get; private set; }
     public long Revision { get; private set; }
 
@@ -305,6 +318,7 @@ public sealed class TransferOrderLine : Entity
     public Lot? Lot { get; private set; }
     public SerialNumber? Serial { get; private set; }
     public LicensePlate? LicensePlate { get; private set; }
+    public InventoryOwner? InventoryOwner { get; private set; }
     public bool IsFullyShipped => ShippedQuantity == RequestedQuantity;
     public bool IsFullyReceived => ReceivedQuantity == ShippedQuantity && IsFullyShipped;
     public decimal RemainingToShip => RequestedQuantity - ShippedQuantity;

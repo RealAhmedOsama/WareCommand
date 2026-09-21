@@ -1,5 +1,6 @@
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Domain.Entities;
 
@@ -25,7 +26,10 @@ public sealed class InternalMovement : Entity
         string? serialNumber = null,
         int? licensePlateId = null,
         int inventoryStatusId = InventoryStatusSystemIds.Available,
-        string? reason = null)
+        string? reason = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         if (warehouseId <= 0 || itemId <= 0 || quantity <= 0 || sourceLocationId <= 0 || destinationLocationId <= 0 || sourceLocationId == destinationLocationId)
         {
@@ -50,6 +54,12 @@ public sealed class InternalMovement : Entity
         SerialNumber = Optional(serialNumber, 100);
         LicensePlateId = PositiveOptional(licensePlateId, nameof(licensePlateId));
         InventoryStatusId = Positive(inventoryStatusId, nameof(inventoryStatusId));
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         CreatedByUserId = Required(createdByUserId, 450, nameof(createdByUserId));
         Reason = Optional(reason, 1_000);
         Status = InternalMovementStatus.Requested;
@@ -69,6 +79,9 @@ public sealed class InternalMovement : Entity
     public string? SerialNumber { get; private set; }
     public int? LicensePlateId { get; private set; }
     public int InventoryStatusId { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public string CreatedByUserId { get; private set; } = string.Empty;
     public string? Reason { get; private set; }
     public InternalMovementStatus Status { get; private set; }
@@ -84,6 +97,7 @@ public sealed class InternalMovement : Entity
     public Lot? Lot { get; private set; }
     public SerialNumber? Serial { get; private set; }
     public LicensePlate? LicensePlate { get; private set; }
+    public InventoryOwner? InventoryOwner { get; private set; }
 
     public void Complete(DateTime completedAtUtc)
     {

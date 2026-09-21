@@ -30,6 +30,8 @@ public sealed class ReceiptLineConfiguration : IEntityTypeConfiguration<ReceiptL
         builder.Property(line => line.InventoryStatusCodeSnapshot).HasMaxLength(50);
         builder.Property(line => line.InventoryStatusNameSnapshot).HasMaxLength(200);
         builder.Property(line => line.Notes).HasMaxLength(1_000);
+        builder.Property(line => line.OwnerKind).HasConversion<int>().IsRequired();
+        builder.Property(line => line.OwnerCodeSnapshot).HasMaxLength(80).IsRequired();
         builder.Property(line => line.ExpiryDateSnapshot).HasColumnType("timestamp with time zone");
         builder.Property(line => line.CreatedAt).HasColumnType("timestamp with time zone").IsRequired();
         builder.Property(line => line.UpdatedAt).HasColumnType("timestamp with time zone");
@@ -87,6 +89,10 @@ public sealed class ReceiptLineConfiguration : IEntityTypeConfiguration<ReceiptL
             .WithMany()
             .HasForeignKey(line => line.LicensePlateId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(line => line.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(line => line.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(line => new { line.ReceiptId, line.LineNumber }).IsUnique();
         builder.HasIndex(line => line.ItemId);
@@ -94,5 +100,6 @@ public sealed class ReceiptLineConfiguration : IEntityTypeConfiguration<ReceiptL
         builder.HasIndex(line => line.AdvanceShippingNoticeLineId);
         builder.HasIndex(line => line.LicensePlateId);
         builder.HasIndex(line => line.InventoryStatusId);
+        builder.HasIndex(line => new { line.OwnerKind, line.InventoryOwnerId });
     }
 }

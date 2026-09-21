@@ -527,7 +527,10 @@ public sealed class InventoryStatusService(
                 candidate.LotId == source.LotId &&
                 candidate.InventoryStatusId == targetStatus.Id &&
                 candidate.LicensePlateId == source.LicensePlateId &&
-                HasSameSerialIdentity(candidate, source));
+                HasSameSerialIdentity(candidate, source) &&
+                candidate.OwnerKind == source.OwnerKind &&
+                candidate.InventoryOwnerId == source.InventoryOwnerId &&
+                candidate.OwnerCodeSnapshot == source.OwnerCodeSnapshot);
 
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
@@ -547,7 +550,10 @@ public sealed class InventoryStatusService(
                     source.SerialNumber,
                     source.SerialNumberId,
                     targetStatus.Id,
-                    source.LicensePlateId);
+                    source.LicensePlateId,
+                    source.OwnerKind,
+                    source.InventoryOwnerId,
+                    source.OwnerCodeSnapshot);
                 await unitOfWork.Stock.AddAsync(destination, cancellationToken);
             }
             else
@@ -573,6 +579,10 @@ public sealed class InventoryStatusService(
                 timestamp,
                 source.SerialNumberId,
                 source.LicensePlateId);
+            outboundMovement.SetOwnership(
+                source.OwnerKind,
+                source.InventoryOwnerId,
+                source.OwnerCodeSnapshot);
             var inboundMovement = Movement.CreateStatusChange(
                 source.ItemId,
                 source.LocationId,
@@ -588,6 +598,10 @@ public sealed class InventoryStatusService(
                 timestamp,
                 source.SerialNumberId,
                 source.LicensePlateId);
+            inboundMovement.SetOwnership(
+                source.OwnerKind,
+                source.InventoryOwnerId,
+                source.OwnerCodeSnapshot);
             await unitOfWork.Movements.AddAsync(outboundMovement, cancellationToken);
             await unitOfWork.Movements.AddAsync(inboundMovement, cancellationToken);
 
@@ -607,7 +621,10 @@ public sealed class InventoryStatusService(
                     source.SerialNumber,
                     source.LicensePlateId,
                     sourceStatus.Id,
-                    item.UnitOfMeasure);
+                    item.UnitOfMeasure,
+                    source.OwnerKind,
+                    source.InventoryOwnerId,
+                    source.OwnerCodeSnapshot);
                 var destinationKey = new InventoryBalanceKey(
                     source.Location.WarehouseId,
                     source.LocationId,
@@ -617,7 +634,10 @@ public sealed class InventoryStatusService(
                     source.SerialNumber,
                     source.LicensePlateId,
                     targetStatus.Id,
-                    item.UnitOfMeasure);
+                    item.UnitOfMeasure,
+                    source.OwnerKind,
+                    source.InventoryOwnerId,
+                    source.OwnerCodeSnapshot);
                 await inventoryLedgerService.RecordAsync(
                     new[]
                     {

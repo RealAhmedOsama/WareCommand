@@ -11,6 +11,7 @@ using Wms.Application.Logging;
 using Wms.Application.Lots;
 using Wms.Application.Time;
 using Wms.Application.Units;
+using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -26,7 +27,10 @@ public record StockAdjustmentDto(
     string? SerialNumber = null,
     string? UnitOfMeasure = null,
     string? PackagingCode = null,
-    int? LicensePlateId = null
+    int? LicensePlateId = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null
 );
 
 public interface IStockAdjustmentUseCase
@@ -205,7 +209,10 @@ public class StockAdjustmentUseCase : IStockAdjustmentUseCase
                 item.Id, location.Id, newQuantity, userId, request.Reason,
                 lotId, request.SerialNumber,
                 cancellationToken: cancellationToken,
-                licensePlateId: request.LicensePlateId);
+                licensePlateId: request.LicensePlateId,
+                ownerKind: request.OwnerKind,
+                inventoryOwnerId: request.InventoryOwnerId,
+                ownerCodeSnapshot: request.OwnerCodeSnapshot);
 
             var result = new ReceiptResultDto(
                 movement.Id,

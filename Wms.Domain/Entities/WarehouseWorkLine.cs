@@ -1,5 +1,6 @@
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Domain.Entities;
 
@@ -25,7 +26,10 @@ public sealed class WarehouseWorkLine : Entity
         string? sourceReference = null,
         string? dimensionsSnapshot = null,
         int? reservationId = null,
-        int? reservationAllocationId = null)
+        int? reservationAllocationId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequence);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(warehouseId);
@@ -57,6 +61,12 @@ public sealed class WarehouseWorkLine : Entity
         DimensionsSnapshot = Optional(dimensionsSnapshot, 2_000);
         ReservationId = reservationId;
         ReservationAllocationId = reservationAllocationId;
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         Revision = 1;
     }
 
@@ -78,6 +88,9 @@ public sealed class WarehouseWorkLine : Entity
     public string? DimensionsSnapshot { get; private set; }
     public int? ReservationId { get; private set; }
     public int? ReservationAllocationId { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public long Revision { get; private set; }
 
     public WarehouseWork Work { get; private set; } = null!;
@@ -89,6 +102,7 @@ public sealed class WarehouseWorkLine : Entity
     public SerialNumber? Serial { get; private set; }
     public LicensePlate? LicensePlate { get; private set; }
     public InventoryStatus? InventoryStatus { get; private set; }
+    public InventoryOwner? InventoryOwner { get; private set; }
 
     public void RecordActualQuantity(decimal actualQuantity)
     {

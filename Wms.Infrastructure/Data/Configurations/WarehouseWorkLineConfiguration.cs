@@ -18,6 +18,8 @@ public sealed class WarehouseWorkLineConfiguration : IEntityTypeConfiguration<Wa
         builder.Property(line => line.DimensionsSnapshot).HasMaxLength(2_000);
         builder.Property(line => line.ReservationId);
         builder.Property(line => line.ReservationAllocationId);
+        builder.Property(line => line.OwnerKind).HasConversion<int>().IsRequired();
+        builder.Property(line => line.OwnerCodeSnapshot).HasMaxLength(80).IsRequired();
         builder.Property(line => line.Revision).IsRequired().IsConcurrencyToken();
 
         builder.HasOne(line => line.Work)
@@ -56,9 +58,14 @@ public sealed class WarehouseWorkLineConfiguration : IEntityTypeConfiguration<Wa
             .WithMany()
             .HasForeignKey(line => line.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(line => line.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(line => line.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(line => new { line.WarehouseWorkId, line.Sequence }).IsUnique();
         builder.HasIndex(line => new { line.ItemId, line.SourceLocationId, line.LicensePlateId });
         builder.HasIndex(line => new { line.ReservationId, line.ReservationAllocationId });
+        builder.HasIndex(line => new { line.OwnerKind, line.InventoryOwnerId });
     }
 }

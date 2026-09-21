@@ -196,7 +196,10 @@ public sealed class TransferService(
                         line.LicensePlateId,
                         line.SourceInventoryStatusId,
                         line.DestinationInventoryStatusId,
-                        line.Notes));
+                        line.Notes,
+                        line.OwnerKind,
+                        line.InventoryOwnerId,
+                        line.OwnerCodeSnapshot));
                 }
 
                 await context.SaveChangesAsync(cancellationToken);
@@ -393,7 +396,10 @@ public sealed class TransferService(
                     identity.SerialNumber,
                     input.InventoryStatusId,
                     input.LicensePlateId,
-                    cancellationToken)
+                    cancellationToken,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot)
                     ?? throw new InvalidOperationException("The source stock dimension was not found.");
                 EnsureMovableStock(sourceStock, input.Quantity);
                 var destinationStock = await FindStockAsync(
@@ -404,7 +410,10 @@ public sealed class TransferService(
                     identity.SerialNumber,
                     input.InventoryStatusId,
                     input.LicensePlateId,
-                    cancellationToken);
+                    cancellationToken,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot);
 
                 var movement = Movement.CreateTransfer(
                     input.ItemId,
@@ -421,6 +430,7 @@ public sealed class TransferService(
                     input.InventoryStatusId,
                     input.LicensePlateId,
                     input.LicensePlateId);
+                movement.SetOwnership(input.OwnerKind, input.InventoryOwnerId, input.OwnerCodeSnapshot);
                 context.Movements.Add(movement);
                 MoveStock(sourceStock, destinationStock, input, identity);
                 MoveSerial(identity.Serial, input.WarehouseId, destination.Id, input.LicensePlateId);
@@ -448,7 +458,10 @@ public sealed class TransferService(
                     identity.SerialNumber,
                     input.LicensePlateId,
                     input.InventoryStatusId,
-                    input.Reason);
+                    input.Reason,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot);
                 operation.Complete(clock.UtcNow.UtcDateTime);
                 context.InternalMovements.Add(operation);
                 await RecordTransferLedgerAsync(
@@ -466,7 +479,10 @@ public sealed class TransferService(
                     null,
                     userId,
                     cancellationToken,
-                    idempotencyPrefix: $"internal:{input.WarehouseId}:{input.IdempotencyKey}");
+                    idempotencyPrefix: $"internal:{input.WarehouseId}:{input.IdempotencyKey}",
+                    ownerKind: input.OwnerKind,
+                    inventoryOwnerId: input.InventoryOwnerId,
+                    ownerCodeSnapshot: input.OwnerCodeSnapshot);
                 await auditWriter.RecordAsync(
                     new AuditRecord(
                         WmsAuditActions.InternalMovementCompleted,
@@ -528,7 +544,10 @@ public sealed class TransferService(
             identity.SerialNumber,
             line.SourceInventoryStatusId,
             line.LicensePlateId,
-            cancellationToken)
+            cancellationToken,
+            line.OwnerKind,
+            line.InventoryOwnerId,
+            line.OwnerCodeSnapshot)
             ?? throw new InvalidOperationException("The source stock dimension was not found.");
         EnsureMovableStock(sourceStock, input.Quantity);
         var transitStock = await FindStockAsync(
@@ -539,7 +558,10 @@ public sealed class TransferService(
             identity.SerialNumber,
             InventoryStatusSystemIds.InTransit,
             line.LicensePlateId,
-            cancellationToken);
+            cancellationToken,
+            line.OwnerKind,
+            line.InventoryOwnerId,
+            line.OwnerCodeSnapshot);
 
         var movement = Movement.CreateTransfer(
             line.ItemId,
@@ -556,6 +578,7 @@ public sealed class TransferService(
             InventoryStatusSystemIds.InTransit,
             line.LicensePlateId,
             line.LicensePlateId);
+        movement.SetOwnership(line.OwnerKind, line.InventoryOwnerId, line.OwnerCodeSnapshot);
         context.Movements.Add(movement);
         sourceStock.RemoveQuantity(new Quantity(input.Quantity));
         if (sourceStock.QuantityAvailable.Value == 0m && sourceStock.QuantityReserved.Value == 0m)
@@ -573,7 +596,10 @@ public sealed class TransferService(
                 identity.SerialNumber,
                 identity.SerialNumberId,
                 InventoryStatusSystemIds.InTransit,
-                line.LicensePlateId));
+                line.LicensePlateId,
+                line.OwnerKind,
+                line.InventoryOwnerId,
+                line.OwnerCodeSnapshot));
         }
         else
         {
@@ -604,7 +630,10 @@ public sealed class TransferService(
             userId,
             cancellationToken,
             destinationStatusId: InventoryStatusSystemIds.InTransit,
-            idempotencyPrefix: $"transfer:{transfer.Id}:{input.IdempotencyKey}:ship");
+            idempotencyPrefix: $"transfer:{transfer.Id}:{input.IdempotencyKey}:ship",
+            ownerKind: line.OwnerKind,
+            inventoryOwnerId: line.InventoryOwnerId,
+            ownerCodeSnapshot: line.OwnerCodeSnapshot);
         transfer.RecordShipment(line, input.Quantity, clock.UtcNow.UtcDateTime);
     }
 
@@ -646,7 +675,10 @@ public sealed class TransferService(
             identity.SerialNumber,
             InventoryStatusSystemIds.InTransit,
             line.LicensePlateId,
-            cancellationToken)
+            cancellationToken,
+            line.OwnerKind,
+            line.InventoryOwnerId,
+            line.OwnerCodeSnapshot)
             ?? throw new InvalidOperationException("The transfer quantity is not present in transit.");
         EnsureMovableStock(transitStock, input.Quantity);
         var destinationStock = await FindStockAsync(
@@ -657,7 +689,10 @@ public sealed class TransferService(
             identity.SerialNumber,
             line.DestinationInventoryStatusId,
             line.LicensePlateId,
-            cancellationToken);
+            cancellationToken,
+            line.OwnerKind,
+            line.InventoryOwnerId,
+            line.OwnerCodeSnapshot);
 
         var movement = Movement.CreateTransfer(
             line.ItemId,
@@ -674,6 +709,7 @@ public sealed class TransferService(
             line.DestinationInventoryStatusId,
             line.LicensePlateId,
             line.LicensePlateId);
+        movement.SetOwnership(line.OwnerKind, line.InventoryOwnerId, line.OwnerCodeSnapshot);
         context.Movements.Add(movement);
         transitStock.RemoveQuantity(new Quantity(input.Quantity));
         if (transitStock.QuantityAvailable.Value == 0m && transitStock.QuantityReserved.Value == 0m)
@@ -690,8 +726,11 @@ public sealed class TransferService(
                 identity.LotId,
                 identity.SerialNumber,
                 identity.SerialNumberId,
-                line.DestinationInventoryStatusId,
-                line.LicensePlateId));
+            line.DestinationInventoryStatusId,
+                line.LicensePlateId,
+                line.OwnerKind,
+                line.InventoryOwnerId,
+                line.OwnerCodeSnapshot));
         }
         else
         {
@@ -723,7 +762,10 @@ public sealed class TransferService(
             cancellationToken,
             destinationStatusId: line.DestinationInventoryStatusId,
             destinationWarehouseId: transfer.DestinationWarehouseId,
-            idempotencyPrefix: $"transfer:{transfer.Id}:{input.IdempotencyKey}:receive");
+            idempotencyPrefix: $"transfer:{transfer.Id}:{input.IdempotencyKey}:receive",
+            ownerKind: line.OwnerKind,
+            inventoryOwnerId: line.InventoryOwnerId,
+            ownerCodeSnapshot: line.OwnerCodeSnapshot);
         transfer.RecordReceipt(line, input.Quantity, clock.UtcNow.UtcDateTime);
     }
 
@@ -744,7 +786,10 @@ public sealed class TransferService(
         CancellationToken cancellationToken,
         int? destinationStatusId = null,
         int? destinationWarehouseId = null,
-        string? idempotencyPrefix = null)
+        string? idempotencyPrefix = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         var targetWarehouseId = destinationWarehouseId ?? sourceWarehouseId;
         var groupId = idempotencyPrefix ?? $"movement:{Guid.NewGuid():N}";
@@ -757,7 +802,10 @@ public sealed class TransferService(
             identity.SerialNumber,
             identity.LicensePlateId,
             sourceStatusId,
-            baseUnitOfMeasure);
+            baseUnitOfMeasure,
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         var destinationKey = new InventoryBalanceKey(
             targetWarehouseId,
             destinationLocationId,
@@ -767,7 +815,10 @@ public sealed class TransferService(
             identity.SerialNumber,
             identity.LicensePlateId,
             destinationStatusId ?? sourceStatusId,
-            baseUnitOfMeasure);
+            baseUnitOfMeasure,
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         await inventoryLedgerService.RecordAsync(
             [
                 new InventoryLedgerEntryRequest(
@@ -987,6 +1038,22 @@ public sealed class TransferService(
 
         foreach (var line in input.Lines)
         {
+            var ownerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+                line.OwnerKind,
+                line.InventoryOwnerId,
+                line.OwnerCodeSnapshot);
+            if (line.OwnerKind != InventoryOwnerKind.CompanyOwned &&
+                !await context.InventoryOwners.AnyAsync(owner =>
+                    owner.Id == line.InventoryOwnerId &&
+                    owner.IsActive &&
+                    owner.Kind == line.OwnerKind &&
+                    owner.OwnerCode == ownerCode,
+                    cancellationToken))
+            {
+                throw new InvalidOperationException(
+                    "The transfer line inventory owner was not found, is inactive, or does not match its snapshot.");
+            }
+
             var item = await context.Items.SingleOrDefaultAsync(value => value.Id == line.ItemId, cancellationToken)
                 ?? throw new InvalidOperationException($"Item {line.ItemId} was not found.");
             EnsureUnit(item, line.BaseUnitOfMeasure);
@@ -1060,15 +1127,25 @@ public sealed class TransferService(
         string? serialNumber,
         int inventoryStatusId,
         int? licensePlateId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
+        var normalizedOwnerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         var query = context.Stock.Where(value =>
             value.ItemId == itemId &&
             value.LocationId == locationId &&
             value.LotId == lotId &&
             value.SerialNumberId == serialNumberId &&
             value.InventoryStatusId == inventoryStatusId &&
-            value.LicensePlateId == licensePlateId);
+            value.LicensePlateId == licensePlateId &&
+            value.OwnerKind == ownerKind &&
+            value.InventoryOwnerId == inventoryOwnerId &&
+            value.OwnerCodeSnapshot == normalizedOwnerCode);
         query = serialNumber is null
             ? query.Where(value => value.SerialNumber == null)
             : query.Where(value => value.SerialNumber == serialNumber);
@@ -1106,7 +1183,10 @@ public sealed class TransferService(
                 identity.SerialNumber,
                 identity.SerialNumberId,
                 input.InventoryStatusId,
-                input.LicensePlateId));
+                input.LicensePlateId,
+                input.OwnerKind,
+                input.InventoryOwnerId,
+                input.OwnerCodeSnapshot));
         }
         else
         {
@@ -1195,7 +1275,10 @@ public sealed class TransferService(
             line.SourceInventoryStatusId,
             line.DestinationInventoryStatusId,
             line.Status,
-            line.Revision)).ToArray(),
+            line.Revision,
+            line.OwnerKind,
+            line.InventoryOwnerId,
+            line.OwnerCodeSnapshot)).ToArray(),
         transfer.CreatedAt,
         transfer.ConfirmedAtUtc,
         transfer.ReleasedAtUtc,
@@ -1222,7 +1305,10 @@ public sealed class TransferService(
         movement.Status,
         movement.CreatedAt,
         movement.CompletedAtUtc,
-        movement.Revision);
+        movement.Revision,
+        movement.OwnerKind,
+        movement.InventoryOwnerId,
+        movement.OwnerCodeSnapshot);
 
     private sealed record IdentitySnapshot(
         int? LotId,

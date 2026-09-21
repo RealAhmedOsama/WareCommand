@@ -50,6 +50,8 @@ public static class WmsPermissions
     public const string LocationsManage = "locations.manage";
     public const string InventoryRead = "inventory.read";
     public const string InventoryAdjust = "inventory.adjust";
+    public const string InventoryOwnershipRead = "inventory_ownership.read";
+    public const string InventoryOwnershipManage = "inventory_ownership.manage";
     public const string ReceivingExecute = "receiving.execute";
     public const string ReceivingOverride = "receiving.override";
     public const string SupplierReturnsRead = "supplier_returns.read";
@@ -95,6 +97,8 @@ public static class WmsPermissions
         LocationsManage,
         InventoryRead,
         InventoryAdjust,
+        InventoryOwnershipRead,
+        InventoryOwnershipManage,
         ReceivingExecute,
         ReceivingOverride,
         SupplierReturnsRead,
@@ -142,6 +146,8 @@ public static class WmsPermissions
             [LocationsManage] = "Create and update warehouse locations",
             [InventoryRead] = "View inventory and availability",
             [InventoryAdjust] = "Adjust inventory quantities",
+            [InventoryOwnershipRead] = "View inventory owners and ownership transfers",
+            [InventoryOwnershipManage] = "Create inventory owners and approve ownership transfers",
             [ReceivingExecute] = "Execute receiving",
             [ReceivingOverride] = "Authorize receiving supervisor overrides",
             [SupplierReturnsRead] = "View supplier returns and return-to-vendor traceability",
@@ -198,6 +204,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.LocationsManage,
                 WmsPermissions.InventoryRead,
                 WmsPermissions.InventoryAdjust,
+                WmsPermissions.InventoryOwnershipRead,
+                WmsPermissions.InventoryOwnershipManage,
                 WmsPermissions.ReceivingExecute,
                 WmsPermissions.ReceivingOverride,
                 WmsPermissions.SupplierReturnsRead,
@@ -235,6 +243,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.InventoryOwnershipRead,
                 WmsPermissions.ReceivingExecute,
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
@@ -246,6 +255,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.InventoryOwnershipRead,
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
@@ -257,6 +267,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.InventoryOwnershipRead,
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
@@ -268,6 +279,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ItemsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.InventoryOwnershipRead,
                 WmsPermissions.InventoryAdjust,
                 WmsPermissions.CountingExecute,
                 WmsPermissions.AllocationManage,
@@ -290,6 +302,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ReceiptsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.InventoryOwnershipRead,
                 WmsPermissions.QualityRead,
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
@@ -305,6 +318,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ReceiptsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.InventoryOwnershipRead,
                 WmsPermissions.QualityRead,
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
@@ -323,6 +337,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.LocationsRead,
                 WmsPermissions.InventoryRead,
+                WmsPermissions.InventoryOwnershipRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.WorkExecute,
                 WmsPermissions.ReceivingExecute,

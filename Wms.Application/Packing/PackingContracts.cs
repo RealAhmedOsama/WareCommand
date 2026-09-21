@@ -1,5 +1,6 @@
 using Wms.Application.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Application.Packing;
 
@@ -79,7 +80,10 @@ public sealed record PackingScanInput(
     int? SerialNumberId = null,
     string? SerialNumber = null,
     string IdempotencyKey = "",
-    string? ScanReference = null);
+    string? ScanReference = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record PackingPackageMeasureInput(
     int ShipmentPackageId,
@@ -108,7 +112,10 @@ public sealed record ShipmentPackageContentDto(
     string? SerialNumber,
     int InventoryStatusId,
     decimal? ExpectedWeightKg,
-    long Revision);
+    long Revision,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public sealed record ShipmentPackageDto(
     int Id,

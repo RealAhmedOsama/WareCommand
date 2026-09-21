@@ -1,5 +1,6 @@
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Domain.Entities;
 
@@ -56,7 +57,10 @@ public sealed class ReceiptLine : Entity
         int inventoryStatusId = InventoryStatusSystemIds.Available,
         string? inventoryStatusCodeSnapshot = null,
         string? inventoryStatusNameSnapshot = null,
-        string? notes = null)
+        string? notes = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(lineNumber);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(warehouseId);
@@ -116,6 +120,12 @@ public sealed class ReceiptLine : Entity
         InventoryStatusCodeSnapshot = OptionalUpper(inventoryStatusCodeSnapshot, 50);
         InventoryStatusNameSnapshot = Optional(inventoryStatusNameSnapshot, 200);
         Notes = Optional(notes, 1_000);
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
     }
 
     public int ReceiptId { get; private set; }
@@ -168,6 +178,9 @@ public sealed class ReceiptLine : Entity
     public string? InventoryStatusCodeSnapshot { get; private set; }
     public string? InventoryStatusNameSnapshot { get; private set; }
     public string? Notes { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public long Revision { get; private set; } = 1;
 
     public Receipt Receipt { get; private set; } = null!;
@@ -179,6 +192,7 @@ public sealed class ReceiptLine : Entity
     public Location? ReceivingLocation { get; private set; }
     public InventoryStatus InventoryStatus { get; private set; } = null!;
     public LicensePlate? LicensePlate { get; private set; }
+    public InventoryOwner? InventoryOwner { get; private set; }
     public IReadOnlyList<ReceiptLineMovement> Movements => _movements.AsReadOnly();
     public IReadOnlyList<ReceiptLineLink> Links => _links.AsReadOnly();
 

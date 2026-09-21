@@ -32,6 +32,9 @@ public static class WmsAuditActions
     public const string CustomerBulkImported = "master.customer.bulk_imported";
     public const string CustomerShipToChanged = "master.customer.ship_to_changed";
     public const string CustomerItemReferencesChanged = "master.customer.item_references_changed";
+    public const string InventoryOwnerCreated = "inventory.owner.created";
+    public const string InventoryOwnerDeactivated = "inventory.owner.deactivated";
+    public const string InventoryOwnershipTransferred = "inventory.ownership.transferred";
     public const string SalesOrderCreated = "outbound.sales_order.created";
     public const string SalesOrderUpdated = "outbound.sales_order.updated";
     public const string SalesOrderConfirmed = "outbound.sales_order.confirmed";
@@ -464,6 +467,8 @@ public static class WmsAuditEntityTypes
     public const string Serial = "Serial";
     public const string InventoryStatus = "InventoryStatus";
     public const string InventoryStatusTransition = "InventoryStatusTransition";
+    public const string InventoryOwner = "InventoryOwner";
+    public const string InventoryOwnershipTransfer = "InventoryOwnershipTransfer";
     public const string LicensePlate = "LicensePlate";
     public const string LicensePlateContent = "LicensePlateContent";
     public const string LicensePlateNumberSequence = "LicensePlateNumberSequence";

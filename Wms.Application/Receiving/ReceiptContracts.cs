@@ -3,6 +3,7 @@ using Wms.Application.Inbound;
 using Wms.Application.Purchasing;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Application.Receiving;
@@ -47,7 +48,10 @@ public sealed record ReceiptLineInput(
     decimal? RejectedQuantity = null,
     decimal? DamagedQuantity = null,
     decimal? QuarantinedQuantity = null,
-    string? Notes = null);
+    string? Notes = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record ReceiptInput(
     int WarehouseId,
@@ -104,7 +108,10 @@ public sealed record ReceiptLineDto(
     string? Notes,
     IReadOnlyList<int> MovementIds,
     IReadOnlyList<ReceiptLineLinkDto> Links,
-    bool IsFullyReceived);
+    bool IsFullyReceived,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public sealed record ReceiptLineLinkDto(
     int Id,
@@ -189,7 +196,10 @@ public sealed record ReceiptReceivingInput(
     decimal? RejectedBaseQuantity = null,
     decimal? DamagedBaseQuantity = null,
     decimal? QuarantinedBaseQuantity = null,
-    string? SessionReference = null);
+    string? SessionReference = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record ReceiptReceivingPlan(
     int ReceiptId,
@@ -203,7 +213,10 @@ public sealed record ReceiptReceivingPlan(
     decimal DamagedBaseQuantity,
     decimal QuarantinedBaseQuantity,
     PurchaseOrderReceiptPlan? PurchaseOrderPlan,
-    AdvanceShippingNoticeReceiptPlan? AdvanceShippingNoticePlan);
+    AdvanceShippingNoticeReceiptPlan? AdvanceShippingNoticePlan,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public interface IReceiptService
 {

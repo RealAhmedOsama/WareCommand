@@ -1,5 +1,6 @@
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Domain.Entities;
@@ -17,7 +18,10 @@ public sealed class LicensePlateContent : Entity
         int? lotId = null,
         int? serialNumberId = null,
         int inventoryStatusId = InventoryStatusSystemIds.Available,
-        int? itemPackagingId = null)
+        int? itemPackagingId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(licensePlateId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(itemId);
@@ -34,6 +38,12 @@ public sealed class LicensePlateContent : Entity
         SerialNumberId = serialNumberId;
         InventoryStatusId = inventoryStatusId;
         ItemPackagingId = itemPackagingId;
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         Quantity = quantity;
     }
 
@@ -43,6 +53,9 @@ public sealed class LicensePlateContent : Entity
     public int? SerialNumberId { get; private set; }
     public int InventoryStatusId { get; private set; }
     public int? ItemPackagingId { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public Quantity Quantity { get; private set; } = Quantity.Zero;
     public long Revision { get; private set; }
 
@@ -52,6 +65,7 @@ public sealed class LicensePlateContent : Entity
     public SerialNumber? SerialNumber { get; private set; }
     public InventoryStatus InventoryStatus { get; private set; } = null!;
     public ItemPackaging? ItemPackaging { get; private set; }
+    public InventoryOwner? InventoryOwner { get; private set; }
 
     public void AddQuantity(Quantity quantity)
     {

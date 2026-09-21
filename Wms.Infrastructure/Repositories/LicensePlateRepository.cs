@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.Repositories;
 using Wms.Infrastructure.Data;
 
@@ -109,7 +110,10 @@ public sealed class LicensePlateRepository : Repository<LicensePlate>, ILicenseP
         int? serialNumberId,
         int inventoryStatusId,
         int? itemPackagingId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
         var query = IncludeContentGraph(_context.LicensePlateContents.AsQueryable())
@@ -118,7 +122,13 @@ public sealed class LicensePlateRepository : Repository<LicensePlate>, ILicenseP
                               content.LotId == lotId &&
                               content.SerialNumberId == serialNumberId &&
                               content.InventoryStatusId == inventoryStatusId &&
-                              content.ItemPackagingId == itemPackagingId);
+                              content.ItemPackagingId == itemPackagingId &&
+                              content.OwnerKind == ownerKind &&
+                              content.InventoryOwnerId == inventoryOwnerId &&
+                              content.OwnerCodeSnapshot == InventoryOwnershipDimension.NormalizeOwnerCode(
+                                  ownerKind,
+                                  inventoryOwnerId,
+                                  ownerCodeSnapshot));
         query = scope.HasGlobalAccess
             ? query
             : query.Where(content => scope.WarehouseIds.Contains(content.LicensePlate.WarehouseId));

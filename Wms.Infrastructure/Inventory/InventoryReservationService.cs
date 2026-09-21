@@ -305,7 +305,10 @@ public sealed class InventoryReservationService(
                     proposed,
                     selected,
                     selected ? "selected" : "rejected",
-                    reason);
+                    reason,
+                    balance.OwnerKind,
+                    balance.InventoryOwnerId,
+                    balance.OwnerCodeSnapshot);
             })
             .ToArray();
         var projectedStatus = proposedAllocated >= request.RequestedQuantity
@@ -859,10 +862,24 @@ public sealed class InventoryReservationService(
             .Include(balance => balance.Serial)
             .Include(balance => balance.LicensePlate)
             .Include(balance => balance.InventoryStatus)
+            .Include(balance => balance.InventoryOwner)
             .Where(balance => balance.WarehouseId == request.WarehouseId &&
                               balance.ItemId == request.ItemId &&
                               balance.BaseUnitOfMeasure == item.UnitOfMeasure &&
                               balance.OnHandQuantity > balance.ReservedQuantity);
+
+        var ownerKind = selector?.OwnerKind ?? InventoryOwnerKind.CompanyOwned;
+        var ownerId = selector?.InventoryOwnerId;
+        var ownerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            ownerId,
+            selector?.OwnerCodeSnapshot);
+        query = query.Where(balance =>
+            balance.OwnerKind == ownerKind &&
+            balance.InventoryOwnerId == ownerId &&
+            balance.OwnerCodeSnapshot == ownerCode &&
+            (ownerKind == InventoryOwnerKind.CompanyOwned ||
+             (balance.InventoryOwner != null && balance.InventoryOwner.IsActive)));
 
         if (selector?.LocationId is > 0)
         {
@@ -957,9 +974,23 @@ public sealed class InventoryReservationService(
             .Include(balance => balance.Serial)
             .Include(balance => balance.LicensePlate)
             .Include(balance => balance.InventoryStatus)
+            .Include(balance => balance.InventoryOwner)
             .Where(balance => balance.WarehouseId == request.WarehouseId &&
                               balance.ItemId == request.ItemId &&
                               balance.BaseUnitOfMeasure == item.UnitOfMeasure);
+
+        var ownerKind = selector?.OwnerKind ?? InventoryOwnerKind.CompanyOwned;
+        var ownerId = selector?.InventoryOwnerId;
+        var ownerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            ownerId,
+            selector?.OwnerCodeSnapshot);
+        query = query.Where(balance =>
+            balance.OwnerKind == ownerKind &&
+            balance.InventoryOwnerId == ownerId &&
+            balance.OwnerCodeSnapshot == ownerCode &&
+            (ownerKind == InventoryOwnerKind.CompanyOwned ||
+             (balance.InventoryOwner != null && balance.InventoryOwner.IsActive)));
 
         if (selector?.LocationId is > 0)
         {
@@ -1073,7 +1104,10 @@ public sealed class InventoryReservationService(
                 balance.InventoryStatusId,
                 balance.BaseUnitOfMeasure,
                 quantity,
-                reason ?? $"allocated by {actorUserId}");
+                reason ?? $"allocated by {actorUserId}",
+                balance.OwnerKind,
+                balance.InventoryOwnerId,
+                balance.OwnerCodeSnapshot);
             await unitOfWork.InventoryReservations.AddAllocationAsync(
                 allocation,
                 cancellationToken);
@@ -1240,7 +1274,10 @@ public sealed class InventoryReservationService(
                 allocation.SerialNumber,
                 allocation.LicensePlateId,
                 allocation.InventoryStatusId,
-                allocation.BaseUnitOfMeasure),
+                allocation.BaseUnitOfMeasure,
+                allocation.OwnerKind,
+                allocation.InventoryOwnerId,
+                allocation.OwnerCodeSnapshot),
             quantityDelta,
             reservedQuantityDelta,
             "InventoryReservation",
@@ -1332,7 +1369,10 @@ public sealed class InventoryReservationService(
                     allocation.ReleasedQuantity,
                     allocation.RemainingQuantity,
                     allocation.Status,
-                    allocation.Reason))
+                    allocation.Reason,
+                    allocation.OwnerKind,
+                    allocation.InventoryOwnerId,
+                    allocation.OwnerCodeSnapshot))
                 .ToArray(),
             reservation.Events
                 .OrderBy(reservationEvent => reservationEvent.OccurredAtUtc)
@@ -1428,6 +1468,14 @@ public sealed class InventoryReservationService(
             throw new ArgumentException(
                 "The selector unit of measure cannot be empty.",
                 nameof(request));
+        }
+
+        if (request.Selector is not null)
+        {
+            _ = InventoryOwnershipDimension.NormalizeOwnerCode(
+                request.Selector.OwnerKind,
+                request.Selector.InventoryOwnerId,
+                request.Selector.OwnerCodeSnapshot);
         }
     }
 

@@ -11,6 +11,7 @@ using Wms.Application.Units;
 using Wms.Application.UseCases.Reports;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Reporting;
@@ -578,7 +579,10 @@ public sealed class OperationalReportQueryService(
             movement.PackagingName,
             movement.PackagingType,
             movement.PackagingVersion,
-            movement.PackagingUnitsPerPackage);
+            movement.PackagingUnitsPerPackage,
+            movement.OwnerKind,
+            movement.InventoryOwnerId,
+            movement.OwnerCodeSnapshot);
 
     private static MovementReportDto MapToDto(MovementReportProjection row) =>
         new(
@@ -606,7 +610,10 @@ public sealed class OperationalReportQueryService(
             PackagingName = row.PackagingName,
             PackagingType = row.PackagingType,
             PackagingVersion = row.PackagingVersion,
-            PackagingUnitsPerPackage = row.PackagingUnitsPerPackage
+            PackagingUnitsPerPackage = row.PackagingUnitsPerPackage,
+            OwnerKind = row.OwnerKind,
+            InventoryOwnerId = row.InventoryOwnerId,
+            OwnerCodeSnapshot = row.OwnerCodeSnapshot
         };
 
     private static string? NormalizeOptional(string? value)
@@ -666,7 +673,10 @@ public sealed class OperationalReportQueryService(
         string? PackagingName,
         PackagingType? PackagingType,
         int? PackagingVersion,
-        decimal? PackagingUnitsPerPackage);
+        decimal? PackagingUnitsPerPackage,
+        InventoryOwnerKind OwnerKind,
+        int? InventoryOwnerId,
+        string OwnerCodeSnapshot);
 
     private sealed record GroupAggregate<TKey>(
         TKey Key,

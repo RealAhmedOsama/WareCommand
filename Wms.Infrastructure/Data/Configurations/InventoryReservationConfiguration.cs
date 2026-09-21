@@ -40,6 +40,11 @@ public sealed class InventoryReservationConfiguration
             .HasMaxLength(100);
         builder.Property(reservation => reservation.SelectorBaseUnitOfMeasure)
             .HasMaxLength(20);
+        builder.Property(reservation => reservation.SelectorOwnerKind)
+            .HasConversion<int>()
+            .IsRequired();
+        builder.Property(reservation => reservation.SelectorOwnerCodeSnapshot)
+            .HasMaxLength(80);
         builder.Property(reservation => reservation.AllocationStrategyKey)
             .HasMaxLength(80);
         builder.Property(reservation => reservation.AllocationStrategy)

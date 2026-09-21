@@ -17,6 +17,12 @@ public sealed class InventoryTransactionConfiguration : IEntityTypeConfiguration
         builder.Property(transaction => transaction.BaseUnitOfMeasure)
             .HasMaxLength(20)
             .IsRequired();
+        builder.Property(transaction => transaction.OwnerKind)
+            .HasConversion<int>()
+            .IsRequired();
+        builder.Property(transaction => transaction.OwnerCodeSnapshot)
+            .HasMaxLength(80)
+            .IsRequired();
         builder.Property(transaction => transaction.SerialNumber)
             .HasMaxLength(100);
         builder.Property(transaction => transaction.QuantityDelta)
@@ -93,6 +99,10 @@ public sealed class InventoryTransactionConfiguration : IEntityTypeConfiguration
             .WithMany()
             .HasForeignKey(transaction => transaction.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(transaction => transaction.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(transaction => transaction.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(transaction => transaction.Movement)
             .WithMany()
             .HasForeignKey(transaction => transaction.MovementId)
@@ -126,6 +136,7 @@ public sealed class InventoryTransactionConfiguration : IEntityTypeConfiguration
             transaction.ReferenceId
         });
         builder.HasIndex(transaction => transaction.MovementId);
+        builder.HasIndex(transaction => transaction.InventoryOwnerId);
         builder.HasIndex(transaction => transaction.ReversalOfTransactionId);
         builder.HasIndex(transaction => new
         {

@@ -128,6 +128,62 @@ public sealed class InventoryLedgerServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RecordAsyncKeepsCompanyAndExternalOwnerBalancesSeparate()
+    {
+        var externalOwner = new InventoryOwner(
+            "EXT-LEDGER-1",
+            InventoryOwnerKind.ExternalOwner,
+            "External ledger owner",
+            externalOwnerReference: "EXT-LEDGER-1");
+        _context.InventoryOwners.Add(externalOwner);
+        await _context.SaveChangesAsync();
+
+        var companyKey = CreateKey(_sourceLocation, InventoryStatusSystemIds.Available);
+        var externalKey = new InventoryBalanceKey(
+            _warehouse.Id,
+            _sourceLocation.Id,
+            _item.Id,
+            null,
+            null,
+            null,
+            null,
+            InventoryStatusSystemIds.Available,
+            _item.UnitOfMeasure,
+            InventoryOwnerKind.ExternalOwner,
+            externalOwner.Id,
+            externalOwner.OwnerCode);
+
+        await _service.RecordAsync(
+            [
+                new InventoryLedgerEntryRequest(
+                    InventoryTransactionType.Receipt,
+                    companyKey,
+                    5m,
+                    ActorUserId: "receiver-1",
+                    IdempotencyKey: "owner-company-receipt",
+                    TransactionGroupId: "owner-company-group"),
+                new InventoryLedgerEntryRequest(
+                    InventoryTransactionType.Receipt,
+                    externalKey,
+                    7m,
+                    ActorUserId: "receiver-1",
+                    IdempotencyKey: "owner-external-receipt",
+                    TransactionGroupId: "owner-external-group")
+            ]);
+        await _context.SaveChangesAsync();
+
+        var balances = await _context.InventoryBalances
+            .OrderBy(balance => balance.OwnerKind)
+            .ToListAsync();
+        balances.Should().HaveCount(2);
+        balances.Single(balance => balance.OwnerKind == InventoryOwnerKind.CompanyOwned)
+            .OnHandQuantity.Should().Be(5m);
+        balances.Single(balance => balance.OwnerKind == InventoryOwnerKind.ExternalOwner)
+            .OnHandQuantity.Should().Be(7m);
+        (await _service.ReconcileAsync()).IsBalanced.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task RecordAsyncCarriesLegacyStockIntoOpeningLedgerBeforeNewDelta()
     {
         _context.Stock.Add(new Stock(

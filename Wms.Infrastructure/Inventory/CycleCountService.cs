@@ -9,6 +9,7 @@ using Wms.Application.Inventory;
 using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Inventory;
@@ -377,7 +378,10 @@ public sealed class CycleCountService(
                         balance.SerialNumber,
                         balance.LicensePlateId,
                         balance.InventoryStatusId,
-                        emptyLocationCandidate: false))
+                        emptyLocationCandidate: false,
+                        balance.OwnerKind,
+                        balance.InventoryOwnerId,
+                        balance.OwnerCodeSnapshot))
                     .ToArray();
             foreach (var line in countLines)
             {
@@ -413,7 +417,10 @@ public sealed class CycleCountService(
                         line.SerialNumber,
                         line.LicensePlateId,
                         line.InventoryStatusId,
-                        SourceReference: $"cycle-count-line:{line.Id}"))
+                        SourceReference: $"cycle-count-line:{line.Id}",
+                        OwnerKind: line.OwnerKind,
+                        InventoryOwnerId: line.InventoryOwnerId,
+                        OwnerCodeSnapshot: line.OwnerCodeSnapshot))
                         .ToArray()),
                 actorUserId,
                 cancellationToken);
@@ -530,7 +537,9 @@ public sealed class CycleCountService(
                 null,
                 null,
                 statusId,
-                emptyLocationCandidate: true)
+                emptyLocationCandidate: true,
+                ownerKind: InventoryOwnerKind.CompanyOwned,
+                ownerCodeSnapshot: InventoryOwnershipDimension.CompanyOwnerCode)
         ];
     }
 

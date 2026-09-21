@@ -10,7 +10,10 @@ public sealed record InventoryReservationSelector(
     string? SerialNumber = null,
     int? LicensePlateId = null,
     int? InventoryStatusId = null,
-    string? BaseUnitOfMeasure = null);
+    string? BaseUnitOfMeasure = null,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string? OwnerCodeSnapshot = null);
 
 public sealed record InventoryReservationRequest(
     string DemandType,
@@ -75,7 +78,10 @@ public sealed record InventoryReservationCandidateResult(
     decimal ProposedQuantity,
     bool Selected,
     string Decision,
-    string Reason);
+    string Reason,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public sealed record InventoryReservationSimulationResult(
     string DemandType,
@@ -106,7 +112,10 @@ public sealed record InventoryReservationAllocationResult(
     decimal ReleasedQuantity,
     decimal RemainingQuantity,
     InventoryReservationAllocationStatus Status,
-    string? Reason);
+    string? Reason,
+    InventoryOwnerKind OwnerKind = InventoryOwnerKind.CompanyOwned,
+    int? InventoryOwnerId = null,
+    string OwnerCodeSnapshot = InventoryOwnershipDimension.CompanyOwnerCode);
 
 public sealed record InventoryReservationEventResult(
     int EventId,

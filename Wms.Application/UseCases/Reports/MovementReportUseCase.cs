@@ -3,6 +3,7 @@ using Wms.Application.Common;
 using Wms.Application.Reporting;
 using Wms.Application.Settings;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Application.UseCases.Reports;
 
@@ -33,6 +34,9 @@ public record MovementReportDto(
     public PackagingType? PackagingType { get; init; }
     public int? PackagingVersion { get; init; }
     public decimal? PackagingUnitsPerPackage { get; init; }
+    public InventoryOwnerKind OwnerKind { get; init; } = InventoryOwnerKind.CompanyOwned;
+    public int? InventoryOwnerId { get; init; }
+    public string OwnerCodeSnapshot { get; init; } = InventoryOwnershipDimension.CompanyOwnerCode;
 }
 
 // These values are business dates in the effective warehouse time zone. They

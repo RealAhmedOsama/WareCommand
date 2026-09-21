@@ -16,7 +16,10 @@ public sealed record InventoryBalanceKey
         string? serialNumber,
         int? licensePlateId,
         int inventoryStatusId,
-        string baseUnitOfMeasure)
+        string baseUnitOfMeasure,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(warehouseId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(locationId);
@@ -37,6 +40,12 @@ public sealed record InventoryBalanceKey
         LicensePlateId = licensePlateId;
         InventoryStatusId = inventoryStatusId;
         BaseUnitOfMeasure = baseUnitOfMeasure.Trim().ToUpperInvariant();
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
     }
 
     public int WarehouseId { get; }
@@ -48,6 +57,9 @@ public sealed record InventoryBalanceKey
     public int? LicensePlateId { get; }
     public int InventoryStatusId { get; }
     public string BaseUnitOfMeasure { get; }
+    public InventoryOwnerKind OwnerKind { get; }
+    public int? InventoryOwnerId { get; }
+    public string OwnerCodeSnapshot { get; }
 }
 
 /// <summary>

@@ -15,6 +15,7 @@ using Wms.Application.Units;
 using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
@@ -308,6 +309,16 @@ public sealed class ReceiptService : IReceiptService
                 "The receipt item was not found or is inactive."));
         }
 
+        var ownerValidation = await ValidateOwnerAsync(
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot,
+            cancellationToken);
+        if (ownerValidation.IsFailure)
+        {
+            return ownerValidation.ToFailure<ReceiptReceivingPlan>();
+        }
+
         var sourceValidation = ValidateSourcePlans(input);
         if (sourceValidation.IsFailure)
         {
@@ -394,7 +405,10 @@ public sealed class ReceiptService : IReceiptService
             licensePlate,
             status,
             input.Notes,
-            conversion);
+            conversion,
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot);
         receipt.AddLine(line);
         receipt.Open(userId, _clock.UtcNow.UtcDateTime);
         _context.Receipts.Add(receipt);
@@ -426,7 +440,10 @@ public sealed class ReceiptService : IReceiptService
             damaged,
             quarantined,
             input.PurchaseOrderPlan,
-            input.AdvanceShippingNoticePlan));
+            input.AdvanceShippingNoticePlan,
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            line.OwnerCodeSnapshot));
     }
 
     public async Task<Result> FinalizeReceivingAsync(
@@ -471,6 +488,19 @@ public sealed class ReceiptService : IReceiptService
             return Result.Failure(WmsErrors.Validation(
                 "receipt.movement_mismatch",
                 "The stock movement does not match the persisted receipt line."));
+        }
+
+        var ownerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            line.OwnerKind,
+            line.InventoryOwnerId,
+            line.OwnerCodeSnapshot);
+        if (movement.OwnerKind != line.OwnerKind ||
+            movement.InventoryOwnerId != line.InventoryOwnerId ||
+            movement.OwnerCodeSnapshot != ownerCode)
+        {
+            return Result.Failure(WmsErrors.Validation(
+                "receipt.ownership_mismatch",
+                "The receiving movement ownership does not match the persisted receipt line owner."));
         }
 
         if (movement.ToLocationId is null)
@@ -574,7 +604,10 @@ public sealed class ReceiptService : IReceiptService
                         movement.ReferenceNumber,
                         movementKey,
                         qualityInspectionPending,
-                        Notes: line.Notes),
+                        Notes: line.Notes,
+                        OwnerKind: line.OwnerKind,
+                        InventoryOwnerId: line.InventoryOwnerId,
+                        OwnerCodeSnapshot: line.OwnerCodeSnapshot),
                     userId,
                     cancellationToken);
                 if (workResult.IsFailure)
@@ -1108,6 +1141,16 @@ public sealed class ReceiptService : IReceiptService
                 $"Item '{input.ItemSku}' was not found or is inactive."));
         }
 
+        var ownerValidation = await ValidateOwnerAsync(
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot,
+            cancellationToken);
+        if (ownerValidation.IsFailure)
+        {
+            return ownerValidation.ToFailure<ReceiptLine>();
+        }
+
         var conversion = !string.IsNullOrWhiteSpace(input.PackagingCode)
             ? await _quantityConversionService.ConvertPackagingToBaseAsync(
                 item.Id,
@@ -1168,7 +1211,10 @@ public sealed class ReceiptService : IReceiptService
             licensePlate,
             status,
             input.Notes,
-            conversion.Value.ToSnapshot()));
+            conversion.Value.ToSnapshot(),
+            input.OwnerKind,
+            input.InventoryOwnerId,
+            input.OwnerCodeSnapshot));
     }
 
     private async Task<Result> ValidateSourceReferencesAsync(
@@ -1330,6 +1376,47 @@ public sealed class ReceiptService : IReceiptService
         return Result.Success(new ReceiptSourceSnapshot(null, null, null, null, null));
     }
 
+    private async Task<Result> ValidateOwnerAsync(
+        InventoryOwnerKind ownerKind,
+        int? inventoryOwnerId,
+        string? ownerCodeSnapshot,
+        CancellationToken cancellationToken)
+    {
+        string normalizedCode;
+        try
+        {
+            normalizedCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+                ownerKind,
+                inventoryOwnerId,
+                ownerCodeSnapshot);
+        }
+        catch (ArgumentException exception)
+        {
+            return Result.Failure(WmsErrors.Validation(
+                "inventory.owner_invalid",
+                exception.Message));
+        }
+
+        if (ownerKind == InventoryOwnerKind.CompanyOwned)
+        {
+            return Result.Success();
+        }
+
+        var owner = await _context.InventoryOwners
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                candidate => candidate.Id == inventoryOwnerId && candidate.IsActive,
+                cancellationToken);
+        if (owner is null || owner.Kind != ownerKind || owner.OwnerCode != normalizedCode)
+        {
+            return Result.Failure(WmsErrors.Validation(
+                "inventory.owner_invalid",
+                "The selected inventory owner was not found, is inactive, or does not match the supplied owner snapshot."));
+        }
+
+        return Result.Success();
+    }
+
     private static ReceiptLine CreateLineFromQuantity(
         Receipt receipt,
         int lineNumber,
@@ -1349,7 +1436,10 @@ public sealed class ReceiptService : IReceiptService
         LicensePlate? licensePlate,
         InventoryStatus? status,
         string? notes,
-        QuantityConversionSnapshot conversion)
+        QuantityConversionSnapshot conversion,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         var packaging = conversion.PackagingSnapshot;
         return new ReceiptLine(
@@ -1396,7 +1486,10 @@ public sealed class ReceiptService : IReceiptService
             status?.Id ?? InventoryStatusSystemIds.Available,
             status?.Code,
             status?.Name,
-            notes);
+            notes,
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
     }
 
     private static ReceiptLine CloneLineForCorrection(Receipt receipt, ReceiptLine source)
@@ -1445,7 +1538,10 @@ public sealed class ReceiptService : IReceiptService
             source.InventoryStatusId,
             source.InventoryStatusCodeSnapshot,
             source.InventoryStatusNameSnapshot,
-            source.Notes);
+            source.Notes,
+            source.OwnerKind,
+            source.InventoryOwnerId,
+            source.OwnerCodeSnapshot);
     }
 
     private async Task<Receipt?> LoadReceiptAsync(
@@ -1597,7 +1693,10 @@ public sealed class ReceiptService : IReceiptService
                     link.Reference,
                     link.UserId,
                     link.Notes)).ToArray(),
-                line.IsFullyReceived)).ToArray(),
+                line.IsFullyReceived,
+                line.OwnerKind,
+                line.InventoryOwnerId,
+                line.OwnerCodeSnapshot)).ToArray(),
             receipt.CanEdit,
             receipt.Status is ReceiptStatus.Receiving or ReceiptStatus.Exception,
             receipt.CanCancel,

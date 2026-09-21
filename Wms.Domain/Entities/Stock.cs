@@ -2,6 +2,7 @@
 
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.ValueObjects;
 
 namespace Wms.Domain.Entities;
@@ -21,7 +22,10 @@ public class Stock : Entity
         string? serialNumber = null,
         int? serialNumberId = null,
         int inventoryStatusId = InventoryStatusSystemIds.Available,
-        int? licensePlateId = null)
+        int? licensePlateId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         ItemId = itemId;
         LocationId = locationId;
@@ -30,6 +34,12 @@ public class Stock : Entity
         SerialNumberId = serialNumberId;
         InventoryStatusId = inventoryStatusId;
         LicensePlateId = licensePlateId;
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         QuantityAvailable = quantity;
         QuantityReserved = Quantity.Zero;
     }
@@ -40,6 +50,9 @@ public class Stock : Entity
     public int? SerialNumberId { get; private set; }
     public int InventoryStatusId { get; private set; }
     public int? LicensePlateId { get; private set; }
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public string? SerialNumber { get; private set; }
     public Quantity QuantityAvailable { get; private set; } = Quantity.Zero;
     public Quantity QuantityReserved { get; private set; } = Quantity.Zero;
@@ -52,6 +65,7 @@ public class Stock : Entity
     public SerialNumber? Serial { get; private set; }
     public InventoryStatus? InventoryStatus { get; private set; }
     public LicensePlate? LicensePlate { get; private set; }
+    public InventoryOwner? InventoryOwner { get; private set; }
 
     public void SetInventoryStatus(int inventoryStatusId)
     {

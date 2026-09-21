@@ -89,7 +89,10 @@ public sealed class PickWarehouseWorkCompletionHandler(
                 cancellationToken,
                 line.LicensePlateId,
                 statusId,
-                recordLedger: false);
+                recordLedger: false,
+                ownerKind: line.OwnerKind,
+                inventoryOwnerId: line.InventoryOwnerId,
+                ownerCodeSnapshot: line.OwnerCodeSnapshot);
             movement.LinkPickDestination(destination.Id);
 
             var destinationStock = await context.Stock
@@ -100,7 +103,10 @@ public sealed class PickWarehouseWorkCompletionHandler(
                     stock.SerialNumberId == line.SerialNumberId &&
                     stock.SerialNumber == line.SerialNumber &&
                     stock.InventoryStatusId == statusId &&
-                    stock.LicensePlateId == targetLicensePlateId,
+                    stock.LicensePlateId == targetLicensePlateId &&
+                    stock.OwnerKind == line.OwnerKind &&
+                    stock.InventoryOwnerId == line.InventoryOwnerId &&
+                    stock.OwnerCodeSnapshot == line.OwnerCodeSnapshot,
                     cancellationToken);
             if (destinationStock is null)
             {
@@ -112,7 +118,10 @@ public sealed class PickWarehouseWorkCompletionHandler(
                     line.SerialNumber,
                     line.SerialNumberId,
                     statusId,
-                    targetLicensePlateId);
+                    targetLicensePlateId,
+                    line.OwnerKind,
+                    line.InventoryOwnerId,
+                    line.OwnerCodeSnapshot);
                 await unitOfWork.Stock.AddAsync(destinationStock, cancellationToken);
             }
             else
@@ -156,7 +165,10 @@ public sealed class PickWarehouseWorkCompletionHandler(
                             line.SerialNumber,
                             targetLicensePlateId,
                             statusId,
-                            line.BaseUnitOfMeasure),
+                            line.BaseUnitOfMeasure,
+                            line.OwnerKind,
+                            line.InventoryOwnerId,
+                            line.OwnerCodeSnapshot),
                         scan.ActualQuantity,
                         ActorUserId: userId,
                         ReferenceType: "WarehouseWork",
@@ -313,7 +325,10 @@ public sealed class PickWarehouseWorkCompletionHandler(
                 stock.SerialNumberId == line.SerialNumberId &&
                 stock.SerialNumber == line.SerialNumber &&
                 stock.InventoryStatusId == (line.InventoryStatusId ?? InventoryStatusSystemIds.Available) &&
-                stock.LicensePlateId == line.LicensePlateId,
+                stock.LicensePlateId == line.LicensePlateId &&
+                stock.OwnerKind == line.OwnerKind &&
+                stock.InventoryOwnerId == line.InventoryOwnerId &&
+                stock.OwnerCodeSnapshot == line.OwnerCodeSnapshot,
                 cancellationToken);
         if (source is null || source.GetAvailableQuantity() < scan.ActualQuantity)
         {

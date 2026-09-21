@@ -14,6 +14,8 @@ public sealed class ShipmentPackageContentConfiguration : IEntityTypeConfigurati
         builder.Property(content => content.BaseUnitOfMeasure).IsRequired().HasMaxLength(20);
         builder.Property(content => content.SerialNumber).HasMaxLength(100);
         builder.Property(content => content.ExpectedWeightKg).HasColumnType("decimal(28,12)");
+        builder.Property(content => content.OwnerKind).HasConversion<int>().IsRequired();
+        builder.Property(content => content.OwnerCodeSnapshot).HasMaxLength(80).IsRequired();
         builder.Property(content => content.Revision).IsRequired().IsConcurrencyToken();
         builder.Property(content => content.CreatedAt).IsRequired().HasColumnType("timestamp with time zone");
         builder.Property(content => content.UpdatedAt).HasColumnType("timestamp with time zone");
@@ -50,6 +52,10 @@ public sealed class ShipmentPackageContentConfiguration : IEntityTypeConfigurati
             .WithMany()
             .HasForeignKey(content => content.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(content => content.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(content => content.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(content => new
         {
@@ -58,7 +64,9 @@ public sealed class ShipmentPackageContentConfiguration : IEntityTypeConfigurati
             content.ItemId,
             content.LotId,
             content.SerialNumberId,
-            content.SourceLicensePlateId
+            content.SourceLicensePlateId,
+            content.OwnerKind,
+            content.InventoryOwnerId
         });
         builder.HasIndex(content => new { content.SalesOrderLineId, content.ItemId });
     }

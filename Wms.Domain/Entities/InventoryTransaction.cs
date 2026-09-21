@@ -73,6 +73,9 @@ public sealed class InventoryTransaction : Entity
         LicensePlateId = key.LicensePlateId;
         InventoryStatusId = key.InventoryStatusId;
         BaseUnitOfMeasure = key.BaseUnitOfMeasure;
+        OwnerKind = key.OwnerKind;
+        InventoryOwnerId = key.InventoryOwnerId;
+        OwnerCodeSnapshot = key.OwnerCodeSnapshot;
         Type = type;
         QuantityDelta = quantityDelta;
         QuantityBefore = quantityBefore;
@@ -103,6 +106,9 @@ public sealed class InventoryTransaction : Entity
     public int? LicensePlateId { get; private set; }
     public int InventoryStatusId { get; private set; }
     public string BaseUnitOfMeasure { get; private set; } = string.Empty;
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public InventoryTransactionType Type { get; private set; }
     public decimal QuantityDelta { get; private set; }
     public decimal QuantityBefore { get; private set; }
@@ -130,6 +136,7 @@ public sealed class InventoryTransaction : Entity
     public SerialNumber? Serial { get; private set; }
     public LicensePlate? LicensePlate { get; private set; }
     public InventoryStatus InventoryStatus { get; private set; } = null!;
+    public InventoryOwner? InventoryOwner { get; private set; }
     public Movement? Movement { get; private set; }
     public InventoryTransaction? ReversalOfTransaction { get; private set; }
 

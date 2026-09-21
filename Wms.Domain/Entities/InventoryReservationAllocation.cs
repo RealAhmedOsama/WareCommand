@@ -1,5 +1,6 @@
 using Wms.Domain.Common;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 
 namespace Wms.Domain.Entities;
 
@@ -25,7 +26,10 @@ public sealed class InventoryReservationAllocation : Entity
         int inventoryStatusId,
         string baseUnitOfMeasure,
         decimal allocatedQuantity,
-        string? reason = null)
+        string? reason = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(reservationId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(warehouseId);
@@ -48,6 +52,12 @@ public sealed class InventoryReservationAllocation : Entity
         LicensePlateId = licensePlateId;
         InventoryStatusId = inventoryStatusId;
         BaseUnitOfMeasure = baseUnitOfMeasure.Trim().ToUpperInvariant();
+        OwnerKind = ownerKind;
+        InventoryOwnerId = inventoryOwnerId;
+        OwnerCodeSnapshot = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
         AllocatedQuantity = allocatedQuantity;
         Status = InventoryReservationAllocationStatus.Active;
         Reason = NormalizeOptional(reason, 1_000);
@@ -63,6 +73,9 @@ public sealed class InventoryReservationAllocation : Entity
     public int? LicensePlateId { get; private set; }
     public int InventoryStatusId { get; private set; }
     public string BaseUnitOfMeasure { get; private set; } = string.Empty;
+    public InventoryOwnerKind OwnerKind { get; private set; }
+    public int? InventoryOwnerId { get; private set; }
+    public string OwnerCodeSnapshot { get; private set; } = InventoryOwnershipDimension.CompanyOwnerCode;
     public decimal AllocatedQuantity { get; private set; }
     public decimal ConsumedQuantity { get; private set; }
     public decimal ReleasedQuantity { get; private set; }
@@ -78,6 +91,7 @@ public sealed class InventoryReservationAllocation : Entity
     public SerialNumber? SerialNumberEntity { get; private set; }
     public LicensePlate? LicensePlate { get; private set; }
     public InventoryStatus InventoryStatus { get; private set; } = null!;
+    public InventoryOwner? InventoryOwner { get; private set; }
 
     public decimal RemainingQuantity =>
         AllocatedQuantity - ConsumedQuantity - ReleasedQuantity;

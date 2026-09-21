@@ -16,6 +16,8 @@ public sealed class InventoryBalanceConfiguration : IEntityTypeConfiguration<Inv
         "SerialNumber",
         "LicensePlateId",
         "InventoryStatusId",
+        "OwnerKind",
+        "InventoryOwnerId",
         "BaseUnitOfMeasure"
     ];
 
@@ -29,6 +31,12 @@ public sealed class InventoryBalanceConfiguration : IEntityTypeConfiguration<Inv
         builder.HasKey(balance => balance.Id);
         builder.Property(balance => balance.BaseUnitOfMeasure)
             .HasMaxLength(20)
+            .IsRequired();
+        builder.Property(balance => balance.OwnerKind)
+            .HasConversion<int>()
+            .IsRequired();
+        builder.Property(balance => balance.OwnerCodeSnapshot)
+            .HasMaxLength(80)
             .IsRequired();
         builder.Property(balance => balance.SerialNumber)
             .HasMaxLength(100);
@@ -78,6 +86,10 @@ public sealed class InventoryBalanceConfiguration : IEntityTypeConfiguration<Inv
             .WithMany()
             .HasForeignKey(balance => balance.InventoryStatusId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(balance => balance.InventoryOwner)
+            .WithMany()
+            .HasForeignKey(balance => balance.InventoryOwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(IdentityColumns)
             .IsUnique()
@@ -88,5 +100,6 @@ public sealed class InventoryBalanceConfiguration : IEntityTypeConfiguration<Inv
         builder.HasIndex(balance => balance.SerialNumberId);
         builder.HasIndex(balance => balance.LicensePlateId);
         builder.HasIndex(balance => balance.InventoryStatusId);
+        builder.HasIndex(balance => balance.InventoryOwnerId);
     }
 }

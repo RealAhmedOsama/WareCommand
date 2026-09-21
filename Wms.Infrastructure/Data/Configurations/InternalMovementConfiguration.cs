@@ -15,6 +15,8 @@ public sealed class InternalMovementConfiguration : IEntityTypeConfiguration<Int
         builder.Property(value => value.Quantity).HasColumnType("numeric(28,12)").IsRequired();
         builder.Property(value => value.BaseUnitOfMeasure).HasMaxLength(20).IsRequired();
         builder.Property(value => value.SerialNumber).HasMaxLength(100);
+        builder.Property(value => value.OwnerKind).HasConversion<int>().IsRequired();
+        builder.Property(value => value.OwnerCodeSnapshot).HasMaxLength(80).IsRequired();
         builder.Property(value => value.CreatedByUserId).HasMaxLength(450).IsRequired();
         builder.Property(value => value.Reason).HasMaxLength(1_000);
         builder.Property(value => value.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
@@ -30,7 +32,9 @@ public sealed class InternalMovementConfiguration : IEntityTypeConfiguration<Int
         builder.HasOne(value => value.Lot).WithMany().HasForeignKey(value => value.LotId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(value => value.Serial).WithMany().HasForeignKey(value => value.SerialNumberId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne(value => value.LicensePlate).WithMany().HasForeignKey(value => value.LicensePlateId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(value => value.InventoryOwner).WithMany().HasForeignKey(value => value.InventoryOwnerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(value => new { value.WarehouseId, value.IdempotencyKey }).IsUnique();
         builder.HasIndex(value => new { value.WarehouseId, value.Status });
+        builder.HasIndex(value => new { value.OwnerKind, value.InventoryOwnerId });
     }
 }
