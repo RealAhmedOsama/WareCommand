@@ -1003,4 +1003,10 @@
   <data name="Receipts.Notes" xml:space="preserve"><value>ملاحظات</value></data>
   <data name="Receipts.CreateInstructions" xml:space="preserve"><value>أنشئ رأس إيصال قابلاً للتدقيق وسطر توقع واحداً أو أكثر.</value></data>
   <data name="Receipts.LineFormat" xml:space="preserve"><value>سطر لكل صف: ITEM_SKU|QUANTITY|UOM|PACKAGING|PO_ID|PO_LINE_ID|ASN_ID|ASN_LINE_ID|LOT|EXPIRY|SERIAL|LPN_ID|ACCEPTED|REJECTED|DAMAGED|QUARANTINED|NOTES</value></data>
+  <data name="Shell.SkipToContent" xml:space="preserve"><value>انتقل إلى المحتوى</value></data>
+  <data name="Shell.OperatorTools" xml:space="preserve"><value>أدوات التشغيل</value></data>
+  <data name="Shell.CommandBar" xml:space="preserve"><value>شريط الأوامر</value></data>
+  <data name="Shell.QuickScan" xml:space="preserve"><value>مسح سريع أو بحث</value></data>
+  <data name="Shell.QuickScanPlaceholder" xml:space="preserve"><value>امسح باركود أو أدخل الصنف أو الموقع</value></data>
+  <data name="Shell.ShortcutHint" xml:space="preserve"><value>اضغط / أو Ctrl+K للتركيز</value></data>
 </root>

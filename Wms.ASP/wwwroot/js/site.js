@@ -53,4 +53,43 @@ document.addEventListener('DOMContentLoaded', function () {
       window.location.reload();
     });
   });
+
+  const quickScanInput = document.querySelector('[data-wms-scan-input]');
+  const focusQuickScan = function () {
+    if (!(quickScanInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    quickScanInput.focus({ preventScroll: true });
+    quickScanInput.select();
+  };
+
+  document.addEventListener('keydown', function (event) {
+    const target = event.target;
+    const isTyping = target instanceof HTMLElement && (
+      target.isContentEditable ||
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+    const isCommandShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k';
+
+    if (quickScanInput && ((event.key === '/' && !isTyping) || isCommandShortcut)) {
+      event.preventDefault();
+      focusQuickScan();
+    }
+  });
+
+  if (quickScanInput instanceof HTMLInputElement) {
+    quickScanInput.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        quickScanInput.value = '';
+      }
+    });
+  }
+
+  if (document.body.dataset.wmsPersistentScan === 'true' && quickScanInput instanceof HTMLInputElement) {
+    window.requestAnimationFrame(function () {
+      if (document.activeElement === document.body) {
+        focusQuickScan();
+      }
+    });
+  }
 });

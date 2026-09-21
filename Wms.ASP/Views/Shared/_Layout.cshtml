@@ -25,6 +25,9 @@
         ? await WarehouseAccessService.GetAccessibleWarehousesAsync(WmsPermissions.DashboardView)
         : Array.Empty<WmsWarehouseOption>();
     var layoutReturnUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
+    var scannerRoute = Context.Request.Path.Value?.StartsWith("/Receiving", StringComparison.OrdinalIgnoreCase) == true
+        || Context.Request.Path.Value?.StartsWith("/Picking", StringComparison.OrdinalIgnoreCase) == true
+        || Context.Request.Path.Value?.StartsWith("/WarehouseWork", StringComparison.OrdinalIgnoreCase) == true;
 }
 @* Authorization checks are evaluated before rendering navigation. *@
 <html lang="@currentCulture.Name" dir="@(isRtl ? "rtl" : "ltr")">
@@ -47,8 +50,9 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&amp;display=swap" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
-<body>
-<header>
+<body class="wms-shell" data-wms-direction="@(isRtl ? "rtl" : "ltr")" data-wms-persistent-scan="@(scannerRoute ? "true" : "false")">
+<a class="wms-skip-link" href="#main-content">@T["Shell.SkipToContent"]</a>
+<header class="wms-shell-header">
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow">
         <div class="container">
             <a class="navbar-brand fw-bold d-flex align-items-center" asp-controller="Dashboard" asp-action="Index">
@@ -277,9 +281,55 @@
             </div>
         </div>
     </nav>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="container wms-command-bar" data-wms-command-bar>
+            <div class="wms-command-bar__identity">
+                <span class="wms-command-bar__eyebrow">@T["Shell.OperatorTools"]</span>
+                <span class="wms-command-bar__title">@T["Shell.CommandBar"]</span>
+            </div>
+            @if (canInventory)
+            {
+                <form asp-controller="Inventory" asp-action="Index" method="get" class="wms-quick-scan" data-wms-quick-scan role="search">
+                    <label class="visually-hidden" for="wms-quick-scan-input">@T["Shell.QuickScan"]</label>
+                    <i class="bi bi-upc-scan wms-quick-scan__icon" aria-hidden="true"></i>
+                    <input id="wms-quick-scan-input" name="searchTerm" type="search"
+                           class="wms-quick-scan__input" data-wms-scan-input
+                           autocomplete="off" inputmode="search" enterkeyhint="search"
+                           placeholder="@T["Shell.QuickScanPlaceholder"]"
+                           aria-describedby="wms-quick-scan-hint" />
+                    <span id="wms-quick-scan-hint" class="wms-quick-scan__hint">@T["Shell.ShortcutHint"]</span>
+                    <button type="submit" class="btn btn-primary wms-touch-target" aria-label="@T["Common.Search"]">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                        <span class="d-none d-sm-inline ms-1">@T["Common.Search"]</span>
+                    </button>
+                </form>
+            }
+            <nav class="wms-command-links" aria-label="@T["Shell.OperatorTools"]">
+                @if (canReceive)
+                {
+                    <a class="wms-command-link wms-touch-target" asp-controller="Receiving" asp-action="Receive">
+                        <i class="bi bi-box-arrow-in-down" aria-hidden="true"></i><span>@T["Nav.Receiving"]</span>
+                    </a>
+                }
+                @if (canPick)
+                {
+                    <a class="wms-command-link wms-touch-target" asp-controller="Picking" asp-action="Index">
+                        <i class="bi bi-box-arrow-up" aria-hidden="true"></i><span>@T["Nav.Picking"]</span>
+                    </a>
+                }
+                @if (canInventory)
+                {
+                    <a class="wms-command-link wms-touch-target" asp-controller="Inventory" asp-action="Index">
+                        <i class="bi bi-stack" aria-hidden="true"></i><span>@T["Nav.Inventory"]</span>
+                    </a>
+                }
+            </nav>
+        </div>
+    }
 </header>
 
-<div class="container py-4">
+<div class="container py-4 wms-page-frame">
     @if (TempData["SuccessMessage"] != null)
     {
         <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
@@ -322,7 +372,7 @@
         </div>
     }
 
-    <main role="main" class="pb-3">
+    <main id="main-content" role="main" tabindex="-1" class="wms-main-content pb-3">
         @RenderBody()
     </main>
 </div>

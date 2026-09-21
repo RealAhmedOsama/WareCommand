@@ -1003,4 +1003,10 @@
   <data name="Receipts.Notes" xml:space="preserve"><value>Notes</value></data>
   <data name="Receipts.CreateInstructions" xml:space="preserve"><value>Create an auditable receipt header and one or more expected receipt lines.</value></data>
   <data name="Receipts.LineFormat" xml:space="preserve"><value>One line per row: ITEM_SKU|QUANTITY|UOM|PACKAGING|PO_ID|PO_LINE_ID|ASN_ID|ASN_LINE_ID|LOT|EXPIRY|SERIAL|LPN_ID|ACCEPTED|REJECTED|DAMAGED|QUARANTINED|NOTES</value></data>
+  <data name="Shell.SkipToContent" xml:space="preserve"><value>Skip to content</value></data>
+  <data name="Shell.OperatorTools" xml:space="preserve"><value>Operator tools</value></data>
+  <data name="Shell.CommandBar" xml:space="preserve"><value>Command bar</value></data>
+  <data name="Shell.QuickScan" xml:space="preserve"><value>Quick scan or search</value></data>
+  <data name="Shell.QuickScanPlaceholder" xml:space="preserve"><value>Scan a barcode, SKU, or location</value></data>
+  <data name="Shell.ShortcutHint" xml:space="preserve"><value>Press / or Ctrl+K to focus</value></data>
 </root>
