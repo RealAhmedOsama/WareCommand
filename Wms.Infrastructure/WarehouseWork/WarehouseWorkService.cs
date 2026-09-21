@@ -42,6 +42,16 @@ public sealed class WarehouseWorkService(
             WmsPermissions.WorkManage,
             cancellationToken);
 
+    public Task<Result<WarehouseWorkDto>> CreateForAllocationAsync(
+        WarehouseWorkInput input,
+        string userId,
+        CancellationToken cancellationToken = default) =>
+        CreateInternalAsync(
+            input,
+            userId,
+            WmsPermissions.AllocationManage,
+            cancellationToken);
+
     public async Task<Result<IReadOnlyList<WarehouseWorkDto>>> EnsurePutawayForReceiptAsync(
         PutawayWorkGenerationInput input,
         string userId,
@@ -554,6 +564,26 @@ public sealed class WarehouseWorkService(
             work =>
             {
                 work.Cancel(userId, input.Reason ?? "Cancelled by operator", clock.UtcNow.UtcDateTime);
+                return Result.Success();
+            },
+            cancellationToken);
+
+    public Task<Result<WarehouseWorkDto>> CancelForAllocationAsync(
+        int workId,
+        WarehouseWorkCommandInput input,
+        string userId,
+        CancellationToken cancellationToken = default) =>
+        MutateAsync(
+            workId,
+            WmsPermissions.AllocationManage,
+            "allocation-cancel",
+            input.IdempotencyKey,
+            input,
+            userId,
+            WmsAuditActions.WarehouseWorkCancelled,
+            work =>
+            {
+                work.Cancel(userId, input.Reason ?? "Allocation was unreleased.", clock.UtcNow.UtcDateTime);
                 return Result.Success();
             },
             cancellationToken);

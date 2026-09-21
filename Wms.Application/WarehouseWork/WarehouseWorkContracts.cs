@@ -187,6 +187,11 @@ public interface IWarehouseWorkService
         string userId,
         CancellationToken cancellationToken = default);
 
+    Task<Result<WarehouseWorkDto>> CreateForAllocationAsync(
+        WarehouseWorkInput input,
+        string userId,
+        CancellationToken cancellationToken = default);
+
     Task<Result<IReadOnlyList<WarehouseWorkDto>>> EnsurePutawayForReceiptAsync(
         PutawayWorkGenerationInput input,
         string userId,
@@ -237,6 +242,12 @@ public interface IWarehouseWorkService
         CancellationToken cancellationToken = default);
 
     Task<Result<WarehouseWorkDto>> CancelAsync(
+        int workId,
+        WarehouseWorkCommandInput input,
+        string userId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<WarehouseWorkDto>> CancelForAllocationAsync(
         int workId,
         WarehouseWorkCommandInput input,
         string userId,

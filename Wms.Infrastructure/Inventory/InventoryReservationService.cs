@@ -180,6 +180,128 @@ public sealed class InventoryReservationService(
         }
     }
 
+    public async Task<InventoryReservationSimulationResult> SimulateAsync(
+        InventoryReservationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateReservationRequest(request);
+        await EnsureWarehouseAccessAsync(request.WarehouseId, cancellationToken);
+
+        var item = await context.Items
+            .SingleOrDefaultAsync(
+                candidate => candidate.Id == request.ItemId,
+                cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Item '{request.ItemId}' was not found.");
+        if (!item.IsActive)
+        {
+            throw new InvalidOperationException(
+                $"Item '{item.Sku}' is inactive and cannot be reserved.");
+        }
+
+        var warehouse = await context.Warehouses
+            .SingleOrDefaultAsync(
+                candidate => candidate.Id == request.WarehouseId && candidate.IsActive,
+                cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Warehouse '{request.WarehouseId}' was not found or is inactive.");
+        var businessDate = WmsBusinessTime.GetBusinessDate(
+            clock.UtcNow,
+            warehouse.TimeZone);
+        var candidates = await GetSimulationBalancesAsync(
+            request,
+            item,
+            cancellationToken);
+        var eligible = candidates
+            .Where(balance => GetEligibilityReason(
+                balance,
+                item,
+                request.WarehouseId,
+                businessDate) is null)
+            .ToArray();
+        var orderedEligible = OrderCandidates(eligible, item).ToArray();
+        var proposedByBalance = new Dictionary<int, decimal>();
+        var remaining = request.RequestedQuantity;
+        foreach (var balance in orderedEligible)
+        {
+            if (remaining <= 0m)
+            {
+                break;
+            }
+
+            var quantity = Math.Min(balance.AvailableQuantity, remaining);
+            if (quantity <= 0m)
+            {
+                continue;
+            }
+
+            proposedByBalance[balance.Id] = quantity;
+            remaining -= quantity;
+        }
+
+        var proposedAllocated = request.RequestedQuantity - remaining;
+        var diagnostics = candidates
+            .Select(balance =>
+            {
+                var eligibilityReason = GetEligibilityReason(
+                    balance,
+                    item,
+                    request.WarehouseId,
+                    businessDate);
+                var proposed = proposedByBalance.GetValueOrDefault(balance.Id);
+                var selected = proposed > 0m;
+                var reason = selected
+                    ? (item.UseFefo
+                        ? "Selected by FEFO, location priority, receipt age, and balance ID."
+                        : "Selected by location priority, FIFO receipt age, and balance ID.")
+                    : eligibilityReason ?? (remaining <= 0m
+                        ? "Demand was already fully satisfied by higher-priority candidates."
+                        : "The eligible balance has no quantity remaining after reservation filters.");
+                return new InventoryReservationCandidateResult(
+                    balance.Id,
+                    balance.WarehouseId,
+                    balance.LocationId,
+                    balance.ItemId,
+                    balance.LotId,
+                    balance.SerialNumberId,
+                    balance.SerialNumber,
+                    balance.LicensePlateId,
+                    balance.InventoryStatusId,
+                    balance.BaseUnitOfMeasure,
+                    balance.OnHandQuantity,
+                    balance.ReservedQuantity,
+                    balance.AvailableQuantity,
+                    proposed,
+                    selected,
+                    selected ? "selected" : "rejected",
+                    reason);
+            })
+            .ToArray();
+        var projectedStatus = proposedAllocated >= request.RequestedQuantity
+            ? InventoryReservationStatus.Reserved
+            : proposedAllocated > 0m
+                ? InventoryReservationStatus.PartiallyReserved
+                : InventoryReservationStatus.Pending;
+        var explanation = proposedAllocated >= request.RequestedQuantity
+            ? "The full requested quantity can be reserved from eligible inventory."
+            : proposedAllocated > 0m
+                ? "Eligible inventory is insufficient; the remainder is a backorder."
+                : "No eligible allocatable inventory matched the warehouse, status, location, lot, serial, license-plate, or expiry rules.";
+
+        return new InventoryReservationSimulationResult(
+            request.DemandType.Trim(),
+            request.DemandId.Trim(),
+            request.DemandLine,
+            request.WarehouseId,
+            request.ItemId,
+            request.RequestedQuantity,
+            proposedAllocated,
+            remaining,
+            projectedStatus,
+            explanation,
+            diagnostics);
+    }
+
     public async Task<InventoryReservationResult> ReleaseAsync(
         InventoryReservationMutationRequest request,
         CancellationToken cancellationToken = default)
@@ -731,18 +853,86 @@ public sealed class InventoryReservationService(
             .Where(balance => IsEligible(balance, item, request.WarehouseId, businessDate))
             .ToArray();
 
-        IEnumerable<InventoryBalance> ordered = item.UseFefo
-            ? eligible
+        return OrderCandidates(eligible, item).ToArray();
+    }
+
+    private async Task<IReadOnlyList<InventoryBalance>> GetSimulationBalancesAsync(
+        InventoryReservationRequest request,
+        Item item,
+        CancellationToken cancellationToken)
+    {
+        var selector = request.Selector;
+        if (!string.IsNullOrWhiteSpace(selector?.BaseUnitOfMeasure) &&
+            !string.Equals(
+                selector.BaseUnitOfMeasure.Trim(),
+                item.UnitOfMeasure,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Reservation unit '{selector.BaseUnitOfMeasure}' does not match item base unit '{item.UnitOfMeasure}'.");
+        }
+
+        var query = context.InventoryBalances
+            .AsNoTracking()
+            .Include(balance => balance.Warehouse)
+            .Include(balance => balance.Location)
+            .Include(balance => balance.Item)
+            .Include(balance => balance.Lot)
+            .Include(balance => balance.Serial)
+            .Include(balance => balance.LicensePlate)
+            .Include(balance => balance.InventoryStatus)
+            .Where(balance => balance.WarehouseId == request.WarehouseId &&
+                              balance.ItemId == request.ItemId &&
+                              balance.BaseUnitOfMeasure == item.UnitOfMeasure);
+
+        if (selector?.LocationId is > 0)
+        {
+            query = query.Where(balance => balance.LocationId == selector.LocationId.Value);
+        }
+
+        if (selector?.LotId is > 0)
+        {
+            query = query.Where(balance => balance.LotId == selector.LotId.Value);
+        }
+
+        if (selector?.SerialNumberId is > 0)
+        {
+            query = query.Where(balance => balance.SerialNumberId == selector.SerialNumberId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(selector?.SerialNumber))
+        {
+            var serialNumber = selector.SerialNumber.Trim().ToUpperInvariant();
+            query = query.Where(balance => balance.SerialNumber == serialNumber);
+        }
+
+        if (selector?.LicensePlateId is > 0)
+        {
+            query = query.Where(balance => balance.LicensePlateId == selector.LicensePlateId.Value);
+        }
+
+        if (selector?.InventoryStatusId is > 0)
+        {
+            query = query.Where(balance => balance.InventoryStatusId == selector.InventoryStatusId.Value);
+        }
+
+        return await query
+            .OrderBy(balance => balance.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    private static IEnumerable<InventoryBalance> OrderCandidates(
+        IEnumerable<InventoryBalance> candidates,
+        Item item) => item.UseFefo
+            ? candidates
                 .OrderBy(balance => balance.Lot?.ExpiryDate ?? DateTime.MaxValue)
                 .ThenBy(balance => balance.Location.Priority)
                 .ThenBy(balance => balance.CreatedAt)
                 .ThenBy(balance => balance.Id)
-            : eligible
+            : candidates
                 .OrderBy(balance => balance.Location.Priority)
                 .ThenBy(balance => balance.CreatedAt)
                 .ThenBy(balance => balance.Id);
-        return ordered.ToArray();
-    }
 
     private async Task<IReadOnlyList<InventoryReservationAllocation>> AddAllocationsAsync(
         InventoryReservation reservation,
@@ -849,35 +1039,57 @@ public sealed class InventoryReservationService(
         InventoryBalance balance,
         Item item,
         int warehouseId,
+        DateOnly businessDate) => GetEligibilityReason(
+            balance,
+            item,
+            warehouseId,
+            businessDate) is null;
+
+    private static string? GetEligibilityReason(
+        InventoryBalance balance,
+        Item item,
+        int warehouseId,
         DateOnly businessDate)
     {
-        if (balance.Warehouse is null ||
-            !balance.Warehouse.IsActive ||
-            balance.Location is null ||
+        if (balance.AvailableQuantity <= 0m)
+        {
+            return "The balance has no unreserved quantity available.";
+        }
+
+        if (balance.Warehouse is null || !balance.Warehouse.IsActive)
+        {
+            return "The warehouse is inactive or unavailable.";
+        }
+
+        if (balance.Location is null ||
             balance.Location.WarehouseId != warehouseId ||
             !balance.Location.IsActive ||
-            !balance.Location.IsPickable ||
-            balance.InventoryStatus is null ||
+            !balance.Location.IsPickable)
+        {
+            return "The location is inactive, belongs to another warehouse, or is not pickable.";
+        }
+
+        if (balance.InventoryStatus is null ||
             !balance.InventoryStatus.IsActive ||
             !balance.InventoryStatus.IsAvailable ||
             !balance.InventoryStatus.IsAllocatable)
         {
-            return false;
+            return "The inventory status is not active, available, or allocatable.";
         }
 
         if (item.RequiresLot && balance.Lot is null)
         {
-            return false;
+            return "The item requires a lot and this balance has no lot.";
         }
 
         if (balance.Lot is not null && !balance.Lot.IsAllocationEligible(businessDate))
         {
-            return false;
+            return "The lot is expired, blocked, or outside its allocation window.";
         }
 
         if (item.RequiresSerial && balance.Serial is null)
         {
-            return false;
+            return "The item requires a serial number and this balance has none.";
         }
 
         if (balance.Serial is not null &&
@@ -885,7 +1097,7 @@ public sealed class InventoryReservationService(
              balance.Serial.CurrentWarehouseId != warehouseId ||
              balance.Serial.CurrentLocationId != balance.LocationId))
         {
-            return false;
+            return "The serial is not allocation-eligible at the current warehouse location.";
         }
 
         if (balance.LicensePlate is not null &&
@@ -894,10 +1106,10 @@ public sealed class InventoryReservationService(
              balance.LicensePlate.WarehouseId != warehouseId ||
              balance.LicensePlate.CurrentLocationId != balance.LocationId))
         {
-            return false;
+            return "The license plate is inactive, closed, or not at the current warehouse location.";
         }
 
-        return true;
+        return null;
     }
 
     private static InventoryLedgerEntryRequest CreateLedgerEntry(

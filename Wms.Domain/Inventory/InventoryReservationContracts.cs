@@ -53,6 +53,38 @@ public sealed record InventoryReservationResult(
     IReadOnlyList<InventoryReservationAllocationResult> Allocations,
     IReadOnlyList<InventoryReservationEventResult> Events);
 
+public sealed record InventoryReservationCandidateResult(
+    int BalanceId,
+    int WarehouseId,
+    int LocationId,
+    int ItemId,
+    int? LotId,
+    int? SerialNumberId,
+    string? SerialNumber,
+    int? LicensePlateId,
+    int InventoryStatusId,
+    string BaseUnitOfMeasure,
+    decimal OnHandQuantity,
+    decimal ReservedQuantity,
+    decimal AvailableQuantity,
+    decimal ProposedQuantity,
+    bool Selected,
+    string Decision,
+    string Reason);
+
+public sealed record InventoryReservationSimulationResult(
+    string DemandType,
+    string DemandId,
+    int? DemandLine,
+    int WarehouseId,
+    int ItemId,
+    decimal RequestedQuantity,
+    decimal ProposedAllocatedQuantity,
+    decimal BackorderQuantity,
+    InventoryReservationStatus ProjectedStatus,
+    string Explanation,
+    IReadOnlyList<InventoryReservationCandidateResult> Candidates);
+
 public sealed record InventoryReservationAllocationResult(
     int AllocationId,
     int WarehouseId,

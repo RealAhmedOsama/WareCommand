@@ -103,6 +103,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ISupplierManagementService, SupplierManagementService>();
         services.AddScoped<ICustomerManagementService, CustomerManagementService>();
         services.AddScoped<ISalesOrderService, SalesOrderService>();
+        services.AddScoped<ISalesOrderAllocationService, SalesOrderAllocationService>();
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
         services.AddScoped<IAdvanceShippingNoticeService, AdvanceShippingNoticeService>();
         services.AddScoped<IInboundExceptionService, InboundExceptionService>();

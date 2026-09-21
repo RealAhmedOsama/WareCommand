@@ -352,6 +352,23 @@ public sealed class SalesOrder : Entity
         Touch();
     }
 
+    public void RestoreConfirmedAfterAllocationCancellation()
+    {
+        if (Status is not (SalesOrderStatus.Allocating or
+            SalesOrderStatus.PartiallyAllocated or
+            SalesOrderStatus.Released or
+            SalesOrderStatus.Exception))
+        {
+            throw new InvalidOperationException(
+                $"A sales order in {Status} cannot be restored after allocation cancellation.");
+        }
+
+        Status = SalesOrderStatus.Confirmed;
+        StatusBeforeHold = null;
+        HoldReason = null;
+        Touch();
+    }
+
     private void EnsureDraft()
     {
         if (!CanEdit)

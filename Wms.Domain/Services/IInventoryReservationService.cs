@@ -9,6 +9,10 @@ public interface IInventoryReservationService
         InventoryReservationRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<InventoryReservationSimulationResult> SimulateAsync(
+        InventoryReservationRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<InventoryReservationResult> ReleaseAsync(
         InventoryReservationMutationRequest request,
         CancellationToken cancellationToken = default);
