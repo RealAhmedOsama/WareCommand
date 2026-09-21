@@ -635,11 +635,17 @@ public sealed class InventoryReservationService(
                 "The requested quantity exceeds the active reservation quantity.");
         }
 
-        var transactionStarted = false;
+        // Warehouse work completion owns the outer transaction. Starting an
+        // inner transaction here would either fail on PostgreSQL or commit the
+        // reservation before the work, movement, audit, and idempotency rows.
+        var transactionStarted = context.Database.CurrentTransaction is null;
         try
         {
-            await unitOfWork.BeginTransactionAsync(cancellationToken);
-            transactionStarted = true;
+            if (transactionStarted)
+            {
+                await unitOfWork.BeginTransactionAsync(cancellationToken);
+            }
+
             var actor = NormalizeActor(request.ActorUserId);
             var correlation = NormalizeCorrelationId(request.CorrelationId ?? reservation.CorrelationId);
             var reason = request.Reason ?? $"reservation {action}";
@@ -650,6 +656,8 @@ public sealed class InventoryReservationService(
             var sequence = 1;
             foreach (var allocation in reservation.Allocations
                          .Where(allocation => allocation.IsOpen)
+                         .Where(allocation => !request.AllocationId.HasValue ||
+                                              allocation.Id == request.AllocationId.Value)
                          .OrderBy(allocation => allocation.Id))
             {
                 if (remaining == 0m)
@@ -688,7 +696,9 @@ public sealed class InventoryReservationService(
             if (remaining != 0m)
             {
                 throw new InvalidOperationException(
-                    "The reservation changed while the mutation was being prepared.");
+                    request.AllocationId.HasValue
+                        ? "The requested reservation allocation changed while the mutation was being prepared."
+                        : "The reservation changed while the mutation was being prepared.");
             }
 
             await inventoryLedgerService.RecordAsync(entries, cancellationToken);
@@ -699,8 +709,11 @@ public sealed class InventoryReservationService(
 
             ApplyDerivedStatus(reservation);
             await unitOfWork.SaveChangesAsync(cancellationToken);
-            await unitOfWork.CommitTransactionAsync(cancellationToken);
-            transactionStarted = false;
+            if (transactionStarted)
+            {
+                await unitOfWork.CommitTransactionAsync(cancellationToken);
+                transactionStarted = false;
+            }
             return ToResult(reservation);
         }
         catch

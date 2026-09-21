@@ -256,7 +256,9 @@ public sealed class WarehouseWorkService(
                     line.LicensePlateId,
                     line.InventoryStatusId,
                     line.SourceReference,
-                    line.DimensionsSnapshot));
+                    line.DimensionsSnapshot,
+                    line.ReservationId,
+                    line.ReservationAllocationId));
             }
 
             if (input.MakeAvailable)
@@ -968,5 +970,7 @@ public sealed class WarehouseWorkService(
         line.InventoryStatusId,
         line.SourceReference,
         line.DimensionsSnapshot,
-        line.Revision);
+        line.Revision,
+        line.ReservationId,
+        line.ReservationAllocationId);
 }

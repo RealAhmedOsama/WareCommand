@@ -19,7 +19,9 @@ public sealed record WarehouseWorkLineInput(
     int? LicensePlateId = null,
     int? InventoryStatusId = null,
     string? SourceReference = null,
-    string? DimensionsSnapshot = null);
+    string? DimensionsSnapshot = null,
+    int? ReservationId = null,
+    int? ReservationAllocationId = null);
 
 public sealed record WarehouseWorkInput(
     string CreationKey,
@@ -63,7 +65,11 @@ public sealed record WarehouseWorkScanInput(
     int DestinationLocationId,
     decimal ActualQuantity,
     int? LicensePlateId = null,
-    bool DestinationOverride = false);
+    bool DestinationOverride = false,
+    int? LotId = null,
+    int? SerialNumberId = null,
+    string? SerialNumber = null,
+    int? TargetLicensePlateId = null);
 
 public sealed record WarehouseWorkCompletionInput(
     string IdempotencyKey,
@@ -119,7 +125,9 @@ public sealed record WarehouseWorkLineDto(
     int? InventoryStatusId,
     string? SourceReference,
     string? DimensionsSnapshot,
-    long Revision);
+    long Revision,
+    int? ReservationId,
+    int? ReservationAllocationId);
 
 public sealed record WarehouseWorkDto(
     int Id,

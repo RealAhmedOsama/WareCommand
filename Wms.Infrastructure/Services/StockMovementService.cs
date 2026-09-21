@@ -654,7 +654,7 @@ public class StockMovementService : IStockMovementService
     public async Task<Movement> PickAsync(int itemId, int fromLocationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
         string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null)
+        int? licensePlateId = null, int? inventoryStatusId = null, bool recordLedger = true)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(fromLocationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -693,7 +693,7 @@ public class StockMovementService : IStockMovementService
                 lotId,
                 serial?.Number ?? serialNumber,
                 serial?.Id,
-                statusId: null,
+                statusId: inventoryStatusId,
                 licensePlateId,
                 cancellationToken);
 
@@ -737,7 +737,7 @@ public class StockMovementService : IStockMovementService
                 await _unitOfWork.SerialNumbers.UpdateAsync(serial, cancellationToken);
             }
 
-            if (_inventoryLedgerService is not null)
+            if (_inventoryLedgerService is not null && recordLedger)
             {
                 var item = await _unitOfWork.Items.GetByIdAsync(itemId, cancellationToken)
                     ?? throw new InvalidOperationException($"Item {itemId} was not found.");
@@ -1381,7 +1381,7 @@ public class StockMovementService : IStockMovementService
         int? licensePlateId,
         CancellationToken cancellationToken)
     {
-        if (_inventoryStatusService is null)
+        if (_inventoryStatusService is null && !statusId.HasValue)
         {
             return await _unitOfWork.Stock.GetByItemAndLocationAsync(
                 itemId,

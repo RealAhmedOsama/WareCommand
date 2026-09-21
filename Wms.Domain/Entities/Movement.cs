@@ -292,6 +292,24 @@ public class Movement : Entity
             fromLicensePlateId: fromLicensePlateId);
     }
 
+    public void LinkPickDestination(int destinationLocationId)
+    {
+        if (Type != MovementType.Pick)
+        {
+            throw new InvalidOperationException(
+                "Only pick movements can be linked to a staging destination.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(destinationLocationId);
+        if (ToLocationId.HasValue && ToLocationId != destinationLocationId)
+        {
+            throw new InvalidOperationException(
+                "The pick movement is already linked to another destination.");
+        }
+
+        ToLocationId = destinationLocationId;
+    }
+
     public static Movement CreateShip(int itemId, int fromLocationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null, string? notes = null,
         DateTime? timestampUtc = null,

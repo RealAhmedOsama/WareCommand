@@ -31,7 +31,7 @@ public interface IStockMovementService
     Task<Movement> PickAsync(int itemId, int fromLocationId, Quantity quantity, string userId,
         int? lotId = null, string? serialNumber = null, string? referenceNumber = null,
         string? notes = null, CancellationToken cancellationToken = default,
-        int? licensePlateId = null);
+        int? licensePlateId = null, int? inventoryStatusId = null, bool recordLedger = true);
 
     Task<Movement> AdjustAsync(int itemId, int locationId, Quantity newQuantity, string userId,
         string reason, int? lotId = null, string? serialNumber = null,

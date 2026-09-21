@@ -23,7 +23,9 @@ public sealed class WarehouseWorkLine : Entity
         int? licensePlateId = null,
         int? inventoryStatusId = null,
         string? sourceReference = null,
-        string? dimensionsSnapshot = null)
+        string? dimensionsSnapshot = null,
+        int? reservationId = null,
+        int? reservationAllocationId = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sequence);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(warehouseId);
@@ -32,6 +34,11 @@ public sealed class WarehouseWorkLine : Entity
         if (sourceLocationId is <= 0 || destinationLocationId is <= 0 || lotId is <= 0 || serialNumberId is <= 0 || licensePlateId is <= 0 || inventoryStatusId is <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(sourceLocationId));
+        }
+
+        if (reservationId is <= 0 || reservationAllocationId is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(reservationId));
         }
 
         Sequence = sequence;
@@ -48,6 +55,8 @@ public sealed class WarehouseWorkLine : Entity
         InventoryStatusId = inventoryStatusId;
         SourceReference = Optional(sourceReference, 200);
         DimensionsSnapshot = Optional(dimensionsSnapshot, 2_000);
+        ReservationId = reservationId;
+        ReservationAllocationId = reservationAllocationId;
         Revision = 1;
     }
 
@@ -67,6 +76,8 @@ public sealed class WarehouseWorkLine : Entity
     public int? InventoryStatusId { get; private set; }
     public string? SourceReference { get; private set; }
     public string? DimensionsSnapshot { get; private set; }
+    public int? ReservationId { get; private set; }
+    public int? ReservationAllocationId { get; private set; }
     public long Revision { get; private set; }
 
     public WarehouseWork Work { get; private set; } = null!;

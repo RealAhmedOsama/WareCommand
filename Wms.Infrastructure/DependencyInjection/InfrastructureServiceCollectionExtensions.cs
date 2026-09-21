@@ -111,6 +111,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IQualityInspectionService, QualityInspectionService>();
         services.AddScoped<IWarehouseWorkService, WarehouseWorkService>();
         services.AddScoped<IWarehouseWorkCompletionHandler, PutawayWarehouseWorkCompletionHandler>();
+        services.AddScoped<IWarehouseWorkCompletionHandler, PickWarehouseWorkCompletionHandler>();
         services.AddScoped<IPutawayRuleService, PutawayRuleService>();
         services.AddScoped<IReceivingExecutionService, ReceivingExecutionService>();
         services.AddScoped<IIdentificationRegistry, IdentificationRegistry>();

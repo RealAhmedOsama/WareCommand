@@ -32,7 +32,8 @@ public sealed record InventoryReservationMutationRequest(
     decimal? Quantity,
     string ActorUserId,
     string? CorrelationId = null,
-    string? Reason = null);
+    string? Reason = null,
+    int? AllocationId = null);
 
 public sealed record InventoryReservationResult(
     int ReservationId,

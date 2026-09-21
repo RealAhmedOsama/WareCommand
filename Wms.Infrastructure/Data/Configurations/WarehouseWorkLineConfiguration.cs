@@ -16,6 +16,8 @@ public sealed class WarehouseWorkLineConfiguration : IEntityTypeConfiguration<Wa
         builder.Property(line => line.SerialNumber).HasMaxLength(100);
         builder.Property(line => line.SourceReference).HasMaxLength(200);
         builder.Property(line => line.DimensionsSnapshot).HasMaxLength(2_000);
+        builder.Property(line => line.ReservationId);
+        builder.Property(line => line.ReservationAllocationId);
         builder.Property(line => line.Revision).IsRequired().IsConcurrencyToken();
 
         builder.HasOne(line => line.Work)
@@ -57,5 +59,6 @@ public sealed class WarehouseWorkLineConfiguration : IEntityTypeConfiguration<Wa
 
         builder.HasIndex(line => new { line.WarehouseWorkId, line.Sequence }).IsUnique();
         builder.HasIndex(line => new { line.ItemId, line.SourceLocationId, line.LicensePlateId });
+        builder.HasIndex(line => new { line.ReservationId, line.ReservationAllocationId });
     }
 }

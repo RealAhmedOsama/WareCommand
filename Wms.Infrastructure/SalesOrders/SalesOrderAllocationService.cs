@@ -596,7 +596,9 @@ public sealed class SalesOrderAllocationService(
                                 SerialNumber: allocation.SerialNumber,
                                 LicensePlateId: allocation.LicensePlateId,
                                 InventoryStatusId: allocation.InventoryStatusId,
-                                SourceReference: $"reservation:{reservation.ReservationId}:allocation:{allocation.AllocationId}")
+                                SourceReference: $"reservation:{reservation.ReservationId}:allocation:{allocation.AllocationId}",
+                                ReservationId: reservation.ReservationId,
+                                ReservationAllocationId: allocation.AllocationId)
                         ]),
                     userId,
                     cancellationToken);
