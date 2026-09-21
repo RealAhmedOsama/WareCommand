@@ -11,6 +11,7 @@
     var canPutaway = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PutawayExecute)).Succeeded;
     var canPick = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PickingExecute)).Succeeded;
     var canInventory = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.InventoryRead)).Succeeded;
+    var canReports = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ReportsRead)).Succeeded;
     var canItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsRead)).Succeeded;
     var canSuppliers = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SuppliersRead)).Succeeded;
     var canPurchaseOrders = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PurchaseOrdersRead)).Succeeded;
@@ -128,6 +129,14 @@
                     <li class="nav-item">
                         <a class="nav-link px-3 py-2 rounded-pill mx-1" asp-controller="Inventory" asp-action="Index">
                             <i class="bi bi-stack me-1"></i>@T["Nav.Inventory"]
+                        </a>
+                    </li>
+                    }
+                    @if (canReports)
+                    {
+                    <li class="nav-item">
+                        <a class="nav-link px-3 py-2 rounded-pill mx-1" asp-controller="Reports" asp-action="Index">
+                            <i class="bi bi-bar-chart-line me-1"></i>@T["Nav.Reports"]
                         </a>
                     </li>
                     }

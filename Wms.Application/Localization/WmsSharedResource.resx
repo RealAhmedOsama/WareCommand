@@ -647,6 +647,52 @@
   <data name="Desktop.ConfirmDelete" xml:space="preserve"><value>Confirm Delete</value></data>
   <data name="Desktop.DeleteLocationPrompt" xml:space="preserve"><value>Are you sure you want to delete this location?</value></data>
   <data name="Reports.Title" xml:space="preserve"><value>Reports</value></data>
+  <data name="Nav.Reports" xml:space="preserve"><value>Reports</value></data>
+  <data name="Reports.MovementLedger" xml:space="preserve"><value>Movement ledger</value></data>
+  <data name="Reports.Description" xml:space="preserve"><value>Filter operational movement data by date, warehouse, item, location, and traceability fields.</value></data>
+  <data name="Reports.Filters" xml:space="preserve"><value>Report filters</value></data>
+  <data name="Reports.FromDate" xml:space="preserve"><value>From date</value></data>
+  <data name="Reports.ToDate" xml:space="preserve"><value>To date</value></data>
+  <data name="Reports.Warehouse" xml:space="preserve"><value>Warehouse</value></data>
+  <data name="Reports.Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Reports.SearchPlaceholder" xml:space="preserve"><value>SKU, item, location, reference, lot, or serial</value></data>
+  <data name="Reports.ItemSku" xml:space="preserve"><value>Item SKU</value></data>
+  <data name="Reports.Location" xml:space="preserve"><value>Location</value></data>
+  <data name="Reports.MovementType" xml:space="preserve"><value>Movement type</value></data>
+  <data name="Reports.User" xml:space="preserve"><value>User</value></data>
+  <data name="Reports.Reference" xml:space="preserve"><value>Reference</value></data>
+  <data name="Reports.Lot" xml:space="preserve"><value>Lot</value></data>
+  <data name="Reports.Serial" xml:space="preserve"><value>Serial</value></data>
+  <data name="Reports.LicensePlate" xml:space="preserve"><value>License plate</value></data>
+  <data name="Reports.GroupBy" xml:space="preserve"><value>Group by</value></data>
+  <data name="Reports.NoGrouping" xml:space="preserve"><value>No grouping</value></data>
+  <data name="Reports.Item" xml:space="preserve"><value>Item</value></data>
+  <data name="Reports.Movement" xml:space="preserve"><value>Movement type</value></data>
+  <data name="Reports.SortBy" xml:space="preserve"><value>Sort by</value></data>
+  <data name="Reports.Timestamp" xml:space="preserve"><value>Timestamp</value></data>
+  <data name="Reports.Quantity" xml:space="preserve"><value>Quantity</value></data>
+  <data name="Reports.Descending" xml:space="preserve"><value>Descending</value></data>
+  <data name="Reports.Ascending" xml:space="preserve"><value>Ascending</value></data>
+  <data name="Reports.PageSize" xml:space="preserve"><value>Rows per page</value></data>
+  <data name="Reports.Apply" xml:space="preserve"><value>Run report</value></data>
+  <data name="Reports.Export" xml:space="preserve"><value>Export CSV</value></data>
+  <data name="Reports.Generated" xml:space="preserve"><value>Generated</value></data>
+  <data name="Reports.Cutoff" xml:space="preserve"><value>Data cutoff</value></data>
+  <data name="Reports.TimeZone" xml:space="preserve"><value>Time zone</value></data>
+  <data name="Reports.Rows" xml:space="preserve"><value>Rows</value></data>
+  <data name="Reports.Groups" xml:space="preserve"><value>Groups</value></data>
+  <data name="Reports.NoRows" xml:space="preserve"><value>No movements match the current filters.</value></data>
+  <data name="Reports.FromLocation" xml:space="preserve"><value>From location</value></data>
+  <data name="Reports.ToLocation" xml:space="preserve"><value>To location</value></data>
+  <data name="Reports.BaseQuantity" xml:space="preserve"><value>Base quantity</value></data>
+  <data name="Reports.DisplayQuantity" xml:space="preserve"><value>Display quantity</value></data>
+  <data name="Reports.BaseUom" xml:space="preserve"><value>Base UOM</value></data>
+  <data name="Reports.DisplayUom" xml:space="preserve"><value>Display UOM</value></data>
+  <data name="Reports.UserId" xml:space="preserve"><value>User</value></data>
+  <data name="Reports.ReferenceNumber" xml:space="preserve"><value>Reference</value></data>
+  <data name="Reports.Notes" xml:space="preserve"><value>Notes</value></data>
+  <data name="Reports.TimestampUtc" xml:space="preserve"><value>Timestamp (UTC)</value></data>
+  <data name="Reports.Total" xml:space="preserve"><value>Total</value></data>
   <data name="Home.Welcome" xml:space="preserve"><value>Welcome</value></data>
   <data name="Home.Learn" xml:space="preserve"><value>Learn about building Web apps with ASP.NET Core.</value></data>
   <data name="Home.Title" xml:space="preserve"><value>Home</value></data>

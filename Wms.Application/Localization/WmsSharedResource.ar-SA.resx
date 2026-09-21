@@ -647,6 +647,52 @@
   <data name="Desktop.ConfirmDelete" xml:space="preserve"><value>تأكيد الحذف</value></data>
   <data name="Desktop.DeleteLocationPrompt" xml:space="preserve"><value>هل أنت متأكد من رغبتك في حذف هذا الموقع؟</value></data>
   <data name="Reports.Title" xml:space="preserve"><value>التقارير</value></data>
+  <data name="Nav.Reports" xml:space="preserve"><value>التقارير</value></data>
+  <data name="Reports.MovementLedger" xml:space="preserve"><value>سجل حركات المخزون</value></data>
+  <data name="Reports.Description" xml:space="preserve"><value>قم بتصفية حركات التشغيل حسب التاريخ والمستودع والصنف والموقع وبيانات التتبع.</value></data>
+  <data name="Reports.Filters" xml:space="preserve"><value>مرشحات التقرير</value></data>
+  <data name="Reports.FromDate" xml:space="preserve"><value>من تاريخ</value></data>
+  <data name="Reports.ToDate" xml:space="preserve"><value>إلى تاريخ</value></data>
+  <data name="Reports.Warehouse" xml:space="preserve"><value>المستودع</value></data>
+  <data name="Reports.Search" xml:space="preserve"><value>بحث</value></data>
+  <data name="Reports.SearchPlaceholder" xml:space="preserve"><value>الصنف أو الموقع أو المرجع أو التشغيلة أو الرقم التسلسلي</value></data>
+  <data name="Reports.ItemSku" xml:space="preserve"><value>رمز الصنف</value></data>
+  <data name="Reports.Location" xml:space="preserve"><value>الموقع</value></data>
+  <data name="Reports.MovementType" xml:space="preserve"><value>نوع الحركة</value></data>
+  <data name="Reports.User" xml:space="preserve"><value>المستخدم</value></data>
+  <data name="Reports.Reference" xml:space="preserve"><value>المرجع</value></data>
+  <data name="Reports.Lot" xml:space="preserve"><value>التشغيلة</value></data>
+  <data name="Reports.Serial" xml:space="preserve"><value>الرقم التسلسلي</value></data>
+  <data name="Reports.LicensePlate" xml:space="preserve"><value>لوحة الترخيص</value></data>
+  <data name="Reports.GroupBy" xml:space="preserve"><value>التجميع حسب</value></data>
+  <data name="Reports.NoGrouping" xml:space="preserve"><value>بدون تجميع</value></data>
+  <data name="Reports.Item" xml:space="preserve"><value>الصنف</value></data>
+  <data name="Reports.Movement" xml:space="preserve"><value>نوع الحركة</value></data>
+  <data name="Reports.SortBy" xml:space="preserve"><value>الترتيب حسب</value></data>
+  <data name="Reports.Timestamp" xml:space="preserve"><value>الوقت</value></data>
+  <data name="Reports.Quantity" xml:space="preserve"><value>الكمية</value></data>
+  <data name="Reports.Descending" xml:space="preserve"><value>تنازلي</value></data>
+  <data name="Reports.Ascending" xml:space="preserve"><value>تصاعدي</value></data>
+  <data name="Reports.PageSize" xml:space="preserve"><value>عدد الصفوف في الصفحة</value></data>
+  <data name="Reports.Apply" xml:space="preserve"><value>تشغيل التقرير</value></data>
+  <data name="Reports.Export" xml:space="preserve"><value>تصدير CSV</value></data>
+  <data name="Reports.Generated" xml:space="preserve"><value>وقت الإنشاء</value></data>
+  <data name="Reports.Cutoff" xml:space="preserve"><value>حد البيانات</value></data>
+  <data name="Reports.TimeZone" xml:space="preserve"><value>المنطقة الزمنية</value></data>
+  <data name="Reports.Rows" xml:space="preserve"><value>الصفوف</value></data>
+  <data name="Reports.Groups" xml:space="preserve"><value>المجموعات</value></data>
+  <data name="Reports.NoRows" xml:space="preserve"><value>لا توجد حركات تطابق المرشحات الحالية.</value></data>
+  <data name="Reports.FromLocation" xml:space="preserve"><value>من موقع</value></data>
+  <data name="Reports.ToLocation" xml:space="preserve"><value>إلى موقع</value></data>
+  <data name="Reports.BaseQuantity" xml:space="preserve"><value>الكمية الأساسية</value></data>
+  <data name="Reports.DisplayQuantity" xml:space="preserve"><value>الكمية المعروضة</value></data>
+  <data name="Reports.BaseUom" xml:space="preserve"><value>وحدة القياس الأساسية</value></data>
+  <data name="Reports.DisplayUom" xml:space="preserve"><value>وحدة القياس المعروضة</value></data>
+  <data name="Reports.UserId" xml:space="preserve"><value>المستخدم</value></data>
+  <data name="Reports.ReferenceNumber" xml:space="preserve"><value>المرجع</value></data>
+  <data name="Reports.Notes" xml:space="preserve"><value>ملاحظات</value></data>
+  <data name="Reports.TimestampUtc" xml:space="preserve"><value>الوقت (UTC)</value></data>
+  <data name="Reports.Total" xml:space="preserve"><value>الإجمالي</value></data>
   <data name="Home.Welcome" xml:space="preserve"><value>مرحباً</value></data>
   <data name="Home.Learn" xml:space="preserve"><value>تعرّف على بناء تطبيقات الويب باستخدام ASP.NET Core.</value></data>
   <data name="Home.Title" xml:space="preserve"><value>الرئيسية</value></data>

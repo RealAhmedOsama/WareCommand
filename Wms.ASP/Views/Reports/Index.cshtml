@@ -1,0 +1,274 @@
+@using Wms.Application.Reporting
+@using Microsoft.AspNetCore.Routing
+@model MovementReportViewModel
+@{
+    ViewData["Title"] = T["Reports.Title"];
+    var routeValues = new
+    {
+        fromDate = Model.FromDate?.ToString("yyyy-MM-dd"),
+        toDate = Model.ToDate?.ToString("yyyy-MM-dd"),
+        warehouseId = Model.WarehouseId,
+        searchTerm = Model.SearchTerm,
+        itemSku = Model.ItemSku,
+        locationCode = Model.LocationCode,
+        movementType = Model.MovementType,
+        userId = Model.UserId,
+        referenceNumber = Model.ReferenceNumber,
+        lotNumber = Model.LotNumber,
+        serialNumber = Model.SerialNumber,
+        licensePlateNumber = Model.LicensePlateNumber,
+        sort = Model.Sort,
+        descending = Model.Descending,
+        groupBy = Model.GroupBy,
+        pageSize = Model.PageSize
+    };
+    var previousRouteValues = new RouteValueDictionary(routeValues) { ["page"] = Model.Page - 1 };
+    var nextRouteValues = new RouteValueDictionary(routeValues) { ["page"] = Model.Page + 1 };
+}
+
+<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-bar-chart-line me-2 text-primary"></i>@T["Reports.Title"]</h2>
+        <p class="text-muted mb-0">@T["Reports.Description"]</p>
+    </div>
+    <form asp-action="Export" method="get" class="d-flex">
+        <input type="hidden" name="fromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
+        <input type="hidden" name="toDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
+        <input type="hidden" name="warehouseId" value="@Model.WarehouseId" />
+        <input type="hidden" name="searchTerm" value="@Model.SearchTerm" />
+        <input type="hidden" name="itemSku" value="@Model.ItemSku" />
+        <input type="hidden" name="locationCode" value="@Model.LocationCode" />
+        <input type="hidden" name="movementType" value="@Model.MovementType" />
+        <input type="hidden" name="userId" value="@Model.UserId" />
+        <input type="hidden" name="referenceNumber" value="@Model.ReferenceNumber" />
+        <input type="hidden" name="lotNumber" value="@Model.LotNumber" />
+        <input type="hidden" name="serialNumber" value="@Model.SerialNumber" />
+        <input type="hidden" name="licensePlateNumber" value="@Model.LicensePlateNumber" />
+        <input type="hidden" name="sort" value="@Model.Sort" />
+        <input type="hidden" name="descending" value="@Model.Descending" />
+        <input type="hidden" name="pageSize" value="@Model.PageSize" />
+        <button type="submit" class="btn btn-outline-primary">
+            <i class="bi bi-download me-1"></i>@T["Reports.Export"]
+        </button>
+    </form>
+</div>
+
+@if (TempData["ErrorMessage"] is string errorMessage)
+{
+    <div class="alert alert-danger" role="alert">@errorMessage</div>
+}
+
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-bottom">
+        <h5 class="card-title mb-0"><i class="bi bi-funnel me-2 text-primary"></i>@T["Reports.Filters"]</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="fromDate" class="form-label">@T["Reports.FromDate"]</label>
+                <input type="date" class="form-control" id="fromDate" name="fromDate" value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-3">
+                <label for="toDate" class="form-label">@T["Reports.ToDate"]</label>
+                <input type="date" class="form-control" id="toDate" name="toDate" value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-6">
+                <label for="warehouseId" class="form-label">@T["Reports.Warehouse"]</label>
+                <select id="warehouseId" name="warehouseId" class="form-select">
+                    <option value="">@T["Common.All"]</option>
+                    @foreach (var warehouse in Model.Warehouses)
+                    {
+                        <option value="@warehouse.Id" selected="@(Model.WarehouseId == warehouse.Id)">@warehouse.Code — @warehouse.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-12">
+                <label for="searchTerm" class="form-label">@T["Reports.Search"]</label>
+                <input type="search" class="form-control" id="searchTerm" name="searchTerm" value="@Model.SearchTerm" placeholder="@T["Reports.SearchPlaceholder"]" />
+            </div>
+            <div class="col-md-3">
+                <label for="itemSku" class="form-label">@T["Reports.ItemSku"]</label>
+                <input type="text" class="form-control" id="itemSku" name="itemSku" value="@Model.ItemSku" />
+            </div>
+            <div class="col-md-3">
+                <label for="locationCode" class="form-label">@T["Reports.Location"]</label>
+                <input type="text" class="form-control" id="locationCode" name="locationCode" value="@Model.LocationCode" />
+            </div>
+            <div class="col-md-3">
+                <label for="movementType" class="form-label">@T["Reports.MovementType"]</label>
+                <select id="movementType" name="movementType" class="form-select">
+                    <option value="">@T["Common.All"]</option>
+                    @foreach (var movementType in Enum.GetValues<MovementType>())
+                    {
+                        <option value="@movementType" selected="@(Model.MovementType == movementType)">@T[$"Movement.{movementType}"]</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="userId" class="form-label">@T["Reports.User"]</label>
+                <input type="text" class="form-control" id="userId" name="userId" value="@Model.UserId" />
+            </div>
+            <div class="col-md-3">
+                <label for="referenceNumber" class="form-label">@T["Reports.Reference"]</label>
+                <input type="text" class="form-control" id="referenceNumber" name="referenceNumber" value="@Model.ReferenceNumber" />
+            </div>
+            <div class="col-md-3">
+                <label for="lotNumber" class="form-label">@T["Reports.Lot"]</label>
+                <input type="text" class="form-control" id="lotNumber" name="lotNumber" value="@Model.LotNumber" />
+            </div>
+            <div class="col-md-3">
+                <label for="serialNumber" class="form-label">@T["Reports.Serial"]</label>
+                <input type="text" class="form-control" id="serialNumber" name="serialNumber" value="@Model.SerialNumber" />
+            </div>
+            <div class="col-md-3">
+                <label for="licensePlateNumber" class="form-label">@T["Reports.LicensePlate"]</label>
+                <input type="text" class="form-control" id="licensePlateNumber" name="licensePlateNumber" value="@Model.LicensePlateNumber" />
+            </div>
+            <div class="col-md-3">
+                <label for="groupBy" class="form-label">@T["Reports.GroupBy"]</label>
+                <select id="groupBy" name="groupBy" class="form-select">
+                    <option value="None" selected="@(Model.GroupBy == MovementReportGroupBy.None)">@T["Reports.NoGrouping"]</option>
+                    <option value="Item" selected="@(Model.GroupBy == MovementReportGroupBy.Item)">@T["Reports.Item"]</option>
+                    <option value="Location" selected="@(Model.GroupBy == MovementReportGroupBy.Location)">@T["Reports.Location"]</option>
+                    <option value="MovementType" selected="@(Model.GroupBy == MovementReportGroupBy.MovementType)">@T["Reports.Movement"]</option>
+                    <option value="User" selected="@(Model.GroupBy == MovementReportGroupBy.User)">@T["Reports.User"]</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="sort" class="form-label">@T["Reports.SortBy"]</label>
+                <select id="sort" name="sort" class="form-select">
+                    <option value="Timestamp" selected="@(Model.Sort == MovementReportSort.Timestamp)">@T["Reports.Timestamp"]</option>
+                    <option value="ItemSku" selected="@(Model.Sort == MovementReportSort.ItemSku)">@T["Reports.ItemSku"]</option>
+                    <option value="Quantity" selected="@(Model.Sort == MovementReportSort.Quantity)">@T["Reports.Quantity"]</option>
+                    <option value="MovementType" selected="@(Model.Sort == MovementReportSort.MovementType)">@T["Reports.Movement"]</option>
+                    <option value="User" selected="@(Model.Sort == MovementReportSort.User)">@T["Reports.User"]</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="pageSize" class="form-label">@T["Reports.PageSize"]</label>
+                <select id="pageSize" name="pageSize" class="form-select">
+                    @foreach (var size in new[] { 25, 50, 100, 200 })
+                    {
+                        <option value="@size" selected="@(Model.PageSize == size)">@size</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <div class="form-check form-switch mb-2">
+                    <input type="hidden" name="descending" value="false" />
+                    <input class="form-check-input" type="checkbox" id="descending" name="descending" value="true" checked="@Model.Descending" />
+                    <label class="form-check-label" for="descending">@T["Reports.Descending"]</label>
+                </div>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <input type="hidden" name="page" value="1" />
+                <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-play-fill me-1"></i>@T["Reports.Apply"]</button>
+                <a asp-action="Index" class="btn btn-outline-secondary" title="@T["Common.Clear"]"><i class="bi bi-x-circle"></i></a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-bottom d-flex flex-wrap gap-2 justify-content-between align-items-center">
+        <h5 class="card-title mb-0"><i class="bi bi-list-ul me-2 text-primary"></i>@T["Reports.MovementLedger"]</h5>
+        <span class="badge text-bg-light">@T["Reports.Total"]: @Model.TotalCount.ToString("N0")</span>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.GroupBy != MovementReportGroupBy.None)
+        {
+            @if (Model.Groups.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light"><tr><th>@T["Reports.GroupBy"]</th><th class="text-end">@T["Reports.Rows"]</th><th class="text-end">@T["Reports.BaseQuantity"]</th></tr></thead>
+                        <tbody>
+                        @foreach (var group in Model.Groups)
+                        {
+                            <tr><td class="fw-semibold wms-identifier">@group.Key</td><td class="text-end">@group.RowCount.ToString("N0")</td><td class="text-end">@group.TotalBaseQuantity.ToString("N2")</td></tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><p class="mb-0">@T["Reports.NoRows"]</p></div>
+            }
+        }
+        else if (Model.Rows.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>@T["Movement.Type"]</th>
+                        <th>@T["Reports.ItemSku"]</th>
+                        <th>@T["Reports.FromLocation"]</th>
+                        <th>@T["Reports.ToLocation"]</th>
+                        <th class="text-end">@T["Reports.BaseQuantity"]</th>
+                        <th>@T["Reports.BaseUom"]</th>
+                        <th>@T["Reports.Lot"] / @T["Reports.Serial"]</th>
+                        <th>@T["Reports.Reference"]</th>
+                        <th>@T["Reports.Timestamp"]</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td><span class="badge bg-primary">@T[$"Movement.{row.Type}"]</span></td>
+                            <td class="fw-semibold wms-identifier">@row.ItemSku<br /><small class="text-muted fw-normal">@row.ItemName</small></td>
+                            <td>@(row.FromLocationCode ?? "-")</td>
+                            <td>@(row.ToLocationCode ?? "-")</td>
+                            <td class="text-end">@row.DisplayQuantity.ToString("N2")</td>
+                            <td>@row.DisplayUnitOfMeasure</td>
+                            <td><span class="wms-identifier">@(row.LotNumber ?? "-")</span><br /><small class="text-muted wms-identifier">@(row.SerialNumber ?? "-")</small></td>
+                            <td class="wms-identifier">@(row.ReferenceNumber ?? "-")</td>
+                            <td class="text-nowrap">@row.Timestamp.ToString("g")<br /><small class="text-muted">@row.UserId</small></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5 text-muted"><i class="bi bi-inbox fs-1 mb-3"></i><p class="mb-0">@T["Reports.NoRows"]</p></div>
+        }
+    </div>
+    @if (Model.Metadata is not null)
+    {
+        <div class="card-footer bg-light small text-muted d-flex flex-wrap gap-3">
+            <span>@T["Reports.Generated"]: @Model.Metadata.GeneratedAtUtc.ToString("g")</span>
+            <span>@T["Reports.Cutoff"]: @Model.Metadata.DataCutoffUtc.ToString("g")</span>
+            <span>@T["Reports.TimeZone"]: @Model.Metadata.TimeZoneId</span>
+            @if (!string.IsNullOrWhiteSpace(Model.Metadata.UserId))
+            {
+                <span>@T["Reports.User"]: @Model.Metadata.UserId</span>
+            }
+        </div>
+    }
+    @if (Model.TotalPages > 1)
+    {
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center">
+            @if (Model.Page > 1)
+            {
+                <a class="btn btn-outline-secondary btn-sm" href="@Url.Action("Index", "Reports", previousRouteValues)">@T["Common.Previous"]</a>
+            }
+            else
+            {
+                <span></span>
+            }
+            <span class="text-muted small">@Model.Page / @Model.TotalPages</span>
+            @if (Model.Page < Model.TotalPages)
+            {
+                <a class="btn btn-outline-secondary btn-sm" href="@Url.Action("Index", "Reports", nextRouteValues)">@T["Common.Next"]</a>
+            }
+            else
+            {
+                <span></span>
+            }
+        </div>
+    }
+</div>
