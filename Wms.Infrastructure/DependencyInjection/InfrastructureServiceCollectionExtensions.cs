@@ -124,6 +124,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IWarehouseWorkService, WarehouseWorkService>();
         services.AddScoped<IWarehouseWorkCompletionHandler, PutawayWarehouseWorkCompletionHandler>();
         services.AddScoped<IWarehouseWorkCompletionHandler, PickWarehouseWorkCompletionHandler>();
+        services.AddScoped<IWarehouseWorkCompletionHandler, ReplenishmentWarehouseWorkCompletionHandler>();
         services.AddScoped<IPackingService, PackingService>();
         services.AddScoped<IShipmentService, ShipmentService>();
         services.AddScoped<IReturnService, ReturnService>();
@@ -230,6 +231,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryCommandIdempotencyService, InventoryCommandIdempotencyService>();
         services.AddScoped<IInventoryInquiryService, InventoryInquiryService>();
         services.AddScoped<IInventoryReplenishmentPolicyService, InventoryReplenishmentPolicyService>();
+        services.AddScoped<IReplenishmentExecutionService, ReplenishmentExecutionService>();
         services.AddScoped<IInventoryReconciliationService, InventoryReconciliationService>();
         return services;
     }

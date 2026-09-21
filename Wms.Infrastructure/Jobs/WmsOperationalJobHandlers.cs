@@ -327,21 +327,39 @@ public sealed class WmsCycleCountGenerationJob(ILogger<WmsCycleCountGenerationJo
     }
 }
 
-public sealed class WmsReplenishmentGenerationJob(ILogger<WmsReplenishmentGenerationJob> logger)
+public sealed class WmsReplenishmentGenerationJob(
+    IReplenishmentExecutionService replenishmentExecutionService,
+    ILogger<WmsReplenishmentGenerationJob> logger)
     : IWmsJobHandler
 {
     public string JobName => WmsJobNames.ReplenishmentGeneration;
 
-    public Task<WmsJobExecutionResult> ExecuteAsync(
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
         WmsJobContext context,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        cancellationToken.ThrowIfCancellationRequested();
+        var result = await replenishmentExecutionService.GenerateAsync(
+            new ReplenishmentGenerationQuery(
+                WarehouseId: context.Envelope.WarehouseId,
+                Limit: 1_000),
+            context.Envelope.ActorUserId ?? "system",
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Replenishment work generation failed: {result.Error}");
+        }
+
         logger.LogInformation(
-            "Replenishment generation job found no replenishment policy model in the current domain");
-        return Task.FromResult(new WmsJobExecutionResult(
-            Summary: "No replenishment policy model is registered; no work was generated."));
+            "Replenishment generation examined {SignalCount} signals and created {WorkCreated} work items; {Blocked} were blocked",
+            result.Value.SignalsExamined,
+            result.Value.WorkCreated,
+            result.Value.Blocked);
+        return new WmsJobExecutionResult(
+            result.Value.SignalsExamined,
+            result.Value.WorkCreated,
+            $"Examined {result.Value.SignalsExamined} signals; created {result.Value.WorkCreated}, reused {result.Value.WorkReused}, blocked {result.Value.Blocked}.");
     }
 }
 

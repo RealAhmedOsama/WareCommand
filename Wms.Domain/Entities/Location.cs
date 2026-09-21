@@ -487,6 +487,7 @@ public class Location : Entity
             LocationType.Staging or
             LocationType.Storage or
             LocationType.Bulk or
+            LocationType.PickFace or
             LocationType.Returns or
             LocationType.Transit;
 }

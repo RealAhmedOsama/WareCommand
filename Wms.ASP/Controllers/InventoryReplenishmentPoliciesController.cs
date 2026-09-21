@@ -14,6 +14,7 @@ namespace Wms.ASP.Controllers;
 [EnableRateLimiting(WmsRateLimitPolicies.Report)]
 public sealed class InventoryReplenishmentPoliciesController(
     IInventoryReplenishmentPolicyService policyService,
+    IReplenishmentExecutionService replenishmentExecutionService,
     ICurrentUser currentUser) : ControllerBase
 {
     [HttpGet]
@@ -46,6 +47,23 @@ public sealed class InventoryReplenishmentPoliciesController(
     {
         var result = await policyService.GetSignalsAsync(
             new InventoryReplenishmentSignalQuery(warehouseId, itemId, locationId, limit),
+            cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("generate")]
+    [Authorize(Policy = WmsPermissions.WorkManage)]
+    [ValidateAntiForgeryToken]
+    [ProducesResponseType(typeof(ReplenishmentGenerationResultDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Generate(
+        [FromQuery] int? warehouseId,
+        [FromQuery] int? policyId,
+        [FromQuery] int limit = 200,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await replenishmentExecutionService.GenerateAsync(
+            new ReplenishmentGenerationQuery(warehouseId, policyId, limit),
+            currentUser.RequireUserId(),
             cancellationToken);
         return ToActionResult(result);
     }
