@@ -32,6 +32,14 @@ public static class WmsAuditActions
     public const string CustomerBulkImported = "master.customer.bulk_imported";
     public const string CustomerShipToChanged = "master.customer.ship_to_changed";
     public const string CustomerItemReferencesChanged = "master.customer.item_references_changed";
+    public const string SalesOrderCreated = "outbound.sales_order.created";
+    public const string SalesOrderUpdated = "outbound.sales_order.updated";
+    public const string SalesOrderConfirmed = "outbound.sales_order.confirmed";
+    public const string SalesOrderHeld = "outbound.sales_order.held";
+    public const string SalesOrderHoldReleased = "outbound.sales_order.hold_released";
+    public const string SalesOrderCancelled = "outbound.sales_order.cancelled";
+    public const string SalesOrderClosed = "outbound.sales_order.closed";
+    public const string SalesOrderBulkImported = "outbound.sales_order.bulk_imported";
     public const string PurchaseOrderCreated = "inbound.purchase_order.created";
     public const string PurchaseOrderUpdated = "inbound.purchase_order.updated";
     public const string PurchaseOrderConfirmed = "inbound.purchase_order.confirmed";
@@ -168,6 +176,14 @@ public static class WmsAuditActions
         CustomerBulkImported,
         CustomerShipToChanged,
         CustomerItemReferencesChanged,
+        SalesOrderCreated,
+        SalesOrderUpdated,
+        SalesOrderConfirmed,
+        SalesOrderHeld,
+        SalesOrderHoldReleased,
+        SalesOrderCancelled,
+        SalesOrderClosed,
+        SalesOrderBulkImported,
         PurchaseOrderCreated,
         PurchaseOrderUpdated,
         PurchaseOrderConfirmed,
@@ -286,6 +302,8 @@ public static class WmsAuditEntityTypes
     public const string Customer = "Customer";
     public const string CustomerShipToAddress = "CustomerShipToAddress";
     public const string CustomerItemReference = "CustomerItemReference";
+    public const string SalesOrder = "SalesOrder";
+    public const string SalesOrderLine = "SalesOrderLine";
     public const string PurchaseOrder = "PurchaseOrder";
     public const string PurchaseOrderLine = "PurchaseOrderLine";
     public const string PurchaseOrderReceiptAllocation = "PurchaseOrderReceiptAllocation";
