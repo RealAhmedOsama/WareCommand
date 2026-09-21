@@ -84,6 +84,14 @@ public static class WmsAuditActions
     public const string OutboundExceptionAssigned = "outbound.exception.assigned";
     public const string OutboundExceptionReviewStarted = "outbound.exception.review_started";
     public const string OutboundExceptionResolved = "outbound.exception.resolved";
+    public const string TransferCreated = "inventory.transfer.created";
+    public const string TransferConfirmed = "inventory.transfer.confirmed";
+    public const string TransferReleased = "inventory.transfer.released";
+    public const string TransferShipped = "inventory.transfer.shipped";
+    public const string TransferReceived = "inventory.transfer.received";
+    public const string TransferClosed = "inventory.transfer.closed";
+    public const string TransferCancelled = "inventory.transfer.cancelled";
+    public const string InternalMovementCompleted = "inventory.internal_movement.completed";
     public const string QualityProfileCreated = "quality.profile.created";
     public const string QualityProfileChanged = "quality.profile.changed";
     public const string QualityInspectionGenerated = "quality.inspection.generated";
@@ -232,6 +240,14 @@ public static class WmsAuditActions
         OutboundExceptionAssigned,
         OutboundExceptionReviewStarted,
         OutboundExceptionResolved,
+        TransferCreated,
+        TransferConfirmed,
+        TransferReleased,
+        TransferShipped,
+        TransferReceived,
+        TransferClosed,
+        TransferCancelled,
+        InternalMovementCompleted,
         QualityProfileCreated,
         QualityProfileChanged,
         QualityInspectionGenerated,

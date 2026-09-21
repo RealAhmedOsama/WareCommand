@@ -47,6 +47,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<InboundException> InboundExceptions => Set<InboundException>();
     public DbSet<OutboundException> OutboundExceptions => Set<OutboundException>();
     public DbSet<OutboundExceptionCommand> OutboundExceptionCommands => Set<OutboundExceptionCommand>();
+    public DbSet<TransferOrder> TransferOrders => Set<TransferOrder>();
+    public DbSet<TransferOrderLine> TransferOrderLines => Set<TransferOrderLine>();
+    public DbSet<TransferCommand> TransferCommands => Set<TransferCommand>();
+    public DbSet<InternalMovement> InternalMovements => Set<InternalMovement>();
     public DbSet<Receipt> Receipts => Set<Receipt>();
     public DbSet<ReceiptLine> ReceiptLines => Set<ReceiptLine>();
     public DbSet<ReceiptLineMovement> ReceiptLineMovements => Set<ReceiptLineMovement>();
@@ -149,6 +153,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new InboundExceptionConfiguration());
         builder.ApplyConfiguration(new OutboundExceptionConfiguration());
         builder.ApplyConfiguration(new OutboundExceptionCommandConfiguration());
+        builder.ApplyConfiguration(new TransferOrderConfiguration());
+        builder.ApplyConfiguration(new TransferOrderLineConfiguration());
+        builder.ApplyConfiguration(new TransferCommandConfiguration());
+        builder.ApplyConfiguration(new InternalMovementConfiguration());
         builder.ApplyConfiguration(new ReceiptConfiguration());
         builder.ApplyConfiguration(new ReceiptLineConfiguration());
         builder.ApplyConfiguration(new ReceiptLineMovementConfiguration());

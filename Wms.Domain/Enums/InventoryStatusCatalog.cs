@@ -11,6 +11,7 @@ public static class InventoryStatusCodes
     public const string Expired = "EXPIRED";
     public const string ReturnPending = "RETURN_PENDING";
     public const string ScrapPending = "SCRAP_PENDING";
+    public const string InTransit = "IN_TRANSIT";
 }
 
 public static class InventoryStatusSystemIds
@@ -24,6 +25,7 @@ public static class InventoryStatusSystemIds
     public const int Expired = 7;
     public const int ReturnPending = 8;
     public const int ScrapPending = 9;
+    public const int InTransit = 10;
 }
 
 public enum InventoryStatusMovementLeg
@@ -150,7 +152,19 @@ public static class InventoryStatusCatalog
             IsAllocatable: false,
             IsPickable: false,
             IsShippable: false,
-            IsCountable: true)
+            IsCountable: true),
+        new(
+            InventoryStatusSystemIds.InTransit,
+            InventoryStatusCodes.InTransit,
+            "In Transit",
+            "قيد النقل",
+            IsAvailable: false,
+            IsAllocatable: false,
+            IsPickable: false,
+            IsShippable: false,
+            IsCountable: true,
+            DefaultLocationType: LocationType.Transit,
+            ForceForLocationType: true)
     ];
 
     public static IReadOnlyList<InventoryStatusTransitionSeedDefinition> SystemTransitions { get; } =

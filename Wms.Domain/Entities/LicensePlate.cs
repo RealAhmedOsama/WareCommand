@@ -108,6 +108,16 @@ public sealed class LicensePlate : Entity
         Touch();
     }
 
+    public void TransferTo(int warehouseId, int locationId)
+    {
+        EnsureMutable();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(warehouseId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(locationId);
+        WarehouseId = warehouseId;
+        CurrentLocationId = locationId;
+        Touch();
+    }
+
     public void Close()
     {
         if (Status is LicensePlateStatus.Shipped or LicensePlateStatus.Voided)
