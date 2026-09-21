@@ -254,6 +254,17 @@ public sealed class Shipment : Entity
         Touch();
     }
 
+    public void ChangeCarrier(int carrierId, int carrierServiceId, string reason)
+    {
+        EnsureMutable();
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(carrierId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(carrierServiceId);
+        CarrierId = carrierId;
+        CarrierServiceId = carrierServiceId;
+        ExceptionReason = Required(reason, 1_000, nameof(reason));
+        Touch();
+    }
+
     private void EnsureMutable()
     {
         if (Status is ShipmentStatus.Shipped or ShipmentStatus.Delivered or ShipmentStatus.Closed or ShipmentStatus.Cancelled)

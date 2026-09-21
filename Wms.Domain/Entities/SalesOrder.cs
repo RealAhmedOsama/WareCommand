@@ -311,7 +311,13 @@ public sealed class SalesOrder : Entity
     public void Cancel(string userId, DateTime cancelledAtUtc)
     {
         EnsureUser(userId);
-        if (Status is not (SalesOrderStatus.Draft or SalesOrderStatus.Confirmed or SalesOrderStatus.Held))
+        if (Status is not (SalesOrderStatus.Draft or
+            SalesOrderStatus.Confirmed or
+            SalesOrderStatus.Held or
+            SalesOrderStatus.Allocating or
+            SalesOrderStatus.PartiallyAllocated or
+            SalesOrderStatus.Released or
+            SalesOrderStatus.Exception))
         {
             throw new InvalidOperationException($"A sales order in {Status} cannot be cancelled after release or execution.");
         }

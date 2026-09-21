@@ -194,6 +194,28 @@ public sealed class SalesOrderLine : Entity
         Touch();
     }
 
+    public void Substitute(Item substituteItem, string reason)
+    {
+        ArgumentNullException.ThrowIfNull(substituteItem);
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new ArgumentException("A substitution reason is required.", nameof(reason));
+        }
+
+        if (PickedBaseQuantity > 0m || PackedBaseQuantity > 0m || ShippedBaseQuantity > 0m)
+        {
+            throw new InvalidOperationException(
+                "An order line cannot be substituted after picking or packing has started.");
+        }
+
+        ItemId = substituteItem.Id;
+        ItemSkuSnapshot = NormalizeRequired(substituteItem.Sku, 50, nameof(substituteItem.Sku));
+        ItemNameSnapshot = NormalizeRequired(substituteItem.Name, 200, nameof(substituteItem.Name));
+        ItemLocalizedNameSnapshot = NormalizeOptional(substituteItem.LocalizedName, 200);
+        Notes = NormalizeOptional($"Substituted: {reason}", 1_000);
+        Touch();
+    }
+
     private void Touch()
     {
         Revision++;
