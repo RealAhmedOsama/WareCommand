@@ -104,6 +104,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<WmsCleanupJob>();
         services.AddScoped<WmsDatabaseBackupJob>();
         services.AddScoped<WmsInventoryClassificationRecalculationJob>();
+        services.AddScoped<WmsSlottingAnalysisJob>();
         services.AddScoped<WmsCycleCountGenerationJob>();
         services.AddScoped<WmsReplenishmentGenerationJob>();
         services.AddScoped<WmsWavePlanningJob>();
@@ -131,6 +132,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IWarehouseWorkService, WarehouseWorkService>();
         services.AddScoped<IWarehouseWorkAssignmentEligibilityService, WarehouseWorkAssignmentEligibilityService>();
         services.AddScoped<IWorkforceService, WorkforceService>();
+        services.AddScoped<ISlottingService, SlottingService>();
         services.AddScoped<IWarehouseWorkCompletionHandler, PutawayWarehouseWorkCompletionHandler>();
         services.AddScoped<IWarehouseWorkCompletionHandler, PickWarehouseWorkCompletionHandler>();
         services.AddScoped<IWarehouseWorkCompletionHandler, ReplenishmentWarehouseWorkCompletionHandler>();

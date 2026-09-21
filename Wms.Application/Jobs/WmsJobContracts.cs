@@ -30,6 +30,7 @@ public static class WmsJobNames
     public const string Cleanup = "wms.cleanup";
     public const string DatabaseBackup = "wms.database-backup";
     public const string InventoryClassificationRecalculation = "wms.inventory-classification-recalculation";
+    public const string SlottingAnalysis = "wms.slotting-analysis";
     public const string CycleCountGeneration = "wms.cycle-count-generation";
     public const string ReplenishmentGeneration = "wms.replenishment-generation";
     public const string WavePlanning = "wms.wave-planning";
@@ -109,6 +110,13 @@ public static class WmsJobCatalog
             TimeSpan.FromDays(1),
             TimeSpan.FromMinutes(20),
             "Recalculate warehouse ABC classifications from a deterministic input window."),
+        new(
+            WmsJobNames.SlottingAnalysis,
+            WmsJobQueues.Maintenance,
+            "45 3 * * *",
+            TimeSpan.FromDays(1),
+            TimeSpan.FromMinutes(20),
+            "Generate deterministic, explainable slotting recommendations in bounded batches."),
         new(
             WmsJobNames.CycleCountGeneration,
             WmsJobQueues.Maintenance,

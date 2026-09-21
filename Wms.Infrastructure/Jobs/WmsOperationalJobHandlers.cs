@@ -22,6 +22,7 @@ public sealed class WmsJobHandlerCatalog(
     WmsCleanupJob cleanupJob,
     WmsDatabaseBackupJob databaseBackupJob,
     WmsInventoryClassificationRecalculationJob inventoryClassificationRecalculationJob,
+    WmsSlottingAnalysisJob slottingAnalysisJob,
     WmsCycleCountGenerationJob cycleCountGenerationJob,
     WmsReplenishmentGenerationJob replenishmentGenerationJob,
     WmsWavePlanningJob wavePlanningJob,
@@ -38,6 +39,7 @@ public sealed class WmsJobHandlerCatalog(
             cleanupJob,
             databaseBackupJob,
             inventoryClassificationRecalculationJob,
+            slottingAnalysisJob,
             cycleCountGenerationJob,
             replenishmentGenerationJob,
             wavePlanningJob,
@@ -348,6 +350,42 @@ public sealed class WmsInventoryClassificationRecalculationJob(
             result.Value.ItemsExamined,
             result.Value.ClassificationsChanged,
             $"Examined {result.Value.ItemsExamined} items across {result.Value.PoliciesExamined} policies; changed {result.Value.ClassificationsChanged}, skipped {result.Value.ManualOverridesSkipped} active overrides.");
+    }
+}
+
+public sealed class WmsSlottingAnalysisJob(
+    ISlottingService slottingService,
+    ILogger<WmsSlottingAnalysisJob> logger) : IWmsJobHandler
+{
+    public string JobName => WmsJobNames.SlottingAnalysis;
+
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
+        WmsJobContext context,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var result = await slottingService.AnalyzeAsync(
+            new SlottingAnalysisQuery(
+                WarehouseId: context.Envelope.WarehouseId,
+                Limit: 1_000),
+            context.Envelope.ActorUserId ?? "system",
+            internalExecution: true,
+            cancellationToken: cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new WmsPermanentJobException(
+                $"Slotting analysis failed: {result.Error}");
+        }
+
+        logger.LogInformation(
+            "Slotting analysis examined {ItemCount} items and created {RecommendationCount} recommendations; {BlockedCount} were blocked",
+            result.Value.ItemsExamined,
+            result.Value.RecommendationsCreated,
+            result.Value.Blocked);
+        return new WmsJobExecutionResult(
+            result.Value.ItemsExamined,
+            result.Value.RecommendationsCreated,
+            $"Examined {result.Value.ItemsExamined} items across {result.Value.PoliciesExamined} policies; created {result.Value.RecommendationsCreated}, reused {result.Value.RecommendationsReused}, blocked {result.Value.Blocked}.");
     }
 }
 

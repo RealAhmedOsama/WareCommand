@@ -167,6 +167,12 @@ public static class WmsAuditActions
     public const string InventoryClassificationRecalculated = "inventory.classification.recalculated";
     public const string InventoryClassificationOverrideChanged = "inventory.classification.override_changed";
     public const string InventoryAllocationStrategyPolicyChanged = "inventory.allocation_strategy_policy.changed";
+    public const string SlottingPolicyChanged = "inventory.slotting_policy.changed";
+    public const string SlottingAnalysisCompleted = "inventory.slotting.analysis_completed";
+    public const string SlottingRecommendationCreated = "inventory.slotting_recommendation.created";
+    public const string SlottingRecommendationApproved = "inventory.slotting_recommendation.approved";
+    public const string SlottingRecommendationRejected = "inventory.slotting_recommendation.rejected";
+    public const string SlottingWorkCreated = "inventory.slotting_work.created";
     public const string InventoryDispositionPolicyChanged = "inventory.disposition_policy.changed";
     public const string InventoryDispositionCreated = "inventory.disposition.created";
     public const string InventoryDispositionApproved = "inventory.disposition.approved";
@@ -349,6 +355,12 @@ public static class WmsAuditActions
         InventoryClassificationRecalculated,
         InventoryClassificationOverrideChanged,
         InventoryAllocationStrategyPolicyChanged,
+        SlottingPolicyChanged,
+        SlottingAnalysisCompleted,
+        SlottingRecommendationCreated,
+        SlottingRecommendationApproved,
+        SlottingRecommendationRejected,
+        SlottingWorkCreated,
         InventoryDispositionPolicyChanged,
         InventoryDispositionCreated,
         InventoryDispositionApproved,
@@ -435,6 +447,8 @@ public static class WmsAuditEntityTypes
     public const string InventoryClassification = "InventoryClassification";
     public const string InventoryClassificationHistory = "InventoryClassificationHistory";
     public const string InventoryAllocationStrategyPolicy = "InventoryAllocationStrategyPolicy";
+    public const string SlottingPolicy = "SlottingPolicy";
+    public const string SlottingRecommendation = "SlottingRecommendation";
     public const string InventoryDispositionPolicy = "InventoryDispositionPolicy";
     public const string InventoryDisposition = "InventoryDisposition";
     public const string InventoryRecallCase = "InventoryRecallCase";
