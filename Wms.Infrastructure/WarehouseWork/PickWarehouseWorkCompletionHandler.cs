@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Wms.Application.Common;
 using Wms.Application.Context;
@@ -184,6 +185,16 @@ public sealed class PickWarehouseWorkCompletionHandler(
                     "The pick did not consume its reservation allocation."));
             }
 
+            var orderUpdate = await RecordOrderPickedQuantityAsync(
+                work,
+                line,
+                scan.ActualQuantity,
+                cancellationToken);
+            if (orderUpdate is not null)
+            {
+                return Result.Failure<WarehouseWorkHandlerResult>(orderUpdate);
+            }
+
             actualLines.Add(new WarehouseWorkLineActualInput(line.Id, scan.ActualQuantity));
             movementIds.Add(movement.Id);
         }
@@ -311,6 +322,51 @@ public sealed class PickWarehouseWorkCompletionHandler(
                 "The reservation source dimension no longer has enough available stock.");
         }
 
+        return null;
+    }
+
+    private async Task<ResultError?> RecordOrderPickedQuantityAsync(
+        WarehouseWorkEntity work,
+        WarehouseWorkLine line,
+        decimal quantity,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(work.SourceEntityType, "SalesOrderLine", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        if (!int.TryParse(
+                work.SourceEntityId,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var salesOrderLineId) ||
+            salesOrderLineId <= 0)
+        {
+            return WmsErrors.Dependency(
+                "work.pick_order_line_invalid",
+                "The pick work does not identify a valid sales-order line.",
+                isRetryable: false);
+        }
+
+        var orderLine = await context.SalesOrderLines
+            .SingleOrDefaultAsync(value => value.Id == salesOrderLineId, cancellationToken);
+        if (orderLine is null || orderLine.ItemId != line.ItemId)
+        {
+            return WmsErrors.Dependency(
+                "work.pick_order_line_missing",
+                "The pick work sales-order line was not found or does not match the item.",
+                isRetryable: false);
+        }
+
+        if (orderLine.RemainingToPickBaseQuantity < quantity)
+        {
+            return WmsErrors.BusinessRule(
+                "work.pick_order_quantity_exceeded",
+                "The picked quantity exceeds the sales-order line quantity still awaiting pick.");
+        }
+
+        orderLine.RecordPicked(quantity);
         return null;
     }
 }
