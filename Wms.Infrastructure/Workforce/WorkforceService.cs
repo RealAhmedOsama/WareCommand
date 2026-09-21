@@ -363,13 +363,332 @@ public sealed class WorkforceService(
         return Result.Success<IReadOnlyList<WorkQueueDto>>(queues.Select(Map).ToArray());
     }
 
+    public async Task<Result<WorkRouteDto>> SaveRouteAsync(
+        int? routeId,
+        WorkRouteInput input,
+        string actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.WorkManage,
+            input.WarehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<WorkRouteDto>();
+        }
+
+        try
+        {
+            var warehouseExists = await context.Warehouses.AnyAsync(
+                warehouse => warehouse.Id == input.WarehouseId && warehouse.IsActive,
+                cancellationToken);
+            if (!warehouseExists)
+            {
+                return Result.Failure<WorkRouteDto>(WmsErrors.NotFound(
+                    "workforce.route_warehouse_not_found",
+                    "The route warehouse was not found or is inactive."));
+            }
+
+            if (input.FromLocationId == input.ToLocationId ||
+                !await context.Locations.AnyAsync(
+                    location => location.Id == input.FromLocationId &&
+                                location.WarehouseId == input.WarehouseId && location.IsActive,
+                    cancellationToken) ||
+                !await context.Locations.AnyAsync(
+                    location => location.Id == input.ToLocationId &&
+                                location.WarehouseId == input.WarehouseId && location.IsActive,
+                    cancellationToken))
+            {
+                return Result.Failure<WorkRouteDto>(WmsErrors.Validation(
+                    "workforce.route_location_invalid",
+                    "Both route locations must be different active locations in the selected warehouse."));
+            }
+
+            var routeCode = Required(input.RouteCode, 50, nameof(input.RouteCode)).ToUpperInvariant();
+            var duplicate = await context.WarehouseWorkRoutes.AnyAsync(
+                route => route.WarehouseId == input.WarehouseId &&
+                         route.RouteCode == routeCode &&
+                         route.FromLocationId == input.FromLocationId &&
+                         route.ToLocationId == input.ToLocationId &&
+                         route.Sequence == input.Sequence &&
+                         (!routeId.HasValue || route.Id != routeId.Value),
+                cancellationToken);
+            if (duplicate)
+            {
+                return Result.Failure<WorkRouteDto>(WmsErrors.Conflict(
+                    "workforce.route_conflict",
+                    "The route sequence already exists for this location pair."));
+            }
+
+            WarehouseWorkRoute route;
+            if (routeId.HasValue)
+            {
+                route = await context.WarehouseWorkRoutes.SingleOrDefaultAsync(
+                    candidate => candidate.Id == routeId.Value && candidate.WarehouseId == input.WarehouseId,
+                    cancellationToken)
+                    ?? throw new KeyNotFoundException($"Route '{routeId.Value}' was not found.");
+                route.Update(
+                    input.FromLocationId,
+                    input.ToLocationId,
+                    routeCode,
+                    input.Sequence,
+                    input.TravelMinutes,
+                    input.DistanceMeters,
+                    input.Notes,
+                    input.IsActive);
+            }
+            else
+            {
+                route = new WarehouseWorkRoute(
+                    input.WarehouseId,
+                    input.FromLocationId,
+                    input.ToLocationId,
+                    routeCode,
+                    input.Sequence,
+                    input.TravelMinutes,
+                    input.DistanceMeters,
+                    input.Notes);
+                if (!input.IsActive)
+                {
+                    route.SetActive(false);
+                }
+
+                context.WarehouseWorkRoutes.Add(route);
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+            await auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.WarehouseWorkRouteChanged,
+                    WmsAuditEntityTypes.WarehouseWorkRoute,
+                    $"{route.WarehouseId}:{route.RouteCode}:{route.FromLocationId}:{route.ToLocationId}:{route.Sequence}",
+                    route.WarehouseId,
+                    After: new Dictionary<string, object?>
+                    {
+                        ["routeId"] = route.Id,
+                        ["fromLocationId"] = route.FromLocationId,
+                        ["toLocationId"] = route.ToLocationId,
+                        ["travelMinutes"] = route.TravelMinutes,
+                        ["isActive"] = route.IsActive
+                    },
+                    ActorUserId: actorUserId),
+                cancellationToken);
+            return Result.Success(Map(route));
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return Result.Failure<WorkRouteDto>(WmsErrors.NotFound(
+                "workforce.route_not_found",
+                exception.Message));
+        }
+        catch (ArgumentException exception)
+        {
+            return Result.Failure<WorkRouteDto>(WmsErrors.Validation(
+                "workforce.route_invalid",
+                exception.Message));
+        }
+        catch (DbUpdateException exception)
+        {
+            return Result.Failure<WorkRouteDto>(WmsErrors.FromException(
+                exception,
+                "workforce.route_conflict",
+                "The work route could not be saved."));
+        }
+    }
+
+    public async Task<Result<IReadOnlyList<WorkRouteDto>>> ListRoutesAsync(
+        int warehouseId,
+        string? routeCode = null,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default)
+    {
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.WorkRead,
+            warehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<IReadOnlyList<WorkRouteDto>>();
+        }
+
+        var query = context.WarehouseWorkRoutes
+            .AsNoTracking()
+            .Where(route => route.WarehouseId == warehouseId);
+        if (!string.IsNullOrWhiteSpace(routeCode))
+        {
+            var normalizedRouteCode = routeCode.Trim().ToUpperInvariant();
+            query = query.Where(route => route.RouteCode == normalizedRouteCode);
+        }
+
+        if (!includeInactive)
+        {
+            query = query.Where(route => route.IsActive);
+        }
+
+        var routes = await query
+            .OrderBy(route => route.RouteCode)
+            .ThenBy(route => route.FromLocationId)
+            .ThenBy(route => route.ToLocationId)
+            .ThenBy(route => route.Sequence)
+            .ToListAsync(cancellationToken);
+        return Result.Success<IReadOnlyList<WorkRouteDto>>(routes.Select(Map).ToArray());
+    }
+
+    public async Task<Result<WorkInterleavingPolicyDto>> SaveInterleavingPolicyAsync(
+        int? policyId,
+        WorkInterleavingPolicyInput input,
+        string actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.WorkManage,
+            input.WarehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<WorkInterleavingPolicyDto>();
+        }
+
+        try
+        {
+            var warehouseExists = await context.Warehouses.AnyAsync(
+                warehouse => warehouse.Id == input.WarehouseId && warehouse.IsActive,
+                cancellationToken);
+            if (!warehouseExists)
+            {
+                return Result.Failure<WorkInterleavingPolicyDto>(WmsErrors.NotFound(
+                    "workforce.policy_warehouse_not_found",
+                    "The interleaving-policy warehouse was not found or is inactive."));
+            }
+
+            var code = Required(input.Code, 50, nameof(input.Code)).ToUpperInvariant();
+            var duplicate = await context.WarehouseWorkInterleavingPolicies.AnyAsync(
+                policy => policy.WarehouseId == input.WarehouseId &&
+                          policy.Code == code &&
+                          (!policyId.HasValue || policy.Id != policyId.Value),
+                cancellationToken);
+            if (duplicate)
+            {
+                return Result.Failure<WorkInterleavingPolicyDto>(WmsErrors.Conflict(
+                    "workforce.policy_conflict",
+                    "The interleaving-policy code is already used in this warehouse."));
+            }
+
+            WarehouseWorkInterleavingPolicy policy;
+            if (policyId.HasValue)
+            {
+                policy = await context.WarehouseWorkInterleavingPolicies.SingleOrDefaultAsync(
+                    candidate => candidate.Id == policyId.Value && candidate.WarehouseId == input.WarehouseId,
+                    cancellationToken)
+                    ?? throw new KeyNotFoundException($"Policy '{policyId.Value}' was not found.");
+                policy.Update(
+                    code,
+                    input.Name,
+                    input.PriorityWeight,
+                    input.DeadlineWeight,
+                    input.TravelWeight,
+                    input.ZoneAffinityWeight,
+                    input.MaximumTravelMinutes,
+                    input.AllowCrossWorkType,
+                    input.IsActive);
+            }
+            else
+            {
+                policy = new WarehouseWorkInterleavingPolicy(
+                    input.WarehouseId,
+                    code,
+                    input.Name,
+                    input.PriorityWeight,
+                    input.DeadlineWeight,
+                    input.TravelWeight,
+                    input.ZoneAffinityWeight,
+                    input.MaximumTravelMinutes,
+                    input.AllowCrossWorkType);
+                if (!input.IsActive)
+                {
+                    policy.SetActive(false);
+                }
+
+                context.WarehouseWorkInterleavingPolicies.Add(policy);
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+            await auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.WarehouseWorkInterleavingPolicyChanged,
+                    WmsAuditEntityTypes.WarehouseWorkInterleavingPolicy,
+                    $"{policy.WarehouseId}:{policy.Code}",
+                    policy.WarehouseId,
+                    After: new Dictionary<string, object?>
+                    {
+                        ["policyId"] = policy.Id,
+                        ["priorityWeight"] = policy.PriorityWeight,
+                        ["deadlineWeight"] = policy.DeadlineWeight,
+                        ["travelWeight"] = policy.TravelWeight,
+                        ["zoneAffinityWeight"] = policy.ZoneAffinityWeight,
+                        ["isActive"] = policy.IsActive
+                    },
+                    ActorUserId: actorUserId),
+                cancellationToken);
+            return Result.Success(Map(policy));
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return Result.Failure<WorkInterleavingPolicyDto>(WmsErrors.NotFound(
+                "workforce.policy_not_found",
+                exception.Message));
+        }
+        catch (ArgumentException exception)
+        {
+            return Result.Failure<WorkInterleavingPolicyDto>(WmsErrors.Validation(
+                "workforce.policy_invalid",
+                exception.Message));
+        }
+        catch (DbUpdateException exception)
+        {
+            return Result.Failure<WorkInterleavingPolicyDto>(WmsErrors.FromException(
+                exception,
+                "workforce.policy_conflict",
+                "The interleaving policy could not be saved."));
+        }
+    }
+
+    public async Task<Result<IReadOnlyList<WorkInterleavingPolicyDto>>> ListInterleavingPoliciesAsync(
+        int warehouseId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default)
+    {
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.WorkRead,
+            warehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<IReadOnlyList<WorkInterleavingPolicyDto>>();
+        }
+
+        var query = context.WarehouseWorkInterleavingPolicies
+            .AsNoTracking()
+            .Where(policy => policy.WarehouseId == warehouseId);
+        if (!includeInactive)
+        {
+            query = query.Where(policy => policy.IsActive);
+        }
+
+        var policies = await query
+            .OrderBy(policy => policy.Code)
+            .ToListAsync(cancellationToken);
+        return Result.Success<IReadOnlyList<WorkInterleavingPolicyDto>>(policies.Select(Map).ToArray());
+    }
+
     public async Task<Result<WorkforceSuggestionsDto>> SuggestAsync(
         WorkforceSuggestionsQuery query,
         string workerUserId,
         CancellationToken cancellationToken = default)
     {
         var authorization = await warehouseAccessService.AuthorizeAsync(
-            WmsPermissions.WorkRead,
+            WmsPermissions.WorkExecute,
             query.WarehouseId,
             cancellationToken);
         if (authorization.IsFailure)
@@ -378,12 +697,63 @@ public sealed class WorkforceService(
         }
 
         var limit = Math.Clamp(query.Limit, 1, 200);
+        var asOfUtc = NormalizeUtc(clock.UtcNow.UtcDateTime);
+        if (query.CurrentLocationId.HasValue && !await context.Locations.AnyAsync(
+                location => location.Id == query.CurrentLocationId.Value &&
+                            location.WarehouseId == query.WarehouseId && location.IsActive,
+                cancellationToken))
+        {
+            return Result.Failure<WorkforceSuggestionsDto>(WmsErrors.Validation(
+                "workforce.current_location_invalid",
+                "The worker's current location must belong to the selected warehouse."));
+        }
+
+        var policyQuery = context.WarehouseWorkInterleavingPolicies
+            .AsNoTracking()
+            .Where(policy => policy.WarehouseId == query.WarehouseId && policy.IsActive);
+        WarehouseWorkInterleavingPolicy? policy;
+        if (!string.IsNullOrWhiteSpace(query.PolicyCode))
+        {
+            var policyCode = query.PolicyCode.Trim().ToUpperInvariant();
+            policy = await policyQuery.SingleOrDefaultAsync(
+                candidate => candidate.Code == policyCode,
+                cancellationToken);
+            if (policy is null)
+            {
+                return Result.Failure<WorkforceSuggestionsDto>(WmsErrors.NotFound(
+                    "workforce.policy_not_found",
+                    $"The active interleaving policy '{policyCode}' was not found."));
+            }
+        }
+        else
+        {
+            policy = await policyQuery
+                .OrderByDescending(candidate => candidate.Code == "DEFAULT")
+                .ThenBy(candidate => candidate.Code)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        var effectivePolicy = policy ?? new WarehouseWorkInterleavingPolicy(
+            query.WarehouseId,
+            "DEFAULT",
+            "Deterministic fallback",
+            priorityWeight: 100m,
+            deadlineWeight: 100m,
+            travelWeight: 1m,
+            zoneAffinityWeight: 10m,
+            maximumTravelMinutes: null,
+            allowCrossWorkType: true);
+        var routeCode = string.IsNullOrWhiteSpace(query.RouteCode)
+            ? "DEFAULT"
+            : query.RouteCode.Trim().ToUpperInvariant();
         var workQuery = context.WarehouseWorks
             .AsNoTracking()
             .Include(work => work.Lines)
             .Where(work => work.WarehouseId == query.WarehouseId &&
                            work.Status == WarehouseWorkStatus.Available &&
                            work.AssignedUserId == null &&
+                           (!query.ManualOverrideWorkId.HasValue ||
+                            work.Id == query.ManualOverrideWorkId.Value) &&
                            (!query.WorkType.HasValue || work.Type == query.WorkType.Value));
         if (!string.IsNullOrWhiteSpace(query.QueueCode))
         {
@@ -392,26 +762,36 @@ public sealed class WorkforceService(
         }
 
         var work = await workQuery
-            .OrderByDescending(value => value.Priority)
+            .OrderBy(value => value.DueAtUtc.HasValue ? 0 : 1)
             .ThenBy(value => value.DueAtUtc)
+            .ThenByDescending(value => value.Priority)
             .ThenBy(value => value.CreatedAt)
             .ThenBy(value => value.Id)
-            .Take(limit * 3)
+            .Take(query.ManualOverrideWorkId.HasValue ? 1_000 : Math.Min(2_000, limit * 10))
             .ToListAsync(cancellationToken);
         var queueCodes = work.Select(value => value.QueueCode).Distinct().ToArray();
         var queues = await context.WarehouseWorkQueues
             .AsNoTracking()
             .Where(queue => queue.WarehouseId == query.WarehouseId && queueCodes.Contains(queue.Code))
             .ToDictionaryAsync(queue => queue.Code, cancellationToken);
+        var routes = await context.WarehouseWorkRoutes
+            .AsNoTracking()
+            .Where(route => route.WarehouseId == query.WarehouseId &&
+                            route.RouteCode == routeCode &&
+                            route.IsActive)
+            .OrderBy(route => route.Sequence)
+            .ThenBy(route => route.TravelMinutes)
+            .ThenBy(route => route.Id)
+            .ToListAsync(cancellationToken);
+        var locationParents = await context.Locations
+            .AsNoTracking()
+            .Where(location => location.WarehouseId == query.WarehouseId)
+            .Select(location => new { location.Id, location.ParentLocationId })
+            .ToDictionaryAsync(location => location.Id, location => location.ParentLocationId, cancellationToken);
 
-        var suggestions = new List<WorkSuggestionDto>(limit);
+        var eligible = new List<EligibleWorkCandidate>(work.Count);
         foreach (var candidate in work)
         {
-            if (suggestions.Count >= limit)
-            {
-                break;
-            }
-
             var eligibility = await eligibilityService.ValidateAsync(
                 candidate.Id,
                 workerUserId,
@@ -425,19 +805,84 @@ public sealed class WorkforceService(
             }
 
             queues.TryGetValue(candidate.QueueCode, out var queue);
+            eligible.Add(new EligibleWorkCandidate(
+                candidate,
+                queue,
+                GetWorkAnchorLocation(candidate),
+                query.ManualOverrideWorkId == candidate.Id));
+        }
+
+        if (query.ManualOverrideWorkId.HasValue && eligible.Count == 0)
+        {
+            return Result.Failure<WorkforceSuggestionsDto>(WmsErrors.BusinessRule(
+                "workforce.manual_override_ineligible",
+                "The requested manual override work is unavailable or not eligible for this worker."));
+        }
+
+        if (!effectivePolicy.AllowCrossWorkType && !query.WorkType.HasValue && eligible.Count > 1)
+        {
+            var preferredType = eligible
+                .OrderBy(value => DeadlineRank(value.Work, asOfUtc))
+                .ThenByDescending(value => value.Work.Priority)
+                .ThenBy(value => value.Work.Id)
+                .First()
+                .Work.Type;
+            eligible = eligible.Where(value => value.Work.Type == preferredType).ToList();
+        }
+
+        var suggestions = new List<WorkSuggestionDto>(Math.Min(limit, eligible.Count));
+        var remaining = eligible;
+        var previousLocationId = query.CurrentLocationId;
+        while (suggestions.Count < limit && remaining.Count > 0)
+        {
+            var scored = remaining
+                .Select(candidate => ScoreCandidate(
+                    candidate,
+                    previousLocationId,
+                    routes,
+                    locationParents,
+                    effectivePolicy,
+                    asOfUtc))
+                .Where(candidate => candidate.TravelMinutes is null ||
+                                    !effectivePolicy.MaximumTravelMinutes.HasValue ||
+                                    candidate.TravelMinutes <= effectivePolicy.MaximumTravelMinutes.Value ||
+                                    candidate.IsManualOverride)
+                .OrderByDescending(candidate => candidate.IsManualOverride)
+                .ThenBy(candidate => DeadlineRank(candidate.Work, asOfUtc))
+                .ThenByDescending(candidate => candidate.Work.Priority)
+                .ThenBy(candidate => candidate.Work.DueAtUtc ?? DateTime.MaxValue)
+                .ThenByDescending(candidate => candidate.Score)
+                .ThenBy(candidate => candidate.TravelMinutes ?? decimal.MaxValue)
+                .ThenBy(candidate => candidate.Work.CreatedAt)
+                .ThenBy(candidate => candidate.Work.Id)
+                .FirstOrDefault();
+            if (scored is null)
+            {
+                break;
+            }
+
             suggestions.Add(new WorkSuggestionDto(
-                Map(candidate),
-                queue is null
-                    ? "Default work routing matched the worker's active warehouse profile."
-                    : $"Queue '{queue.Code}' matched the worker's shift, skills, certifications, and zone eligibility.",
-                queue?.Id,
-                candidate.QueueCode,
-                queue?.ZoneLocationId));
+                Map(scored.Work),
+                scored.IsManualOverride
+                    ? "Manual override was requested; worker eligibility and assignment concurrency still apply."
+                    : scored.IsFallback
+                        ? "Standard priority/deadline ordering is used because no configured route connects the stops."
+                        : "Deterministic interleaving score combines priority, deadline, zone affinity, and route travel cost.",
+                scored.Queue?.Id,
+                scored.Work.QueueCode,
+                scored.Queue?.ZoneLocationId,
+                scored.TravelMinutes,
+                scored.Score,
+                scored.ScoringBreakdown,
+                scored.IsFallback,
+                scored.IsManualOverride));
+            remaining.RemoveAll(value => value.Work.Id == scored.Work.Id);
+            previousLocationId = scored.AnchorLocationId ?? previousLocationId;
         }
 
         return Result.Success(new WorkforceSuggestionsDto(
             suggestions,
-            NormalizeUtc(clock.UtcNow.UtcDateTime)));
+            asOfUtc));
     }
 
     public Task<Result<WarehouseWorkDto>> ClaimAsync(
@@ -749,6 +1194,171 @@ public sealed class WorkforceService(
         ReadCodes(queue.RequiredCertificationCodesJson),
         queue.IsActive,
         queue.Revision);
+
+    private static WorkRouteDto Map(WarehouseWorkRoute route) => new(
+        route.Id,
+        route.WarehouseId,
+        route.FromLocationId,
+        route.ToLocationId,
+        route.RouteCode,
+        route.Sequence,
+        route.TravelMinutes,
+        route.DistanceMeters,
+        route.Notes,
+        route.IsActive,
+        route.Revision);
+
+    private static WorkInterleavingPolicyDto Map(WarehouseWorkInterleavingPolicy policy) => new(
+        policy.Id,
+        policy.WarehouseId,
+        policy.Code,
+        policy.Name,
+        policy.PriorityWeight,
+        policy.DeadlineWeight,
+        policy.TravelWeight,
+        policy.ZoneAffinityWeight,
+        policy.MaximumTravelMinutes,
+        policy.AllowCrossWorkType,
+        policy.IsActive,
+        policy.Revision);
+
+    private static ScoredWorkCandidate ScoreCandidate(
+        EligibleWorkCandidate candidate,
+        int? previousLocationId,
+        IReadOnlyList<WarehouseWorkRoute> routes,
+        IReadOnlyDictionary<int, int?> locationParents,
+        WarehouseWorkInterleavingPolicy policy,
+        DateTime asOfUtc)
+    {
+        var route = ResolveRoute(previousLocationId, candidate.AnchorLocationId, routes, locationParents);
+        var travelMinutes = route?.TravelMinutes;
+        var fallback = !previousLocationId.HasValue || !candidate.AnchorLocationId.HasValue || route is null;
+        var priorityScore = candidate.Work.Priority * policy.PriorityWeight;
+        var deadlineScore = DeadlineScore(candidate.Work.DueAtUtc, asOfUtc) * policy.DeadlineWeight;
+        var zoneScore = IsWithinZone(candidate.AnchorLocationId, candidate.Queue?.ZoneLocationId, locationParents)
+            ? policy.ZoneAffinityWeight
+            : 0m;
+        var travelPenalty = travelMinutes.GetValueOrDefault() * policy.TravelWeight;
+        var score = priorityScore + deadlineScore + zoneScore - travelPenalty;
+        var deadline = candidate.Work.DueAtUtc.HasValue
+            ? candidate.Work.DueAtUtc.Value <= asOfUtc
+                ? "overdue"
+                : $"due-in-minutes={(candidate.Work.DueAtUtc.Value - asOfUtc).TotalMinutes:0.###}"
+            : "no-deadline";
+        var travel = travelMinutes.HasValue
+            ? $"travel={travelMinutes.Value:0.###}*{policy.TravelWeight:0.###}"
+            : "travel=unrouted";
+        var breakdown =
+            $"priority={candidate.Work.Priority}*{policy.PriorityWeight:0.###};deadline={deadline}*{policy.DeadlineWeight:0.###};" +
+            $"zone={(zoneScore > 0m ? "match" : "none")}*{policy.ZoneAffinityWeight:0.###};{travel};" +
+            $"score={score:0.###};fallback={fallback.ToString().ToLowerInvariant()}";
+        return new ScoredWorkCandidate(
+            candidate.Work,
+            candidate.Queue,
+            candidate.AnchorLocationId,
+            travelMinutes,
+            score,
+            breakdown,
+            fallback,
+            candidate.IsManualOverride);
+    }
+
+    private static WarehouseWorkRoute? ResolveRoute(
+        int? fromLocationId,
+        int? toLocationId,
+        IReadOnlyList<WarehouseWorkRoute> routes,
+        IReadOnlyDictionary<int, int?> locationParents)
+    {
+        if (!fromLocationId.HasValue || !toLocationId.HasValue)
+        {
+            return null;
+        }
+
+        var fromLineage = GetLocationLineage(fromLocationId.Value, locationParents);
+        var toLineage = GetLocationLineage(toLocationId.Value, locationParents);
+        var matches = routes
+            .Select(route =>
+            {
+                var fromDepth = fromLineage.IndexOf(route.FromLocationId);
+                var toDepth = toLineage.IndexOf(route.ToLocationId);
+                return new { Route = route, FromDepth = fromDepth, ToDepth = toDepth };
+            })
+            .Where(value => value.FromDepth >= 0 && value.ToDepth >= 0)
+            .OrderBy(value => value.FromDepth + value.ToDepth)
+            .ThenBy(value => value.Route.Sequence)
+            .ThenBy(value => value.Route.TravelMinutes)
+            .ThenBy(value => value.Route.Id)
+            .ToArray();
+        return matches.FirstOrDefault()?.Route;
+    }
+
+    private static int? GetWorkAnchorLocation(WarehouseWorkEntity work) =>
+        work.Lines
+            .OrderBy(line => line.Sequence)
+            .Select(line => line.SourceLocationId ?? line.DestinationLocationId)
+            .FirstOrDefault(value => value.HasValue);
+
+    private static List<int> GetLocationLineage(
+        int locationId,
+        IReadOnlyDictionary<int, int?> locationParents)
+    {
+        var lineage = new List<int>();
+        var current = (int?)locationId;
+        var visited = new HashSet<int>();
+        while (current.HasValue && visited.Add(current.Value))
+        {
+            lineage.Add(current.Value);
+            current = locationParents.TryGetValue(current.Value, out var parentId) ? parentId : null;
+        }
+
+        return lineage;
+    }
+
+    private static bool IsWithinZone(
+        int? locationId,
+        int? zoneLocationId,
+        IReadOnlyDictionary<int, int?> locationParents) =>
+        locationId.HasValue && zoneLocationId.HasValue &&
+        GetLocationLineage(locationId.Value, locationParents).Contains(zoneLocationId.Value);
+
+    private static int DeadlineRank(WarehouseWorkEntity work, DateTime asOfUtc) =>
+        !work.DueAtUtc.HasValue
+            ? 2
+            : work.DueAtUtc.Value <= asOfUtc
+                ? 0
+                : 1;
+
+    private static decimal DeadlineScore(DateTime? dueAtUtc, DateTime asOfUtc)
+    {
+        if (!dueAtUtc.HasValue)
+        {
+            return 0m;
+        }
+
+        if (dueAtUtc.Value <= asOfUtc)
+        {
+            return 1_000m;
+        }
+
+        var minutes = Math.Max(1d, (dueAtUtc.Value - asOfUtc).TotalMinutes);
+        return 1_000m / (decimal)minutes;
+    }
+
+    private sealed record EligibleWorkCandidate(
+        WarehouseWorkEntity Work,
+        WarehouseWorkQueue? Queue,
+        int? AnchorLocationId,
+        bool IsManualOverride);
+
+    private sealed record ScoredWorkCandidate(
+        WarehouseWorkEntity Work,
+        WarehouseWorkQueue? Queue,
+        int? AnchorLocationId,
+        decimal? TravelMinutes,
+        decimal Score,
+        string ScoringBreakdown,
+        bool IsFallback,
+        bool IsManualOverride);
 
     private static WorkforceActivityDto Map(WarehouseWorkActivity activity) => new(
         activity.Id,

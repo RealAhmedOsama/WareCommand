@@ -119,6 +119,8 @@ public static class WmsAuditActions
     public const string WarehouseWorkerProfileChanged = "warehouse.work.worker_profile_changed";
     public const string WarehouseWorkQueueChanged = "warehouse.work.queue_changed";
     public const string WarehouseWorkActivityRecorded = "warehouse.work.activity_recorded";
+    public const string WarehouseWorkRouteChanged = "warehouse.work.route_changed";
+    public const string WarehouseWorkInterleavingPolicyChanged = "warehouse.work.interleaving_policy_changed";
     public const string PutawayRuleCreated = "warehouse.putaway_rule.created";
     public const string PutawayRuleUpdated = "warehouse.putaway_rule.updated";
     public const string PutawayRuleActivated = "warehouse.putaway_rule.activated";
@@ -329,6 +331,8 @@ public static class WmsAuditActions
         WarehouseWorkerProfileChanged,
         WarehouseWorkQueueChanged,
         WarehouseWorkActivityRecorded,
+        WarehouseWorkRouteChanged,
+        WarehouseWorkInterleavingPolicyChanged,
         PutawayRuleCreated,
         PutawayRuleUpdated,
         PutawayRuleActivated,
@@ -459,6 +463,8 @@ public static class WmsAuditEntityTypes
     public const string WarehouseWorkerProfile = "WarehouseWorkerProfile";
     public const string WarehouseWorkQueue = "WarehouseWorkQueue";
     public const string WarehouseWorkActivity = "WarehouseWorkActivity";
+    public const string WarehouseWorkRoute = "WarehouseWorkRoute";
+    public const string WarehouseWorkInterleavingPolicy = "WarehouseWorkInterleavingPolicy";
     public const string PutawayRule = "PutawayRule";
     public const string UnitOfMeasure = "UnitOfMeasure";
     public const string Location = "Location";

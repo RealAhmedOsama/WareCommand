@@ -61,18 +61,77 @@ public sealed record WorkQueueDto(
     bool IsActive,
     long Revision);
 
+public sealed record WorkRouteInput(
+    int WarehouseId,
+    int FromLocationId,
+    int ToLocationId,
+    string RouteCode = "DEFAULT",
+    int Sequence = 1,
+    decimal TravelMinutes = 0m,
+    decimal? DistanceMeters = null,
+    string? Notes = null,
+    bool IsActive = true);
+
+public sealed record WorkRouteDto(
+    int Id,
+    int WarehouseId,
+    int FromLocationId,
+    int ToLocationId,
+    string RouteCode,
+    int Sequence,
+    decimal TravelMinutes,
+    decimal? DistanceMeters,
+    string? Notes,
+    bool IsActive,
+    long Revision);
+
+public sealed record WorkInterleavingPolicyInput(
+    int WarehouseId,
+    string Code,
+    string Name,
+    decimal PriorityWeight = 100m,
+    decimal DeadlineWeight = 100m,
+    decimal TravelWeight = 1m,
+    decimal ZoneAffinityWeight = 10m,
+    decimal? MaximumTravelMinutes = null,
+    bool AllowCrossWorkType = true,
+    bool IsActive = true);
+
+public sealed record WorkInterleavingPolicyDto(
+    int Id,
+    int WarehouseId,
+    string Code,
+    string Name,
+    decimal PriorityWeight,
+    decimal DeadlineWeight,
+    decimal TravelWeight,
+    decimal ZoneAffinityWeight,
+    decimal? MaximumTravelMinutes,
+    bool AllowCrossWorkType,
+    bool IsActive,
+    long Revision);
+
 public sealed record WorkforceSuggestionsQuery(
     int WarehouseId,
     WarehouseWorkType? WorkType = null,
     string? QueueCode = null,
-    int Limit = 50);
+    int Limit = 50,
+    int? CurrentLocationId = null,
+    string? RouteCode = null,
+    string? PolicyCode = null,
+    int? ManualOverrideWorkId = null);
 
 public sealed record WorkSuggestionDto(
     WarehouseWorkDto Work,
     string RoutingReason,
     int? QueueId,
     string QueueCode,
-    int? ZoneLocationId);
+    int? ZoneLocationId,
+    decimal? TravelMinutes = null,
+    decimal Score = 0m,
+    string ScoringBreakdown = "",
+    bool IsFallback = false,
+    bool IsManualOverride = false);
 
 public sealed record WorkforceSuggestionsDto(
     IReadOnlyList<WorkSuggestionDto> Suggestions,
@@ -162,6 +221,29 @@ public interface IWorkforceService
         CancellationToken cancellationToken = default);
 
     Task<Result<IReadOnlyList<WorkQueueDto>>> ListQueuesAsync(
+        int warehouseId,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<WorkRouteDto>> SaveRouteAsync(
+        int? routeId,
+        WorkRouteInput input,
+        string actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<IReadOnlyList<WorkRouteDto>>> ListRoutesAsync(
+        int warehouseId,
+        string? routeCode = null,
+        bool includeInactive = false,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<WorkInterleavingPolicyDto>> SaveInterleavingPolicyAsync(
+        int? policyId,
+        WorkInterleavingPolicyInput input,
+        string actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<IReadOnlyList<WorkInterleavingPolicyDto>>> ListInterleavingPoliciesAsync(
         int warehouseId,
         bool includeInactive = false,
         CancellationToken cancellationToken = default);

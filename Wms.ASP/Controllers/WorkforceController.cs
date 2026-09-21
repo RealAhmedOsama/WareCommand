@@ -74,6 +74,78 @@ public sealed class WorkforceController(
             currentUser.RequireUserId(),
             cancellationToken));
 
+    [HttpGet("routes")]
+    public async Task<IActionResult> Routes(
+        [FromQuery] int warehouseId,
+        [FromQuery] string? routeCode,
+        [FromQuery] bool includeInactive = false,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await workforceService.ListRoutesAsync(
+            warehouseId,
+            routeCode,
+            includeInactive,
+            cancellationToken));
+
+    [HttpPost("routes")]
+    [Authorize(Policy = WmsPermissions.WorkManage)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateRoute(
+        [FromBody] WorkRouteInput input,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await workforceService.SaveRouteAsync(
+            null,
+            input,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
+    [HttpPut("routes/{routeId:int}")]
+    [Authorize(Policy = WmsPermissions.WorkManage)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateRoute(
+        int routeId,
+        [FromBody] WorkRouteInput input,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await workforceService.SaveRouteAsync(
+            routeId,
+            input,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
+    [HttpGet("interleaving-policies")]
+    public async Task<IActionResult> InterleavingPolicies(
+        [FromQuery] int warehouseId,
+        [FromQuery] bool includeInactive = false,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await workforceService.ListInterleavingPoliciesAsync(
+            warehouseId,
+            includeInactive,
+            cancellationToken));
+
+    [HttpPost("interleaving-policies")]
+    [Authorize(Policy = WmsPermissions.WorkManage)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateInterleavingPolicy(
+        [FromBody] WorkInterleavingPolicyInput input,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await workforceService.SaveInterleavingPolicyAsync(
+            null,
+            input,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
+    [HttpPut("interleaving-policies/{policyId:int}")]
+    [Authorize(Policy = WmsPermissions.WorkManage)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateInterleavingPolicy(
+        int policyId,
+        [FromBody] WorkInterleavingPolicyInput input,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await workforceService.SaveInterleavingPolicyAsync(
+            policyId,
+            input,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
     [HttpGet("suggestions")]
     [Authorize(Policy = WmsPermissions.WorkExecute)]
     public async Task<IActionResult> Suggestions(
@@ -81,9 +153,21 @@ public sealed class WorkforceController(
         [FromQuery] Wms.Domain.Enums.WarehouseWorkType? workType,
         [FromQuery] string? queueCode,
         [FromQuery] int limit = 50,
+        [FromQuery] int? currentLocationId = null,
+        [FromQuery] string? routeCode = null,
+        [FromQuery] string? policyCode = null,
+        [FromQuery] int? manualOverrideWorkId = null,
         CancellationToken cancellationToken = default) =>
         ToActionResult(await workforceService.SuggestAsync(
-            new WorkforceSuggestionsQuery(warehouseId, workType, queueCode, limit),
+            new WorkforceSuggestionsQuery(
+                warehouseId,
+                workType,
+                queueCode,
+                limit,
+                currentLocationId,
+                routeCode,
+                policyCode,
+                manualOverrideWorkId),
             currentUser.RequireUserId(),
             cancellationToken));
 

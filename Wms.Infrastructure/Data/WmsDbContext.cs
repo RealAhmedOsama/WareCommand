@@ -160,6 +160,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<WarehouseWorkerProfile> WarehouseWorkerProfiles => Set<WarehouseWorkerProfile>();
     public DbSet<WarehouseWorkQueue> WarehouseWorkQueues => Set<WarehouseWorkQueue>();
     public DbSet<WarehouseWorkActivity> WarehouseWorkActivities => Set<WarehouseWorkActivity>();
+    public DbSet<WarehouseWorkRoute> WarehouseWorkRoutes => Set<WarehouseWorkRoute>();
+    public DbSet<WarehouseWorkInterleavingPolicy> WarehouseWorkInterleavingPolicies =>
+        Set<WarehouseWorkInterleavingPolicy>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
 
@@ -475,6 +478,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
         builder.ApplyConfiguration(new WmsLabelTemplateConfiguration());
         builder.ApplyConfiguration(new WmsPrintJobConfiguration());
+        builder.ApplyConfiguration(new WarehouseWorkRouteConfiguration());
+        builder.ApplyConfiguration(new WarehouseWorkInterleavingPolicyConfiguration());
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)

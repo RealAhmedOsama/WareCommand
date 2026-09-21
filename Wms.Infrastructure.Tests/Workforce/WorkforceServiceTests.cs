@@ -37,7 +37,8 @@ public sealed class WorkforceServiceTests : IDisposable
         _connection.Open();
         _context = new WmsDbContext(new DbContextOptionsBuilder<WmsDbContext>()
             .UseSqlite(_connection)
-            .Options);
+            .Options,
+            new FixedClock(_now));
         _context.Database.EnsureCreated();
 
         _access
@@ -224,6 +225,109 @@ public sealed class WorkforceServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SuggestionsUseDeterministicRouteCostsAndExplainTheScore()
+    {
+        await ConfigureWorkerAsync();
+        var near = new Location(
+            "WF-NEAR",
+            "Workforce near stop",
+            _warehouse.Id,
+            parentLocationId: _zone.Id,
+            type: LocationType.PickFace);
+        var far = new Location(
+            "WF-FAR",
+            "Workforce far stop",
+            _warehouse.Id,
+            parentLocationId: _zone.Id,
+            type: LocationType.PickFace);
+        _context.AddRange(near, far);
+        await _context.SaveChangesAsync();
+
+        var policy = await _service.SaveInterleavingPolicyAsync(
+            null,
+            new WorkInterleavingPolicyInput(
+                _warehouse.Id,
+                "DEFAULT",
+                "Default deterministic interleaving",
+                PriorityWeight: 10m,
+                DeadlineWeight: 100m,
+                TravelWeight: 1m,
+                ZoneAffinityWeight: 10m),
+            "manager");
+        policy.IsSuccess.Should().BeTrue(policy.Error);
+
+        foreach (var route in new[]
+                 {
+                     new WorkRouteInput(_warehouse.Id, _source.Id, near.Id, TravelMinutes: 2m),
+                     new WorkRouteInput(_warehouse.Id, _source.Id, far.Id, TravelMinutes: 10m),
+                     new WorkRouteInput(_warehouse.Id, near.Id, far.Id, TravelMinutes: 3m)
+                 })
+        {
+            var saved = await _service.SaveRouteAsync(null, route, "manager");
+            saved.IsSuccess.Should().BeTrue(saved.Error);
+        }
+
+        var nearWork = AddAvailableWorkAt("wf-route-near", near.Id);
+        var farWork = AddAvailableWorkAt("wf-route-far", far.Id);
+        var result = await _service.SuggestAsync(
+            new WorkforceSuggestionsQuery(
+                _warehouse.Id,
+                WorkType: WarehouseWorkType.Pick,
+                Limit: 2,
+                CurrentLocationId: _source.Id,
+                PolicyCode: "DEFAULT"),
+            "worker-1");
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        result.Value.Suggestions.Select(value => value.Work.Id)
+            .Should().ContainInOrder(nearWork.Id, farWork.Id);
+        result.Value.Suggestions[0].TravelMinutes.Should().Be(2m);
+        result.Value.Suggestions[1].TravelMinutes.Should().Be(3m);
+        result.Value.Suggestions.All(value => !value.IsFallback).Should().BeTrue();
+        result.Value.Suggestions[0].ScoringBreakdown.Should().Contain("travel=2");
+        result.Value.Suggestions[0].ScoringBreakdown.Should().Contain("priority=50*10");
+    }
+
+    [Fact]
+    public async Task MissingRouteUsesPriorityFallbackAndManualOverrideRemainsExplicit()
+    {
+        await ConfigureWorkerAsync();
+        var first = AddAvailableWorkAt("wf-fallback-first", _source.Id, priority: 90);
+        var second = AddAvailableWorkAt("wf-fallback-second", _source.Id, priority: 10);
+
+        var fallback = await _service.SuggestAsync(
+            new WorkforceSuggestionsQuery(_warehouse.Id, WarehouseWorkType.Pick, Limit: 2),
+            "worker-1");
+        fallback.IsSuccess.Should().BeTrue(fallback.Error);
+        fallback.Value.Suggestions.Select(value => value.Work.Id)
+            .Should().ContainInOrder(first.Id, second.Id);
+        fallback.Value.Suggestions.All(value => value.IsFallback).Should().BeTrue();
+
+        var manual = await _service.SuggestAsync(
+            new WorkforceSuggestionsQuery(
+                _warehouse.Id,
+                WarehouseWorkType.Pick,
+                Limit: 1,
+                ManualOverrideWorkId: second.Id),
+            "worker-1");
+        manual.IsSuccess.Should().BeTrue(manual.Error);
+        manual.Value.Suggestions.Should().ContainSingle();
+        manual.Value.Suggestions[0].Work.Id.Should().Be(second.Id);
+        manual.Value.Suggestions[0].IsManualOverride.Should().BeTrue();
+
+        var claimed = await _service.ClaimAsync(
+            second.Id,
+            new WarehouseWorkClaimInput("claim-manual-override"),
+            "worker-1");
+        claimed.IsSuccess.Should().BeTrue(claimed.Error);
+        var afterClaim = await _service.SuggestAsync(
+            new WorkforceSuggestionsQuery(_warehouse.Id, WarehouseWorkType.Pick, Limit: 2),
+            "worker-1");
+        afterClaim.IsSuccess.Should().BeTrue(afterClaim.Error);
+        afterClaim.Value.Suggestions.Should().NotContain(value => value.Work.Id == second.Id);
+    }
+
+    [Fact]
     public async Task ActivityAndMetricsReportOperationalFactsWithoutRanking()
     {
         await ConfigureWorkerAsync();
@@ -299,7 +403,17 @@ public sealed class WorkforceServiceTests : IDisposable
         profile.IsSuccess.Should().BeTrue(profile.Error);
     }
 
-    private WarehouseWorkEntity AddAvailableWork(string creationKey)
+    private WarehouseWorkEntity AddAvailableWork(
+        string creationKey,
+        int priority = 50,
+        DateTime? dueAtUtc = null) =>
+        AddAvailableWorkAt(creationKey, _source.Id, priority, dueAtUtc);
+
+    private WarehouseWorkEntity AddAvailableWorkAt(
+        string creationKey,
+        int sourceLocationId,
+        int priority = 50,
+        DateTime? dueAtUtc = null)
     {
         var work = new Wms.Domain.Entities.WarehouseWork(
             $"WF-{creationKey}",
@@ -308,14 +422,16 @@ public sealed class WorkforceServiceTests : IDisposable
             _warehouse.Id,
             "TEST",
             creationKey,
-            queueCode: "PICK-WF");
+            priority: priority,
+            queueCode: "PICK-WF",
+            dueAtUtc: dueAtUtc);
         work.AddLine(new WarehouseWorkLine(
             1,
             _warehouse.Id,
             _item.Id,
             10m,
             "EA",
-            sourceLocationId: _source.Id));
+            sourceLocationId: sourceLocationId));
         work.MakeAvailable(_now.UtcDateTime.AddMinutes(-5));
         _context.WarehouseWorks.Add(work);
         _context.SaveChanges();
