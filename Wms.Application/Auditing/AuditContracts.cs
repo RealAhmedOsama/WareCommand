@@ -27,6 +27,11 @@ public static class WmsAuditActions
     public const string NotificationRead = "notifications.read";
     public const string NotificationAcknowledged = "notifications.acknowledged";
     public const string NotificationPreferenceChanged = "notifications.preference_changed";
+    public const string RetentionPolicyChanged = "retention.policy_changed";
+    public const string RetentionHoldCreated = "retention.hold_created";
+    public const string RetentionHoldReleased = "retention.hold_released";
+    public const string RetentionRunStarted = "retention.run_started";
+    public const string RetentionRunCompleted = "retention.run_completed";
 
     public const string ItemCreated = "master.item.created";
     public const string ItemUpdated = "master.item.updated";
@@ -262,6 +267,11 @@ public static class WmsAuditActions
         NotificationRead,
         NotificationAcknowledged,
         NotificationPreferenceChanged,
+        RetentionPolicyChanged,
+        RetentionHoldCreated,
+        RetentionHoldReleased,
+        RetentionRunStarted,
+        RetentionRunCompleted,
         ItemCreated,
         ItemUpdated,
         ItemActivated,
@@ -550,6 +560,10 @@ public static class WmsAuditEntityTypes
     public const string Attachment = "Attachment";
     public const string Notification = "Notification";
     public const string NotificationPreference = "NotificationPreference";
+    public const string RetentionPolicy = "RetentionPolicy";
+    public const string RetentionHold = "RetentionHold";
+    public const string RetentionRun = "RetentionRun";
+    public const string RetentionArchiveReference = "RetentionArchiveReference";
     public const string WaveTemplate = "WaveTemplate";
     public const string Wave = "Wave";
     public const string WaveLine = "WaveLine";

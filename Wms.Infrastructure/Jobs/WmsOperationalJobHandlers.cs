@@ -11,6 +11,7 @@ using Wms.Application.Idempotency;
 using Wms.Application.Inventory;
 using Wms.Application.Outbound;
 using Wms.Application.Notifications;
+using Wms.Application.Retention;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Jobs;
@@ -264,7 +265,8 @@ public sealed class WmsCleanupJob(
     IWmsJobExecutionStore executionStore,
     IClock clock,
     ILogger<WmsCleanupJob> logger,
-    IInventoryCommandIdempotencyService? idempotencyService = null) : IWmsJobHandler
+    IInventoryCommandIdempotencyService? idempotencyService = null,
+    IRetentionService? retentionService = null) : IWmsJobHandler
 {
     public string JobName => WmsJobNames.Cleanup;
 
@@ -284,14 +286,30 @@ public sealed class WmsCleanupJob(
                 now.AddDays(-90),
                 cancellationToken);
         var totalRemoved = removed + idempotencyRemoved;
+        var retentionPreview = retentionService is null
+            ? null
+            : await retentionService.PreviewAsync(
+                new RetentionPreviewInput(AsOfUtc: now, BatchSize: 100),
+                cancellationToken);
+        var retentionExamined = retentionPreview?.IsSuccess == true
+            ? retentionPreview.Value.ItemsExamined
+            : 0;
+        if (retentionPreview?.IsFailure == true)
+        {
+            logger.LogWarning(
+                "Retention dry-run could not be recorded during cleanup: {ErrorCode}",
+                retentionPreview.ErrorCode);
+        }
+
         logger.LogInformation(
-            "Background-job cleanup pruned {RecordCount} records, including {InventoryCommandRecordCount} inventory command records",
+            "Background-job cleanup pruned {RecordCount} records, including {InventoryCommandRecordCount} inventory command records, and examined {RetentionRecordCount} retention candidates",
             totalRemoved,
-            idempotencyRemoved);
+            idempotencyRemoved,
+            retentionExamined);
         return new WmsJobExecutionResult(
+            totalRemoved + (int)Math.Min(retentionExamined, int.MaxValue),
             totalRemoved,
-            totalRemoved,
-            $"Pruned {totalRemoved} records.");
+            $"Pruned {totalRemoved} records; retention dry-run examined {retentionExamined} candidates.");
     }
 }
 

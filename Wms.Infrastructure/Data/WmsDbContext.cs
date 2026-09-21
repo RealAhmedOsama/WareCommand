@@ -12,6 +12,7 @@ using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Jobs;
 using Wms.Infrastructure.Labels;
 using Wms.Infrastructure.Notifications;
+using Wms.Infrastructure.Retention;
 using Wms.Infrastructure.Settings;
 using Wms.Domain.Services;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
@@ -194,6 +195,17 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<WmsNotificationPreferenceEntity> NotificationPreferences =>
         Set<WmsNotificationPreferenceEntity>();
+
+    public DbSet<WmsRetentionPolicyEntity> RetentionPolicies => Set<WmsRetentionPolicyEntity>();
+
+    public DbSet<WmsRetentionHoldEntity> RetentionHolds => Set<WmsRetentionHoldEntity>();
+
+    public DbSet<WmsRetentionRunEntity> RetentionRuns => Set<WmsRetentionRunEntity>();
+
+    public DbSet<WmsRetentionRunCountEntity> RetentionRunCounts => Set<WmsRetentionRunCountEntity>();
+
+    public DbSet<WmsRetentionArchiveReferenceEntity> RetentionArchiveReferences =>
+        Set<WmsRetentionArchiveReferenceEntity>();
 
     public DbSet<WmsLabelTemplateEntity> LabelTemplates => Set<WmsLabelTemplateEntity>();
 
@@ -506,6 +518,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WmsNotificationConfiguration());
         builder.ApplyConfiguration(new WmsNotificationRecipientConfiguration());
         builder.ApplyConfiguration(new WmsNotificationPreferenceConfiguration());
+        builder.ApplyConfiguration(new WmsRetentionPolicyConfiguration());
+        builder.ApplyConfiguration(new WmsRetentionHoldConfiguration());
+        builder.ApplyConfiguration(new WmsRetentionRunConfiguration());
+        builder.ApplyConfiguration(new WmsRetentionRunCountConfiguration());
+        builder.ApplyConfiguration(new WmsRetentionArchiveReferenceConfiguration());
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
