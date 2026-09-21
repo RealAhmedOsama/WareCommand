@@ -355,10 +355,19 @@ public sealed class InventoryReservationService(
         CancellationToken cancellationToken = default)
     {
         ValidateMutationRequest(request);
+        if (request.LedgerType is not (InventoryTransactionType.Pick or
+            InventoryTransactionType.ValueAddedConsumption or
+            InventoryTransactionType.ValueAddedScrap))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request),
+                "Reservation consumption supports pick or value-added material ledger types only.");
+        }
+
         return await MutateOpenReservationAsync(
             request,
             action: "consume",
-            ledgerType: InventoryTransactionType.Pick,
+            ledgerType: request.LedgerType,
             eventType: InventoryReservationEventType.Consumed,
             apply: (allocation, quantity, reason) => allocation.Consume(quantity, reason),
             cancellationToken);
@@ -709,7 +718,9 @@ public sealed class InventoryReservationService(
                 entries.Add(CreateLedgerEntry(
                     allocation,
                     ledgerType,
-                    ledgerType == InventoryTransactionType.Pick
+                    ledgerType is InventoryTransactionType.Pick or
+                        InventoryTransactionType.ValueAddedConsumption or
+                        InventoryTransactionType.ValueAddedScrap
                         ? -appliedQuantity
                         : 0m,
                     -appliedQuantity,

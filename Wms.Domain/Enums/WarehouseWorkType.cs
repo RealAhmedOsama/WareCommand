@@ -10,7 +10,8 @@ public enum WarehouseWorkType
     Pack = 6,
     Load = 7,
     Return = 8,
-    Other = 9
+    Other = 9,
+    ValueAddedService = 10
 }
 
 public enum WarehouseWorkStatus

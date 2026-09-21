@@ -21,5 +21,9 @@ public enum InventoryTransactionType
     StatusChange = 13,
     Replenishment = 14,
     Reversal = 15,
-    OwnershipTransfer = 16
+    OwnershipTransfer = 16,
+    ValueAddedConsumption = 17,
+    ValueAddedProduction = 18,
+    ValueAddedScrap = 19,
+    ValueAddedReversal = 20
 }

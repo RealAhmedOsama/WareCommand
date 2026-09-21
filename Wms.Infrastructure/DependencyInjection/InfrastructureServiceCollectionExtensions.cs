@@ -33,6 +33,7 @@ using Wms.Application.Labels;
 using Wms.Application.Transfers;
 using Wms.Application.Receiving;
 using Wms.Application.Units;
+using Wms.Application.ValueAddedServices;
 using Wms.Application.Warehouses;
 using Wms.Application.WarehouseWork;
 using Wms.Application.Workforce;
@@ -73,6 +74,7 @@ using Wms.Infrastructure.Receiving;
 using Wms.Infrastructure.Reporting;
 using Wms.Infrastructure.Labels;
 using Wms.Infrastructure.Telemetry;
+using Wms.Infrastructure.ValueAddedServices;
 using Wms.Infrastructure.Units;
 using Wms.Infrastructure.Warehouses;
 using Wms.Infrastructure.WarehouseWork;
@@ -261,6 +263,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryDispositionService, InventoryDispositionService>();
         services.AddScoped<ICycleCountService, CycleCountService>();
         services.AddScoped<IInventoryReconciliationService, InventoryReconciliationService>();
+        services.AddScoped<IValueAddedService, ValueAddedService>();
         return services;
     }
 

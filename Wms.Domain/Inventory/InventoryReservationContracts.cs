@@ -36,7 +36,8 @@ public sealed record InventoryReservationMutationRequest(
     string ActorUserId,
     string? CorrelationId = null,
     string? Reason = null,
-    int? AllocationId = null);
+    int? AllocationId = null,
+    InventoryTransactionType LedgerType = InventoryTransactionType.Pick);
 
 public sealed record InventoryReservationResult(
     int ReservationId,

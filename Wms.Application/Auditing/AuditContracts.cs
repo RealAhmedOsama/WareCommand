@@ -35,6 +35,12 @@ public static class WmsAuditActions
     public const string InventoryOwnerCreated = "inventory.owner.created";
     public const string InventoryOwnerDeactivated = "inventory.owner.deactivated";
     public const string InventoryOwnershipTransferred = "inventory.ownership.transferred";
+    public const string KitDefinitionCreated = "vas.kit_definition.created";
+    public const string ValueAddedServiceOrderCreated = "vas.order.created";
+    public const string ValueAddedServiceOrderReleased = "vas.order.released";
+    public const string ValueAddedServiceCompleted = "vas.order.completed";
+    public const string ValueAddedServiceCancelled = "vas.order.cancelled";
+    public const string ValueAddedServiceReversed = "vas.order.reversed";
     public const string SalesOrderCreated = "outbound.sales_order.created";
     public const string SalesOrderUpdated = "outbound.sales_order.updated";
     public const string SalesOrderConfirmed = "outbound.sales_order.confirmed";
@@ -239,6 +245,12 @@ public static class WmsAuditActions
         CustomerBulkImported,
         CustomerShipToChanged,
         CustomerItemReferencesChanged,
+        KitDefinitionCreated,
+        ValueAddedServiceOrderCreated,
+        ValueAddedServiceOrderReleased,
+        ValueAddedServiceCompleted,
+        ValueAddedServiceCancelled,
+        ValueAddedServiceReversed,
         SalesOrderCreated,
         SalesOrderUpdated,
         SalesOrderConfirmed,
@@ -469,6 +481,9 @@ public static class WmsAuditEntityTypes
     public const string InventoryStatusTransition = "InventoryStatusTransition";
     public const string InventoryOwner = "InventoryOwner";
     public const string InventoryOwnershipTransfer = "InventoryOwnershipTransfer";
+    public const string KitDefinition = "KitDefinition";
+    public const string ValueAddedServiceOrder = "ValueAddedServiceOrder";
+    public const string ValueAddedServiceOrderLine = "ValueAddedServiceOrderLine";
     public const string LicensePlate = "LicensePlate";
     public const string LicensePlateContent = "LicensePlateContent";
     public const string LicensePlateNumberSequence = "LicensePlateNumberSequence";

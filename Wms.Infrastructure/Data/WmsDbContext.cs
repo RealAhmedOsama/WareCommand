@@ -90,6 +90,12 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<SupplierReturnCommand> SupplierReturnCommands => Set<SupplierReturnCommand>();
     public DbSet<InventoryOwner> InventoryOwners => Set<InventoryOwner>();
     public DbSet<InventoryOwnershipTransfer> InventoryOwnershipTransfers => Set<InventoryOwnershipTransfer>();
+    public DbSet<KitDefinition> KitDefinitions => Set<KitDefinition>();
+    public DbSet<KitDefinitionLine> KitDefinitionLines => Set<KitDefinitionLine>();
+    public DbSet<ValueAddedServiceOrder> ValueAddedServiceOrders => Set<ValueAddedServiceOrder>();
+    public DbSet<ValueAddedServiceOrderLine> ValueAddedServiceOrderLines => Set<ValueAddedServiceOrderLine>();
+    public DbSet<ValueAddedServiceTraceLink> ValueAddedServiceTraceLinks => Set<ValueAddedServiceTraceLink>();
+    public DbSet<ValueAddedServiceCommand> ValueAddedServiceCommands => Set<ValueAddedServiceCommand>();
     public DbSet<PutawayRule> PutawayRules => Set<PutawayRule>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
@@ -239,6 +245,12 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new SupplierReturnCommandConfiguration());
         builder.ApplyConfiguration(new InventoryOwnerConfiguration());
         builder.ApplyConfiguration(new InventoryOwnershipTransferConfiguration());
+        builder.ApplyConfiguration(new KitDefinitionConfiguration());
+        builder.ApplyConfiguration(new KitDefinitionLineConfiguration());
+        builder.ApplyConfiguration(new ValueAddedServiceOrderConfiguration());
+        builder.ApplyConfiguration(new ValueAddedServiceOrderLineConfiguration());
+        builder.ApplyConfiguration(new ValueAddedServiceTraceLinkConfiguration());
+        builder.ApplyConfiguration(new ValueAddedServiceCommandConfiguration());
         builder.ApplyConfiguration(new PutawayRuleConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());

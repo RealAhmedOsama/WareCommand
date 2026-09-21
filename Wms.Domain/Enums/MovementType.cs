@@ -11,5 +11,6 @@ public enum MovementType
     Adjustment = 5,
     CycleCount = 6,
     Transfer = 7,
-    StatusChange = 8
+    StatusChange = 8,
+    ValueAddedService = 9
 }
