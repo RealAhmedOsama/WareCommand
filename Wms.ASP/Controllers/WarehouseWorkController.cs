@@ -79,6 +79,19 @@ public sealed class WarehouseWorkController(
             currentUser.RequireUserId(),
             cancellationToken));
 
+    [HttpPost("{workId:int}/claim")]
+    [Authorize(Policy = WmsPermissions.WorkExecute)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Claim(
+        int workId,
+        [FromBody] WarehouseWorkClaimRequest request,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await warehouseWorkService.ClaimAsync(
+            workId,
+            request.ToInput(),
+            currentUser.RequireUserId(),
+            cancellationToken));
+
     [HttpPost("{workId:int}/release")]
     [Authorize(Policy = WmsPermissions.WorkManage)]
     [ValidateAntiForgeryToken]
@@ -328,6 +341,17 @@ public sealed class WarehouseWorkAssignmentRequest
         IdempotencyKey,
         SupervisorOverride,
         OverrideReason);
+}
+
+public sealed class WarehouseWorkClaimRequest
+{
+    [Required, StringLength(200)]
+    public string IdempotencyKey { get; init; } = string.Empty;
+
+    [StringLength(50)]
+    public string? TeamCode { get; init; }
+
+    public WarehouseWorkClaimInput ToInput() => new(IdempotencyKey, TeamCode);
 }
 
 public sealed class WarehouseWorkCommandRequest

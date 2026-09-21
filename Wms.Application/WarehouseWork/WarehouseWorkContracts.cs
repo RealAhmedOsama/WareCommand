@@ -49,6 +49,10 @@ public sealed record WarehouseWorkAssignmentInput(
     bool SupervisorOverride = false,
     string? OverrideReason = null);
 
+public sealed record WarehouseWorkClaimInput(
+    string IdempotencyKey,
+    string? TeamCode = null);
+
 public sealed record WarehouseWorkCommandInput(
     string IdempotencyKey,
     string? Reason = null);
@@ -224,6 +228,12 @@ public interface IWarehouseWorkService
     Task<Result<WarehouseWorkDto>> AssignAsync(
         int workId,
         WarehouseWorkAssignmentInput input,
+        string userId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<WarehouseWorkDto>> ClaimAsync(
+        int workId,
+        WarehouseWorkClaimInput input,
         string userId,
         CancellationToken cancellationToken = default);
 

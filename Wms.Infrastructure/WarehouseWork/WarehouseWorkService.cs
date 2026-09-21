@@ -10,6 +10,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Putaway;
 using Wms.Application.WarehouseWork;
+using Wms.Application.Workforce;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
@@ -26,11 +27,13 @@ public sealed class WarehouseWorkService(
     IClock clock,
     IEnumerable<IWarehouseWorkCompletionHandler> completionHandlers,
     ILogger<WarehouseWorkService> logger,
-    IPutawayRuleService? putawayRuleService = null) : IWarehouseWorkService
+    IPutawayRuleService? putawayRuleService = null,
+    IWarehouseWorkAssignmentEligibilityService? assignmentEligibilityService = null) : IWarehouseWorkService
 {
     private readonly IReadOnlyList<IWarehouseWorkCompletionHandler> _completionHandlers =
         completionHandlers.ToArray();
     private readonly IPutawayRuleService? _putawayRuleService = putawayRuleService;
+    private readonly IWarehouseWorkAssignmentEligibilityService? _assignmentEligibilityService = assignmentEligibilityService;
 
     public Task<Result<WarehouseWorkDto>> CreateAsync(
         WarehouseWorkInput input,
@@ -410,12 +413,34 @@ public sealed class WarehouseWorkService(
             : Result.Success(Map(work));
     }
 
-    public Task<Result<WarehouseWorkDto>> AssignAsync(
+    public async Task<Result<WarehouseWorkDto>> AssignAsync(
         int workId,
         WarehouseWorkAssignmentInput input,
         string userId,
-        CancellationToken cancellationToken = default) =>
-        MutateAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var hasReplay = !string.IsNullOrWhiteSpace(input.IdempotencyKey) &&
+                        await context.WarehouseWorkCommands.AsNoTracking().AnyAsync(
+                            command => command.WarehouseWorkId == workId &&
+                                       command.Operation == "assign" &&
+                                       command.IdempotencyKey == input.IdempotencyKey.Trim(),
+                            cancellationToken);
+        if (!hasReplay && _assignmentEligibilityService is not null)
+        {
+            var eligibility = await _assignmentEligibilityService.ValidateAsync(
+                workId,
+                input.UserId,
+                input.TeamCode,
+                input.SupervisorOverride,
+                selfClaim: false,
+                cancellationToken);
+            if (eligibility.IsFailure)
+            {
+                return eligibility.ToFailure<WarehouseWorkDto>();
+            }
+        }
+
+        return await MutateAsync(
             workId,
             WmsPermissions.WorkManage,
             "assign",
@@ -449,6 +474,54 @@ public sealed class WarehouseWorkService(
                 return Result.Success();
             },
             cancellationToken);
+    }
+
+    public async Task<Result<WarehouseWorkDto>> ClaimAsync(
+        int workId,
+        WarehouseWorkClaimInput input,
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        var hasReplay = !string.IsNullOrWhiteSpace(input.IdempotencyKey) &&
+                        await context.WarehouseWorkCommands.AsNoTracking().AnyAsync(
+                            command => command.WarehouseWorkId == workId &&
+                                       command.Operation == "claim" &&
+                                       command.IdempotencyKey == input.IdempotencyKey.Trim(),
+                            cancellationToken);
+        if (!hasReplay && _assignmentEligibilityService is not null)
+        {
+            var eligibility = await _assignmentEligibilityService.ValidateAsync(
+                workId,
+                userId,
+                input.TeamCode,
+                supervisorOverride: false,
+                selfClaim: true,
+                cancellationToken);
+            if (eligibility.IsFailure)
+            {
+                return eligibility.ToFailure<WarehouseWorkDto>();
+            }
+        }
+
+        return await MutateAsync(
+            workId,
+            WmsPermissions.WorkExecute,
+            "claim",
+            input.IdempotencyKey,
+            input,
+            userId,
+            WmsAuditActions.WarehouseWorkAssigned,
+            work =>
+            {
+                work.Assign(
+                    userId,
+                    input.TeamCode,
+                    userId,
+                    clock.UtcNow.UtcDateTime);
+                return Result.Success();
+            },
+            cancellationToken);
+    }
 
     public Task<Result<WarehouseWorkDto>> ReleaseAsync(
         int workId,

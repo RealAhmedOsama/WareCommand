@@ -137,6 +137,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<CycleCountTask> CycleCountTasks => Set<CycleCountTask>();
     public DbSet<CycleCountLine> CycleCountLines => Set<CycleCountLine>();
     public DbSet<WmsIdentifier> WmsIdentifiers => Set<WmsIdentifier>();
+    public DbSet<WarehouseWorkerProfile> WarehouseWorkerProfiles => Set<WarehouseWorkerProfile>();
+    public DbSet<WarehouseWorkQueue> WarehouseWorkQueues => Set<WarehouseWorkQueue>();
+    public DbSet<WarehouseWorkActivity> WarehouseWorkActivities => Set<WarehouseWorkActivity>();
 
     public DbSet<WmsAuthenticationEvent> AuthenticationEvents => Set<WmsAuthenticationEvent>();
 
@@ -257,6 +260,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new CycleCountTaskConfiguration());
         builder.ApplyConfiguration(new CycleCountLineConfiguration());
         builder.ApplyConfiguration(new WmsIdentifierConfiguration());
+        builder.ApplyConfiguration(new WarehouseWorkerProfileConfiguration());
+        builder.ApplyConfiguration(new WarehouseWorkQueueConfiguration());
+        builder.ApplyConfiguration(new WarehouseWorkActivityConfiguration());
 
         builder.Entity<WmsUser>(entity =>
         {
