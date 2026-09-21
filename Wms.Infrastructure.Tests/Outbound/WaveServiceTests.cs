@@ -149,6 +149,11 @@ public sealed class WaveServiceTests : IDisposable
         run.Value.TemplatesExamined.Should().Be(1);
         run.Value.WavesCreated.Should().Be(1);
         run.Value.LinesSelected.Should().Be(1);
+        _access.Verify(service => service.AuthorizeAsync(
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
         (await _context.Waves.CountAsync()).Should().Be(1);
     }
 

@@ -226,9 +226,16 @@ public sealed class WaveService(
             rows.Select(template => MapTemplate(template, template.Warehouse.Code)).ToArray());
     }
 
-    public async Task<Result<WaveDto>> CreateAsync(
+    public Task<Result<WaveDto>> CreateAsync(
         WaveCreateInput input,
         string actorUserId,
+        CancellationToken cancellationToken = default) =>
+        CreateCoreAsync(input, actorUserId, internalExecution: false, cancellationToken: cancellationToken);
+
+    private async Task<Result<WaveDto>> CreateCoreAsync(
+        WaveCreateInput input,
+        string actorUserId,
+        bool internalExecution,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
@@ -238,13 +245,16 @@ public sealed class WaveService(
             return actorValidation;
         }
 
-        var authorization = await warehouseAccessService.AuthorizeAsync(
-            WmsPermissions.AllocationManage,
-            input.WarehouseId,
-            cancellationToken);
-        if (authorization.IsFailure)
+        if (!internalExecution)
         {
-            return authorization.ToFailure<WaveDto>();
+            var authorization = await warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.AllocationManage,
+                input.WarehouseId,
+                cancellationToken);
+            if (authorization.IsFailure)
+            {
+                return authorization.ToFailure<WaveDto>();
+            }
         }
 
         var creationKey = NormalizeRequired(input.CreationKey, 250, nameof(input.CreationKey));
@@ -1164,7 +1174,7 @@ public sealed class WaveService(
                 continue;
             }
 
-            var result = await CreateAsync(
+            var result = await CreateCoreAsync(
                 new WaveCreateInput(
                     template.WarehouseId,
                     $"template:{template.Id}:{slot}",
@@ -1183,7 +1193,8 @@ public sealed class WaveService(
                     template.Id,
                     template.TemplateKey),
                 actorUserId,
-                cancellationToken);
+                internalExecution: true,
+                cancellationToken: cancellationToken);
             if (result.IsFailure && result.ErrorCode == "wave.no_eligible_demand")
             {
                 continue;
