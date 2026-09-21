@@ -54,6 +54,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<WarehouseWorkEntity> WarehouseWorks => Set<WarehouseWorkEntity>();
     public DbSet<WarehouseWorkLine> WarehouseWorkLines => Set<WarehouseWorkLine>();
     public DbSet<WarehouseWorkCommand> WarehouseWorkCommands => Set<WarehouseWorkCommand>();
+    public DbSet<PutawayRule> PutawayRules => Set<PutawayRule>();
     public DbSet<UnitOfMeasure> UnitOfMeasures => Set<UnitOfMeasure>();
     public DbSet<ItemUnitConversion> ItemUnitConversions => Set<ItemUnitConversion>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
@@ -129,6 +130,7 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WarehouseWorkConfiguration());
         builder.ApplyConfiguration(new WarehouseWorkLineConfiguration());
         builder.ApplyConfiguration(new WarehouseWorkCommandConfiguration());
+        builder.ApplyConfiguration(new PutawayRuleConfiguration());
         builder.ApplyConfiguration(new UnitOfMeasureConfiguration());
         builder.ApplyConfiguration(new ItemUnitConversionConfiguration());
         builder.ApplyConfiguration(new WarehouseConfiguration());

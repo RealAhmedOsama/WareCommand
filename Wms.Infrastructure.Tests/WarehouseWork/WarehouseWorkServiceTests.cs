@@ -4,6 +4,7 @@ using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.Putaway;
 using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -20,11 +21,13 @@ public sealed class WarehouseWorkServiceTests : IDisposable
     private readonly WmsDbContext _context;
     private readonly Mock<IWarehouseAccessService> _access = new();
     private readonly Mock<IAuditWriter> _audit = new();
+    private readonly Mock<IPutawayRuleService> _putawayRules = new();
     private readonly FakeCompletionHandler _handler = new();
     private readonly WarehouseWorkService _service;
     private readonly Warehouse _warehouse;
     private readonly Item _item;
     private readonly Location _sourceLocation;
+    private readonly Location _destinationLocation;
 
     public WarehouseWorkServiceTests()
     {
@@ -48,6 +51,17 @@ public sealed class WarehouseWorkServiceTests : IDisposable
                 It.IsAny<AuditRecord>(),
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        _putawayRules
+            .Setup(service => service.SuggestAsync(
+                It.IsAny<PutawaySuggestionInput>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(new PutawaySuggestionResultDto(
+                [],
+                [],
+                false,
+                false,
+                "No configured suggestion.")));
 
         _service = new WarehouseWorkService(
             _context,
@@ -56,7 +70,8 @@ public sealed class WarehouseWorkServiceTests : IDisposable
             _audit.Object,
             new FixedClock(new DateTimeOffset(2026, 9, 21, 12, 0, 0, TimeSpan.Zero)),
             [_handler],
-            NullLogger<WarehouseWorkService>.Instance);
+            NullLogger<WarehouseWorkService>.Instance,
+            _putawayRules.Object);
 
         _warehouse = new Warehouse("WORK-WH", "Work Warehouse");
         _item = new Item("WORK-ITEM", "Work Item", "EA");
@@ -68,7 +83,12 @@ public sealed class WarehouseWorkServiceTests : IDisposable
             _warehouse.Id,
             type: LocationType.Receiving,
             isPickable: false);
-        _context.Add(_sourceLocation);
+        _destinationLocation = new Location(
+            "WORK-STORAGE",
+            "Work storage",
+            _warehouse.Id,
+            type: LocationType.Storage);
+        _context.AddRange(_sourceLocation, _destinationLocation);
         _context.SaveChanges();
     }
 
@@ -153,6 +173,30 @@ public sealed class WarehouseWorkServiceTests : IDisposable
     [Fact]
     public async Task EnsurePutawayForReceiptIsIdempotentAndAvailable()
     {
+        _putawayRules
+            .Setup(service => service.SuggestAsync(
+                It.IsAny<PutawaySuggestionInput>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(new PutawaySuggestionResultDto(
+                [
+                    new PutawayLocationSuggestionDto(
+                        _destinationLocation.Id,
+                        _destinationLocation.Code,
+                        _destinationLocation.Name,
+                        _destinationLocation.Type,
+                        1,
+                        "DEFAULT",
+                        PutawayRuleStrategy.CapacityAware,
+                        100,
+                        1_000,
+                        "capacity-valid")
+                ],
+                [],
+                false,
+                true,
+                null)));
+
         var input = new PutawayWorkGenerationInput(
             ReceiptId: 41,
             ReceiptLineId: 42,
@@ -180,6 +224,7 @@ public sealed class WarehouseWorkServiceTests : IDisposable
         second.Value.Single().Id.Should().Be(first.Value.Single().Id);
         second.Value.Single().Status.Should().Be(WarehouseWorkStatus.Available);
         second.Value.Single().Type.Should().Be(WarehouseWorkType.Putaway);
+        second.Value.Single().Lines.Single().DestinationLocationId.Should().Be(_destinationLocation.Id);
         (await _context.WarehouseWorks.CountAsync()).Should().Be(1);
     }
 

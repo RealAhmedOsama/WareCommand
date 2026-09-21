@@ -42,10 +42,15 @@ capacity, status, lot, serial, and whole-license-plate movement rules to the
 existing `IStockMovementService.PutawayAsync` boundary.
 
 The current slice supports whole-LPN and non-LPN putaway. Partial-LPN content
-movement, suggested-location selection, exception-to-return-staging flows,
+movement, exception-to-return-staging flows,
 the legacy manual putaway route, handheld/browser UI and RTL/LTR qualification,
 productivity reporting, and PostgreSQL contention/provider qualification remain
 open gates for #48 and its downstream issues.
+
+Issue #49 adds the deterministic `IPutawayRuleService` boundary. New receipt
+work asks it for the highest-ranked valid destination and snapshots that
+suggestion onto the work line; no-match responses remain explicit until the
+#50 staging/exception workflow owns the fallback.
 
 ## Persistence and tests
 

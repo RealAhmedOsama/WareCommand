@@ -8,6 +8,7 @@ using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.Putaway;
 using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -24,10 +25,12 @@ public sealed class WarehouseWorkService(
     IAuditWriter auditWriter,
     IClock clock,
     IEnumerable<IWarehouseWorkCompletionHandler> completionHandlers,
-    ILogger<WarehouseWorkService> logger) : IWarehouseWorkService
+    ILogger<WarehouseWorkService> logger,
+    IPutawayRuleService? putawayRuleService = null) : IWarehouseWorkService
 {
     private readonly IReadOnlyList<IWarehouseWorkCompletionHandler> _completionHandlers =
         completionHandlers.ToArray();
+    private readonly IPutawayRuleService? _putawayRuleService = putawayRuleService;
 
     public Task<Result<WarehouseWorkDto>> CreateAsync(
         WarehouseWorkInput input,
@@ -81,6 +84,30 @@ public sealed class WarehouseWorkService(
                 return Result.Success<IReadOnlyList<WarehouseWorkDto>>([Map(existing)]);
             }
 
+            int? suggestedDestinationLocationId = null;
+            if (_putawayRuleService is not null)
+            {
+                var suggestionResult = await _putawayRuleService.SuggestAsync(
+                    new PutawaySuggestionInput(
+                        input.WarehouseId,
+                        input.ItemId,
+                        input.Quantity,
+                        input.LotId,
+                        input.InventoryStatusId,
+                        input.LicensePlateId,
+                        SourceProcess: "RECEIPT"),
+                    userId,
+                    cancellationToken);
+                if (suggestionResult.IsFailure)
+                {
+                    return suggestionResult.ToFailure<IReadOnlyList<WarehouseWorkDto>>();
+                }
+
+                suggestedDestinationLocationId = suggestionResult.Value.Suggestions.Count == 0
+                    ? null
+                    : suggestionResult.Value.Suggestions[0].LocationId;
+            }
+
             var workResult = await CreateInternalAsync(
                 new WarehouseWorkInput(
                     CreationKey: creationKey,
@@ -102,6 +129,7 @@ public sealed class WarehouseWorkService(
                             PlannedQuantity: input.Quantity,
                             BaseUnitOfMeasure: input.BaseUnitOfMeasure,
                             SourceLocationId: input.SourceLocationId,
+                            DestinationLocationId: suggestedDestinationLocationId,
                             LotId: input.LotId,
                             SerialNumberId: input.SerialNumberId,
                             SerialNumber: input.SerialNumber,
