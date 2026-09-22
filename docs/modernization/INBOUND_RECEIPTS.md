@@ -17,6 +17,9 @@ inventory movements.
   transaction before creating the stock movement. The movement must carry both
   receipt IDs, and finalization records the receipt-line movement history before
   completing the document.
+- The receiving use case now fails closed when `IReceiptService` is unavailable;
+  it cannot fall back to a stock-only movement. The receipt plan is opened and
+  finalized on every successful receiving path, including PO/ASN receiving.
 - PO/ASN receipt plans are consumed by finalization in the caller-owned
   transaction, so source progress, allocation history, the receipt document,
   the stock movement, and audit entries commit together.
@@ -37,8 +40,12 @@ inventory movements.
 - `Wms.Infrastructure.Tests/Receiving/ReceiptServiceTests.cs`: persisted-open
   ordering, movement mismatch rejection, completion, reversal history, and
   duplicate-reversal protection.
-- Full Debug solution tests: 413 passed, 2 provider-gated skips.
-- Debug solution build and Release ASP/Infrastructure builds: 0 warnings, 0
+- `ReceiveItemUseCaseTests` plus `ReceiveItemIdempotencyTests`: 12/12 passed,
+  including the missing-receipt-service fail-closed regression.
+- Receipt/receiving infrastructure tests: 8/8 passed.
+- Full Debug solution tests: 679 passed, 20 provider-gated/data-migration
+  skips.
+- Full Debug solution build and Release Application build: 0 warnings, 0
   errors.
 - `scripts/verify-migrations.ps1`: no pending model changes; migration lifecycle
   verification passed.
