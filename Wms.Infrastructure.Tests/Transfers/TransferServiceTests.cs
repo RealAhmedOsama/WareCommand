@@ -258,6 +258,74 @@ public sealed class TransferServiceTests : IDisposable
             .QuantityAvailable.Value.Should().Be(3m);
     }
 
+    [Fact]
+    public async Task SerializedTransferPreservesPersistedIdentityThroughTransitAndReceipt()
+    {
+        var serialItem = new Item("TR-SERIAL-ITEM", "Serialized transfer item", "EA", requiresSerial: true);
+        _context.Items.Add(serialItem);
+        await _context.SaveChangesAsync();
+        var serial = new SerialNumber("TR-SN-001", serialItem.Id);
+        _context.SerialNumbers.Add(serial);
+        await _context.SaveChangesAsync();
+        serial.RecordReceipt(
+            _sourceWarehouse.Id,
+            _source.Id,
+            lotId: null,
+            referenceNumber: "receipt-tr-serial-1001",
+            quarantine: false,
+            _clock.UtcNow.UtcDateTime);
+        _context.Stock.Add(new Stock(
+            serialItem.Id,
+            _source.Id,
+            new Quantity(1m),
+            serialNumber: serial.Number,
+            serialNumberId: serial.Id));
+        await _context.SaveChangesAsync();
+
+        var created = await _service.CreateAsync(
+            new TransferOrderInput(
+                "TR-SERIAL-1001",
+                "create-tr-serial-1001",
+                _sourceWarehouse.Id,
+                _destinationWarehouse.Id,
+                _transit.Id,
+                [new TransferLineInput(
+                    serialItem.Id,
+                    1m,
+                    "EA",
+                    _source.Id,
+                    _destination.Id,
+                    SerialNumberId: serial.Id,
+                    SerialNumber: serial.Number)]),
+            "operator-1");
+        created.IsSuccess.Should().BeTrue(created.FirstError?.Message);
+        var lineId = created.Value.Lines.Single().Id;
+        (await _service.ConfirmAsync(
+                new TransferCommandInput(created.Value.Id, "confirm-tr-serial-1001"),
+                "operator-1"))
+            .IsSuccess.Should().BeTrue();
+        (await _service.ReleaseAsync(
+                new TransferCommandInput(created.Value.Id, "release-tr-serial-1001"),
+                "operator-1"))
+            .IsSuccess.Should().BeTrue();
+
+        var shipped = await _service.ShipAsync(
+            new TransferQuantityCommandInput(created.Value.Id, lineId, 1m, "ship-tr-serial-1001"),
+            "operator-1");
+        shipped.IsSuccess.Should().BeTrue(shipped.FirstError?.Message);
+        (await _context.Stock.SingleAsync(value => value.LocationId == _transit.Id))
+            .SerialNumberId.Should().Be(serial.Id);
+
+        var received = await _service.ReceiveAsync(
+            new TransferQuantityCommandInput(created.Value.Id, lineId, 1m, "receive-tr-serial-1001"),
+            "operator-1");
+        received.IsSuccess.Should().BeTrue(received.FirstError?.Message);
+        (await _context.Stock.SingleAsync(value => value.LocationId == _destination.Id))
+            .SerialNumberId.Should().Be(serial.Id);
+        (await _context.SerialNumbers.SingleAsync(value => value.Id == serial.Id))
+            .CurrentLocationId.Should().Be(_destination.Id);
+    }
+
     public void Dispose()
     {
         _context.Dispose();

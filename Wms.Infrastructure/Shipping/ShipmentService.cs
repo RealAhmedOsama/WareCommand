@@ -582,6 +582,7 @@ public sealed class ShipmentService(
 
                         var item = await context.Items.SingleAsync(value => value.Id == stock.ItemId, cancellationToken);
                         await ValidateLotIdentityAsync(item, stock.LotId, cancellationToken);
+                        await ValidateSerialIdentityAsync(item, stock, cancellationToken);
                         var movement = Movement.CreateShip(
                             stock.ItemId,
                             stock.LocationId,
@@ -900,6 +901,61 @@ public sealed class ShipmentService(
         {
             throw new InvalidOperationException(
                 $"Lot '{lot.Number}' is not eligible for shipment allocation.");
+        }
+    }
+
+    private async Task ValidateSerialIdentityAsync(
+        Item item,
+        Stock stock,
+        CancellationToken cancellationToken)
+    {
+        if (!stock.SerialNumberId.HasValue)
+        {
+            if (item.RequiresSerial)
+            {
+                throw new InvalidOperationException(
+                    $"Item '{item.Sku}' requires a persisted serial identity before shipment.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(stock.SerialNumber))
+            {
+                throw new InvalidOperationException(
+                    $"Item '{item.Sku}' is not serial controlled and cannot carry serial '{stock.SerialNumber}'.");
+            }
+
+            return;
+        }
+
+        if (!item.RequiresSerial)
+        {
+            throw new InvalidOperationException(
+                $"Item '{item.Sku}' is not serial controlled and cannot carry serial {stock.SerialNumberId.Value}.");
+        }
+
+        if (stock.QuantityAvailable.Value != 1m)
+        {
+            throw new InvalidOperationException(
+                $"Serial-controlled stock for item '{item.Sku}' must contain exactly one unit.");
+        }
+
+        var serial = await context.SerialNumbers.SingleOrDefaultAsync(
+            value => value.Id == stock.SerialNumberId.Value,
+            cancellationToken)
+            ?? throw new InvalidOperationException($"Serial {stock.SerialNumberId.Value} was not found.");
+        if (serial.ItemId != item.Id ||
+            serial.LotId != stock.LotId ||
+            serial.CurrentLocationId != stock.LocationId ||
+            serial.CurrentLicensePlateId != stock.LicensePlateId ||
+            !string.Equals(serial.Number, stock.SerialNumber, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Serial '{serial.Number}' does not match the shipment stock identity.");
+        }
+
+        if (!serial.IsAllocationEligible)
+        {
+            throw new InvalidOperationException(
+                $"Serial '{serial.Number}' is not eligible for shipment allocation.");
         }
     }
 

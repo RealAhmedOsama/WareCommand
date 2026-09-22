@@ -386,6 +386,14 @@ public sealed class TransferService(
                     input.LotId,
                     requireAllocationEligibility: false,
                     cancellationToken);
+                await ValidateSerialIdentityAsync(
+                    item,
+                    input.SerialNumberId,
+                    input.SerialNumber,
+                    input.LotId,
+                    requireAllocationEligibility: false,
+                    expectedLocationId: input.SourceLocationId,
+                    cancellationToken);
                 var identity = await ResolveIdentityAsync(
                     input.ItemId,
                     input.LotId,
@@ -539,6 +547,14 @@ public sealed class TransferService(
             line.LotId,
             requireAllocationEligibility: true,
             cancellationToken);
+        await ValidateSerialIdentityAsync(
+            item,
+            line.SerialNumberId,
+            line.SerialNumber,
+            line.LotId,
+            requireAllocationEligibility: true,
+            expectedLocationId: source.Id,
+            cancellationToken);
         var identity = await ResolveIdentityAsync(
             line.ItemId,
             line.LotId,
@@ -674,6 +690,14 @@ public sealed class TransferService(
             item,
             line.LotId,
             requireAllocationEligibility: false,
+            cancellationToken);
+        await ValidateSerialIdentityAsync(
+            item,
+            line.SerialNumberId,
+            line.SerialNumber,
+            line.LotId,
+            requireAllocationEligibility: false,
+            expectedLocationId: transit.Id,
             cancellationToken);
         var identity = await ResolveIdentityAsync(
             line.ItemId,
@@ -1077,6 +1101,14 @@ public sealed class TransferService(
                 line.LotId,
                 requireAllocationEligibility: false,
                 cancellationToken);
+            await ValidateSerialIdentityAsync(
+                item,
+                line.SerialNumberId,
+                line.SerialNumber,
+                line.LotId,
+                requireAllocationEligibility: false,
+                expectedLocationId: null,
+                cancellationToken);
             if (line.SourceInventoryStatusId == InventoryStatusSystemIds.InTransit ||
                 line.DestinationInventoryStatusId == InventoryStatusSystemIds.InTransit)
             {
@@ -1180,6 +1212,82 @@ public sealed class TransferService(
         }
 
         return lot;
+    }
+
+    private async Task<SerialNumber?> ValidateSerialIdentityAsync(
+        Item item,
+        int? serialNumberId,
+        string? serialNumber,
+        int? lotId,
+        bool requireAllocationEligibility,
+        int? expectedLocationId,
+        CancellationToken cancellationToken)
+    {
+        if (!serialNumberId.HasValue)
+        {
+            if (item.RequiresSerial)
+            {
+                throw new InvalidOperationException(
+                    $"Item '{item.Sku}' requires a persisted serial identity for this transfer.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(serialNumber))
+            {
+                throw new InvalidOperationException(
+                    $"Item '{item.Sku}' is not serial controlled and cannot carry serial '{serialNumber}'.");
+            }
+
+            return null;
+        }
+
+        if (!item.RequiresSerial)
+        {
+            throw new InvalidOperationException(
+                $"Item '{item.Sku}' is not serial controlled and cannot carry serial {serialNumberId.Value}.");
+        }
+
+        var serial = await context.SerialNumbers.SingleOrDefaultAsync(
+            value => value.Id == serialNumberId.Value,
+            cancellationToken)
+            ?? throw new InvalidOperationException($"Serial {serialNumberId.Value} was not found.");
+        if (serial.ItemId != item.Id)
+        {
+            throw new InvalidOperationException(
+                $"Serial '{serial.Number}' does not belong to item '{item.Sku}'.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(serialNumber) &&
+            !string.Equals(serial.Number, serialNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Serial '{serial.Number}' does not match the supplied serial text.");
+        }
+
+        if (serial.LotId != lotId)
+        {
+            throw new InvalidOperationException(
+                $"Serial '{serial.Number}' does not belong to the requested lot.");
+        }
+
+        if (expectedLocationId.HasValue && serial.CurrentLocationId != expectedLocationId)
+        {
+            throw new InvalidOperationException(
+                $"Serial '{serial.Number}' is not currently recorded at the requested location.");
+        }
+
+        if (requireAllocationEligibility && !serial.IsAllocationEligible)
+        {
+            throw new InvalidOperationException(
+                $"Serial '{serial.Number}' is not eligible for transfer allocation.");
+        }
+
+        if (serial.Status is SerialStatus.Shipped or SerialStatus.Scrapped or SerialStatus.Corrected)
+        {
+            throw new InvalidOperationException(
+                $"Serial '{serial.Number}' cannot be moved while it is {serial.Status}.");
+        }
+
+        return serial;
     }
 
     private async Task<Stock?> FindStockAsync(
