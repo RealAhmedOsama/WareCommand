@@ -265,6 +265,47 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task SalesOrderExternalReferencesAreUniquePerWarehouseAndSource()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGSO-{token}", "Sales order warehouse");
+        var secondWarehouse = new Warehouse($"PGSO2-{token}", "Second sales order warehouse");
+        var customer = new Customer($"PGSO-CUSTOMER-{token}", "Sales order customer");
+        seedContext.AddRange(firstWarehouse, secondWarehouse, customer);
+        await seedContext.SaveChangesAsync();
+
+        var externalReference = $"external-{token}";
+        seedContext.SalesOrders.Add(CreateSalesOrder(
+            $"SO-{token}-1",
+            firstWarehouse,
+            customer,
+            externalReference));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.SalesOrders.Add(CreateSalesOrder(
+                $"SO-{token}-2",
+                firstWarehouse,
+                customer,
+                $" {externalReference.ToUpperInvariant()} "));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.SalesOrders.Add(CreateSalesOrder(
+            $"SO-{token}-3",
+            secondWarehouse,
+            customer,
+            externalReference));
+        await seedContext.SaveChangesAsync();
+
+        var normalizedExternalReference = externalReference.ToUpperInvariant();
+        (await seedContext.SalesOrders.CountAsync(order => order.ExternalReference == normalizedExternalReference))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task RevisionTokenRejectsConcurrentWorkMutation()
     {
         await using var seedContext = database.CreateContext();
@@ -299,6 +340,46 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
             () => secondContext.SaveChangesAsync());
         Assert.IsType<DbUpdateConcurrencyException>(exception.InnerException);
     }
+
+    private static SalesOrder CreateSalesOrder(
+        string documentNumber,
+        Warehouse warehouse,
+        Customer customer,
+        string externalReference) => new(
+        documentNumber,
+        warehouse.Id,
+        warehouse.Code,
+        customer.Id,
+        customer.Code,
+        customer.LegalName,
+        customer.LocalizedName,
+        customer.ContactName,
+        customer.ContactEmail,
+        customer.ContactPhone,
+        shipToAddressId: null,
+        shipToCodeSnapshot: null,
+        shipToRecipientNameSnapshot: null,
+        shipToPhoneSnapshot: null,
+        shipToCountryCodeSnapshot: null,
+        shipToRegionSnapshot: null,
+        shipToCitySnapshot: null,
+        shipToPostalCodeSnapshot: null,
+        shipToAddressLine1Snapshot: null,
+        shipToAddressLine2Snapshot: null,
+        shipToDeliveryInstructionsSnapshot: null,
+        orderDate: DateOnly.FromDateTime(DateTime.UtcNow),
+        requestedShipDate: null,
+        externalReference,
+        sourceType: "manual",
+        sourceReference: null,
+        priority: 100,
+        defaultCarrierCodeSnapshot: null,
+        defaultCarrierServiceCodeSnapshot: null,
+        packagingProfileSnapshot: null,
+        labelProfileSnapshot: null,
+        allowPartialShipmentSnapshot: false,
+        notes: null,
+        createdByUserId: "postgres-test");
 
     [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
