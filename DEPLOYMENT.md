@@ -4,6 +4,17 @@ WareCommand has local build and disposable-container evidence, not a completed
 production release. Deployment remains subject to the remaining Master Plan
 #108 release, security, backup, operations, and UI gates.
 
+Run the read-only repository contract preflight before assembling a release
+packet:
+
+```powershell
+pwsh -NoProfile -File .\scripts\verify-release-preflight.ps1
+```
+
+The evidence packet, controlled rollout order, compatibility matrix, and
+go/no-go report are defined in
+[`docs/operations/RELEASE_QUALIFICATION.md`](docs/operations/RELEASE_QUALIFICATION.md).
+
 ## Runtime model
 
 - ASP.NET Core MVC is the web host.
