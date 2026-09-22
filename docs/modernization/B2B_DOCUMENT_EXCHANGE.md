@@ -37,3 +37,12 @@ purchase-order/ASN/shipment/return command handlers, outbox/inbox wiring,
 transport retry/resume, retention, golden partner samples, PostgreSQL/provider
 qualification, browser/admin surfaces, and production credential rollout remain
 explicit gates. No EDI network call or production migration has been performed.
+
+The PostgreSQL persistence boundary is qualified for mapping profile versions,
+trading-partner codes, partner-scoped document external/message/idempotency and
+control-number identities, plus document acknowledgement type/control-number
+identities. Later profile versions and cross-partner reuse are accepted while
+protected duplicates fail. The disposable PostgreSQL 17 harness passed 56/56
+on 2026-09-22 (port 55510) and cleaned its test container. Standards/transport
+adapters, handler certification, retry/retention, admin/browser, and production
+credential gates remain open.
