@@ -1201,6 +1201,74 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task AllocationStrategyPolicyKeysAreUniquePerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGAS-{token}", "Allocation strategy warehouse");
+        var secondWarehouse = new Warehouse($"PGAS2-{token}", "Second allocation strategy warehouse");
+        var item = new Item($"PGAS-{token}", "Allocation strategy item", "EA");
+        seedContext.AddRange(firstWarehouse, secondWarehouse, item);
+        await seedContext.SaveChangesAsync();
+
+        var firstLocation = new Location($"PGAS-L-{token}", "First allocation location", firstWarehouse.Id);
+        var secondLocation = new Location($"PGAS2-L-{token}", "Second allocation location", secondWarehouse.Id);
+        seedContext.AddRange(firstLocation, secondLocation);
+        await seedContext.SaveChangesAsync();
+
+        var policyKey = $"allocation-policy-{token}";
+        seedContext.InventoryAllocationStrategyPolicies.AddRange(
+            new InventoryAllocationStrategyPolicy(
+                firstWarehouse.Id,
+                policyKey,
+                item.Id,
+                itemCategory: null,
+                demandType: null,
+                InventoryAllocationStrategyKind.Fifo,
+                firstLocation.Id,
+                preferWholeLicensePlate: false,
+                minimumShelfLifeDays: 0,
+                InventoryAllocationMissingExpiryFallback.ReceiptDate,
+                DateTime.UtcNow.AddDays(-1)),
+            new InventoryAllocationStrategyPolicy(
+                secondWarehouse.Id,
+                policyKey,
+                item.Id,
+                itemCategory: null,
+                demandType: null,
+                InventoryAllocationStrategyKind.Fefo,
+                secondLocation.Id,
+                preferWholeLicensePlate: true,
+                minimumShelfLifeDays: 2,
+                InventoryAllocationMissingExpiryFallback.Last,
+                DateTime.UtcNow.AddDays(-1)));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePolicyContext = database.CreateContext())
+        {
+            duplicatePolicyContext.InventoryAllocationStrategyPolicies.Add(
+                new InventoryAllocationStrategyPolicy(
+                    firstWarehouse.Id,
+                    policyKey,
+                    item.Id,
+                    itemCategory: null,
+                    demandType: null,
+                    InventoryAllocationStrategyKind.Lifo,
+                    firstLocation.Id,
+                    preferWholeLicensePlate: false,
+                    minimumShelfLifeDays: 0,
+                    InventoryAllocationMissingExpiryFallback.ReceiptDate,
+                    DateTime.UtcNow.AddDays(-1)));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePolicyContext.SaveChangesAsync());
+        }
+
+        var normalizedPolicyKey = policyKey.ToUpperInvariant();
+        (await seedContext.InventoryAllocationStrategyPolicies
+                .CountAsync(policy => policy.PolicyKey == normalizedPolicyKey))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
