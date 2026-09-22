@@ -4,9 +4,11 @@ using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.DTOs;
 using Wms.Application.Idempotency;
+using Wms.Application.Receiving;
 using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Receiving;
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -23,6 +25,7 @@ public sealed class ReceiveItemIdempotencyTests
         var locations = new Mock<ILocationRepository>();
         var movementService = new Mock<IStockMovementService>();
         var idempotencyService = new Mock<IInventoryCommandIdempotencyService>();
+        var receiptService = new Mock<IReceiptService>();
         var requestContext = new TestRequestContext();
         requestContext.Initialize("correlation-1", "Test", idempotencyKey: "receipt-1");
 
@@ -60,7 +63,9 @@ public sealed class ReceiveItemIdempotencyTests
             request.LocationCode,
             request.Quantity,
             request.LotNumber,
-            movement.Timestamp);
+            movement.Timestamp,
+            ReceiptId: 1,
+            ReceiptDocumentNumber: "RCPT-IDEMP");
         var replayDecision = new InventoryCommandIdempotencyDecision(
             ShouldExecute: false,
             ResultType: nameof(ReceiptResultDto),
@@ -81,8 +86,43 @@ public sealed class ReceiveItemIdempotencyTests
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(),
+                It.IsAny<int?>(),
+                It.IsAny<int?>(),
+                It.IsAny<int?>(),
+                It.IsAny<InventoryOwnerKind>(),
+                It.IsAny<int?>(),
+                It.IsAny<string?>()))
             .ReturnsAsync(movement);
+        receiptService
+            .Setup(value => value.OpenForReceivingAsync(
+                It.IsAny<ReceiptReceivingInput>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ReceiptReceivingInput input, string userId, CancellationToken cancellationToken) =>
+                Result.Success(new ReceiptReceivingPlan(
+                    1,
+                    1,
+                    "RCPT-IDEMP",
+                    input.WarehouseId,
+                    input.ItemId,
+                    input.Quantity.Value,
+                    input.Quantity.Value,
+                    0m,
+                    0m,
+                    0m,
+                    input.PurchaseOrderPlan,
+                    input.AdvanceShippingNoticePlan,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot ?? "COMPANY")));
+        receiptService
+            .Setup(value => value.FinalizeReceivingAsync(
+                It.IsAny<ReceiptReceivingPlan>(),
+                It.IsAny<Movement>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
         idempotencyService
             .SetupSequence(value => value.BeginAsync(
                 It.IsAny<InventoryCommandIdempotencyRequest>(),
@@ -96,7 +136,8 @@ public sealed class ReceiveItemIdempotencyTests
             NullLogger<ReceiveItemUseCase>.Instance,
             new AllowAllWarehouseAccessService(),
             idempotencyService: idempotencyService.Object,
-            requestContext: requestContext);
+            requestContext: requestContext,
+            receiptService: receiptService.Object);
 
         var first = await useCase.ExecuteAsync(request, "USER1");
         var second = await useCase.ExecuteAsync(request, "USER1");
@@ -114,7 +155,13 @@ public sealed class ReceiveItemIdempotencyTests
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
-                It.IsAny<CancellationToken>()),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<int?>(),
+                It.IsAny<int?>(),
+                It.IsAny<int?>(),
+                It.IsAny<InventoryOwnerKind>(),
+                It.IsAny<int?>(),
+                It.IsAny<string?>()),
             Times.Once);
         idempotencyService.Verify(
             value => value.CompleteAsync(

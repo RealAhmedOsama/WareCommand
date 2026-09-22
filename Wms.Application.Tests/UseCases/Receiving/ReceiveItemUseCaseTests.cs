@@ -5,9 +5,11 @@ using Wms.Application.Common;
 using Wms.Application.DTOs;
 using Wms.Application.Inbound;
 using Wms.Application.Lots;
+using Wms.Application.Receiving;
 using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Receiving;
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -21,6 +23,7 @@ public class ReceiveItemUseCaseTests
     private readonly Mock<ILogger<ReceiveItemUseCase>> _mockLogger;
     private readonly Mock<IStockMovementService> _mockStockMovementService;
     private readonly Mock<ILotService> _mockLotService;
+    private readonly Mock<IReceiptService> _mockReceiptService;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly ReceiveItemUseCase _useCase;
 
@@ -31,17 +34,87 @@ public class ReceiveItemUseCaseTests
         _mockLocationRepository = new Mock<ILocationRepository>();
         _mockStockMovementService = new Mock<IStockMovementService>();
         _mockLotService = new Mock<ILotService>();
+        _mockReceiptService = new Mock<IReceiptService>();
         _mockLogger = new Mock<ILogger<ReceiveItemUseCase>>();
 
         _mockUnitOfWork.Setup(x => x.Items).Returns(_mockItemRepository.Object);
         _mockUnitOfWork.Setup(x => x.Locations).Returns(_mockLocationRepository.Object);
+        _mockReceiptService.Setup(x => x.OpenForReceivingAsync(
+                It.IsAny<ReceiptReceivingInput>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ReceiptReceivingInput input, string userId, CancellationToken cancellationToken) =>
+                Result.Success(new ReceiptReceivingPlan(
+                    1,
+                    1,
+                    input.ReferenceNumber ?? "RCPT-TEST",
+                    input.WarehouseId,
+                    input.ItemId,
+                    input.Quantity.Value,
+                    input.Quantity.Value,
+                    0m,
+                    0m,
+                    0m,
+                    input.PurchaseOrderPlan,
+                    input.AdvanceShippingNoticePlan,
+                    input.OwnerKind,
+                    input.InventoryOwnerId,
+                    input.OwnerCodeSnapshot ?? "COMPANY")));
+        _mockReceiptService.Setup(x => x.FinalizeReceivingAsync(
+                It.IsAny<ReceiptReceivingPlan>(),
+                It.IsAny<Movement>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
 
         _useCase = new ReceiveItemUseCase(
             _mockUnitOfWork.Object,
             _mockStockMovementService.Object,
             _mockLogger.Object,
             new AllowAllWarehouseAccessService(),
-            lotService: _mockLotService.Object);
+            lotService: _mockLotService.Object,
+            receiptService: _mockReceiptService.Object);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RefusesToReceiveWhenReceiptServiceIsUnavailable()
+    {
+        var request = new ReceiveItemDto("WIDGET-001", "RECEIVE", 10m);
+        var item = new Item("WIDGET-001", "Widget A", "EA");
+        var location = new Location("RECEIVE", "Receiving Dock", 1);
+        var movement = Movement.CreateReceipt(item.Id, location.Id, new Quantity(10m), "USER1");
+
+        _mockItemRepository.Setup(x => x.GetBySkuAsync(request.ItemSku, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(item);
+        _mockLocationRepository.Setup(x => x.GetByCodeAsync(request.LocationCode, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(location);
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _mockStockMovementService.Setup(x => x.ReceiveAsync(
+                It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Quantity>(), It.IsAny<string>(),
+                It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<int?>(),
+                It.IsAny<InventoryOwnerKind>(), It.IsAny<int?>(), It.IsAny<string?>()))
+            .ReturnsAsync(movement);
+
+        var useCase = new ReceiveItemUseCase(
+            _mockUnitOfWork.Object,
+            _mockStockMovementService.Object,
+            _mockLogger.Object,
+            new AllowAllWarehouseAccessService());
+
+        var result = await useCase.ExecuteAsync(request, "USER1");
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be("receipt.service_unavailable");
+        _mockStockMovementService.Verify(x => x.ReceiveAsync(
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Quantity>(), It.IsAny<string>(),
+            It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -70,7 +143,8 @@ public class ReceiveItemUseCaseTests
         _mockStockMovementService.Setup(x => x.ReceiveAsync(
                 It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Quantity>(), It.IsAny<string>(),
                 It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<int?>(),
+                It.IsAny<InventoryOwnerKind>(), It.IsAny<int?>(), It.IsAny<string?>()))
             .ReturnsAsync(movement);
 
         // Act
@@ -303,7 +377,8 @@ public class ReceiveItemUseCaseTests
         _mockStockMovementService.Setup(x => x.ReceiveAsync(
                 It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Quantity>(), It.IsAny<string>(),
                 It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<int?>(),
+                It.IsAny<InventoryOwnerKind>(), It.IsAny<int?>(), It.IsAny<string?>()))
             .ReturnsAsync(movement);
 
         // Act
@@ -315,8 +390,9 @@ public class ReceiveItemUseCaseTests
         _mockStockMovementService.Verify(x => x.ReceiveAsync(
             item.Id, location.Id, It.IsAny<Quantity>(), "USER1",
             It.IsAny<int?>(), // Should have lot ID
-            It.IsAny<string?>(), request.ReferenceNumber, request.Notes,
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<string?>(), "RCPT-TEST", request.Notes,
+            It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<int?>(),
+            It.IsAny<InventoryOwnerKind>(), It.IsAny<int?>(), It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
@@ -359,7 +435,8 @@ public class ReceiveItemUseCaseTests
         _mockStockMovementService.Setup(x => x.ReceiveAsync(
                 It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Quantity>(), It.IsAny<string>(),
                 It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<CancellationToken>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<int?>(),
+                It.IsAny<InventoryOwnerKind>(), It.IsAny<int?>(), It.IsAny<string?>()))
             .ReturnsAsync(movement);
         asnService.Setup(x => x.ValidateReceiptAsync(
                 41,
@@ -385,7 +462,8 @@ public class ReceiveItemUseCaseTests
             _mockStockMovementService.Object,
             _mockLogger.Object,
             new AllowAllWarehouseAccessService(),
-            advanceShippingNoticeService: asnService.Object);
+            advanceShippingNoticeService: asnService.Object,
+            receiptService: _mockReceiptService.Object);
 
         var result = await useCase.ExecuteAsync(request, "USER1");
 
@@ -401,8 +479,14 @@ public class ReceiveItemUseCaseTests
             null,
             null,
             It.IsAny<CancellationToken>()), Times.Once);
-        asnService.Verify(x => x.RecordReceiptAsync(
-            receiptPlan,
+        _mockReceiptService.Verify(x => x.OpenForReceivingAsync(
+            It.Is<ReceiptReceivingInput>(input =>
+                input.AdvanceShippingNoticePlan == receiptPlan &&
+                input.ReferenceNumber == request.ReferenceNumber),
+            "USER1",
+            It.IsAny<CancellationToken>()), Times.Once);
+        _mockReceiptService.Verify(x => x.FinalizeReceivingAsync(
+            It.IsAny<ReceiptReceivingPlan>(),
             movement,
             "USER1",
             It.IsAny<CancellationToken>()), Times.Once);
