@@ -183,4 +183,61 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
             version: 1));
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
     }
+
+    [PostgreSqlFact]
+    public async Task PackagingGtinAndBarcodeIndexesRejectDuplicateDefinitions()
+    {
+        await using var context = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var source = new Item($"PGP-{token}", "Packaging source", "EA");
+        source.AddPackaging(new ItemPackaging(
+            "CASE",
+            "EA",
+            12m,
+            barcode: $"PKG-{token}",
+            lengthCm: 40m,
+            widthCm: 30m,
+            heightCm: 20m,
+            gtin: "00012345678905",
+            type: PackagingType.Case));
+        context.Items.Add(source);
+        await context.SaveChangesAsync();
+
+        var saved = await context.ItemPackagings.SingleAsync();
+        Assert.Equal(0.024m, saved.VolumeCubicMeters);
+        Assert.Equal("00012345678905", saved.Gtin);
+
+        var duplicate = new Item($"PGP2-{token}", "Duplicate packaging", "EA");
+        duplicate.AddPackaging(new ItemPackaging(
+            "CASE",
+            "EA",
+            12m,
+            barcode: $"PKG2-{token}",
+            gtin: "00012345678905"));
+        context.Items.Add(duplicate);
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+    }
+
+    [PostgreSqlFact]
+    public async Task GlobalIdentifierIndexRejectsAmbiguousNormalizedValues()
+    {
+        await using var context = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var value = $"SCAN-{token}";
+        context.WmsIdentifiers.Add(new WmsIdentifier(
+            value,
+            value,
+            IdentificationKind.Item,
+            BarcodeSymbology.Code128,
+            $"ITEM:{token}"));
+        await context.SaveChangesAsync();
+
+        context.WmsIdentifiers.Add(new WmsIdentifier(
+            value.ToLowerInvariant(),
+            value.ToLowerInvariant(),
+            IdentificationKind.Location,
+            BarcodeSymbology.Code128,
+            $"LOCATION:{token}"));
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+    }
 }
