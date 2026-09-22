@@ -1269,6 +1269,47 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task PickingStrategyPolicyKeysAreUniquePerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGPS-{token}", "Picking strategy warehouse");
+        var secondWarehouse = new Warehouse($"PGPS2-{token}", "Second picking strategy warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var policyKey = $"picking-policy-{token}";
+        seedContext.PickingStrategyPolicies.AddRange(
+            new PickingStrategyPolicy(
+                firstWarehouse.Id,
+                policyKey,
+                "First picking strategy policy",
+                PickingStrategyKind.Batch),
+            new PickingStrategyPolicy(
+                secondWarehouse.Id,
+                policyKey,
+                "Second picking strategy policy",
+                PickingStrategyKind.Cluster));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePolicyContext = database.CreateContext())
+        {
+            duplicatePolicyContext.PickingStrategyPolicies.Add(
+                new PickingStrategyPolicy(
+                    firstWarehouse.Id,
+                    policyKey,
+                    "Duplicate picking strategy policy",
+                    PickingStrategyKind.Zone));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePolicyContext.SaveChangesAsync());
+        }
+
+        var normalizedPolicyKey = policyKey.ToUpperInvariant();
+        (await seedContext.PickingStrategyPolicies
+                .CountAsync(policy => policy.PolicyKey == normalizedPolicyKey))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
