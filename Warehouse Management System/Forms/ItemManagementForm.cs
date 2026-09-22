@@ -13,11 +13,17 @@ public partial class ItemManagementForm : Form
 {
     private readonly ICurrentUser _currentUser;
     private readonly IGetItemsUseCase _getItemsUseCase;
+    private readonly IDeleteItemUseCase _deleteItemUseCase;
     private readonly ILogger<ItemManagementForm> _logger;
 
-    public ItemManagementForm(IGetItemsUseCase getItemsUseCase, ICurrentUser currentUser, ILogger<ItemManagementForm> logger)
+    public ItemManagementForm(
+        IGetItemsUseCase getItemsUseCase,
+        IDeleteItemUseCase deleteItemUseCase,
+        ICurrentUser currentUser,
+        ILogger<ItemManagementForm> logger)
     {
         _getItemsUseCase = getItemsUseCase;
+        _deleteItemUseCase = deleteItemUseCase;
         _logger = logger;
         _currentUser = currentUser;
         InitializeComponent();
@@ -91,8 +97,31 @@ public partial class ItemManagementForm : Form
 
         if (result == DialogResult.Yes)
         {
-            // TODO: Implement delete functionality
-            ModernUIHelper.ShowModernWarning("Delete functionality not implemented yet.");
+            try
+            {
+                SetBusy(true);
+                var deleteResult = await _deleteItemUseCase.ExecuteAsync(
+                    Convert.ToInt32(selectedRow.Cells["Id"].Value, CultureInfo.CurrentCulture),
+                    _currentUser.RequireUserId());
+
+                if (deleteResult.IsFailure)
+                {
+                    ModernUIHelper.ShowModernError(deleteResult.Error);
+                    return;
+                }
+
+                ModernUIHelper.ShowModernSuccess("Item deactivated successfully.");
+                await LoadItemsAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting item {ItemSku}", itemSku);
+                ModernUIHelper.ShowModernError($"Error deleting item: {ex.Message}");
+            }
+            finally
+            {
+                SetBusy(false);
+            }
         }
     }
 
