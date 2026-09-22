@@ -276,6 +276,61 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task InventoryStatusCodesAreWarehouseScopedAndUniqueAtTheDatabaseBoundary()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGS1-{token}", "First status warehouse");
+        var secondWarehouse = new Warehouse($"PGS2-{token}", "Second status warehouse");
+        seedContext.Warehouses.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.InventoryStatuses.Add(new InventoryStatus(
+            $"CUSTOM-{token}",
+            "Custom status",
+            "حالة مخصصة",
+            isAvailable: true,
+            isAllocatable: true,
+            isPickable: true,
+            isShippable: true,
+            isCountable: true,
+            warehouseId: firstWarehouse.Id));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.InventoryStatuses.Add(new InventoryStatus(
+                $" custom-{token} ",
+                "Duplicate custom status",
+                "حالة مخصصة مكررة",
+                isAvailable: true,
+                isAllocatable: true,
+                isPickable: true,
+                isShippable: true,
+                isCountable: true,
+                warehouseId: firstWarehouse.Id));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        await using (var secondWarehouseContext = database.CreateContext())
+        {
+            secondWarehouseContext.InventoryStatuses.Add(new InventoryStatus(
+                $"custom-{token}",
+                "Second warehouse custom status",
+                "حالة مخصصة للمخزن الثاني",
+                isAvailable: true,
+                isAllocatable: true,
+                isPickable: true,
+                isShippable: true,
+                isCountable: true,
+                warehouseId: secondWarehouse.Id));
+
+            await secondWarehouseContext.SaveChangesAsync();
+        }
+    }
+
+    [PostgreSqlFact]
     public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
     {
         await using var context = database.CreateContext();
