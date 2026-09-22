@@ -16,6 +16,14 @@ The published client scope catalog is explicit and reuses the application permis
 
 The API rate-limit partition uses the presented client ID (never the secret) when a bearer credential is present, with the existing IP fallback for human and malformed requests. Correlation, operation, reference, and idempotency headers continue through the host request context.
 
+The persistence boundary is provider-qualified: PostgreSQL rejects a duplicate
+client ID even when the attempted row belongs to a different owner, while the
+stored credential remains in the versioned PBKDF2 format and never equals the
+presented secret. The disposable PostgreSQL 17 harness passed 52/52 on
+2026-09-22 (port 55506) and cleaned its test container. This does not close
+network-policy, concurrent-rotation/load, mutating-command replay, external
+provider, or production secret-rollout gates.
+
 ## Remaining acceptance gates
 
 This is committed progress, not full issue closure. OAuth2 client-credentials compatibility, richer CIDR/network policy, client-aware concurrency/replay/idempotency integration for mutating commands, complete administration UI/history, abuse dashboards, external-provider qualification, PostgreSQL/load/concurrent-rotation evidence, browser/handheld EN/AR RTL/LTR evidence, production secret/configuration rollout, and incident runbook qualification remain open.
