@@ -1671,6 +1671,51 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task KitDefinitionCodeAndVersionAreUniqueAtTheDatabaseBoundary()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var outputItem = new Item($"PGKT-{token}", "Kit output item", "EA");
+        var componentItem = new Item($"PGKC-{token}", "Kit component item", "EA");
+        seedContext.AddRange(outputItem, componentItem);
+        await seedContext.SaveChangesAsync();
+
+        var code = $"kit-{token}";
+        seedContext.KitDefinitions.Add(new KitDefinition(
+            code,
+            version: 1,
+            outputItem.Id,
+            "EA",
+            DateTime.UtcNow.AddDays(-1)));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateDefinitionContext = database.CreateContext())
+        {
+            duplicateDefinitionContext.KitDefinitions.Add(new KitDefinition(
+                $" {code.ToUpperInvariant()} ",
+                version: 1,
+                outputItem.Id,
+                "EA",
+                DateTime.UtcNow));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateDefinitionContext.SaveChangesAsync());
+        }
+
+        seedContext.KitDefinitions.Add(new KitDefinition(
+            code,
+            version: 2,
+            outputItem.Id,
+            "EA",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        var normalizedCode = code.ToUpperInvariant();
+        (await seedContext.KitDefinitions
+                .CountAsync(definition => definition.Code == normalizedCode))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
