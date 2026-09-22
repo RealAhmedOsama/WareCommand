@@ -796,6 +796,154 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task InternalMovementIdempotencyKeysAreUniquePerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGIM-{token}", "Internal movement warehouse");
+        var secondWarehouse = new Warehouse($"PGIM2-{token}", "Second internal movement warehouse");
+        var item = new Item($"PGIM-{token}", "Internal movement item", "EA");
+        seedContext.AddRange(firstWarehouse, secondWarehouse, item);
+        await seedContext.SaveChangesAsync();
+
+        var firstSource = new Location($"PGIM-S-{token}", "First source", firstWarehouse.Id);
+        var firstDestination = new Location($"PGIM-D-{token}", "First destination", firstWarehouse.Id);
+        var secondSource = new Location($"PGIM2-S-{token}", "Second source", secondWarehouse.Id);
+        var secondDestination = new Location($"PGIM2-D-{token}", "Second destination", secondWarehouse.Id);
+        seedContext.AddRange(firstSource, firstDestination, secondSource, secondDestination);
+        await seedContext.SaveChangesAsync();
+
+        var key = $"internal-move-{token}";
+        seedContext.InternalMovements.Add(new InternalMovement(
+            key,
+            "hash-1",
+            firstWarehouse.Id,
+            item.Id,
+            2m,
+            "EA",
+            firstSource.Id,
+            firstDestination.Id,
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.InternalMovements.Add(new InternalMovement(
+                key,
+                "hash-1",
+                firstWarehouse.Id,
+                item.Id,
+                2m,
+                "EA",
+                firstSource.Id,
+                firstDestination.Id,
+                "postgres-test",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.InternalMovements.Add(new InternalMovement(
+            key,
+            "hash-2",
+            secondWarehouse.Id,
+            item.Id,
+            2m,
+            "EA",
+            secondSource.Id,
+            secondDestination.Id,
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.InternalMovements.CountAsync(movement => movement.IdempotencyKey == key))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
+    public async Task TransferCommandKeysAreUniquePerOperationAndOrder()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var sourceWarehouse = new Warehouse($"PGTO-{token}", "Transfer source warehouse");
+        var destinationWarehouse = new Warehouse($"PGTO2-{token}", "Transfer destination warehouse");
+        seedContext.AddRange(sourceWarehouse, destinationWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var transitLocation = new Location(
+            $"PGTO-T-{token}",
+            "Transfer transit",
+            sourceWarehouse.Id,
+            type: LocationType.Transit,
+            isPickable: false,
+            isReceivable: false);
+        seedContext.Locations.Add(transitLocation);
+        await seedContext.SaveChangesAsync();
+
+        var firstOrder = new TransferOrder(
+            $"TO-PG-{token}-1",
+            $"create-transfer-{token}-1",
+            "hash-create-1",
+            sourceWarehouse.Id,
+            destinationWarehouse.Id,
+            transitLocation.Id,
+            "postgres-test",
+            DateTime.UtcNow);
+        var secondOrder = new TransferOrder(
+            $"TO-PG-{token}-2",
+            $"create-transfer-{token}-2",
+            "hash-create-2",
+            sourceWarehouse.Id,
+            destinationWarehouse.Id,
+            transitLocation.Id,
+            "postgres-test",
+            DateTime.UtcNow);
+        seedContext.TransferOrders.AddRange(firstOrder, secondOrder);
+        await seedContext.SaveChangesAsync();
+
+        var key = $"transfer-command-{token}";
+        seedContext.TransferCommands.Add(new TransferCommand(
+            firstOrder.Id,
+            "ship",
+            key,
+            "hash-ship",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.TransferCommands.Add(new TransferCommand(
+                firstOrder.Id,
+                "ship",
+                key,
+                "hash-ship",
+                "postgres-test",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.TransferCommands.Add(new TransferCommand(
+            firstOrder.Id,
+            "receive",
+            key,
+            "hash-receive",
+            "postgres-test",
+            DateTime.UtcNow));
+        seedContext.TransferCommands.Add(new TransferCommand(
+            secondOrder.Id,
+            "ship",
+            key,
+            "hash-second",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.TransferCommands.CountAsync(command => command.IdempotencyKey == key))
+            .Should().Be(3);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
