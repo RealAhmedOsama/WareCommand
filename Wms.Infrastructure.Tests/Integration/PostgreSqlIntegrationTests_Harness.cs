@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
@@ -941,6 +942,42 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
 
         (await seedContext.TransferCommands.CountAsync(command => command.IdempotencyKey == key))
             .Should().Be(3);
+    }
+
+    [PostgreSqlFact]
+    public async Task ReplenishmentPolicyQuantityOrderIsEnforcedByPostgreSql()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGRP-{token}", "Replenishment policy warehouse");
+        var item = new Item($"PGRP-{token}", "Replenishment policy item", "EA");
+        seedContext.AddRange(warehouse, item);
+        await seedContext.SaveChangesAsync();
+
+        var policy = new InventoryReplenishmentPolicy(
+            item.Id,
+            warehouse.Id,
+            locationId: null,
+            minimumQuantity: 1m,
+            maximumQuantity: 10m,
+            safetyStockQuantity: 2m,
+            reorderPointQuantity: 4m,
+            targetQuantity: 6m,
+            InventoryPolicyQuantityBasis.OnHand,
+            DateTime.UtcNow);
+        seedContext.InventoryReplenishmentPolicies.Add(policy);
+        await seedContext.SaveChangesAsync();
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() =>
+            seedContext.InventoryReplenishmentPolicies
+                .Where(value => value.Id == policy.Id)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(value => value.TargetQuantity, 1m)));
+        exception.SqlState.Should().Be("23514");
+
+        await using var verifyContext = database.CreateContext();
+        (await verifyContext.InventoryReplenishmentPolicies
+                .SingleAsync(value => value.Id == policy.Id))
+            .TargetQuantity.Should().Be(6m);
     }
 
     [PostgreSqlFact]
