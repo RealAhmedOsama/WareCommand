@@ -3,6 +3,7 @@ using Moq;
 using Npgsql;
 using Wms.Application.Administration;
 using Wms.Application.Auditing;
+using Wms.Application.BulkExchange;
 using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
@@ -15,6 +16,7 @@ using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Administration;
 using Wms.Infrastructure.ApiClients;
+using Wms.Infrastructure.BulkExchange;
 using Wms.Infrastructure.Integrations;
 using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Retention;
@@ -2529,6 +2531,202 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
         (await seedContext.WebhookDeliveries.CountAsync(delivery =>
                 delivery.OutboxMessageId == outbox.Id &&
                 delivery.SubscriptionId == subscription.Id))
+            .Should().Be(1);
+    }
+
+    [PostgreSqlFact]
+    public async Task BulkImportIdentityBoundariesAreEnforcedByPostgreSql()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var now = DateTimeOffset.UtcNow;
+        var importType = $"items.{token}";
+        var profileName = $"catalog-{token}";
+        seedContext.BulkImportMappingProfiles.Add(new WmsBulkImportMappingProfileEntity
+        {
+            ImportType = importType,
+            Version = 1,
+            Name = profileName,
+            ColumnsJson = "[{\"sourceColumn\":\"sku\",\"targetField\":\"sku\"}]",
+            CultureName = "en-US",
+            TimeZone = "UTC",
+            DuplicatePolicy = WmsBulkImportDuplicatePolicies.Reject,
+            IsActive = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        });
+        await seedContext.SaveChangesAsync();
+
+        seedContext.BulkImportMappingProfiles.Add(new WmsBulkImportMappingProfileEntity
+        {
+            ImportType = importType,
+            Version = 2,
+            Name = profileName,
+            ColumnsJson = "[{\"sourceColumn\":\"sku\",\"targetField\":\"sku\"}]",
+            CultureName = "en-US",
+            TimeZone = "UTC",
+            DuplicatePolicy = WmsBulkImportDuplicatePolicies.Reject,
+            IsActive = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        });
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateProfileContext = database.CreateContext())
+        {
+            duplicateProfileContext.BulkImportMappingProfiles.Add(new WmsBulkImportMappingProfileEntity
+            {
+                ImportType = importType,
+                Version = 1,
+                Name = profileName,
+                ColumnsJson = "[]",
+                CultureName = "en-US",
+                TimeZone = "UTC",
+                DuplicatePolicy = WmsBulkImportDuplicatePolicies.Reject,
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateProfileContext.SaveChangesAsync());
+        }
+
+        var source = new WmsBulkImportSourceFileEntity
+        {
+            FileName = $"items-{token}.csv",
+            ContentType = "text/csv",
+            Format = WmsBulkImportFormats.Csv,
+            Length = 16,
+            Sha256 = new string('E', 64),
+            Content = "sku,name\r\nA-1,Item",
+            CreatedAtUtc = now
+        };
+        seedContext.BulkImportSourceFiles.Add(source);
+        await seedContext.SaveChangesAsync();
+
+        var idempotencyKey = $"bulk-{token}";
+        var execution = new WmsBulkImportExecutionEntity
+        {
+            ImportType = WmsBulkImportTypes.ItemsV1,
+            Format = WmsBulkImportFormats.Csv,
+            Mode = WmsBulkImportModes.DryRun,
+            Status = WmsBulkImportStatuses.Previewed,
+            SourceFileId = source.Id,
+            MappingName = profileName,
+            MappingVersion = 1,
+            CultureName = "en-US",
+            TimeZone = "UTC",
+            DuplicatePolicy = WmsBulkImportDuplicatePolicies.Reject,
+            UserId = $"user-{token}",
+            IdempotencyKey = idempotencyKey,
+            CorrelationId = $"corr-{token}",
+            TotalRows = 1,
+            ValidRows = 1,
+            CreatedAtUtc = now
+        };
+        seedContext.BulkImportExecutions.Add(execution);
+        await seedContext.SaveChangesAsync();
+
+        var secondSource = new WmsBulkImportSourceFileEntity
+        {
+            FileName = $"items-{token}-second.csv",
+            ContentType = "text/csv",
+            Format = WmsBulkImportFormats.Csv,
+            Length = 16,
+            Sha256 = new string('F', 64),
+            Content = "sku,name\r\nA-2,Item",
+            CreatedAtUtc = now
+        };
+        seedContext.BulkImportSourceFiles.Add(secondSource);
+        await seedContext.SaveChangesAsync();
+        seedContext.BulkImportExecutions.Add(new WmsBulkImportExecutionEntity
+        {
+            ImportType = WmsBulkImportTypes.ItemsV1,
+            Format = WmsBulkImportFormats.Csv,
+            Mode = WmsBulkImportModes.DryRun,
+            Status = WmsBulkImportStatuses.Previewed,
+            SourceFileId = secondSource.Id,
+            MappingName = profileName,
+            MappingVersion = 1,
+            CultureName = "en-US",
+            TimeZone = "UTC",
+            DuplicatePolicy = WmsBulkImportDuplicatePolicies.Reject,
+            UserId = $"other-user-{token}",
+            IdempotencyKey = idempotencyKey,
+            CorrelationId = $"corr-{token}-other",
+            TotalRows = 1,
+            ValidRows = 1,
+            CreatedAtUtc = now
+        });
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateExecutionContext = database.CreateContext())
+        {
+            var duplicateSource = new WmsBulkImportSourceFileEntity
+            {
+                FileName = $"items-{token}-duplicate.csv",
+                ContentType = "text/csv",
+                Format = WmsBulkImportFormats.Csv,
+                Length = 16,
+                Sha256 = new string('A', 64),
+                Content = "sku,name\r\nA-3,Item",
+                CreatedAtUtc = now
+            };
+            duplicateExecutionContext.BulkImportSourceFiles.Add(duplicateSource);
+            await duplicateExecutionContext.SaveChangesAsync();
+            duplicateExecutionContext.BulkImportExecutions.Add(new WmsBulkImportExecutionEntity
+            {
+                ImportType = WmsBulkImportTypes.ItemsV1,
+                Format = WmsBulkImportFormats.Csv,
+                Mode = WmsBulkImportModes.DryRun,
+                Status = WmsBulkImportStatuses.Previewed,
+                SourceFileId = duplicateSource.Id,
+                MappingName = profileName,
+                MappingVersion = 1,
+                CultureName = "en-US",
+                TimeZone = "UTC",
+                DuplicatePolicy = WmsBulkImportDuplicatePolicies.Reject,
+                UserId = execution.UserId,
+                IdempotencyKey = idempotencyKey,
+                CorrelationId = $"corr-{token}-duplicate",
+                TotalRows = 1,
+                ValidRows = 1,
+                CreatedAtUtc = now
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateExecutionContext.SaveChangesAsync());
+        }
+
+        seedContext.BulkImportRows.Add(new WmsBulkImportRowResultEntity
+        {
+            ExecutionId = execution.Id,
+            RowNumber = 1,
+            Status = "Valid",
+            ValuesJson = "{\"sku\":\"A-1\"}",
+            ValidationErrorsJson = "[]"
+        });
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateRowContext = database.CreateContext())
+        {
+            duplicateRowContext.BulkImportRows.Add(new WmsBulkImportRowResultEntity
+            {
+                ExecutionId = execution.Id,
+                RowNumber = 1,
+                Status = "Valid",
+                ValuesJson = "{\"sku\":\"A-1\"}",
+                ValidationErrorsJson = "[]"
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateRowContext.SaveChangesAsync());
+        }
+
+        (await seedContext.BulkImportMappingProfiles.CountAsync(profile =>
+                profile.ImportType == importType && profile.Name == profileName))
+            .Should().Be(2);
+        (await seedContext.BulkImportExecutions.CountAsync(item => item.IdempotencyKey == idempotencyKey))
+            .Should().Be(2);
+        (await seedContext.BulkImportRows.CountAsync(row => row.ExecutionId == execution.Id))
             .Should().Be(1);
     }
 
