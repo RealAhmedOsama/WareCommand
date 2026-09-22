@@ -6,6 +6,7 @@ using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
+using Wms.Application.Integrations;
 using Wms.Application.Retention;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -14,6 +15,7 @@ using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Administration;
 using Wms.Infrastructure.ApiClients;
+using Wms.Infrastructure.Integrations;
 using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Retention;
 using Wms.Infrastructure.Settings;
@@ -2404,6 +2406,130 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
             client.SecretHash != $"secret-{token}-first" &&
             client.SecretHash != $"secret-{token}-second");
         persisted.Should().OnlyContain(client => client.SecretVersion == 1);
+    }
+
+    [PostgreSqlFact]
+    public async Task IntegrationDeliveryIdentityBoundariesAreEnforcedByPostgreSql()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var now = DateTimeOffset.UtcNow;
+        var eventId = Guid.NewGuid();
+        var outbox = new WmsIntegrationOutboxEntity
+        {
+            EventId = eventId,
+            EventType = "inventory.movement-recorded.v1",
+            Version = 1,
+            AggregateType = "Movement",
+            AggregateKey = $"movement-{token}",
+            CorrelationId = $"corr-{token}",
+            OccurredAtUtc = now,
+            CreatedAtUtc = now,
+            PayloadJson = "{\"movementId\":1}",
+            PayloadHash = new string('C', 64),
+            Status = WmsIntegrationEventStatuses.Pending,
+            AttemptCount = 0
+        };
+        var subscription = new WmsWebhookSubscriptionEntity
+        {
+            Name = $"ERP-{token}",
+            EndpointUrl = "https://erp.example.test/warecommand/events",
+            EventTypesJson = "[\"inventory.movement-recorded.v1\"]",
+            WarehouseIdsJson = "[]",
+            SecretCiphertext = $"protected-{token}",
+            SecretVersion = 1,
+            Status = WmsWebhookSubscriptionStatuses.Active,
+            MaximumAttempts = 3,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+        seedContext.AddRange(outbox, subscription);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateOutboxContext = database.CreateContext())
+        {
+            duplicateOutboxContext.IntegrationOutbox.Add(new WmsIntegrationOutboxEntity
+            {
+                EventId = eventId,
+                EventType = outbox.EventType,
+                Version = 1,
+                AggregateType = outbox.AggregateType,
+                AggregateKey = outbox.AggregateKey,
+                CorrelationId = outbox.CorrelationId,
+                OccurredAtUtc = now,
+                CreatedAtUtc = now,
+                PayloadJson = outbox.PayloadJson,
+                PayloadHash = outbox.PayloadHash,
+                Status = WmsIntegrationEventStatuses.Pending,
+                AttemptCount = 0
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateOutboxContext.SaveChangesAsync());
+        }
+
+        var inbox = new WmsIntegrationInboxEntity
+        {
+            SourceSystem = "erp",
+            ExternalMessageId = $"message-{token}",
+            EventType = "item.changed.v1",
+            PayloadHash = new string('D', 64),
+            PayloadJson = "{\"sku\":\"A-1\"}",
+            Status = WmsIntegrationInboxStatuses.Processing,
+            AttemptCount = 1,
+            ReceivedAtUtc = now
+        };
+        seedContext.IntegrationInbox.Add(inbox);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateInboxContext = database.CreateContext())
+        {
+            duplicateInboxContext.IntegrationInbox.Add(new WmsIntegrationInboxEntity
+            {
+                SourceSystem = inbox.SourceSystem,
+                ExternalMessageId = inbox.ExternalMessageId,
+                EventType = inbox.EventType,
+                PayloadHash = inbox.PayloadHash,
+                PayloadJson = inbox.PayloadJson,
+                Status = WmsIntegrationInboxStatuses.Processing,
+                AttemptCount = 1,
+                ReceivedAtUtc = now
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateInboxContext.SaveChangesAsync());
+        }
+
+        seedContext.WebhookDeliveries.Add(new WmsWebhookDeliveryEntity
+        {
+            OutboxMessageId = outbox.Id,
+            SubscriptionId = subscription.Id,
+            Status = WmsWebhookDeliveryStatuses.Pending,
+            AttemptCount = 0
+        });
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateDeliveryContext = database.CreateContext())
+        {
+            duplicateDeliveryContext.WebhookDeliveries.Add(new WmsWebhookDeliveryEntity
+            {
+                OutboxMessageId = outbox.Id,
+                SubscriptionId = subscription.Id,
+                Status = WmsWebhookDeliveryStatuses.Pending,
+                AttemptCount = 0
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateDeliveryContext.SaveChangesAsync());
+        }
+
+        (await seedContext.IntegrationOutbox.CountAsync(message => message.EventId == eventId))
+            .Should().Be(1);
+        (await seedContext.IntegrationInbox.CountAsync(message =>
+                message.SourceSystem == inbox.SourceSystem &&
+                message.ExternalMessageId == inbox.ExternalMessageId))
+            .Should().Be(1);
+        (await seedContext.WebhookDeliveries.CountAsync(delivery =>
+                delivery.OutboxMessageId == outbox.Id &&
+                delivery.SubscriptionId == subscription.Id))
+            .Should().Be(1);
     }
 
     [PostgreSqlFact]
