@@ -117,6 +117,7 @@ explicitly per row and is performed only after an authorized push.
 
 ## Phase checkpoint
 - 2026-09-22 requalification: #39 inventory inquiry passed 7/7; #40 replenishment policy passed 6/6 (2 domain, 4 service); #41 reconciliation and reconciliation-job tests passed 5/5 after the ownership-dimension projection repair in `fcf8fd8`; these rows remain progress because their provider, client, export, planning, corruption/repair, and production gates are still open.
+- 2026-09-22 document/execution requalification: #42 6/6, #43 10/10, #44 19/19, #45 8/8, #46 18/18, #47 25/25, #48 27/27, #49 6/6, #50 12/12, #51 7/7, #52 6/6, #53 10/10, #54 8/8, #55 3/3, and #56 3/3 focused domain/application/infrastructure tests passed; these rows remain progress for their documented downstream consumer, scanner/UI, provider, concurrency, and production gates.
 - #102 checkpoint: committed deterministic profile/plan data-generation foundation in `9f4e54d`; database writers, reconciliation, browser/load integration, and large-volume evidence remain.
 - #103 checkpoint: committed support diagnostics redaction/expiry/size policy in `d8967b5`; diagnostics screen, storage, audit, remediation, and runbook rehearsal remain.
 - #104 checkpoint: committed permission-aware read-only reporting-assistant planning in `b1f6956`; execution adapters, citations, localized UI, provider governance, and adversarial/production evidence remain.
