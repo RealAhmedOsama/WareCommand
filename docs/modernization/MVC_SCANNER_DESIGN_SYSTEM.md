@@ -46,6 +46,10 @@ them.
 
 ## Remaining issue #71 gates
 
+The focused MVC/PWA/dashboard ASP qualification rerun passed 3/3 on
+2026-09-22, including the authenticated English LTR and Arabic RTL shell
+assertions in `MvcShellFlowTests`.
+
 This is a progress slice, not closure. The following remain before issue #71
 can be closed:
 

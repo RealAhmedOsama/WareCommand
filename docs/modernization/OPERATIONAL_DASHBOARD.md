@@ -47,6 +47,10 @@ is not a valid substitute for that value.
 
 ## Remaining issue #74 gates
 
+The focused ASP qualification rerun passed 3/3 on 2026-09-22, including
+`OperationalDashboardFlowTests` for the authenticated scoped KPI page and
+the no-quantity-as-currency contract.
+
 This is progress only. Closure still requires optimized read models and
 benchmarks for inbound expected/receiving/dock-to-stock/QC/putaway, outbound
 allocation/shortage/pick/pack/ship, count accuracy/variance/reconciliation,

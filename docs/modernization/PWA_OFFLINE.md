@@ -38,6 +38,10 @@ new controller.
 
 ## Remaining issue #72 gates
 
+The focused ASP qualification rerun passed 3/3 on 2026-09-22, including the
+`PwaFlowTests` manifest, service-worker, offline-page, and authenticated-HTML
+caching boundary.
+
 This is progress only. Closure still requires supported-browser/device
 qualification for installability and icons, Playwright/mobile evidence for
 offline transition and safe navigation fallback, session expiry, storage

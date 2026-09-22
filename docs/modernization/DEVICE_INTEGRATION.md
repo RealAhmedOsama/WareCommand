@@ -40,6 +40,10 @@ vendor SDKs.
 
 ## Remaining issue #73 gates
 
+`DeviceInputTests` passed 5/5 on 2026-09-22, covering keyboard-wedge
+normalization, partial/oversized input rejection, stable scale readings with
+manual fallback, deterministic print routing, and typed station profiles.
+
 This is progress only. Closure still requires browser camera permission and
 unsupported-device fallback, persistent-focus/virtual-keyboard integration on
 each operator screen, station-profile persistence and administration, real
