@@ -76,3 +76,8 @@ multi-line/serial/LPN strategy matrices, workbench and throughput screens,
 browser/handheld English-Arabic RTL/LTR evidence, and production migration or
 deployment remain open gates. The local execution tracker is authoritative for
 those dependencies.
+
+A targeted disposable PostgreSQL proof also passes 1/1. It confirms warehouse-
+scoped creation-key replay, globally unique wave numbers, and unique
+`(wave, step, attempt)` processing history. The container and verification port
+were clean after the run.
