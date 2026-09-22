@@ -549,6 +549,94 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task ShipmentCommandKeysAreUniquePerOperationAndShipment()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGSH-{token}", "Shipment command warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        var firstShipment = new Shipment(
+            $"SHIP-PGSH-1-{token}",
+            warehouse.Id,
+            carrierId: null,
+            carrierServiceId: null,
+            shipToRecipientName: null,
+            shipToPhone: null,
+            shipToCountryCode: null,
+            shipToRegion: null,
+            shipToCity: null,
+            shipToPostalCode: null,
+            shipToAddressLine1: null,
+            shipToAddressLine2: null,
+            shipToDeliveryInstructions: null,
+            plannedShipAtUtc: null,
+            externalReference: null,
+            createdByUserId: "postgres-test");
+        var secondShipment = new Shipment(
+            $"SHIP-PGSH-2-{token}",
+            warehouse.Id,
+            carrierId: null,
+            carrierServiceId: null,
+            shipToRecipientName: null,
+            shipToPhone: null,
+            shipToCountryCode: null,
+            shipToRegion: null,
+            shipToCity: null,
+            shipToPostalCode: null,
+            shipToAddressLine1: null,
+            shipToAddressLine2: null,
+            shipToDeliveryInstructions: null,
+            plannedShipAtUtc: null,
+            externalReference: null,
+            createdByUserId: "postgres-test");
+        seedContext.Shipments.AddRange(firstShipment, secondShipment);
+        await seedContext.SaveChangesAsync();
+
+        var key = $"ship-command-{token}";
+        seedContext.ShipmentCommands.Add(new ShipmentCommand(
+            firstShipment.Id,
+            "confirm",
+            key,
+            "hash-1",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.ShipmentCommands.Add(new ShipmentCommand(
+                firstShipment.Id,
+                "confirm",
+                key,
+                "hash-1",
+                "postgres-test",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.ShipmentCommands.Add(new ShipmentCommand(
+            firstShipment.Id,
+            "load",
+            key,
+            "hash-2",
+            "postgres-test",
+            DateTime.UtcNow));
+        seedContext.ShipmentCommands.Add(new ShipmentCommand(
+            secondShipment.Id,
+            "confirm",
+            key,
+            "hash-3",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.ShipmentCommands.CountAsync(command => command.IdempotencyKey == key))
+            .Should().Be(3);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
