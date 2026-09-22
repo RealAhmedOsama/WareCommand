@@ -19,6 +19,14 @@ time of each implementation commit. The current follow-up inventory is
 #109–#114 and master-plan roll-up #108. Those follow-up issues must carry fresh
 evidence; #108 is not a production-release sign-off.
 
+Local follow-up checkpoint — 2026-09-22: #109–#113 have passing local
+qualification packets for their bounded scopes. #114 now has focused ASP flow
+coverage for the registered connector, B2B, bulk-exchange, integration,
+notification, and warehouse-work handler boundaries. These results are local
+implementation evidence only; live transports, partner/device certification,
+production deployment/secrets, independent security review, and capacity
+approval remain separate gates.
+
 | Issue | State | Acceptance evidence | Commit | Dependencies / blocker | Exact next action |
 | ---: | --- | --- | --- | --- | --- |
 | #2 | verified locally; committed | Restore passed; Debug and Release builds passed with 25 baseline warnings; 147/147 Release tests passed; MVC `/`, `/Dashboard`, `/Items`, `/Inventory` returned 200 against disposable SQLite; WinForms exposed a live main window; reproduction script passed | `f80c431` | Pre-existing untracked `Front-End/` prevents a clean working tree without destroying the supplied package | Upgrade the solution to .NET 10/C# 14 for #3 |

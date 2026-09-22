@@ -15,7 +15,28 @@ local evidence with production, live-provider, or external-review approval.
 | Performance/load evidence | #111 | #18, #21, #34, #54, #75, #90–#99, #102 | Repeatable local workloads carry revision/dataset/environment metadata, bounded concurrency, PostgreSQL/query/worker metrics, and reconciliation results. |
 | Non-production resilience | #112 | #21, #22, #34, #90, #94–#99 | Test-only timeout/conflict/restart/response-loss/dead-letter/restore scenarios prove no partial or duplicate business result and cannot activate in production. |
 | Release/security/support packet | #113 | #6, #7, #9, #10, #14, #15, #18, #22, #82, #84, #85, #87, #94, #95, #100–#103 | Local preflight, migration, backup, security-boundary, redaction, compatibility, and GO/GO_WITH_RESTRICTIONS/NO_GO packet checks pass without secrets. |
-| Remaining local module wiring | #114 | #82–#93, #96–#107 and dependent workflow owners | Missing local command/resource/handler/UI/job/audit wiring gets focused contract and flow tests, while real vendor transport/certification stays explicit. |
+| Remaining local module wiring | #114 | #82–#93, #96–#107 and dependent workflow owners | Focused ASP flow coverage proves the registered connector, B2B, bulk-exchange, integration, notification, and warehouse-work handler boundaries are available through authorized local surfaces; real vendor transport/certification stays explicit. |
+
+## Task 7 local wiring checkpoint
+
+The selected local boundary for #114 is now executable through the ASP host:
+
+- `/api/connectors` exposes the existing connector service for list, mapping,
+  instance, credential-rotation, connection-test, and run commands.
+- `/api/b2b` exposes capability discovery plus mapping-profile,
+  trading-partner, document-submit, acknowledgement, and replay commands.
+- `/api/bulk` exposes capability discovery, user-scoped preview/execute/cancel
+  flows, execution lookup, and CSV export through the existing bulk services.
+- `/api/integrations/capabilities` reports the registered outbox/inbox/webhook
+  composition without exposing payloads or credentials.
+- `ModuleWiringFlowTests` verifies service resolution, adapter/handler counts,
+  administrator authorization, and the four local HTTP boundaries.
+
+The local flow is intentionally an adapter over the existing application
+contracts: authorization, audit/idempotency, persistence, and provider-neutral
+service behavior remain owned by those services. Real carrier/email/SFTP/EDI
+transports, partner certification, production credentials, and device/printer
+qualification remain external gates.
 
 ## Explicitly non-local gates
 
