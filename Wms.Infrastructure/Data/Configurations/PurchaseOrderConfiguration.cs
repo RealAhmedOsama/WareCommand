@@ -79,7 +79,9 @@ public sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purcha
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(order => order.DocumentNumber).IsUnique();
-        builder.HasIndex(order => new { order.SupplierId, order.SourceType, order.ExternalReference });
+        builder.HasIndex(order => new { order.SupplierId, order.SourceType, order.ExternalReference })
+            .IsUnique()
+            .HasFilter("\"ExternalReference\" IS NOT NULL");
         builder.HasIndex(order => new { order.WarehouseId, order.Status, order.OrderDate });
         builder.HasIndex(order => new { order.SupplierId, order.OrderDate });
     }

@@ -566,6 +566,83 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task PurchaseOrderExternalReferencesAreUniquePerSupplierAndSource()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGPO-{token}", "Purchase-order warehouse");
+        var firstSupplier = new Supplier($"PGPO1-{token}", "First purchase-order supplier");
+        var secondSupplier = new Supplier($"PGPO2-{token}", "Second purchase-order supplier");
+        seedContext.AddRange(warehouse, firstSupplier, secondSupplier);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.PurchaseOrders.Add(new PurchaseOrder(
+            $"PO-{token}-1",
+            warehouse.Id,
+            warehouse.Code,
+            firstSupplier.Id,
+            firstSupplier.Code,
+            firstSupplier.LegalName,
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            externalReference: $" EXT-{token} ",
+            sourceType: "EDI"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.PurchaseOrders.Add(new PurchaseOrder(
+                $"PO-{token}-2",
+                warehouse.Id,
+                warehouse.Code,
+                firstSupplier.Id,
+                firstSupplier.Code,
+                firstSupplier.LegalName,
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                externalReference: $"ext-{token}",
+                sourceType: "edi"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        await using (var otherSupplierContext = database.CreateContext())
+        {
+            otherSupplierContext.PurchaseOrders.Add(new PurchaseOrder(
+                $"PO-{token}-3",
+                warehouse.Id,
+                warehouse.Code,
+                secondSupplier.Id,
+                secondSupplier.Code,
+                secondSupplier.LegalName,
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                externalReference: $"EXT-{token}",
+                sourceType: "EDI"));
+            await otherSupplierContext.SaveChangesAsync();
+        }
+
+        await using var nullReferenceContext = database.CreateContext();
+        nullReferenceContext.PurchaseOrders.AddRange(
+            new PurchaseOrder(
+                $"PO-{token}-4",
+                warehouse.Id,
+                warehouse.Code,
+                firstSupplier.Id,
+                firstSupplier.Code,
+                firstSupplier.LegalName,
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                sourceType: "EDI"),
+            new PurchaseOrder(
+                $"PO-{token}-5",
+                warehouse.Id,
+                warehouse.Code,
+                firstSupplier.Id,
+                firstSupplier.Code,
+                firstSupplier.LegalName,
+                DateOnly.FromDateTime(DateTime.UtcNow),
+                sourceType: "EDI"));
+        await nullReferenceContext.SaveChangesAsync();
+    }
+
+    [PostgreSqlFact]
     public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
     {
         await using var context = database.CreateContext();
