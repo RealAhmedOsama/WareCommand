@@ -218,6 +218,53 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task CustomerIdentifiersRejectDuplicateNormalizedValues()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var customer = new Customer(
+            $"PGCUSTOMER-{token}",
+            "Provider customer",
+            externalErpIdentifier: $"ERP-{token}",
+            externalChannelIdentifier: $"CHANNEL-{token}");
+        seedContext.Customers.Add(customer);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateCodeContext = database.CreateContext())
+        {
+            duplicateCodeContext.Customers.Add(new Customer(
+                $" pgcustomer-{token} ",
+                "Duplicate customer code"));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateCodeContext.SaveChangesAsync());
+        }
+
+        await using (var duplicateErpContext = database.CreateContext())
+        {
+            duplicateErpContext.Customers.Add(new Customer(
+                $"PGCUSTOMER-ERP-{token}",
+                "Duplicate ERP identifier",
+                externalErpIdentifier: $" erp-{token} "));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateErpContext.SaveChangesAsync());
+        }
+
+        await using (var duplicateChannelContext = database.CreateContext())
+        {
+            duplicateChannelContext.Customers.Add(new Customer(
+                $"PGCUSTOMER-CHANNEL-{token}",
+                "Duplicate channel identifier",
+                externalChannelIdentifier: $" channel-{token} "));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateChannelContext.SaveChangesAsync());
+        }
+
+        seedContext.Customers.Add(new Customer(
+            $"PGCUSTOMER-NULL-{token}",
+            "Customer without external identifiers"));
+        await seedContext.SaveChangesAsync();
+        (await seedContext.Customers.CountAsync(customer => customer.Code.Contains(token)))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task RevisionTokenRejectsConcurrentWorkMutation()
     {
         await using var seedContext = database.CreateContext();
