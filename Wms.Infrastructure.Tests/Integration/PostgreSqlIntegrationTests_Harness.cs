@@ -5,6 +5,7 @@ using Wms.Application.Administration;
 using Wms.Application.Auditing;
 using Wms.Application.BulkExchange;
 using Wms.Application.Common;
+using Wms.Application.Connectors;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Integrations;
@@ -17,6 +18,7 @@ using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Administration;
 using Wms.Infrastructure.ApiClients;
 using Wms.Infrastructure.BulkExchange;
+using Wms.Infrastructure.Connectors;
 using Wms.Infrastructure.Integrations;
 using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Retention;
@@ -2731,6 +2733,166 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task ConnectorIdentityCursorAndExternalRecordBoundariesAreEnforcedByPostgreSql()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var now = DateTimeOffset.UtcNow;
+        var connectorType = WmsConnectorTypes.GenericErpV1;
+        var profileName = $"erp-map-{token}";
+        seedContext.ConnectorMappingProfiles.AddRange(
+            CreateConnectorProfile(connectorType, profileName, 1, now),
+            CreateConnectorProfile(connectorType, profileName, 2, now));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateProfileContext = database.CreateContext())
+        {
+            duplicateProfileContext.ConnectorMappingProfiles.Add(
+                CreateConnectorProfile(connectorType, profileName, 1, now));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateProfileContext.SaveChangesAsync());
+        }
+
+        var firstInstance = CreateConnectorInstance(
+            connectorType,
+            $"ERP-A-{token}",
+            profileName,
+            now);
+        var secondInstance = CreateConnectorInstance(
+            connectorType,
+            $"ERP-B-{token}",
+            profileName,
+            now);
+        seedContext.ConnectorInstances.AddRange(firstInstance, secondInstance);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateInstanceContext = database.CreateContext())
+        {
+            duplicateInstanceContext.ConnectorInstances.Add(CreateConnectorInstance(
+                connectorType,
+                firstInstance.Name,
+                profileName,
+                now,
+                credentialReference: "secret-ref://duplicate"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateInstanceContext.SaveChangesAsync());
+        }
+
+        var idempotencyKey = $"run-{token}";
+        var firstRun = new WmsConnectorRunEntity
+        {
+            ConnectorInstanceId = firstInstance.Id,
+            Operation = WmsConnectorOperations.MasterDataSync,
+            Mode = WmsConnectorModes.Pull,
+            Status = WmsConnectorRunStatuses.Succeeded,
+            IdempotencyKey = idempotencyKey,
+            CursorBefore = "cursor-1",
+            CursorAfter = "cursor-2",
+            CorrelationId = $"corr-{token}-a",
+            AttemptCount = 1,
+            RecordsSeen = 2,
+            RecordsCreated = 2,
+            CreatedAtUtc = now,
+            StartedAtUtc = now,
+            CompletedAtUtc = now.AddSeconds(1)
+        };
+        seedContext.ConnectorRuns.Add(firstRun);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.ConnectorRuns.Add(new WmsConnectorRunEntity
+        {
+            ConnectorInstanceId = secondInstance.Id,
+            Operation = WmsConnectorOperations.MasterDataSync,
+            Mode = WmsConnectorModes.Pull,
+            Status = WmsConnectorRunStatuses.Succeeded,
+            IdempotencyKey = idempotencyKey,
+            CursorBefore = "cursor-1",
+            CursorAfter = "cursor-2",
+            CorrelationId = $"corr-{token}-b",
+            AttemptCount = 1,
+            RecordsSeen = 1,
+            RecordsCreated = 1,
+            CreatedAtUtc = now,
+            StartedAtUtc = now,
+            CompletedAtUtc = now.AddSeconds(1)
+        });
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateRunContext = database.CreateContext())
+        {
+            duplicateRunContext.ConnectorRuns.Add(new WmsConnectorRunEntity
+            {
+                ConnectorInstanceId = firstInstance.Id,
+                Operation = WmsConnectorOperations.MasterDataSync,
+                Mode = WmsConnectorModes.Pull,
+                Status = WmsConnectorRunStatuses.Queued,
+                IdempotencyKey = idempotencyKey,
+                CorrelationId = $"corr-{token}-duplicate",
+                CreatedAtUtc = now
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateRunContext.SaveChangesAsync());
+        }
+
+        var externalKey = $"external-key-{token}";
+        var firstRecord = new WmsConnectorExternalRecordEntity
+        {
+            ConnectorInstanceId = firstInstance.Id,
+            ExternalKey = externalKey,
+            RecordType = "item",
+            ExternalId = $"item-{token}",
+            PayloadHash = new string('G', 64),
+            ExternalVersion = "v1",
+            Status = "Seen",
+            LastRunId = firstRun.Id,
+            FirstSeenAtUtc = now,
+            LastSeenAtUtc = now
+        };
+        seedContext.ConnectorExternalRecords.Add(firstRecord);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.ConnectorExternalRecords.Add(new WmsConnectorExternalRecordEntity
+        {
+            ConnectorInstanceId = secondInstance.Id,
+            ExternalKey = externalKey,
+            RecordType = firstRecord.RecordType,
+            ExternalId = firstRecord.ExternalId,
+            PayloadHash = firstRecord.PayloadHash,
+            Status = "Seen",
+            LastRunId = firstRun.Id,
+            FirstSeenAtUtc = now,
+            LastSeenAtUtc = now
+        });
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateRecordContext = database.CreateContext())
+        {
+            duplicateRecordContext.ConnectorExternalRecords.Add(new WmsConnectorExternalRecordEntity
+            {
+                ConnectorInstanceId = firstInstance.Id,
+                ExternalKey = externalKey,
+                RecordType = firstRecord.RecordType,
+                ExternalId = firstRecord.ExternalId,
+                PayloadHash = firstRecord.PayloadHash,
+                Status = "Seen",
+                LastRunId = firstRun.Id,
+                FirstSeenAtUtc = now,
+                LastSeenAtUtc = now
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateRecordContext.SaveChangesAsync());
+        }
+
+        (await seedContext.ConnectorMappingProfiles.CountAsync(profile =>
+                profile.ConnectorType == connectorType && profile.Name == profileName))
+            .Should().Be(2);
+        (await seedContext.ConnectorRuns.CountAsync(run => run.IdempotencyKey == idempotencyKey))
+            .Should().Be(2);
+        (await seedContext.ConnectorExternalRecords.CountAsync(record => record.ExternalKey == externalKey))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
@@ -3755,6 +3917,48 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
     }
+
+    private static WmsConnectorMappingProfileEntity CreateConnectorProfile(
+        string connectorType,
+        string name,
+        int version,
+        DateTimeOffset now) =>
+        new()
+        {
+            ConnectorType = connectorType,
+            Name = name,
+            Version = version,
+            ExternalIdField = "externalId",
+            RulesJson = "[]",
+            CultureName = "en-US",
+            ConflictPolicy = WmsConnectorConflictPolicies.Reject,
+            IsActive = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+    private static WmsConnectorInstanceEntity CreateConnectorInstance(
+        string connectorType,
+        string name,
+        string mappingProfileName,
+        DateTimeOffset now,
+        string credentialReference = "secret-ref://erp") =>
+        new()
+        {
+            ConnectorType = connectorType,
+            Name = name,
+            AllowedWarehouseIdsJson = "[1]",
+            CredentialReference = credentialReference,
+            CredentialVersion = 1,
+            ModesJson = "[\"pull\"]",
+            MappingProfileName = mappingProfileName,
+            MappingProfileVersion = 1,
+            Status = WmsConnectorStatuses.Active,
+            Cursor = string.Empty,
+            HealthStatus = WmsConnectorHealthStatuses.Unknown,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
 
     private static WmsApiClientEntity CreateApiClient(
         string clientId,
