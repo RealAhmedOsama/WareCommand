@@ -40,6 +40,13 @@ Issue #70 now has a persisted deterministic slotting boundary:
   run, and exactly-once approval/work replay.
 - Migration: `20260921122015_AddSlottingAnalysis`.
 
+The targeted PostgreSQL identity proof
+`SlottingPolicyKeysAreUniquePerWarehouse` passed 1/1 against a disposable
+PostgreSQL 17 instance on 2026-09-22. It proves that a slotting policy key
+cannot be reused inside one warehouse while the same normalized key remains
+valid in another warehouse; container and port cleanup were verified in the
+same run. Commit: `f905408`.
+
 ## Remaining closure gates
 
 This is a committed progress slice, not full issue closure. Remaining work
