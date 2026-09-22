@@ -1716,6 +1716,108 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task InterleavingRouteAndPolicyIdentitiesAreWarehouseScoped()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGRI-{token}", "Interleaving warehouse");
+        var secondWarehouse = new Warehouse($"PGRI2-{token}", "Second interleaving warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var firstFrom = new Location($"PGRI-F-{token}", "First route source", firstWarehouse.Id);
+        var firstTo = new Location($"PGRI-T-{token}", "First route destination", firstWarehouse.Id);
+        var secondFrom = new Location($"PGRI2-F-{token}", "Second route source", secondWarehouse.Id);
+        var secondTo = new Location($"PGRI2-T-{token}", "Second route destination", secondWarehouse.Id);
+        seedContext.AddRange(firstFrom, firstTo, secondFrom, secondTo);
+        await seedContext.SaveChangesAsync();
+
+        var routeCode = $"route-{token}";
+        seedContext.WarehouseWorkRoutes.AddRange(
+            new WarehouseWorkRoute(
+                firstWarehouse.Id,
+                firstFrom.Id,
+                firstTo.Id,
+                routeCode,
+                sequence: 1,
+                travelMinutes: 4.5m,
+                distanceMeters: 18m),
+            new WarehouseWorkRoute(
+                secondWarehouse.Id,
+                secondFrom.Id,
+                secondTo.Id,
+                routeCode,
+                sequence: 1,
+                travelMinutes: 6.5m,
+                distanceMeters: 24m));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateRouteContext = database.CreateContext())
+        {
+            duplicateRouteContext.WarehouseWorkRoutes.Add(new WarehouseWorkRoute(
+                firstWarehouse.Id,
+                firstFrom.Id,
+                firstTo.Id,
+                $" {routeCode.ToUpperInvariant()} ",
+                sequence: 1,
+                travelMinutes: 8m,
+                distanceMeters: 30m));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateRouteContext.SaveChangesAsync());
+        }
+
+        var policyCode = $"interleave-{token}";
+        seedContext.WarehouseWorkInterleavingPolicies.AddRange(
+            new WarehouseWorkInterleavingPolicy(
+                firstWarehouse.Id,
+                policyCode,
+                "First interleaving policy",
+                priorityWeight: 1m,
+                deadlineWeight: 2m,
+                travelWeight: 1m,
+                zoneAffinityWeight: 1m,
+                maximumTravelMinutes: 30m,
+                allowCrossWorkType: true),
+            new WarehouseWorkInterleavingPolicy(
+                secondWarehouse.Id,
+                policyCode,
+                "Second interleaving policy",
+                priorityWeight: 2m,
+                deadlineWeight: 1m,
+                travelWeight: 1m,
+                zoneAffinityWeight: 1m,
+                maximumTravelMinutes: 45m,
+                allowCrossWorkType: false));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePolicyContext = database.CreateContext())
+        {
+            duplicatePolicyContext.WarehouseWorkInterleavingPolicies.Add(
+                new WarehouseWorkInterleavingPolicy(
+                    firstWarehouse.Id,
+                    $" {policyCode.ToUpperInvariant()} ",
+                    "Duplicate interleaving policy",
+                    priorityWeight: 1m,
+                    deadlineWeight: 1m,
+                    travelWeight: 1m,
+                    zoneAffinityWeight: 1m,
+                    maximumTravelMinutes: 60m,
+                    allowCrossWorkType: true));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePolicyContext.SaveChangesAsync());
+        }
+
+        var normalizedRouteCode = routeCode.ToUpperInvariant();
+        var normalizedPolicyCode = policyCode.ToUpperInvariant();
+        (await seedContext.WarehouseWorkRoutes
+                .CountAsync(route => route.RouteCode == normalizedRouteCode))
+            .Should().Be(2);
+        (await seedContext.WarehouseWorkInterleavingPolicies
+                .CountAsync(policy => policy.Code == normalizedPolicyCode))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
