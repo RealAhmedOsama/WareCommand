@@ -29,6 +29,27 @@ Run it with:
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Port 55432
 ```
 
+The runner is bounded into two exact test-class groups so a large provider
+qualification run does not require one unbounded test host invocation. Inspect
+the planned groups without starting Docker:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -PlanOnly
+```
+
+Run one group when isolating a failure, or run both groups sequentially in the
+same disposable database:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group core -Port 55432
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group harness -Port 55433
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group all -Port 55434 -EvidencePath artifacts/postgresql-provider.json
+```
+
+The JSON result records only the repository revision, provider image, selected
+groups, filters, durations, and cleanup policy; credentials and connection
+strings are never written to evidence.
+
 The harness intentionally does not replace fast unit tests. Remaining
 provider work belongs to the functional issues as their schemas and workflows
 arrive: broader check/delete behavior, query-plan/volume qualification,
