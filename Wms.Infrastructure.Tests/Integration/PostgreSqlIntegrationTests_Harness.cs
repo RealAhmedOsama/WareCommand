@@ -1580,6 +1580,97 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task InventoryOwnerCodesAndBalanceDimensionsAreUniqueAtTheDatabaseBoundary()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGOW-{token}", "Ownership warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        var location = new Location($"PGOW-{token}", "Ownership location", warehouse.Id);
+        var item = new Item($"PGOW-{token}", "Ownership item", "EA");
+        var status = new InventoryStatus(
+            $"PGOW-{token}",
+            "Ownership available",
+            "مخزون ملكية",
+            isAvailable: true,
+            isAllocatable: true,
+            isPickable: true,
+            isShippable: true,
+            isCountable: true,
+            warehouseId: warehouse.Id);
+        var firstOwner = new InventoryOwner(
+            $"external-{token}",
+            InventoryOwnerKind.ExternalOwner,
+            "First external owner",
+            externalOwnerReference: $"erp-{token}-1");
+        var secondOwner = new InventoryOwner(
+            $"external-2-{token}",
+            InventoryOwnerKind.ExternalOwner,
+            "Second external owner",
+            externalOwnerReference: $"erp-{token}-2");
+        seedContext.AddRange(location, item, status, firstOwner, secondOwner);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateOwnerContext = database.CreateContext())
+        {
+            duplicateOwnerContext.InventoryOwners.Add(new InventoryOwner(
+                $" {firstOwner.OwnerCode.ToLowerInvariant()} ",
+                InventoryOwnerKind.ExternalOwner,
+                "Duplicate external owner",
+                externalOwnerReference: $"erp-{token}-duplicate"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateOwnerContext.SaveChangesAsync());
+        }
+
+        var firstKey = new InventoryBalanceKey(
+            warehouse.Id,
+            location.Id,
+            item.Id,
+            lotId: null,
+            serialNumberId: null,
+            serialNumber: null,
+            licensePlateId: null,
+            status.Id,
+            "EA",
+            InventoryOwnerKind.ExternalOwner,
+            firstOwner.Id,
+            firstOwner.OwnerCode);
+        var firstBalance = new InventoryBalance(firstKey);
+        firstBalance.Apply(10m, 0m, allowNegativeStock: false);
+        seedContext.InventoryBalances.Add(firstBalance);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateBalanceContext = database.CreateContext())
+        {
+            duplicateBalanceContext.InventoryBalances.Add(new InventoryBalance(firstKey));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateBalanceContext.SaveChangesAsync());
+        }
+
+        var secondKey = new InventoryBalanceKey(
+            warehouse.Id,
+            location.Id,
+            item.Id,
+            lotId: null,
+            serialNumberId: null,
+            serialNumber: null,
+            licensePlateId: null,
+            status.Id,
+            "EA",
+            InventoryOwnerKind.ExternalOwner,
+            secondOwner.Id,
+            secondOwner.OwnerCode);
+        seedContext.InventoryBalances.Add(new InventoryBalance(secondKey));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.InventoryBalances
+                .CountAsync(balance => balance.WarehouseId == warehouse.Id))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
