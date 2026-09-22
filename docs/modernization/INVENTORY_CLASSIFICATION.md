@@ -40,6 +40,11 @@ and `AsOfUtc` does not append duplicate history.
   than the legacy item-category shortcut. Replenishment signals expose the active
   class and prioritize A, then B, then C within each signal kind.
 
+The disposable PostgreSQL harness passes the targeted warehouse-scope proof
+1/1. It confirms unique policy keys within a warehouse, one current result per
+warehouse/item, and independent policy/result rows for the same item in another
+warehouse. The container and verification port were clean after the run.
+
 ## API surface
 
 - `GET/POST/PUT /api/inventory/classifications/policies`
