@@ -122,6 +122,53 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task PutawayRuleCodesAreUniquePerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGR-{token}", "Putaway rule warehouse");
+        var secondWarehouse = new Warehouse($"PGR2-{token}", "Second putaway rule warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var code = $"rule-{token}";
+        seedContext.PutawayRules.Add(new PutawayRule(
+            firstWarehouse.Id,
+            code,
+            "Primary putaway rule",
+            PutawayRuleStrategy.CapacityAware,
+            priority: 100,
+            DateTime.UtcNow.AddMinutes(-1)));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.PutawayRules.Add(new PutawayRule(
+                firstWarehouse.Id,
+                $" {code.ToUpperInvariant()} ",
+                "Duplicate putaway rule",
+                PutawayRuleStrategy.CapacityAware,
+                priority: 90,
+                DateTime.UtcNow.AddMinutes(-1)));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.PutawayRules.Add(new PutawayRule(
+            secondWarehouse.Id,
+            code,
+            "Second warehouse putaway rule",
+            PutawayRuleStrategy.CapacityAware,
+            priority: 100,
+            DateTime.UtcNow.AddMinutes(-1)));
+        await seedContext.SaveChangesAsync();
+
+        var normalizedCode = code.ToUpperInvariant();
+        (await seedContext.PutawayRules.CountAsync(rule => rule.Code == normalizedCode))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task RevisionTokenRejectsConcurrentWorkMutation()
     {
         await using var seedContext = database.CreateContext();
