@@ -1347,6 +1347,112 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task WorkforceProfilesAndQueueCodesAreUniqueWithinTheirWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGWF-{token}", "Workforce warehouse");
+        var secondWarehouse = new Warehouse($"PGWF2-{token}", "Second workforce warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var userId = $"worker-{token}";
+        seedContext.WarehouseWorkerProfiles.AddRange(
+            new WarehouseWorkerProfile(
+                userId,
+                firstWarehouse.Id,
+                "team-a",
+                shiftCode: null,
+                shiftStartAtUtc: null,
+                shiftEndAtUtc: null,
+                "UTC",
+                "[]",
+                "[]",
+                "[]"),
+            new WarehouseWorkerProfile(
+                userId,
+                secondWarehouse.Id,
+                "team-b",
+                shiftCode: null,
+                shiftStartAtUtc: null,
+                shiftEndAtUtc: null,
+                "UTC",
+                "[]",
+                "[]",
+                "[]"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateProfileContext = database.CreateContext())
+        {
+            duplicateProfileContext.WarehouseWorkerProfiles.Add(
+                new WarehouseWorkerProfile(
+                    userId,
+                    firstWarehouse.Id,
+                    "team-c",
+                    shiftCode: null,
+                    shiftStartAtUtc: null,
+                    shiftEndAtUtc: null,
+                    "UTC",
+                    "[]",
+                    "[]",
+                    "[]"));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateProfileContext.SaveChangesAsync());
+        }
+
+        var queueCode = $"pick-{token}";
+        seedContext.WarehouseWorkQueues.AddRange(
+            new WarehouseWorkQueue(
+                firstWarehouse.Id,
+                queueCode,
+                "First pick queue",
+                WarehouseWorkType.Pick,
+                zoneLocationId: null,
+                priority: 10,
+                capacity: 5,
+                requiredTeamCode: null,
+                WarehouseWorkAssignmentStrategy.SelfClaim,
+                "[]",
+                "[]"),
+            new WarehouseWorkQueue(
+                secondWarehouse.Id,
+                queueCode,
+                "Second pick queue",
+                WarehouseWorkType.Pick,
+                zoneLocationId: null,
+                priority: 10,
+                capacity: 5,
+                requiredTeamCode: null,
+                WarehouseWorkAssignmentStrategy.TeamQueue,
+                "[]",
+                "[]"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateQueueContext = database.CreateContext())
+        {
+            duplicateQueueContext.WarehouseWorkQueues.Add(
+                new WarehouseWorkQueue(
+                    firstWarehouse.Id,
+                    queueCode,
+                    "Duplicate pick queue",
+                    WarehouseWorkType.Pick,
+                    zoneLocationId: null,
+                    priority: 20,
+                    capacity: 10,
+                    requiredTeamCode: null,
+                    WarehouseWorkAssignmentStrategy.Manual,
+                    "[]",
+                    "[]"));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateQueueContext.SaveChangesAsync());
+        }
+
+        (await seedContext.WarehouseWorkerProfiles.CountAsync(profile => profile.UserId == userId))
+            .Should().Be(2);
+        var normalizedQueueCode = queueCode.ToUpperInvariant();
+        (await seedContext.WarehouseWorkQueues.CountAsync(queue => queue.Code == normalizedQueueCode))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
