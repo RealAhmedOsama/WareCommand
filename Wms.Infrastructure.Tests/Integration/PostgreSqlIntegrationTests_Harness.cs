@@ -125,6 +125,27 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
             2,
             await seedContext.Locations
                 .Where(location => location.Code == $"LOC-{token}")
-                .CountAsync());
+            .CountAsync());
+    }
+
+    [PostgreSqlFact]
+    public async Task ItemSkuAndBarcodeIndexesRejectDuplicateRows()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var first = new Item($"PGI-{token}", "Item uniqueness source", "EA");
+        first.AddBarcode($"BC-{token}");
+        seedContext.Items.Add(first);
+        await seedContext.SaveChangesAsync();
+
+        await using var duplicateSkuContext = database.CreateContext();
+        duplicateSkuContext.Items.Add(new Item($"pgi-{token}", "Duplicate SKU", "EA"));
+        await Assert.ThrowsAsync<DbUpdateException>(() => duplicateSkuContext.SaveChangesAsync());
+
+        await using var duplicateBarcodeContext = database.CreateContext();
+        var duplicateBarcode = new Item($"PGI2-{token}", "Duplicate barcode", "EA");
+        duplicateBarcode.AddBarcode($" bc-{token} ");
+        duplicateBarcodeContext.Items.Add(duplicateBarcode);
+        await Assert.ThrowsAsync<DbUpdateException>(() => duplicateBarcodeContext.SaveChangesAsync());
     }
 }
