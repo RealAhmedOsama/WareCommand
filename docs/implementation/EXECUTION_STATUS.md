@@ -6,6 +6,12 @@ committed; they do not claim deployment, external-provider qualification, or
 remote issue closure. Remote issue/checkpoint synchronization is recorded
 explicitly per row and is performed only after an authorized push.
 
+Audit checkpoint — 2026-09-22: all 106 in-scope issues (#2–#107) have
+committed local evidence. Three rows (#22–#24) record remote closure, while
+83 rows (#25–#107) remain explicitly open pending push/review and their listed
+provider, client, migration, production, or other external gates. No remote
+issue state was changed by this audit.
+
 | Issue | State | Acceptance evidence | Commit | Dependencies / blocker | Exact next action |
 | ---: | --- | --- | --- | --- | --- |
 | #2 | verified locally; committed | Restore passed; Debug and Release builds passed with 25 baseline warnings; 147/147 Release tests passed; MVC `/`, `/Dashboard`, `/Items`, `/Inventory` returned 200 against disposable SQLite; WinForms exposed a live main window; reproduction script passed | `f80c431` | Pre-existing untracked `Front-End/` prevents a clean working tree without destroying the supplied package | Upgrade the solution to .NET 10/C# 14 for #3 |
