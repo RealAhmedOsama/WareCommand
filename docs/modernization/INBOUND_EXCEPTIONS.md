@@ -26,6 +26,7 @@ When a receipt line already has stock, creation refuses to capture an exception 
 
 - Domain lifecycle: `Wms.Domain.Tests/Entities/InboundExceptionTests.cs`
 - SQLite service/concurrency-safety boundary: `Wms.Infrastructure.Tests/Inbound/InboundExceptionServiceTests.cs`
+- PostgreSQL idempotency boundary: `Wms.Infrastructure.Tests/Integration/PostgreSqlIntegrationTests_Harness.cs`; the normalized `(warehouse, idempotency key)` identity rejects a duplicate in one warehouse and permits reuse in another. Disposable PostgreSQL verification passed `24/24` with container cleanup.
 - Persistence: `Wms.Infrastructure/Database/Migrations/20260921015804_AddInboundExceptions.cs`
 - API: `Wms.ASP/Controllers/InboundExceptionsController.cs`
 
