@@ -66,6 +66,11 @@ Focused relational tests are in
 The checked-in schema migration is
 `Wms.Infrastructure/Database/Migrations/20260921043412_AddPackingExecution.cs`.
 
+The PostgreSQL harness also proves the packing command identity: duplicate
+`(session, operation, idempotency key)` rows are rejected, while the same key
+can be reused for another operation or another session. Disposable provider
+verification passed `28/28` and removed its container.
+
 ## Remaining release gates
 
 This slice does not claim full issue closure. Provider qualification against the
