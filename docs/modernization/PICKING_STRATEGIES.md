@@ -67,6 +67,13 @@ Infrastructure and ASP builds passed with 0 warnings and 0 errors. EF reported
 no pending model changes and generated a 409651-byte idempotent PostgreSQL
 script. No live database migration, push, or deployment was performed.
 
+The targeted PostgreSQL identity proof
+`PickingStrategyPolicyKeysAreUniquePerWarehouse` passed 1/1 against a
+disposable PostgreSQL 17 instance on 2026-09-22. It proves that a policy key
+cannot be reused inside one warehouse while the same normalized key remains
+valid in another warehouse; the disposable container and port were cleared
+after the run. Commit: `3ffba50`.
+
 This is committed #66 progress, not closure. Provider-backed serializable
 contention, high-volume/performance qualification, mixed lot/serial/LPN
 end-to-end execution, shortage/reallocation and cancellation/replan matrices,
