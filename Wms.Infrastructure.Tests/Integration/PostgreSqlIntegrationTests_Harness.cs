@@ -13,6 +13,7 @@ using Wms.Domain.Inventory;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Administration;
+using Wms.Infrastructure.ApiClients;
 using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Retention;
 using Wms.Infrastructure.Settings;
@@ -2369,6 +2370,43 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task ApiClientIdentityAndSecretMetadataAreEnforcedByPostgreSql()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var now = DateTimeOffset.UtcNow;
+        var firstClientId = $"wms_{token}_first";
+        var secondClientId = $"wms_{token}_second";
+        seedContext.ApiClients.AddRange(
+            CreateApiClient(firstClientId, $"secret-{token}-first", now),
+            CreateApiClient(secondClientId, $"secret-{token}-second", now));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.ApiClients.Add(CreateApiClient(
+                firstClientId,
+                $"secret-{token}-different-owner",
+                now.AddSeconds(1),
+                owner: "different-owner"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        var persisted = await seedContext.ApiClients
+            .Where(client => client.ClientId.StartsWith($"wms_{token}"))
+            .OrderBy(client => client.ClientId)
+            .ToListAsync();
+        persisted.Should().HaveCount(2);
+        persisted.Select(client => client.ClientId).Should().OnlyHaveUniqueItems();
+        persisted.Should().OnlyContain(client =>
+            client.SecretHash.StartsWith("wms-pbkdf2-v1$", StringComparison.Ordinal) &&
+            client.SecretHash != $"secret-{token}-first" &&
+            client.SecretHash != $"secret-{token}-second");
+        persisted.Should().OnlyContain(client => client.SecretVersion == 1);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
@@ -3393,6 +3431,27 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
     }
+
+    private static WmsApiClientEntity CreateApiClient(
+        string clientId,
+        string secret,
+        DateTimeOffset now,
+        string owner = "provider-test") =>
+        new()
+        {
+            ClientId = clientId,
+            Name = $"Provider API client {clientId}",
+            Owner = owner,
+            Status = "Active",
+            ScopesJson = "[\"inventory.read\"]",
+            WarehouseIdsJson = "[]",
+            HasGlobalWarehouseAccess = true,
+            IpRestrictionsJson = "[]",
+            SecretHash = ApiClientSecretHasher.Hash(secret),
+            SecretVersion = 1,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {
