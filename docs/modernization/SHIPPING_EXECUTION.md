@@ -61,6 +61,11 @@ replay, and delivered tracking.
 The checked-in schema migration is
 `Wms.Infrastructure/Database/Migrations/20260921045607_AddShippingExecution.cs`.
 
+The PostgreSQL harness proves the shipment command ledger as well: duplicate
+`(shipment, operation, idempotency key)` rows are rejected while reuse across
+operations and shipments remains valid. Disposable provider verification
+passed `29/29` and removed its container.
+
 ## Remaining release gates
 
 This is a committed shipping execution progress slice, not full issue closure.
