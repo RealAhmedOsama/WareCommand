@@ -8,6 +8,7 @@ using Wms.Domain.Common;
 using Wms.Domain.Entities;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.ApiClients;
+using Wms.Infrastructure.BulkExchange;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Integrations;
@@ -208,6 +209,17 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<WmsWebhookSubscriptionEntity>();
 
     public DbSet<WmsWebhookDeliveryEntity> WebhookDeliveries => Set<WmsWebhookDeliveryEntity>();
+
+    public DbSet<WmsBulkImportMappingProfileEntity> BulkImportMappingProfiles =>
+        Set<WmsBulkImportMappingProfileEntity>();
+
+    public DbSet<WmsBulkImportExecutionEntity> BulkImportExecutions =>
+        Set<WmsBulkImportExecutionEntity>();
+
+    public DbSet<WmsBulkImportSourceFileEntity> BulkImportSourceFiles =>
+        Set<WmsBulkImportSourceFileEntity>();
+
+    public DbSet<WmsBulkImportRowResultEntity> BulkImportRows => Set<WmsBulkImportRowResultEntity>();
 
     public DbSet<WmsRetentionPolicyEntity> RetentionPolicies => Set<WmsRetentionPolicyEntity>();
 
@@ -536,6 +548,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WmsIntegrationInboxConfiguration());
         builder.ApplyConfiguration(new WmsWebhookSubscriptionConfiguration());
         builder.ApplyConfiguration(new WmsWebhookDeliveryConfiguration());
+        builder.ApplyConfiguration(new WmsBulkImportMappingProfileConfiguration());
+        builder.ApplyConfiguration(new WmsBulkImportExecutionConfiguration());
+        builder.ApplyConfiguration(new WmsBulkImportSourceFileConfiguration());
+        builder.ApplyConfiguration(new WmsBulkImportRowResultConfiguration());
         builder.ApplyConfiguration(new WmsRetentionPolicyConfiguration());
         builder.ApplyConfiguration(new WmsRetentionHoldConfiguration());
         builder.ApplyConfiguration(new WmsRetentionRunConfiguration());
