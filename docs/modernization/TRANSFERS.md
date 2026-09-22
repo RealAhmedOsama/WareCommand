@@ -63,6 +63,12 @@ The checked-in schema migration is
 `Wms.Infrastructure/Database/Migrations/20260921061826_AddTransfersAndInternalMovements.cs`.
 Migration lifecycle verification reports no pending model changes.
 
+The disposable PostgreSQL harness also passes 33/33. It proves that internal
+movement request keys are unique per warehouse and transfer command keys are
+unique per `(TransferOrderId, Operation)` while reuse across operations and
+orders remains valid. The test container is removed and the verification port
+is free after the run.
+
 ## Remaining release gates
 
 This is a committed #60 progress slice, not full issue closure. Reservation
