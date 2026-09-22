@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
@@ -1815,6 +1816,165 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
         (await seedContext.WarehouseWorkInterleavingPolicies
                 .CountAsync(policy => policy.Code == normalizedPolicyCode))
             .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
+    public async Task ApprovalRequestDecisionAndExecutionKeysAreEnforcedByPostgreSql()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGAP-{token}", "Approval warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        var now = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var reason = new ReasonCode(
+            $"damage-{token}",
+            ReasonCodeCategory.Damage,
+            "inventory",
+            "adjust",
+            "Damage",
+            "تلف",
+            null,
+            null,
+            now,
+            null,
+            requiresNotes: false,
+            requiresAttachment: false,
+            ReasonCodeSeverity.High,
+            warehouse.Id);
+        var policy = new ApprovalPolicy(
+            $"approval-{token}",
+            "Approval policy",
+            "inventory",
+            "adjust",
+            warehouse.Id,
+            reason.Code,
+            priority: 10,
+            minimumQuantity: 1m,
+            minimumValue: null,
+            minimumVariancePercent: null,
+            itemRisk: null,
+            statusRisk: null,
+            [new ApprovalLevelDefinition(1, [WmsRoleNames.WarehouseManager])],
+            expiryMinutes: 60,
+            requireSeparationOfDuties: true,
+            now,
+            null);
+        seedContext.AddRange(reason, policy);
+        await seedContext.SaveChangesAsync();
+
+        var request = new ApprovalRequest(
+            $"approval-request-{token}",
+            "inventory",
+            "adjust",
+            warehouse.Id,
+            reason.Code,
+            reason.Id,
+            policy.Code,
+            policy.Id,
+            "StockAdjustment",
+            token,
+            null,
+            "requester-user",
+            WmsPermissions.InventoryAdjust,
+            quantity: 10m,
+            value: null,
+            variancePercent: null,
+            itemRisk: null,
+            statusRisk: null,
+            $"state-{token}",
+            notes: null,
+            attachmentReference: null,
+            policy.GetApprovalLevels(),
+            requireSeparationOfDuties: true,
+            now,
+            now.AddMinutes(60));
+        seedContext.ApprovalRequests.Add(request);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateRequestContext = database.CreateContext())
+        {
+            duplicateRequestContext.ApprovalRequests.Add(new ApprovalRequest(
+                request.RequestIdempotencyKey,
+                request.Module,
+                request.Operation,
+                request.WarehouseId,
+                request.ReasonCode,
+                reason.Id,
+                request.PolicyCode,
+                policy.Id,
+                request.SourceEntityType,
+                request.SourceEntityId,
+                null,
+                request.RequesterUserId,
+                request.RequiredPermission,
+                request.Quantity,
+                null,
+                null,
+                null,
+                null,
+                request.CurrentStateHash,
+                null,
+                null,
+                request.GetApprovalLevels(),
+                request.RequireSeparationOfDuties,
+                now,
+                now.AddMinutes(60)));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateRequestContext.SaveChangesAsync());
+        }
+
+        var decision = new ApprovalDecision(
+            request.Id,
+            1,
+            ApprovalDecisionType.Approve,
+            $"decision-{token}",
+            "approver-user",
+            "[\"WarehouseManager\"]",
+            null,
+            now.AddMinutes(1));
+        seedContext.ApprovalDecisions.Add(decision);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateDecisionContext = database.CreateContext())
+        {
+            duplicateDecisionContext.ApprovalDecisions.Add(new ApprovalDecision(
+                request.Id,
+                1,
+                ApprovalDecisionType.Approve,
+                decision.IdempotencyKey,
+                "second-approver",
+                "[\"WarehouseManager\"]",
+                null,
+                now.AddMinutes(2)));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateDecisionContext.SaveChangesAsync());
+        }
+
+        seedContext.ApprovalExecutions.Add(new ApprovalExecution(
+            request.Id,
+            $"execution-{token}",
+            request.CurrentStateHash,
+            "approver-user",
+            now.AddMinutes(3)));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateExecutionContext = database.CreateContext())
+        {
+            duplicateExecutionContext.ApprovalExecutions.Add(new ApprovalExecution(
+                request.Id,
+                $"execution-duplicate-{token}",
+                request.CurrentStateHash,
+                "second-approver",
+                now.AddMinutes(4)));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateExecutionContext.SaveChangesAsync());
+        }
+
+        (await seedContext.ApprovalRequests.CountAsync()).Should().Be(1);
+        (await seedContext.ApprovalDecisions.CountAsync()).Should().Be(1);
+        (await seedContext.ApprovalExecutions.CountAsync()).Should().Be(1);
     }
 
     [PostgreSqlFact]
