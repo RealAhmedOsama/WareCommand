@@ -42,3 +42,11 @@ process-crash/restart qualification, manual retry and administration history
 screens, inbound connector handlers, retention/archival, high-volume ordering,
 and provider/load/production migration evidence. No external endpoint is called
 by the default local configuration.
+
+The PostgreSQL persistence boundary is qualified for the exactly-once
+identities: outbox event IDs, inbox source/message claims, and webhook delivery
+rows for an outbox/subscription pair each reject duplicates. The disposable
+PostgreSQL 17 harness passed 53/53 on 2026-09-22 (port 55507) and cleaned its
+test container. This proves database identity behavior only; transport,
+concurrent claim/restart, handler coverage, load, and production-provider gates
+remain open.
