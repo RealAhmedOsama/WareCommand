@@ -479,6 +479,65 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task ReservationDemandKeysAreWarehouseScopedAndUniqueAtTheDatabaseBoundary()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGR1-{token}", "First reservation warehouse");
+        var secondWarehouse = new Warehouse($"PGR2-{token}", "Second reservation warehouse");
+        var item = new Item($"PGR-{token}", "Reservation item", "EA");
+        seedContext.AddRange(firstWarehouse, secondWarehouse, item);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.InventoryReservations.Add(new InventoryReservation(
+            "sales-order",
+            $"SO-{token}",
+            demandLine: 1,
+            warehouseId: firstWarehouse.Id,
+            itemId: item.Id,
+            requestedQuantity: 2m,
+            mode: InventoryReservationMode.Hard,
+            priority: 1,
+            expiresAtUtc: null,
+            actorUserId: "postgres-test",
+            correlationId: $"CORR-{token}"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.InventoryReservations.Add(new InventoryReservation(
+                "sales-order",
+                $"SO-{token}",
+                demandLine: 1,
+                warehouseId: firstWarehouse.Id,
+                itemId: item.Id,
+                requestedQuantity: 2m,
+                mode: InventoryReservationMode.Hard,
+                priority: 1,
+                expiresAtUtc: null,
+                actorUserId: "postgres-test",
+                correlationId: $"CORR2-{token}"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        await using var secondWarehouseContext = database.CreateContext();
+        secondWarehouseContext.InventoryReservations.Add(new InventoryReservation(
+            "sales-order",
+            $"SO-{token}",
+            demandLine: 1,
+            warehouseId: secondWarehouse.Id,
+            itemId: item.Id,
+            requestedQuantity: 2m,
+            mode: InventoryReservationMode.Hard,
+            priority: 1,
+            expiresAtUtc: null,
+            actorUserId: "postgres-test",
+            correlationId: $"CORR3-{token}"));
+        await secondWarehouseContext.SaveChangesAsync();
+    }
+
+    [PostgreSqlFact]
     public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
     {
         await using var context = database.CreateContext();
