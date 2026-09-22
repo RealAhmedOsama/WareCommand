@@ -36,3 +36,11 @@ surfaces, browser progress/cancel UI, formula/content security qualification,
 large-file/load/cancellation/retry evidence, and production storage/retention
 gates remain open. The current Excel path fails closed until an approved adapter
 is configured.
+
+The PostgreSQL identity boundary is qualified for mapping profiles
+`(importType, name, version)`, execution `(user, idempotencyKey)`, and result
+rows `(execution, rowNumber)`. A later profile version and the same idempotency
+key for a different user are accepted; duplicates in each protected scope are
+rejected. The disposable PostgreSQL 17 harness passed 54/54 on 2026-09-22
+(port 55508) and cleaned its test container. Large-file, job, handler, and
+production-storage gates remain open.
