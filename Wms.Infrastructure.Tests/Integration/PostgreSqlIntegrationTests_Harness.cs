@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Wms.Application.Identity;
+using Wms.Application.Retention;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Notifications;
+using Wms.Infrastructure.Retention;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
 namespace Wms.Infrastructure.Tests.Integration;
@@ -2131,6 +2133,151 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
 
         (await seedContext.Notifications.CountAsync()).Should().Be(1);
         (await seedContext.NotificationRecipients.CountAsync()).Should().Be(2);
+    }
+
+    [PostgreSqlFact]
+    public async Task RetentionPoliciesRunsAndArchivesEnforceIdentityBoundaries()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGRN-{token}", "Retention warehouse");
+        var secondWarehouse = new Warehouse($"PGRN2-{token}", "Second retention warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var policyKey = $"documents-{token}";
+        seedContext.RetentionPolicies.AddRange(
+            new WmsRetentionPolicyEntity
+            {
+                Class = RetentionClass.Documents,
+                PolicyKey = policyKey,
+                RetentionDays = 3650,
+                MinimumRetentionDays = 365,
+                WarehouseId = firstWarehouse.Id,
+                CompanyCode = "COMPANY",
+                ArchiveBeforePurge = true,
+                ExportBeforePurge = false,
+                Enabled = true,
+                Revision = 1,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            },
+            new WmsRetentionPolicyEntity
+            {
+                Class = RetentionClass.Documents,
+                PolicyKey = policyKey,
+                RetentionDays = 3650,
+                MinimumRetentionDays = 365,
+                WarehouseId = secondWarehouse.Id,
+                CompanyCode = "COMPANY",
+                ArchiveBeforePurge = true,
+                ExportBeforePurge = false,
+                Enabled = true,
+                Revision = 1,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            });
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePolicyContext = database.CreateContext())
+        {
+            duplicatePolicyContext.RetentionPolicies.Add(new WmsRetentionPolicyEntity
+            {
+                Class = RetentionClass.Documents,
+                PolicyKey = policyKey,
+                RetentionDays = 3650,
+                MinimumRetentionDays = 365,
+                WarehouseId = firstWarehouse.Id,
+                CompanyCode = "COMPANY",
+                ArchiveBeforePurge = true,
+                Enabled = true,
+                Revision = 1,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+                UpdatedAtUtc = DateTimeOffset.UtcNow
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePolicyContext.SaveChangesAsync());
+        }
+
+        var runId = Guid.NewGuid();
+        var run = new WmsRetentionRunEntity
+        {
+            RunId = runId,
+            Status = RetentionRunStatus.Preview,
+            DryRun = true,
+            AllowDestructive = false,
+            BackupVerified = false,
+            AsOfUtc = DateTimeOffset.UtcNow,
+            WarehouseId = firstWarehouse.Id,
+            CompanyCode = "COMPANY",
+            BatchSize = 100,
+            RequestedByUserId = "retention-user",
+            StartedAtUtc = DateTimeOffset.UtcNow
+        };
+        run.Counts.Add(new WmsRetentionRunCountEntity
+        {
+            RunId = runId,
+            Class = RetentionClass.Documents,
+            IsImplemented = true,
+            IsPurgeAllowed = true,
+            Examined = 4,
+            Eligible = 2,
+            Held = 1,
+            Skipped = 1
+        });
+        seedContext.RetentionRuns.Add(run);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateCountContext = database.CreateContext())
+        {
+            duplicateCountContext.RetentionRunCounts.Add(new WmsRetentionRunCountEntity
+            {
+                RunId = runId,
+                Class = RetentionClass.Documents,
+                IsImplemented = true,
+                IsPurgeAllowed = true
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateCountContext.SaveChangesAsync());
+        }
+
+        var archive = new WmsRetentionArchiveReferenceEntity
+        {
+            Class = RetentionClass.Documents,
+            SourceType = "Attachment",
+            SourceId = $"attachment-{token}",
+            WarehouseId = firstWarehouse.Id,
+            ArchiveLocator = $"archive/{token}",
+            SourceHash = new string('B', 64),
+            MetadataJson = "{}",
+            RunId = runId,
+            ArchivedAtUtc = DateTimeOffset.UtcNow
+        };
+        seedContext.RetentionArchiveReferences.Add(archive);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateArchiveContext = database.CreateContext())
+        {
+            duplicateArchiveContext.RetentionArchiveReferences.Add(new WmsRetentionArchiveReferenceEntity
+            {
+                Class = RetentionClass.Documents,
+                SourceType = archive.SourceType,
+                SourceId = archive.SourceId,
+                WarehouseId = archive.WarehouseId,
+                ArchiveLocator = $"archive/{token}/duplicate",
+                RunId = Guid.NewGuid(),
+                ArchivedAtUtc = DateTimeOffset.UtcNow
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateArchiveContext.SaveChangesAsync());
+        }
+
+        (await seedContext.RetentionPolicies.CountAsync(policy => policy.PolicyKey == policyKey))
+            .Should().Be(2);
+        (await seedContext.RetentionRunCounts.CountAsync(count => count.RunId == runId))
+            .Should().Be(1);
+        (await seedContext.RetentionArchiveReferences.CountAsync(reference => reference.RunId == runId))
+            .Should().Be(1);
     }
 
     [PostgreSqlFact]
