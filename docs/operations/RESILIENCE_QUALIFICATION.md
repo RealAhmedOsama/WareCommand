@@ -14,6 +14,19 @@ configuration. A recovery outcome fails when it leaves partial mutations,
 duplicate business outcomes, unexplained reconciliation errors, missing
 durable resume/dead-letter behavior, or incomplete recovery diagnostics.
 
+Run the local policy qualification with:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-resilience-qualification.ps1 -PlanOnly
+pwsh -NoProfile -File scripts/verify-resilience-qualification.ps1 `
+  -Environment LocalQualification `
+  -EvidencePath artifacts/resilience-local.json
+```
+
+The result is explicitly `contract-only`: it executes the focused resilience
+tests, records the four critical scenarios, refuses Production/Staging, and
+does not create a provider, queue, runtime database, or external artifact.
+
 ## Remaining qualification
 
 Wire test-only hooks into database timeout/conflict, transaction boundaries,
