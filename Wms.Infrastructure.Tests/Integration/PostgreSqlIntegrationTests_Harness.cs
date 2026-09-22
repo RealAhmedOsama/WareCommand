@@ -1079,6 +1079,128 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task ClassificationPoliciesAndResultsAreWarehouseScopedAndUnique()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGABC-{token}", "ABC classification warehouse");
+        var secondWarehouse = new Warehouse($"PGABC2-{token}", "Second ABC classification warehouse");
+        var item = new Item($"PGABC-{token}", "ABC classification item", "EA");
+        seedContext.AddRange(firstWarehouse, secondWarehouse, item);
+        await seedContext.SaveChangesAsync();
+
+        var policyKey = $"abc-policy-{token}";
+        var firstPolicy = new InventoryClassificationPolicy(
+            firstWarehouse.Id,
+            policyKey,
+            InventoryClassificationMethod.ShippedQuantity,
+            lookbackDays: 30,
+            aThresholdPercent: 80m,
+            bThresholdPercent: 95m,
+            minimumActivityValue: 0m,
+            DateTime.UtcNow.AddDays(-1));
+        var secondPolicy = new InventoryClassificationPolicy(
+            secondWarehouse.Id,
+            policyKey,
+            InventoryClassificationMethod.ShippedQuantity,
+            lookbackDays: 30,
+            aThresholdPercent: 80m,
+            bThresholdPercent: 95m,
+            minimumActivityValue: 0m,
+            DateTime.UtcNow.AddDays(-1));
+        seedContext.InventoryClassificationPolicies.AddRange(firstPolicy, secondPolicy);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePolicyContext = database.CreateContext())
+        {
+            duplicatePolicyContext.InventoryClassificationPolicies.Add(new InventoryClassificationPolicy(
+                firstWarehouse.Id,
+                policyKey,
+                InventoryClassificationMethod.ShippedQuantity,
+                lookbackDays: 30,
+                aThresholdPercent: 80m,
+                bThresholdPercent: 95m,
+                minimumActivityValue: 0m,
+                DateTime.UtcNow.AddDays(-1)));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePolicyContext.SaveChangesAsync());
+        }
+
+        var lookbackFrom = DateTime.UtcNow.AddDays(-30);
+        var lookbackTo = DateTime.UtcNow;
+        seedContext.InventoryClassifications.Add(new InventoryClassification(
+            firstWarehouse.Id,
+            item.Id,
+            InventoryClassificationClass.A,
+            InventoryClassificationSource.Automatic,
+            metricValue: 100m,
+            cumulativePercent: 50m,
+            shippedQuantity: 100m,
+            shippedLineCount: 4,
+            movementQuantity: 100m,
+            inventoryValue: 50m,
+            criticalityScore: 1m,
+            lookbackFrom,
+            lookbackTo,
+            firstPolicy.Id,
+            firstPolicy.Revision,
+            "abc-v1",
+            $"run-1-{token}",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateClassificationContext = database.CreateContext())
+        {
+            duplicateClassificationContext.InventoryClassifications.Add(new InventoryClassification(
+                firstWarehouse.Id,
+                item.Id,
+                InventoryClassificationClass.B,
+                InventoryClassificationSource.Automatic,
+                metricValue: 90m,
+                cumulativePercent: 70m,
+                shippedQuantity: 90m,
+                shippedLineCount: 3,
+                movementQuantity: 90m,
+                inventoryValue: 45m,
+                criticalityScore: 1m,
+                lookbackFrom,
+                lookbackTo,
+                firstPolicy.Id,
+                firstPolicy.Revision,
+                "abc-v1",
+                $"run-2-{token}",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateClassificationContext.SaveChangesAsync());
+        }
+
+        seedContext.InventoryClassifications.Add(new InventoryClassification(
+            secondWarehouse.Id,
+            item.Id,
+            InventoryClassificationClass.B,
+            InventoryClassificationSource.Automatic,
+            metricValue: 90m,
+            cumulativePercent: 70m,
+            shippedQuantity: 90m,
+            shippedLineCount: 3,
+            movementQuantity: 90m,
+            inventoryValue: 45m,
+            criticalityScore: 1m,
+            lookbackFrom,
+            lookbackTo,
+            secondPolicy.Id,
+            secondPolicy.Revision,
+            "abc-v1",
+            $"run-3-{token}",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        var normalizedPolicyKey = policyKey.ToUpperInvariant();
+        (await seedContext.InventoryClassificationPolicies.CountAsync(policy => policy.PolicyKey == normalizedPolicyKey))
+            .Should().Be(2);
+        (await seedContext.InventoryClassifications.CountAsync(classification => classification.ItemId == item.Id))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
