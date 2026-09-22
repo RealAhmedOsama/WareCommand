@@ -21,7 +21,14 @@ opportunistic cross-dock decisions.
   quantities remain explicit fallback quantities. Simulation and plan creation
   do not write stock, reservations, or ledger movements.
 - Plan creation is warehouse-local and replay-safe through a unique creation
-  key; cancellation is allowed only before a future execution boundary.
+key; cancellation is allowed only before a future execution boundary.
+
+The targeted PostgreSQL identity proof
+`CrossDockPolicyKeysAreUniquePerWarehouse` passed 1/1 against a disposable
+PostgreSQL 17 instance on 2026-09-22. It proves that a policy key cannot be
+reused inside one warehouse while the same key remains valid in another
+warehouse; the disposable container and port were cleared after the run.
+Commit: `a60f1bd`.
 
 ## Deliberate boundary
 
