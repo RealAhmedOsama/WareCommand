@@ -637,6 +637,94 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task ReturnCommandKeysAreUniquePerAuthorization()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGRN-{token}", "Return command warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        var returnLocation = new Location(
+            $"PGRN-{token}",
+            "Return location",
+            warehouse.Id,
+            type: LocationType.Returns,
+            isPickable: false,
+            isReceivable: true);
+        seedContext.Locations.Add(returnLocation);
+        await seedContext.SaveChangesAsync();
+
+        var firstReturn = new ReturnAuthorization(
+            $"RMA-PGRN-1-{token}",
+            warehouse.Id,
+            customerId: null,
+            salesOrderId: null,
+            shipmentId: null,
+            packageId: null,
+            returnLocation.Id,
+            unplanned: true,
+            "Unplanned return",
+            "postgres-test",
+            DateTime.UtcNow);
+        var secondReturn = new ReturnAuthorization(
+            $"RMA-PGRN-2-{token}",
+            warehouse.Id,
+            customerId: null,
+            salesOrderId: null,
+            shipmentId: null,
+            packageId: null,
+            returnLocation.Id,
+            unplanned: true,
+            "Second unplanned return",
+            "postgres-test",
+            DateTime.UtcNow);
+        seedContext.ReturnAuthorizations.AddRange(firstReturn, secondReturn);
+        await seedContext.SaveChangesAsync();
+
+        var key = $"return-command-{token}";
+        seedContext.ReturnCommands.Add(new ReturnCommand(
+            firstReturn.Id,
+            "receive",
+            key,
+            "hash-1",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.ReturnCommands.Add(new ReturnCommand(
+                firstReturn.Id,
+                "receive",
+                key,
+                "hash-1",
+                "postgres-test",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.ReturnCommands.Add(new ReturnCommand(
+            firstReturn.Id,
+            "dispose",
+            key,
+            "hash-2",
+            "postgres-test",
+            DateTime.UtcNow));
+        seedContext.ReturnCommands.Add(new ReturnCommand(
+            secondReturn.Id,
+            "receive",
+            key,
+            "hash-3",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.ReturnCommands.CountAsync(command => command.IdempotencyKey == key))
+            .Should().Be(3);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
