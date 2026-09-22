@@ -46,3 +46,8 @@ Mobile camera capture, upload progress, attachment lists/previews embedded in ev
 ## Qualification evidence
 
 `AttachmentServiceTests` covers traversal and MIME/signature mismatch, IDOR/reference authorization, duplicate and count limits, storage failure without metadata, quarantine, immutable evidence, retention, and safe download behavior. `LocalAttachmentStorageTests` covers generated-key storage and traversal rejection.
+The PostgreSQL harness passed 48/48 on 2026-09-22; it proves duplicate SHA-256
+metadata is rejected within one reference, the same hash is allowed for a
+different reference, and suspicious uploads persist as quarantined. The
+attachment entity now normalizes SHA-256 values to lowercase before applying
+the database uniqueness boundary.
