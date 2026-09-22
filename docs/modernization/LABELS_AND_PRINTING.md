@@ -49,3 +49,8 @@ and preview require `settings.manage`; active-template printing uses the
 authenticated `inventory.read` boundary. No printer vendor SDK or live printer
 endpoint is bundled. Provider/client qualification, station administration,
 and production font/printer validation remain deployment evidence gates.
+
+The focused label qualification rerun passed 8/8 on 2026-09-22: five
+`LabelTemplateEngineTests` and three `LabelServicesTests`. Real printer/font
+adapters, Arabic embedded-font qualification, queue load, and station/provider
+qualification remain open.

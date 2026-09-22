@@ -33,4 +33,9 @@ PDF/Excel renderers, persisted report artifacts, scheduled recipient/channel con
 
 ## Qualification
 
+The focused `ReportsFlowTests` rerun passed 3/3 on 2026-09-22 for combined
+filters/scope paging, grouped aggregation, UTF-8 CSV export, and
+English/Arabic direction. PDF/Excel, scheduled delivery, retention, and
+provider-scale gates remain open.
+
 `Wms.ASP.Tests/ReportsFlowTests.cs` covers combined filters, date boundaries, paging, warehouse isolation, grouped aggregation/page clamping, UTF-8 CSV export, and English/Arabic document direction. `Wms.Application.Tests/Localization/WmsLocalizationResourceTests.cs` covers resource parity. The ASP.NET and Infrastructure projects must build with zero warnings and errors before this slice is committed.

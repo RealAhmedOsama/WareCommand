@@ -55,6 +55,10 @@ release, and supervisor-approved partial shipment. Infrastructure and ASP
 builds must remain warning-free, and the EF migration is generated but not
 applied here.
 
+The focused `SupplierReturnServiceTests` rerun passed 5/5 on 2026-09-22,
+refreshing the reserve/move/pack/ship lifecycle and partial/cancellation
+boundaries.
+
 This slice is intentionally recorded as progress rather than closure. Real
 carrier/EDI acknowledgement, provider-backed concurrency and warehouse-volume
 evidence, packing/loading and carrier/document adapters, labels and report
