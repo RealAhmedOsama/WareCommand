@@ -117,11 +117,12 @@ boundaries when adding expensive operations.
 
 ## Open security scope
 
-The controls above are locally implemented and tested, but they do not replace
-an external security review. Remaining release gates include threat modeling,
-deep dependency/vulnerability scanning, deployment-specific proxy and HTTPS
-verification, production secret rotation, backup/restore rehearsal, and
-provider-specific qualification. Treat the application as an internal
+The controls above are locally implemented and tested, and the repository threat
+model is recorded in [`docs/security/THREAT_MODEL.md`](docs/security/THREAT_MODEL.md),
+but neither replaces an external security review. Remaining release gates include
+threat-model follow-up, deep dependency/vulnerability scanning, deployment-specific
+proxy and HTTPS verification, production secret rotation, backup/restore rehearsal,
+and provider-specific qualification. Treat the application as an internal
 development system until those gates are implemented and evidenced.
 
 Report suspected vulnerabilities privately through the repository's
