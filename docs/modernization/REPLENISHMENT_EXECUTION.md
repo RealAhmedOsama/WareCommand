@@ -49,6 +49,11 @@ enforced by the movement boundary.
 - Debug ASP and Infrastructure builds passed with 0 warnings and 0 errors.
 - No new migration was required; the existing warehouse-work schema is the
   durable plan ledger.
+- The targeted PostgreSQL policy-boundary proof passes 1/1 and confirms that
+  the persisted quantity-order check rejects an invalid target update while
+  preserving the valid policy. A serialized full PostgreSQL harness pass also
+  passed 34/34; the default parallel wrapper terminated its disposable
+  container under load, so parallel provider stability remains open.
 
 ## Remaining #61 gates
 
