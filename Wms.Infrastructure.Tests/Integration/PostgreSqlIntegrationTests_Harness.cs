@@ -1515,6 +1515,71 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task SlottingPolicyKeysAreUniquePerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGSL-{token}", "Slotting policy warehouse");
+        var secondWarehouse = new Warehouse($"PGSL2-{token}", "Second slotting policy warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var policyKey = $"slotting-policy-{token}";
+        seedContext.SlottingPolicies.AddRange(
+            new SlottingPolicy(
+                firstWarehouse.Id,
+                policyKey,
+                "First slotting policy",
+                lookbackDays: 30,
+                velocityWeight: 1m,
+                travelWeight: 1m,
+                spaceWeight: 1m,
+                replenishmentWeight: 1m,
+                affinityWeight: 1m,
+                maxRecommendationsPerItem: 3,
+                recommendationExpiryDays: 14,
+                effectiveFromUtc: DateTime.UtcNow.AddDays(-1)),
+            new SlottingPolicy(
+                secondWarehouse.Id,
+                policyKey,
+                "Second slotting policy",
+                lookbackDays: 60,
+                velocityWeight: 2m,
+                travelWeight: 1m,
+                spaceWeight: 1m,
+                replenishmentWeight: 1m,
+                affinityWeight: 1m,
+                maxRecommendationsPerItem: 5,
+                recommendationExpiryDays: 21,
+                effectiveFromUtc: DateTime.UtcNow.AddDays(-1)));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePolicyContext = database.CreateContext())
+        {
+            duplicatePolicyContext.SlottingPolicies.Add(
+                new SlottingPolicy(
+                    firstWarehouse.Id,
+                    policyKey,
+                    "Duplicate slotting policy",
+                    lookbackDays: 90,
+                    velocityWeight: 3m,
+                    travelWeight: 1m,
+                    spaceWeight: 1m,
+                    replenishmentWeight: 1m,
+                    affinityWeight: 1m,
+                    maxRecommendationsPerItem: 7,
+                    recommendationExpiryDays: 30,
+                    effectiveFromUtc: DateTime.UtcNow.AddDays(-1)));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePolicyContext.SaveChangesAsync());
+        }
+
+        var normalizedPolicyKey = policyKey.ToUpperInvariant();
+        (await seedContext.SlottingPolicies
+                .CountAsync(policy => policy.PolicyKey == normalizedPolicyKey))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
