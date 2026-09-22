@@ -18,6 +18,15 @@ The summary is diagnostic and does not activate a workflow. A blocked inbound or
 
 The deployment health check links to `/health/ready`; the administration service does not claim backup, storage, or job-runner health from configuration alone.
 
+The readiness query is provider-qualified against PostgreSQL. With a
+warehouse-scoped access context it returns only the authorized active
+warehouse, while reading the global settings row, operational-location roles,
+immutable audit table, and enabled retention-policy state from the same
+database. The disposable PostgreSQL 17 harness passed 51/51 on 2026-09-22
+(port 55505) and cleaned its test container. This is persistence and scope
+evidence only; complete module CRUD/import/export, provider load, browser and
+handheld accessibility, and production qualification remain open.
+
 ## Remaining #85 work
 
 The issue remains open for the complete cross-module acceptance matrix: unified create/edit/activate/deactivate and bulk/import/export experiences for every configurable feature, high-impact preview and rollback/version restore workflows where supported, device/printer administration, integrations/API setup, full browser responsive/accessibility evidence, and end-to-end localization verification.
