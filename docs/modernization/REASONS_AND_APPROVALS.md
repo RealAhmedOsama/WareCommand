@@ -62,7 +62,10 @@ The local qualification is complete for the shared boundary: threshold
 selection, localized reason validation, required evidence, multi-level roles,
 self-approval rejection, decision replay, rejection/expiry, stale-state
 revalidation, exactly-once execution replay, authorization, audit, and inbox
-notification are covered by `ApprovalServiceTests`.
+notification are covered by `ApprovalServiceTests`. The disposable PostgreSQL
+harness passed 47/47 on 2026-09-22; it additionally proves unique request
+idempotency, per-request decision idempotency, and one execution lease per
+approval request at the provider boundary.
 
 ## Remaining gates
 
