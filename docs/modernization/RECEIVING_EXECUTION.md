@@ -40,8 +40,13 @@ transactional receiving use case and its persisted receipt.
 - `Wms.Infrastructure.Tests/Receiving/ReceivingExecutionServiceTests.cs`:
   start idempotency, lifecycle persistence, paused-scan rejection, successful
   scan ledger persistence, and replay without a second receiving mutation.
-- `Wms.Application.Tests` receiving qualification: 11 focused existing
-  receive/idempotency tests passed after the idempotency contract change.
+- `Wms.Application.Tests` receiving qualification: 12 focused
+  receive/idempotency tests passed, including the persisted-receipt fail-closed
+  boundary.
+- Disposable PostgreSQL verification passed 20/20. The provider run includes a
+  regression proving `(ReceivingSessionId, ClientOperationId)` rejects a
+  duplicate scan in one session while allowing the same client operation in a
+  different session; the test container was removed after the run.
 - Debug builds of Infrastructure and ASP: 0 warnings, 0 errors.
 - `scripts/verify-migrations.ps1`: migration lifecycle verification is required
   before the scoped commit.
