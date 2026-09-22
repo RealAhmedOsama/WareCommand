@@ -538,6 +538,34 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task SupplierCodeAndExternalIdentityIndexesRejectDuplicates()
+    {
+        await using var context = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        context.Suppliers.Add(new Supplier(
+            $"SUP-{token}",
+            "PostgreSQL supplier",
+            externalErpIdentifier: $"ERP-{token}"));
+        await context.SaveChangesAsync();
+
+        await using (var duplicateCodeContext = database.CreateContext())
+        {
+            duplicateCodeContext.Suppliers.Add(new Supplier(
+                $" sup-{token} ",
+                "Duplicate supplier code",
+                externalErpIdentifier: $"ERP2-{token}"));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateCodeContext.SaveChangesAsync());
+        }
+
+        await using var duplicateExternalContext = database.CreateContext();
+        duplicateExternalContext.Suppliers.Add(new Supplier(
+            $"SUP2-{token}",
+            "Duplicate ERP identity",
+            externalErpIdentifier: $" erp-{token} "));
+        await Assert.ThrowsAsync<DbUpdateException>(() => duplicateExternalContext.SaveChangesAsync());
+    }
+
+    [PostgreSqlFact]
     public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
     {
         await using var context = database.CreateContext();
