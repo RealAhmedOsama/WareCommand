@@ -14,14 +14,17 @@ public partial class LocationManagementForm : Form
 {
     private readonly ICurrentUser _currentUser;
     private readonly IGetLocationsUseCase _getLocationsUseCase;
+    private readonly IDeleteLocationUseCase _deleteLocationUseCase;
     private readonly ILogger<LocationManagementForm> _logger;
 
     public LocationManagementForm(
         IGetLocationsUseCase getLocationsUseCase,
+        IDeleteLocationUseCase deleteLocationUseCase,
         ICurrentUser currentUser,
         ILogger<LocationManagementForm> logger)
     {
         _getLocationsUseCase = getLocationsUseCase;
+        _deleteLocationUseCase = deleteLocationUseCase;
         _currentUser = currentUser;
         _logger = logger;
         InitializeComponent();
@@ -95,8 +98,31 @@ public partial class LocationManagementForm : Form
 
         if (result == DialogResult.Yes)
         {
-            // TODO: Implement delete functionality
-            ModernUIHelper.ShowModernWarning("Delete functionality not implemented yet.");
+            try
+            {
+                SetBusy(true);
+                var deleteResult = await _deleteLocationUseCase.ExecuteAsync(
+                    Convert.ToInt32(selectedRow.Cells["Id"].Value, CultureInfo.CurrentCulture),
+                    _currentUser.RequireUserId());
+
+                if (deleteResult.IsFailure)
+                {
+                    ModernUIHelper.ShowModernError(deleteResult.Error);
+                    return;
+                }
+
+                ModernUIHelper.ShowModernSuccess("Location deactivated successfully.");
+                await LoadLocationsAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting location {LocationCode}", locationCode);
+                ModernUIHelper.ShowModernError($"Error deleting location: {ex.Message}");
+            }
+            finally
+            {
+                SetBusy(false);
+            }
         }
     }
 
