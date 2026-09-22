@@ -169,6 +169,55 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task InboundExceptionIdempotencyKeysAreUniquePerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGE-{token}", "Inbound exception warehouse");
+        var secondWarehouse = new Warehouse($"PGE2-{token}", "Second inbound exception warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var idempotencyKey = $"scan-exception-{token}";
+        seedContext.InboundExceptions.Add(new InboundException(
+            firstWarehouse.Id,
+            $"EX-{token}-1",
+            idempotencyKey,
+            InboundExceptionCode.DocumentMismatch,
+            InboundExceptionSeverity.High,
+            "Inbound document mismatch",
+            createdByUserId: "postgres-test"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.InboundExceptions.Add(new InboundException(
+                firstWarehouse.Id,
+                $"EX-{token}-2",
+                idempotencyKey,
+                InboundExceptionCode.DocumentMismatch,
+                InboundExceptionSeverity.High,
+                "Duplicate inbound document mismatch",
+                createdByUserId: "postgres-test"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.InboundExceptions.Add(new InboundException(
+            secondWarehouse.Id,
+            $"EX-{token}-3",
+            idempotencyKey,
+            InboundExceptionCode.DocumentMismatch,
+            InboundExceptionSeverity.High,
+            "Second warehouse document mismatch",
+            createdByUserId: "postgres-test"));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.InboundExceptions.CountAsync(exception => exception.IdempotencyKey == idempotencyKey))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task RevisionTokenRejectsConcurrentWorkMutation()
     {
         await using var seedContext = database.CreateContext();
