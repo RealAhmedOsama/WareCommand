@@ -7,7 +7,7 @@ public sealed class WmsJobCatalogTests
     [Fact]
     public void CatalogUsesStableNamesQueuesAndRecurringIdentifiers()
     {
-        WmsJobCatalog.All.Should().HaveCount(12);
+        WmsJobCatalog.All.Should().HaveCount(13);
         WmsJobCatalog.All.Select(definition => definition.Name)
             .Should().OnlyHaveUniqueItems();
 
