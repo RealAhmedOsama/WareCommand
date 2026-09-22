@@ -1303,6 +1303,9 @@ public sealed class InventoryReconciliationService(
                 LicensePlateId = group.Key.LicensePlateId,
                 InventoryStatusId = group.Key.InventoryStatusId,
                 BaseUnitOfMeasure = group.Key.BaseUnitOfMeasure,
+                OwnerKind = group.Key.OwnerKind,
+                InventoryOwnerId = group.Key.InventoryOwnerId,
+                OwnerCodeSnapshot = group.Key.OwnerCodeSnapshot,
                 OnHandQuantity = group.Sum(transaction => transaction.QuantityDelta),
                 ReservedQuantity = group.Sum(transaction => transaction.ReservedQuantityDelta)
             });
@@ -1341,6 +1344,9 @@ public sealed class InventoryReconciliationService(
                 LicensePlateId = group.Key.LicensePlateId,
                 InventoryStatusId = group.Key.InventoryStatusId,
                 BaseUnitOfMeasure = group.Key.BaseUnitOfMeasure,
+                OwnerKind = group.Key.OwnerKind,
+                InventoryOwnerId = group.Key.InventoryOwnerId,
+                OwnerCodeSnapshot = group.Key.OwnerCodeSnapshot,
                 RemainingQuantity = group.Sum(allocation =>
                     allocation.AllocatedQuantity -
                     allocation.ConsumedQuantity -
