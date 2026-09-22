@@ -26,6 +26,9 @@ grant; the destination endpoint must authorize again.
 - External delivery rows carry attempts, lease, retry time, bounded error text,
   and correlation ID. Dispatch is invoked by the existing integration-retry
   background job after commit.
+- The disposable PostgreSQL harness passed 49/49 on 2026-09-22; it proves
+  durable notification deduplication and recipient/channel uniqueness at the
+  provider boundary.
 
 ## Remaining qualification
 
