@@ -218,6 +218,77 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task OutboundExceptionResolutionKeysAreUniquePerExceptionAndOperation()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGOE-{token}", "Outbound exception warehouse");
+        var secondWarehouse = new Warehouse($"PGOE2-{token}", "Second outbound exception warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var firstException = new OutboundException(
+            firstWarehouse.Id,
+            $"OUT-{token}-1",
+            $"exception-{token}-1",
+            OutboundExceptionCode.AllocationShortage,
+            OutboundExceptionSeverity.Major,
+            "Allocation shortage",
+            createdByUserId: "postgres-test");
+        var secondException = new OutboundException(
+            secondWarehouse.Id,
+            $"OUT-{token}-2",
+            $"exception-{token}-2",
+            OutboundExceptionCode.StockNotFound,
+            OutboundExceptionSeverity.Warning,
+            "Stock not found",
+            createdByUserId: "postgres-test");
+        seedContext.OutboundExceptions.AddRange(firstException, secondException);
+        await seedContext.SaveChangesAsync();
+
+        var key = $"resolve-{token}";
+        seedContext.OutboundExceptionCommands.Add(new OutboundExceptionCommand(
+            firstException.Id,
+            "reallocate",
+            key,
+            "hash-1",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.OutboundExceptionCommands.Add(new OutboundExceptionCommand(
+                firstException.Id,
+                "reallocate",
+                key,
+                "hash-1",
+                "postgres-test",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.OutboundExceptionCommands.Add(new OutboundExceptionCommand(
+            firstException.Id,
+            "repick",
+            key,
+            "hash-2",
+            "postgres-test",
+            DateTime.UtcNow));
+        seedContext.OutboundExceptionCommands.Add(new OutboundExceptionCommand(
+            secondException.Id,
+            "reallocate",
+            key,
+            "hash-3",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.OutboundExceptionCommands.CountAsync(command => command.IdempotencyKey == key))
+            .Should().Be(3);
+    }
+
+    [PostgreSqlFact]
     public async Task CustomerIdentifiersRejectDuplicateNormalizedValues()
     {
         await using var seedContext = database.CreateContext();
