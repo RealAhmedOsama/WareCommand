@@ -40,6 +40,10 @@ expected snapshot remains server-side on `CycleCountLine`.
 - Debug ASP/Infrastructure builds passed with 0 warnings and 0 errors.
 - Migration `20260921070421_AddCycleCounting` adds plan, task, and line tables;
   migration lifecycle verification remains required before commit handoff.
+- A targeted disposable PostgreSQL proof passed 1/1. It confirms that plan
+  keys are unique within a warehouse while the same key can be used in another
+  warehouse, and that generated task keys remain globally unique across plans.
+  The container and verification port were clean after the run.
 
 ## Remaining #62 gates
 
