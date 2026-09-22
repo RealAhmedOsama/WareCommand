@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
@@ -354,6 +355,77 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
             isSscc: true));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+    }
+
+    [PostgreSqlFact]
+    public async Task LedgerBalanceAndIdempotencyIndexesRejectDuplicateRows()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGLG-{token}", "Ledger warehouse");
+        var item = new Item($"PGLG-{token}", "Ledger item", "EA");
+        seedContext.AddRange(warehouse, item);
+        await seedContext.SaveChangesAsync();
+
+        var location = new Location($"PGLG-{token}", "Ledger bin", warehouse.Id);
+        seedContext.Locations.Add(location);
+        await seedContext.SaveChangesAsync();
+
+        var key = new InventoryBalanceKey(
+            warehouse.Id,
+            location.Id,
+            item.Id,
+            lotId: null,
+            serialNumberId: null,
+            serialNumber: null,
+            licensePlateId: null,
+            InventoryStatusSystemIds.Available,
+            item.UnitOfMeasure);
+        seedContext.InventoryBalances.Add(new InventoryBalance(key));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateBalanceContext = database.CreateContext())
+        {
+            duplicateBalanceContext.InventoryBalances.Add(new InventoryBalance(key));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateBalanceContext.SaveChangesAsync());
+        }
+
+        var occurredAt = DateTime.UtcNow;
+        seedContext.InventoryTransactions.Add(new InventoryTransaction(
+            InventoryTransactionType.Receipt,
+            key,
+            quantityDelta: 1m,
+            quantityBefore: 0m,
+            quantityAfter: 1m,
+            reservedQuantityDelta: 0m,
+            reservedQuantityBefore: 0m,
+            reservedQuantityAfter: 0m,
+            actorUserId: "postgres-test",
+            occurredAtUtc: occurredAt,
+            correlationId: $"CORR-{token}",
+            idempotencyKey: $"IDEMP-{token}",
+            transactionGroupId: $"GROUP-{token}",
+            entrySequence: 1));
+        await seedContext.SaveChangesAsync();
+
+        await using var duplicateTransactionContext = database.CreateContext();
+        duplicateTransactionContext.InventoryTransactions.Add(new InventoryTransaction(
+            InventoryTransactionType.Receipt,
+            key,
+            quantityDelta: 1m,
+            quantityBefore: 0m,
+            quantityAfter: 1m,
+            reservedQuantityDelta: 0m,
+            reservedQuantityBefore: 0m,
+            reservedQuantityAfter: 0m,
+            actorUserId: "postgres-test",
+            occurredAtUtc: occurredAt,
+            correlationId: $"CORR2-{token}",
+            idempotencyKey: $"IDEMP-{token}",
+            transactionGroupId: $"GROUP2-{token}",
+            entrySequence: 1));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => duplicateTransactionContext.SaveChangesAsync());
     }
 
     [PostgreSqlFact]
