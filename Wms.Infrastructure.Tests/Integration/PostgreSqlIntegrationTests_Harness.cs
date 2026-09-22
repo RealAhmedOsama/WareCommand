@@ -1269,6 +1269,122 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGWV-{token}", "Wave warehouse");
+        var secondWarehouse = new Warehouse($"PGWV2-{token}", "Second wave warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var creationKey = $"wave-create-{token}";
+        var firstWave = new Wave(
+            firstWarehouse.Id,
+            $"WAVE-PG-{token}-1",
+            creationKey,
+            templateId: null,
+            templateKey: null,
+            WaveTriggerType.Manual,
+            priority: 10,
+            plannedStartAtUtc: DateTime.UtcNow,
+            plannedReleaseAtUtc: DateTime.UtcNow.AddHours(1),
+            "{}",
+            capacityLimit: 100,
+            "postgres-test");
+        var secondWave = new Wave(
+            secondWarehouse.Id,
+            $"WAVE-PG-{token}-2",
+            creationKey,
+            templateId: null,
+            templateKey: null,
+            WaveTriggerType.Scheduled,
+            priority: 20,
+            plannedStartAtUtc: DateTime.UtcNow,
+            plannedReleaseAtUtc: DateTime.UtcNow.AddHours(1),
+            "{}",
+            capacityLimit: 100,
+            "postgres-test");
+        seedContext.Waves.AddRange(firstWave, secondWave);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateCreationContext = database.CreateContext())
+        {
+            duplicateCreationContext.Waves.Add(new Wave(
+                firstWarehouse.Id,
+                $"WAVE-PG-{token}-3",
+                creationKey,
+                templateId: null,
+                templateKey: null,
+                WaveTriggerType.RuleBased,
+                priority: 30,
+                plannedStartAtUtc: DateTime.UtcNow,
+                plannedReleaseAtUtc: DateTime.UtcNow.AddHours(1),
+                "{}",
+                capacityLimit: 100,
+                "postgres-test"));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateCreationContext.SaveChangesAsync());
+        }
+
+        await using (var duplicateNumberContext = database.CreateContext())
+        {
+            duplicateNumberContext.Waves.Add(new Wave(
+                secondWarehouse.Id,
+                firstWave.WaveNumber,
+                $"wave-create-{token}-different",
+                templateId: null,
+                templateKey: null,
+                WaveTriggerType.Manual,
+                priority: 40,
+                plannedStartAtUtc: DateTime.UtcNow,
+                plannedReleaseAtUtc: DateTime.UtcNow.AddHours(1),
+                "{}",
+                capacityLimit: 100,
+                "postgres-test"));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateNumberContext.SaveChangesAsync());
+        }
+
+        seedContext.WaveProcessingHistory.Add(new WaveProcessingHistory(
+            firstWave.Id,
+            WaveStepType.SelectDemand,
+            attempt: 1,
+            $"wave-step-{token}-1",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateHistoryContext = database.CreateContext())
+        {
+            duplicateHistoryContext.WaveProcessingHistory.Add(new WaveProcessingHistory(
+                firstWave.Id,
+                WaveStepType.SelectDemand,
+                attempt: 1,
+                $"wave-step-{token}-duplicate",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateHistoryContext.SaveChangesAsync());
+        }
+
+        seedContext.WaveProcessingHistory.AddRange(
+            new WaveProcessingHistory(
+                firstWave.Id,
+                WaveStepType.SelectDemand,
+                attempt: 2,
+                $"wave-step-{token}-2",
+                DateTime.UtcNow),
+            new WaveProcessingHistory(
+                firstWave.Id,
+                WaveStepType.Allocate,
+                attempt: 1,
+                $"wave-step-{token}-3",
+                DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.Waves.CountAsync(wave => wave.CreationKey == creationKey))
+            .Should().Be(2);
+        (await seedContext.WaveProcessingHistory.CountAsync(history => history.WaveId == firstWave.Id))
+            .Should().Be(3);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
