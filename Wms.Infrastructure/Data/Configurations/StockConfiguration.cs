@@ -115,6 +115,6 @@ public class StockConfiguration : IEntityTypeConfiguration<Stock>
         builder.HasIndex(e => e.LicensePlateId);
         builder.ToTable("Stock", table => table.HasCheckConstraint(
             "CK_Stock_SerialQuantity",
-            "\"SerialNumberId\" IS NULL OR (\"QuantityAvailable\" >= 0 AND \"QuantityAvailable\" <= 1 AND \"QuantityReserved\" >= 0 AND \"QuantityReserved\" <= 1)"));
+            "\"SerialNumberId\" IS NULL OR (\"QuantityAvailable\" IN (0, 1) AND \"QuantityReserved\" IN (0, 1) AND \"QuantityReserved\" <= \"QuantityAvailable\")"));
     }
 }

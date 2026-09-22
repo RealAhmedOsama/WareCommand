@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Services;
+using Wms.Domain.ValueObjects;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
 namespace Wms.Infrastructure.Tests.Integration;
@@ -238,6 +239,44 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
             IdentificationKind.Location,
             BarcodeSymbology.Code128,
             $"LOCATION:{token}"));
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+    }
+
+    [PostgreSqlFact]
+    public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
+    {
+        await using var context = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGS-{token}", "Serial quantity warehouse");
+        context.Warehouses.Add(warehouse);
+        await context.SaveChangesAsync();
+
+        var item = new Item($"PGS-{token}", "Serialized item", "EA", requiresSerial: true);
+        var status = new InventoryStatus(
+            $"SERIAL-{token}",
+            "Serialized available",
+            "متاح تسلسلي",
+            isAvailable: true,
+            isAllocatable: true,
+            isPickable: true,
+            isShippable: true,
+            isCountable: true,
+            warehouseId: warehouse.Id);
+        context.AddRange(item, status);
+        await context.SaveChangesAsync();
+
+        var location = new Location($"SERIAL-{token}", "Serial bin", warehouse.Id);
+        var serial = new SerialNumber($"SN-{token}", item.Id);
+        context.AddRange(location, serial);
+        await context.SaveChangesAsync();
+
+        context.Stock.Add(new Stock(
+            item.Id,
+            location.Id,
+            new Quantity(0.5m),
+            serialNumberId: serial.Id,
+            inventoryStatusId: status.Id));
+
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
     }
 }
