@@ -382,6 +382,77 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
         createdByUserId: "postgres-test");
 
     [PostgreSqlFact]
+    public async Task WarehouseWorkCommandKeysAreUniquePerOperationAndWork()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGWC-{token}", "Warehouse command ledger");
+        var item = new Item($"PGWC-{token}", "Warehouse command item", "EA");
+        seedContext.AddRange(warehouse, item);
+        await seedContext.SaveChangesAsync();
+
+        var firstWork = new WarehouseWorkEntity(
+            $"WORK-PGWC-1-{token}",
+            $"command-work-1-{token}",
+            WarehouseWorkType.Putaway,
+            warehouse.Id,
+            "RECEIPT",
+            token);
+        firstWork.AddLine(new WarehouseWorkLine(1, warehouse.Id, item.Id, 1m, "EA"));
+        var secondWork = new WarehouseWorkEntity(
+            $"WORK-PGWC-2-{token}",
+            $"command-work-2-{token}",
+            WarehouseWorkType.Putaway,
+            warehouse.Id,
+            "RECEIPT",
+            $"second-{token}");
+        secondWork.AddLine(new WarehouseWorkLine(1, warehouse.Id, item.Id, 1m, "EA"));
+        seedContext.WarehouseWorks.AddRange(firstWork, secondWork);
+        await seedContext.SaveChangesAsync();
+
+        var key = $"command-{token}";
+        seedContext.WarehouseWorkCommands.Add(new WarehouseWorkCommand(
+            firstWork.Id,
+            "complete",
+            key,
+            "hash-1",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.WarehouseWorkCommands.Add(new WarehouseWorkCommand(
+                firstWork.Id,
+                "complete",
+                key,
+                "hash-1",
+                "postgres-test",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.WarehouseWorkCommands.Add(new WarehouseWorkCommand(
+            firstWork.Id,
+            "start",
+            key,
+            "hash-2",
+            "postgres-test",
+            DateTime.UtcNow));
+        seedContext.WarehouseWorkCommands.Add(new WarehouseWorkCommand(
+            secondWork.Id,
+            "complete",
+            key,
+            "hash-3",
+            "postgres-test",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.WarehouseWorkCommands.CountAsync(command => command.IdempotencyKey == key))
+            .Should().Be(3);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
