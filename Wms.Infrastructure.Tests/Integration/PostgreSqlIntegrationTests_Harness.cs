@@ -6,6 +6,7 @@ using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
+using Wms.Infrastructure.Notifications;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
 namespace Wms.Infrastructure.Tests.Integration;
@@ -2050,6 +2051,86 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
         persisted.Should().HaveCount(2);
         persisted.Single(attachment => attachment.ReferenceType == "damage")
             .RetentionState.Should().Be(AttachmentRetentionState.Quarantined);
+    }
+
+    [PostgreSqlFact]
+    public async Task NotificationDeduplicationAndRecipientChannelIdentitiesAreEnforced()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var now = DateTimeOffset.UtcNow;
+        var notification = new WmsNotificationEntity
+        {
+            DeduplicationKey = $"stock-low:{token}",
+            CooldownKey = $"stock-low:warehouse:{token}",
+            Kind = "stock.low",
+            Severity = NotificationSeverity.Warning,
+            TitleEn = "Stock alert",
+            TitleAr = "تنبيه المخزون",
+            MessageEn = "Stock is below the configured threshold.",
+            MessageAr = "المخزون أقل من الحد المسموح.",
+            SourceType = "Inventory",
+            SourceId = token,
+            RequiredPermission = WmsPermissions.InventoryRead,
+            DeepLink = "/inventory",
+            Mandatory = false,
+            CreatedAtUtc = now,
+            CorrelationId = $"correlation-{token}"
+        };
+        notification.Recipients.Add(new WmsNotificationRecipientEntity
+        {
+            RecipientUserId = "notification-user",
+            Channel = NotificationChannel.InApp,
+            DeliveryStatus = NotificationDeliveryStatus.Delivered,
+            CreatedAtUtc = now
+        });
+        seedContext.Notifications.Add(notification);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateNotificationContext = database.CreateContext())
+        {
+            duplicateNotificationContext.Notifications.Add(new WmsNotificationEntity
+            {
+                DeduplicationKey = notification.DeduplicationKey,
+                Kind = notification.Kind,
+                Severity = notification.Severity,
+                TitleEn = notification.TitleEn,
+                TitleAr = notification.TitleAr,
+                MessageEn = notification.MessageEn,
+                MessageAr = notification.MessageAr,
+                CreatedAtUtc = now.AddMinutes(1),
+                CorrelationId = $"duplicate-{token}"
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateNotificationContext.SaveChangesAsync());
+        }
+
+        await using (var duplicateRecipientContext = database.CreateContext())
+        {
+            duplicateRecipientContext.NotificationRecipients.Add(new WmsNotificationRecipientEntity
+            {
+                NotificationId = notification.Id,
+                RecipientUserId = "notification-user",
+                Channel = NotificationChannel.InApp,
+                DeliveryStatus = NotificationDeliveryStatus.Delivered,
+                CreatedAtUtc = now.AddMinutes(1)
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateRecipientContext.SaveChangesAsync());
+        }
+
+        seedContext.NotificationRecipients.Add(new WmsNotificationRecipientEntity
+        {
+            NotificationId = notification.Id,
+            RecipientUserId = "notification-user",
+            Channel = NotificationChannel.Email,
+            DeliveryStatus = NotificationDeliveryStatus.Pending,
+            CreatedAtUtc = now
+        });
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.Notifications.CountAsync()).Should().Be(1);
+        (await seedContext.NotificationRecipients.CountAsync()).Should().Be(2);
     }
 
     [PostgreSqlFact]
