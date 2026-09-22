@@ -360,10 +360,10 @@ public sealed class SupplierItemReferenceRequest
     [StringLength(100)]
     public string? VendorPackaging { get; init; }
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal? UnitsPerPurchasePackage { get; init; }
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal MinimumOrderQuantity { get; init; } = 1;
 
     [Range(0, 3650)]

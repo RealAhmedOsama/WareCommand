@@ -242,7 +242,7 @@ public sealed class SupplierReturnCreateRequest
 public sealed class SupplierReturnLineRequest
 {
     [Range(1, int.MaxValue)] public int ItemId { get; init; }
-    [Range(typeof(decimal), "0.000001", "79228162514264337593543950335")] public decimal RequestedBaseQuantity { get; init; }
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000001", "79228162514264337593543950335")] public decimal RequestedBaseQuantity { get; init; }
     [Required, StringLength(20)] public string BaseUnitOfMeasure { get; init; } = string.Empty;
     [Range(1, int.MaxValue)] public int SourceLocationId { get; init; }
     [Range(1, int.MaxValue)] public int InventoryStatusId { get; init; }

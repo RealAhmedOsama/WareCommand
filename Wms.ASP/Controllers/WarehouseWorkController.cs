@@ -279,7 +279,7 @@ public sealed class WarehouseWorkLineRequest
     [Range(1, int.MaxValue)]
     public int ItemId { get; init; }
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal PlannedQuantity { get; init; }
 
     [Required, StringLength(30)]
@@ -429,7 +429,7 @@ public sealed class WarehouseWorkScanRequest
     [Range(1, int.MaxValue)]
     public int DestinationLocationId { get; init; }
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal ActualQuantity { get; init; }
 
     public int? LicensePlateId { get; init; }

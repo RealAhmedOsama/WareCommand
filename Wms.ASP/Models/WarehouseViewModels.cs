@@ -250,7 +250,7 @@ public class ReceivingViewModel
     [StringLength(50)]
     public string LocationCode { get; set; } = string.Empty;
 
-    [Range(typeof(decimal), "0.0001", "1000000000")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.0001", "1000000000")]
     public decimal Quantity { get; set; }
 
     [StringLength(20)]
@@ -302,7 +302,7 @@ public class PickingViewModel
     [StringLength(50)]
     public string LocationCode { get; set; } = string.Empty;
 
-    [Range(typeof(decimal), "0.0001", "1000000000")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.0001", "1000000000")]
     public decimal Quantity { get; set; }
 
     [StringLength(20)]
@@ -340,7 +340,7 @@ public class PutawayViewModel
     [StringLength(50)]
     public string ToLocationCode { get; set; } = string.Empty;
 
-    [Range(typeof(decimal), "0.0001", "1000000000")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.0001", "1000000000")]
     public decimal Quantity { get; set; }
 
     [StringLength(20)]

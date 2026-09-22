@@ -164,7 +164,7 @@ public sealed class InventoryOwnershipController(
         [property: Required, StringLength(250)] string IdempotencyKey,
         [property: Range(1, int.MaxValue)] int WarehouseId,
         [property: Range(1, int.MaxValue)] int ItemId,
-        [property: Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")] decimal Quantity,
+        [property: Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")] decimal Quantity,
         [property: Required, StringLength(20)] string BaseUnitOfMeasure,
         [property: Range(1, int.MaxValue)] int LocationId,
         [property: Range(1, int.MaxValue)] int InventoryStatusId,

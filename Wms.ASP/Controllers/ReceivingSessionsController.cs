@@ -203,7 +203,7 @@ public sealed class ReceivingScanRequest
     [StringLength(50)]
     public string? ItemSku { get; init; }
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal? Quantity { get; init; }
 
     [StringLength(20)]

@@ -265,7 +265,7 @@ public sealed class PurchaseOrderLineRequest
     [StringLength(50)]
     public string ItemSku { get; init; } = string.Empty;
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal OrderedQuantity { get; init; }
 
     [StringLength(20)]

@@ -64,7 +64,7 @@ public sealed class GlobalSettingsFormViewModel
     public bool AllowNegativeStock { get; set; }
     public bool RequireLocationForAdjustment { get; set; } = true;
 
-    [Range(typeof(decimal), "0.0001", "1000000000")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.0001", "1000000000")]
     public decimal MaximumAdjustmentQuantity { get; set; } = 1_000_000m;
 
     [Range(0, 3650)]

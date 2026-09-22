@@ -442,7 +442,7 @@ public class LicensePlateContentRequest
     [Range(1, int.MaxValue)]
     public int ItemId { get; init; }
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal Quantity { get; init; }
 
     [Range(1, int.MaxValue)]

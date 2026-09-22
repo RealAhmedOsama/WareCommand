@@ -274,7 +274,7 @@ public sealed class QualityTestResultRequest
     [Range(1, int.MaxValue)]
     public int QualityProfileTestId { get; init; }
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal InspectedQuantity { get; init; }
 
     [StringLength(500)]
@@ -305,7 +305,7 @@ public sealed class QualityDispositionRequest
 {
     public QualityDispositionType Type { get; init; }
 
-    [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
     public decimal Quantity { get; init; }
 
     [Required, StringLength(1_000)]

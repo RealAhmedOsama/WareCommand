@@ -11,6 +11,17 @@ failure artifacts. Credential-like failure values are redacted and bounded.
 The policy rejects fixed sleeps and cases that only assert a visible message;
 the eventual browser runner must prove the server outcome and correlation ID.
 
+The local ASP qualification now includes a focused authenticated client test in
+`Wms.ASP.Tests/BrowserClientQualificationTests.cs`. It exercises the Arabic
+RTL picking/scanner shell, responsive viewport metadata, antiforgery markup,
+PWA assets, and keyboard/focus styling. A real local Chromium smoke run also
+covered English login, Arabic RTL login, authenticated dashboard navigation,
+the handheld picking route, and manifest/service-worker availability.
+
+Fractional decimal validation uses the invariant
+`Wms.ASP.Validation.InvariantDecimalRangeAttribute`; this keeps Arabic
+requests from failing during Razor validation metadata generation.
+
 ## Remaining qualification
 
 Add the Playwright test project and isolated PostgreSQL host/data setup, then

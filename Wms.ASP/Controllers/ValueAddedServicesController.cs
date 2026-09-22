@@ -257,7 +257,7 @@ public sealed class ValueAddedServicesController(
     {
         [Range(1, int.MaxValue)] public int Sequence { get; init; }
         [Range(1, int.MaxValue)] public int ComponentItemId { get; init; }
-        [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+        [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
         public decimal QuantityPerOutput { get; init; }
         [Required, StringLength(20)] public string ComponentUnitOfMeasure { get; init; } = string.Empty;
         public KitSubstitutionPolicy SubstitutionPolicy { get; init; }
@@ -273,7 +273,7 @@ public sealed class ValueAddedServicesController(
         [Range(1, int.MaxValue)] public int SourceLocationId { get; init; }
         [Range(1, int.MaxValue)] public int DestinationLocationId { get; init; }
         [Range(1, int.MaxValue)] public int OutputItemId { get; init; }
-        [Range(typeof(decimal), "0.000000000001", "79228162514264337593543950335")]
+        [Wms.ASP.Validation.InvariantDecimalRange("0.000000000001", "79228162514264337593543950335")]
         public decimal RequestedOutputQuantity { get; init; }
         [Range(1, int.MaxValue)] public int? KitDefinitionId { get; init; }
         [Range(1, int.MaxValue)] public int? InputItemId { get; init; }

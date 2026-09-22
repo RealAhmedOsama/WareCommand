@@ -319,7 +319,7 @@ public sealed class PackingScanRequest
     [Range(1, int.MaxValue)] public int SalesOrderLineId { get; init; }
     [Range(1, int.MaxValue)] public int ItemId { get; init; }
     [Range(1, int.MaxValue)] public int SourceLocationId { get; init; }
-    [Range(typeof(decimal), "0.000001", "100000000")] public decimal Quantity { get; init; }
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000001", "100000000")] public decimal Quantity { get; init; }
     [Range(1, int.MaxValue)] public int InventoryStatusId { get; init; } = 1;
     [Range(1, int.MaxValue)] public int? SourceLicensePlateId { get; init; }
     [Range(1, int.MaxValue)] public int? LotId { get; init; }

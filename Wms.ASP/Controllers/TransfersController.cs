@@ -240,7 +240,7 @@ public sealed class TransferOrderRequest
 public sealed class TransferLineRequest
 {
     [Range(1, int.MaxValue)] public int ItemId { get; init; }
-    [Range(typeof(decimal), "0.000001", "79228162514264337593543950335")] public decimal RequestedQuantity { get; init; }
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000001", "79228162514264337593543950335")] public decimal RequestedQuantity { get; init; }
     [Required, StringLength(20)] public string BaseUnitOfMeasure { get; init; } = string.Empty;
     [Range(1, int.MaxValue)] public int SourceLocationId { get; init; }
     [Range(1, int.MaxValue)] public int DestinationLocationId { get; init; }
@@ -262,14 +262,14 @@ public class TransferCommandRequest
 public sealed class TransferQuantityCommandRequest : TransferCommandRequest
 {
     [Range(1, int.MaxValue)] public int TransferLineId { get; init; }
-    [Range(typeof(decimal), "0.000001", "79228162514264337593543950335")] public decimal Quantity { get; init; }
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000001", "79228162514264337593543950335")] public decimal Quantity { get; init; }
 }
 
 public sealed class InternalMovementRequest
 {
     [Range(1, int.MaxValue)] public int WarehouseId { get; init; }
     [Range(1, int.MaxValue)] public int ItemId { get; init; }
-    [Range(typeof(decimal), "0.000001", "79228162514264337593543950335")] public decimal Quantity { get; init; }
+    [Wms.ASP.Validation.InvariantDecimalRange("0.000001", "79228162514264337593543950335")] public decimal Quantity { get; init; }
     [Required, StringLength(20)] public string BaseUnitOfMeasure { get; init; } = string.Empty;
     [Range(1, int.MaxValue)] public int SourceLocationId { get; init; }
     [Range(1, int.MaxValue)] public int DestinationLocationId { get; init; }
