@@ -3,6 +3,7 @@ using Moq;
 using Npgsql;
 using Wms.Application.Administration;
 using Wms.Application.Auditing;
+using Wms.Application.B2bDocuments;
 using Wms.Application.BulkExchange;
 using Wms.Application.Common;
 using Wms.Application.Connectors;
@@ -17,6 +18,7 @@ using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Administration;
 using Wms.Infrastructure.ApiClients;
+using Wms.Infrastructure.B2bDocuments;
 using Wms.Infrastructure.BulkExchange;
 using Wms.Infrastructure.Connectors;
 using Wms.Infrastructure.Integrations;
@@ -2893,6 +2895,129 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task B2bDocumentAndAcknowledgementIdentitiesAreEnforcedByPostgreSql()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var now = DateTimeOffset.UtcNow;
+        var warehouse = new Warehouse($"PGB2B-{token}", "B2B provider warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        var mappingName = $"po-map-{token}";
+        seedContext.B2bMappingProfiles.AddRange(
+            CreateB2bMappingProfile(WmsB2bDocumentTypes.PurchaseOrder, mappingName, 1, now),
+            CreateB2bMappingProfile(WmsB2bDocumentTypes.PurchaseOrder, mappingName, 2, now));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateProfileContext = database.CreateContext())
+        {
+            duplicateProfileContext.B2bMappingProfiles.Add(
+                CreateB2bMappingProfile(WmsB2bDocumentTypes.PurchaseOrder, mappingName, 1, now));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateProfileContext.SaveChangesAsync());
+        }
+
+        var firstPartner = CreateTradingPartner($"TP-{token}-A", mappingName, now);
+        var secondPartner = CreateTradingPartner($"TP-{token}-B", mappingName, now);
+        seedContext.TradingPartners.AddRange(firstPartner, secondPartner);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePartnerContext = database.CreateContext())
+        {
+            duplicatePartnerContext.TradingPartners.Add(
+                CreateTradingPartner(firstPartner.Code, mappingName, now, name: "Duplicate partner"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePartnerContext.SaveChangesAsync());
+        }
+
+        var messageId = Guid.NewGuid();
+        var externalIdentityKey = new string('H', 64);
+        var firstDocument = CreateB2bDocument(
+            firstPartner.Id,
+            warehouse.Id,
+            messageId,
+            externalIdentityKey,
+            $"idem-{token}-a",
+            $"I-{token}",
+            $"D-{token}",
+            now);
+        seedContext.B2bDocuments.Add(firstDocument);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateDocumentContext = database.CreateContext())
+        {
+            duplicateDocumentContext.B2bDocuments.Add(CreateB2bDocument(
+                firstPartner.Id,
+                warehouse.Id,
+                Guid.NewGuid(),
+                externalIdentityKey,
+                $"idem-{token}-duplicate",
+                $"I-{token}-duplicate",
+                $"D-{token}-duplicate",
+                now));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateDocumentContext.SaveChangesAsync());
+        }
+
+        var secondPartnerDocument = CreateB2bDocument(
+            secondPartner.Id,
+            warehouse.Id,
+            messageId,
+            externalIdentityKey,
+            $"idem-{token}-b",
+            $"I-{token}-B",
+            $"D-{token}-B",
+            now);
+        seedContext.B2bDocuments.Add(secondPartnerDocument);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.B2bAcknowledgements.AddRange(
+            new WmsB2bAcknowledgementEntity
+            {
+                DocumentId = firstDocument.Id,
+                AcknowledgementType = "997",
+                Status = WmsB2bAcknowledgementStatuses.Generated,
+                ControlNumber = $"ACK-{token}-1",
+                CreatedAtUtc = now
+            },
+            new WmsB2bAcknowledgementEntity
+            {
+                DocumentId = firstDocument.Id,
+                AcknowledgementType = "CONTRL",
+                Status = WmsB2bAcknowledgementStatuses.Generated,
+                ControlNumber = $"ACK-{token}-2",
+                CreatedAtUtc = now
+            });
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateAcknowledgementContext = database.CreateContext())
+        {
+            duplicateAcknowledgementContext.B2bAcknowledgements.Add(new WmsB2bAcknowledgementEntity
+            {
+                DocumentId = firstDocument.Id,
+                AcknowledgementType = "997",
+                Status = WmsB2bAcknowledgementStatuses.Generated,
+                ControlNumber = $"ACK-{token}-duplicate",
+                CreatedAtUtc = now
+            });
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateAcknowledgementContext.SaveChangesAsync());
+        }
+
+        (await seedContext.B2bMappingProfiles.CountAsync(profile =>
+                profile.DocumentType == WmsB2bDocumentTypes.PurchaseOrder &&
+                profile.Name == mappingName))
+            .Should().Be(2);
+        (await seedContext.B2bDocuments.CountAsync(document =>
+                document.ExternalIdentityKey == externalIdentityKey))
+            .Should().Be(2);
+        (await seedContext.B2bAcknowledgements.CountAsync(acknowledgement =>
+                acknowledgement.DocumentId == firstDocument.Id))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
@@ -3917,6 +4042,79 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
     }
+
+    private static WmsB2bMappingProfileEntity CreateB2bMappingProfile(
+        string documentType,
+        string name,
+        int version,
+        DateTimeOffset now) =>
+        new()
+        {
+            DocumentType = documentType,
+            Name = name,
+            Version = version,
+            Standard = WmsB2bStandards.Canonical,
+            RulesJson = "[]",
+            IsActive = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+    private static WmsTradingPartnerEntity CreateTradingPartner(
+        string code,
+        string mappingProfileName,
+        DateTimeOffset now,
+        string? name = null) =>
+        new()
+        {
+            Code = code,
+            Name = name ?? $"Trading partner {code}",
+            Standard = WmsB2bStandards.Canonical,
+            CredentialReference = "secret-ref://b2b",
+            CredentialVersion = 1,
+            AllowedWarehouseIdsJson = "[1]",
+            DocumentTypesJson = "[\"purchase-order\"]",
+            MappingProfileName = mappingProfileName,
+            MappingProfileVersion = 1,
+            RequireAcknowledgement = true,
+            Status = "Active",
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+    private static WmsB2bDocumentEntity CreateB2bDocument(
+        long tradingPartnerId,
+        int warehouseId,
+        Guid messageId,
+        string externalIdentityKey,
+        string idempotencyKey,
+        string interchangeControlNumber,
+        string documentControlNumber,
+        DateTimeOffset now) =>
+        new()
+        {
+            TradingPartnerId = tradingPartnerId,
+            MessageId = messageId,
+            DocumentType = WmsB2bDocumentTypes.PurchaseOrder,
+            Version = "canonical.v1",
+            Direction = WmsB2bDirections.Inbound,
+            TransportMode = WmsB2bTransportModes.Api,
+            InterchangeControlNumber = interchangeControlNumber,
+            GroupControlNumber = $"G-{interchangeControlNumber}",
+            DocumentControlNumber = documentControlNumber,
+            ExternalIdentityKey = externalIdentityKey,
+            IdempotencyKey = idempotencyKey,
+            WarehouseId = warehouseId,
+            Status = WmsB2bDocumentStatuses.Received,
+            PayloadJson = "{}",
+            PayloadHash = new string('I', 64),
+            LineCount = 1,
+            DeclaredLineCount = 1,
+            ValidationErrorsJson = "[]",
+            AcknowledgementStatus = WmsB2bAcknowledgementStatuses.Pending,
+            CorrelationId = $"corr-{interchangeControlNumber}",
+            CreatedAtUtc = now
+        };
 
     private static WmsConnectorMappingProfileEntity CreateConnectorProfile(
         string connectorType,
