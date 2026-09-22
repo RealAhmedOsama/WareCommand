@@ -1,5 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using Npgsql;
+using Wms.Application.Administration;
+using Wms.Application.Auditing;
+using Wms.Application.Common;
+using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Retention;
 using Wms.Domain.Entities;
@@ -7,8 +12,10 @@ using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
+using Wms.Infrastructure.Administration;
 using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Retention;
+using Wms.Infrastructure.Settings;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
 namespace Wms.Infrastructure.Tests.Integration;
@@ -2281,6 +2288,87 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task AdministrationReadinessUsesWarehouseScopedPostgreSqlState()
+    {
+        await using var context = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var scopedWarehouse = new Warehouse($"PGAD-{token}", "Scoped administration warehouse");
+        var excludedWarehouse = new Warehouse($"PGADEX-{token}", "Excluded administration warehouse");
+        context.AddRange(scopedWarehouse, excludedWarehouse);
+        await context.SaveChangesAsync();
+
+        var operationalRoles = Warehouse.RequiredOperationalLocationRoles.ToArray();
+        var locations = operationalRoles
+            .Select((role, index) => new Location(
+                $"PGAD-{token}-{index}",
+                $"{role} location",
+                scopedWarehouse.Id))
+            .ToArray();
+        context.Locations.AddRange(locations);
+        await context.SaveChangesAsync();
+        context.WarehouseOperationalLocations.AddRange(
+            locations.Select((location, index) => new WarehouseOperationalLocation(
+                scopedWarehouse.Id,
+                location.Id,
+                operationalRoles[index])));
+        scopedWarehouse.EnableWorkflows(operationalRoles);
+        context.GlobalSettings.Add(new WmsGlobalSettingsEntity
+        {
+            CompanyName = "Administration provider company",
+            CompanyCode = "PGAD"
+        });
+        context.RetentionPolicies.Add(new WmsRetentionPolicyEntity
+        {
+            Class = RetentionClass.Documents,
+            PolicyKey = $"admin-{token}",
+            RetentionDays = 3650,
+            MinimumRetentionDays = 365,
+            WarehouseId = scopedWarehouse.Id,
+            CompanyCode = "PGAD",
+            ArchiveBeforePurge = true,
+            Enabled = true,
+            Revision = 1,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var warehouseAccess = new Mock<IWarehouseAccessService>();
+        warehouseAccess
+            .Setup(item => item.AuthorizeAsync(
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+        warehouseAccess
+            .Setup(item => item.GetScopeAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WarehouseAccessScope(
+                HasGlobalAccess: false,
+                WarehouseIds: new HashSet<int> { scopedWarehouse.Id }));
+
+        var service = new AdministrationService(
+            context,
+            new FixedClock(new DateTimeOffset(2026, 9, 22, 12, 0, 0, TimeSpan.Zero)),
+            warehouseAccess.Object,
+            new Mock<IAuditQueryService>().Object);
+
+        var result = await service.GetReadinessAsync();
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        result.Value.Checks.Should().Contain(item => item.Key == "global-settings" &&
+                                                     item.Status == AdministrationReadinessStatus.Ready);
+        result.Value.Checks.Should().Contain(item => item.Key == "audit-store" &&
+                                                     item.Status == AdministrationReadinessStatus.Ready);
+        result.Value.Checks.Should().Contain(item => item.Key == "retention-policy" &&
+                                                     item.Status == AdministrationReadinessStatus.Ready);
+        result.Value.Checks.Should().Contain(item => item.Key == $"inbound-execution-{scopedWarehouse.Id}" &&
+                                                     item.Status == AdministrationReadinessStatus.Ready);
+        result.Value.Checks.Should().Contain(item => item.Key == $"outbound-execution-{scopedWarehouse.Id}" &&
+                                                     item.Status == AdministrationReadinessStatus.Ready);
+        result.Value.Checks.Should().NotContain(item => item.Key.Contains(excludedWarehouse.Code, StringComparison.Ordinal));
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
@@ -3304,5 +3392,10 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
             inventoryStatusId: status.Id));
 
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+    }
+
+    private sealed class FixedClock(DateTimeOffset utcNow) : IClock
+    {
+        public DateTimeOffset UtcNow => utcNow;
     }
 }
