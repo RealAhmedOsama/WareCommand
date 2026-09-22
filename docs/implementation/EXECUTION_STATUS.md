@@ -27,6 +27,13 @@ implementation evidence only; live transports, partner/device certification,
 production deployment/secrets, independent security review, and capacity
 approval remain separate gates.
 
+Tracker evidence checkpoint — 2026-09-22: evidence comments were posted to
+#109, #110, #111, #112, #113, #114, and the reconciliation comment was posted
+to #108. The canonical links and the local-vs-remote revision boundary are
+recorded in `docs/implementation/REMAINING_GATES.md`; issue state is intentionally
+not represented as remotely completed while `origin/master` remains at the
+older revision.
+
 | Issue | State | Acceptance evidence | Commit | Dependencies / blocker | Exact next action |
 | ---: | --- | --- | --- | --- | --- |
 | #2 | verified locally; committed | Restore passed; Debug and Release builds passed with 25 baseline warnings; 147/147 Release tests passed; MVC `/`, `/Dashboard`, `/Items`, `/Inventory` returned 200 against disposable SQLite; WinForms exposed a live main window; reproduction script passed | `f80c431` | Pre-existing untracked `Front-End/` prevents a clean working tree without destroying the supplied package | Upgrade the solution to .NET 10/C# 14 for #3 |

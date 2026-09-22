@@ -38,6 +38,22 @@ service behavior remain owned by those services. Real carrier/email/SFTP/EDI
 transports, partner certification, production credentials, and device/printer
 qualification remain external gates.
 
+## Tracker evidence links
+
+Evidence comments were posted to the canonical `WareCommand` repository:
+
+- [#109 evidence](https://github.com/RealAhmedOsama/WareCommand/issues/109#issuecomment-5782476538)
+- [#110 evidence](https://github.com/RealAhmedOsama/WareCommand/issues/110#issuecomment-5782476742)
+- [#111 evidence](https://github.com/RealAhmedOsama/WareCommand/issues/111#issuecomment-5782476931)
+- [#112 evidence](https://github.com/RealAhmedOsama/WareCommand/issues/112#issuecomment-5782477118)
+- [#113 evidence](https://github.com/RealAhmedOsama/WareCommand/issues/113#issuecomment-5782477299)
+- [#114 evidence](https://github.com/RealAhmedOsama/WareCommand/issues/114#issuecomment-5782477460)
+- [#108 master-plan reconciliation](https://github.com/RealAhmedOsama/WareCommand/issues/108#issuecomment-5782477673)
+
+At this checkpoint the local branch is `db5e55f` while `origin/master` is
+`86906be`. The issues therefore carry evidence and progress, not a claim that
+the remote branch has received the local commits.
+
 ## Explicitly non-local gates
 
 The following cannot be honestly completed by local code changes alone:
