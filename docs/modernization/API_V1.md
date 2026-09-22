@@ -29,3 +29,12 @@ Each operation has a bounded `page`/`pageSize` contract. The infrastructure serv
 ## Remaining acceptance gates
 
 This is committed progress, not full issue closure. Remaining work includes machine-to-machine credentials and scopes (#89), idempotent command endpoints, transactional outbox/inbox delivery (#90), the remaining master-data and document/work/shipment/return/count resources, ETag/conditional mutation handling, client SDK/contract-generation decisions, provider and load evidence, browser/handheld qualification, and production deployment/rollback evidence.
+
+The PostgreSQL read boundary is now provider-qualified for the published
+warehouse, item, and location query services: bounded pages are returned, the
+provider-specific search predicate translates correctly, and a warehouse-scoped
+caller cannot read an excluded warehouse through the warehouse/location reads.
+The disposable PostgreSQL 17 harness passed 57/57 on 2026-09-22 (port 55511)
+and cleaned its test container. This does not close API commands, remaining
+resources, SDK generation, load/contract matrices, browser clients, or
+production rollout.
