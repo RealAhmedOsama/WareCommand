@@ -50,6 +50,9 @@ partial completion with scrap/yield, shortage compensation, disassembly
 genealogy and reversal, approved substitution, duplicate completion/reversal
 replay, and balanced ledger/stock outcomes. The migration is generated but
 not applied here, and local Infrastructure/ASP builds must remain warning-free.
+The PostgreSQL harness also passed 45/45 on 2026-09-22; its new regression
+proves normalized kit-code/version uniqueness and accepts a later effective
+version for the same kit code.
 
 This is committed progress rather than final closure. PostgreSQL concurrency
 and warehouse-volume evidence, reviewed migration/restore rehearsal, complete
