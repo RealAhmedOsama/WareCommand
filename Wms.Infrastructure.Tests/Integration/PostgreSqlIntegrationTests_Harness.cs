@@ -243,6 +243,39 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task LotAndSerialIdentityIndexesRejectNormalizedDuplicatesPerItem()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var item = new Item(
+            $"PGLS-{token}",
+            "Lot and serial identity item",
+            "EA",
+            requiresLot: true,
+            requiresSerial: true);
+        seedContext.Items.Add(item);
+        await seedContext.SaveChangesAsync();
+
+        await using (var lotContext = database.CreateContext())
+        {
+            lotContext.Lots.AddRange(
+                new Lot($"LOT-{token}", item.Id),
+                new Lot($" lot-{token} ", item.Id));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => lotContext.SaveChangesAsync());
+        }
+
+        await using (var serialContext = database.CreateContext())
+        {
+            serialContext.SerialNumbers.AddRange(
+                new SerialNumber($"SERIAL-{token}", item.Id),
+                new SerialNumber($" serial-{token} ", item.Id));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => serialContext.SaveChangesAsync());
+        }
+    }
+
+    [PostgreSqlFact]
     public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
     {
         await using var context = database.CreateContext();
