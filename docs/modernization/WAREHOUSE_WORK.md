@@ -59,5 +59,9 @@ are added by the `AddWarehouseWorkEngine` migration. Focused tests cover domain
 transitions, assignment ownership, override reasons, quantity bounds,
 creation-key idempotency, receipt putaway generation, command replay,
 completion replay, scan identity validation, and missing handler dependency
-behavior. SQLite tests are local qualification only; the PostgreSQL harness and
-contention tests remain part of the later qualification work.
+behavior. The PostgreSQL harness now proves that a putaway creation key can
+produce only one task per warehouse while the same key remains valid in a
+different warehouse; disposable PostgreSQL verification passed `22/22` and
+removed its container. Partial-LPN content movement, concurrent service-level
+generation/claiming, scanner/device journeys, and production qualification
+remain open gates for #48.
