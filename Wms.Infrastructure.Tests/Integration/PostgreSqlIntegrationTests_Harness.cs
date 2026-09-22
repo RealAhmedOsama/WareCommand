@@ -1310,6 +1310,43 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task CrossDockPolicyKeysAreUniquePerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGCD-{token}", "Cross-dock warehouse");
+        var secondWarehouse = new Warehouse($"PGCD2-{token}", "Second cross-dock warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var policyKey = $"cross-dock-policy-{token}";
+        seedContext.CrossDockPolicies.AddRange(
+            new CrossDockPolicy(
+                firstWarehouse.Id,
+                policyKey,
+                "First cross-dock policy"),
+            new CrossDockPolicy(
+                secondWarehouse.Id,
+                policyKey,
+                "Second cross-dock policy"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePolicyContext = database.CreateContext())
+        {
+            duplicatePolicyContext.CrossDockPolicies.Add(
+                new CrossDockPolicy(
+                    firstWarehouse.Id,
+                    policyKey,
+                    "Duplicate cross-dock policy"));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePolicyContext.SaveChangesAsync());
+        }
+
+        (await seedContext.CrossDockPolicies
+                .CountAsync(policy => policy.PolicyKey == policyKey))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
