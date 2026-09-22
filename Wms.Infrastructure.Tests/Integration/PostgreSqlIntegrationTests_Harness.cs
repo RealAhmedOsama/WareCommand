@@ -1978,6 +1978,81 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task AttachmentHashesAreUniquePerReferenceAndQuarantineStatePersists()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGAT-{token}", "Attachment warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        var hash = new string('A', 64);
+        seedContext.Attachments.Add(new Attachment(
+            "damage",
+            $"damage-{token}",
+            warehouse.Id,
+            "damage.pdf",
+            $"{warehouse.Id}/damage/{token}/one",
+            "application/pdf",
+            128,
+            hash,
+            "uploader-user",
+            AttachmentClassification.Operational,
+            AttachmentScanStatus.Suspicious,
+            DateTimeOffset.UtcNow,
+            null,
+            immutableEvidence: false));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateAttachmentContext = database.CreateContext())
+        {
+            duplicateAttachmentContext.Attachments.Add(new Attachment(
+                "damage",
+                $"damage-{token}",
+                warehouse.Id,
+                "duplicate.pdf",
+                $"{warehouse.Id}/damage/{token}/two",
+                "application/pdf",
+                256,
+                hash.ToLowerInvariant(),
+                "second-uploader",
+                AttachmentClassification.Operational,
+                AttachmentScanStatus.Clean,
+                DateTimeOffset.UtcNow,
+                null,
+                immutableEvidence: false));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateAttachmentContext.SaveChangesAsync());
+        }
+
+        var sameHashDifferentReference = new Attachment(
+            "quality-inspection",
+            $"inspection-{token}",
+            warehouse.Id,
+            "inspection.pdf",
+            $"{warehouse.Id}/quality/{token}/one",
+            "application/pdf",
+            128,
+            hash,
+            "uploader-user",
+            AttachmentClassification.Operational,
+            AttachmentScanStatus.Clean,
+            DateTimeOffset.UtcNow,
+            null,
+            immutableEvidence: false);
+        seedContext.Attachments.Add(sameHashDifferentReference);
+        await seedContext.SaveChangesAsync();
+
+        var persisted = await seedContext.Attachments
+            .Where(attachment => attachment.WarehouseId == warehouse.Id)
+            .OrderBy(attachment => attachment.ReferenceType)
+            .ToListAsync();
+        persisted.Should().HaveCount(2);
+        persisted.Single(attachment => attachment.ReferenceType == "damage")
+            .RetentionState.Should().Be(AttachmentRetentionState.Quarantined);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();

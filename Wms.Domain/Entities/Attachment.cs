@@ -38,11 +38,13 @@ public sealed class Attachment : Entity
         ContentType = Required(contentType, 120, nameof(contentType));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sizeBytes);
 
-        Sha256 = Required(sha256, 64, nameof(sha256));
-        if (Sha256.Length != 64 || Sha256.Any(character => !Uri.IsHexDigit(character)))
+        var normalizedSha256 = Required(sha256, 64, nameof(sha256)).ToLowerInvariant();
+        if (normalizedSha256.Length != 64 || normalizedSha256.Any(character => !Uri.IsHexDigit(character)))
         {
             throw new ArgumentException("The attachment hash must be a SHA-256 hex value.", nameof(sha256));
         }
+
+        Sha256 = normalizedSha256;
 
         UploaderUserId = Required(uploaderUserId, 450, nameof(uploaderUserId));
         if (!Enum.IsDefined(classification))
