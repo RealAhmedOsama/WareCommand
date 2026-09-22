@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Npgsql;
+using Microsoft.Extensions.Logging.Abstractions;
 using Wms.Application.Administration;
 using Wms.Application.Auditing;
 using Wms.Application.B2bDocuments;
@@ -11,6 +12,9 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Integrations;
 using Wms.Application.Retention;
+using Wms.Application.Items;
+using Wms.Application.Locations;
+using Wms.Application.Warehouses;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
@@ -22,9 +26,12 @@ using Wms.Infrastructure.B2bDocuments;
 using Wms.Infrastructure.BulkExchange;
 using Wms.Infrastructure.Connectors;
 using Wms.Infrastructure.Integrations;
+using Wms.Infrastructure.Items;
+using Wms.Infrastructure.Locations;
 using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Retention;
 using Wms.Infrastructure.Settings;
+using Wms.Infrastructure.Warehouses;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
 namespace Wms.Infrastructure.Tests.Integration;
@@ -3015,6 +3022,92 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
         (await seedContext.B2bAcknowledgements.CountAsync(acknowledgement =>
                 acknowledgement.DocumentId == firstDocument.Id))
             .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
+    public async Task VersionedApiReadQueriesApplyPostgreSqlPagingAndWarehouseScope()
+    {
+        await using var context = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var scopedWarehouse = new Warehouse($"PGAPI-{token}", "Scoped API warehouse");
+        var excludedWarehouse = new Warehouse($"PGAPIX-{token}", "Excluded API warehouse");
+        context.AddRange(scopedWarehouse, excludedWarehouse);
+        await context.SaveChangesAsync();
+
+        var scopedItem = new Item($"API-{token}-A", "Scoped API item", "EA");
+        var excludedItem = new Item($"API-{token}-B", "Excluded API item", "EA");
+        context.AddRange(scopedItem, excludedItem);
+        await context.SaveChangesAsync();
+        var scopedLocation = new Location($"API-{token}-A", "Scoped API location", scopedWarehouse.Id);
+        var excludedLocation = new Location($"API-{token}-B", "Excluded API location", excludedWarehouse.Id);
+        context.AddRange(scopedLocation, excludedLocation);
+        await context.SaveChangesAsync();
+
+        var warehouseAccess = new Mock<IWarehouseAccessService>();
+        warehouseAccess
+            .Setup(item => item.HasPermissionAsync(
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        warehouseAccess
+            .Setup(item => item.AuthorizeAsync(
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success());
+        warehouseAccess
+            .Setup(item => item.GetScopeAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WarehouseAccessScope(
+                HasGlobalAccess: false,
+                WarehouseIds: new HashSet<int> { scopedWarehouse.Id }));
+        var auditWriter = new Mock<IAuditWriter>();
+        auditWriter
+            .Setup(item => item.RecordAsync(
+                It.IsAny<AuditRecord>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var warehousePage = await new WarehouseManagementService(
+                context,
+                warehouseAccess.Object,
+                auditWriter.Object,
+                NullLogger<WarehouseManagementService>.Instance)
+            .ListPageAsync(new WarehouseListQuery(
+                IncludeInactive: false,
+                Page: 1,
+                PageSize: 1));
+        warehousePage.IsSuccess.Should().BeTrue(warehousePage.Error);
+        warehousePage.Value.Items.Should().ContainSingle(item => item.Id == scopedWarehouse.Id);
+        warehousePage.Value.TotalCount.Should().Be(1);
+        warehousePage.Value.PageSize.Should().Be(1);
+
+        var itemPage = await new ItemManagementService(
+                context,
+                warehouseAccess.Object,
+                auditWriter.Object,
+                NullLogger<ItemManagementService>.Instance)
+            .ListAsync(new ItemListQuery(
+                SearchTerm: token.ToLowerInvariant(),
+                Page: 1,
+                PageSize: 1));
+        itemPage.IsSuccess.Should().BeTrue(itemPage.Error);
+        itemPage.Value.Items.Should().ContainSingle();
+        itemPage.Value.TotalCount.Should().Be(2);
+        itemPage.Value.PageSize.Should().Be(1);
+
+        var locationPage = await new LocationManagementService(
+                context,
+                warehouseAccess.Object,
+                auditWriter.Object,
+                NullLogger<LocationManagementService>.Instance)
+            .ListAsync(new LocationListQuery(
+                WarehouseId: scopedWarehouse.Id,
+                Page: 1,
+                PageSize: 1));
+        locationPage.IsSuccess.Should().BeTrue(locationPage.Error);
+        locationPage.Value.Items.Should().ContainSingle(item => item.WarehouseId == scopedWarehouse.Id);
+        locationPage.Value.TotalCount.Should().Be(1);
+        locationPage.Value.PageSize.Should().Be(1);
     }
 
     [PostgreSqlFact]
