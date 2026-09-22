@@ -46,6 +46,9 @@ explanations, no-route priority fallback, explicit manual override, claim
 exclusion after assignment, existing queue/skill/shift eligibility, command
 replay, capacity/revision protection, and activity/metrics reporting. The
 `AddWorkInterleaving` migration is generated but not applied here.
+The PostgreSQL harness also passed 46/46 on 2026-09-22; its new regression
+proves duplicate route-edge identities and duplicate warehouse-scoped policy
+codes are rejected while the same values remain valid in another warehouse.
 
 This is committed progress rather than final closure. Provider-backed queue
 contention and representative live-queue performance, telemetry-calibrated
