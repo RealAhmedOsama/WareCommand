@@ -981,6 +981,104 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task CycleCountPlanAndTaskKeysAreUniqueAtDatabaseBoundary()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGCC-{token}", "Cycle count warehouse");
+        var secondWarehouse = new Warehouse($"PGCC2-{token}", "Second cycle count warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var planKey = $"cycle-plan-{token}";
+        var firstPlan = new CycleCountPlan(
+            planKey,
+            firstWarehouse.Id,
+            locationId: null,
+            itemId: null,
+            itemClass: null,
+            frequencyDays: 7,
+            thresholdQuantity: 0m,
+            blind: true,
+            CycleCountFreezePolicy.SnapshotAndReconcile,
+            DateTime.UtcNow);
+        var secondPlan = new CycleCountPlan(
+            planKey,
+            secondWarehouse.Id,
+            locationId: null,
+            itemId: null,
+            itemClass: null,
+            frequencyDays: 7,
+            thresholdQuantity: 0m,
+            blind: true,
+            CycleCountFreezePolicy.SnapshotAndReconcile,
+            DateTime.UtcNow);
+        seedContext.CycleCountPlans.AddRange(firstPlan, secondPlan);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePlanContext = database.CreateContext())
+        {
+            duplicatePlanContext.CycleCountPlans.Add(new CycleCountPlan(
+                planKey,
+                firstWarehouse.Id,
+                locationId: null,
+                itemId: null,
+                itemClass: null,
+                frequencyDays: 7,
+                thresholdQuantity: 0m,
+                blind: true,
+                CycleCountFreezePolicy.SnapshotAndReconcile,
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePlanContext.SaveChangesAsync());
+        }
+
+        var taskKey = $"cycle-task-{token}";
+        seedContext.CycleCountTasks.Add(new CycleCountTask(
+            taskKey,
+            $"CNT-{token}-1",
+            firstPlan.Id,
+            firstWarehouse.Id,
+            locationId: null,
+            blind: true,
+            CycleCountFreezePolicy.SnapshotAndReconcile,
+            DateTime.UtcNow,
+            "postgres-test"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateTaskContext = database.CreateContext())
+        {
+            duplicateTaskContext.CycleCountTasks.Add(new CycleCountTask(
+                taskKey,
+                $"CNT-{token}-2",
+                secondPlan.Id,
+                secondWarehouse.Id,
+                locationId: null,
+                blind: true,
+                CycleCountFreezePolicy.SnapshotAndReconcile,
+                DateTime.UtcNow,
+                "postgres-test"));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateTaskContext.SaveChangesAsync());
+        }
+
+        seedContext.CycleCountTasks.Add(new CycleCountTask(
+            $"{taskKey}-2",
+            $"CNT-{token}-3",
+            secondPlan.Id,
+            secondWarehouse.Id,
+            locationId: null,
+            blind: true,
+            CycleCountFreezePolicy.SnapshotAndReconcile,
+            DateTime.UtcNow,
+            "postgres-test"));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.CycleCountPlans.CountAsync(plan => plan.PlanKey == planKey))
+            .Should().Be(2);
+        (await seedContext.CycleCountTasks.CountAsync(task => task.TaskKey.StartsWith(taskKey)))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
