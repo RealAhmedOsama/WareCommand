@@ -9,6 +9,7 @@ using Wms.Domain.Entities;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.ApiClients;
 using Wms.Infrastructure.BulkExchange;
+using Wms.Infrastructure.Connectors;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Integrations;
@@ -220,6 +221,17 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         Set<WmsBulkImportSourceFileEntity>();
 
     public DbSet<WmsBulkImportRowResultEntity> BulkImportRows => Set<WmsBulkImportRowResultEntity>();
+
+    public DbSet<WmsConnectorMappingProfileEntity> ConnectorMappingProfiles =>
+        Set<WmsConnectorMappingProfileEntity>();
+
+    public DbSet<WmsConnectorInstanceEntity> ConnectorInstances =>
+        Set<WmsConnectorInstanceEntity>();
+
+    public DbSet<WmsConnectorRunEntity> ConnectorRuns => Set<WmsConnectorRunEntity>();
+
+    public DbSet<WmsConnectorExternalRecordEntity> ConnectorExternalRecords =>
+        Set<WmsConnectorExternalRecordEntity>();
 
     public DbSet<WmsRetentionPolicyEntity> RetentionPolicies => Set<WmsRetentionPolicyEntity>();
 
@@ -552,6 +564,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WmsBulkImportExecutionConfiguration());
         builder.ApplyConfiguration(new WmsBulkImportSourceFileConfiguration());
         builder.ApplyConfiguration(new WmsBulkImportRowResultConfiguration());
+        builder.ApplyConfiguration(new WmsConnectorMappingProfileConfiguration());
+        builder.ApplyConfiguration(new WmsConnectorInstanceConfiguration());
+        builder.ApplyConfiguration(new WmsConnectorRunConfiguration());
+        builder.ApplyConfiguration(new WmsConnectorExternalRecordConfiguration());
         builder.ApplyConfiguration(new WmsRetentionPolicyConfiguration());
         builder.ApplyConfiguration(new WmsRetentionHoldConfiguration());
         builder.ApplyConfiguration(new WmsRetentionRunConfiguration());
