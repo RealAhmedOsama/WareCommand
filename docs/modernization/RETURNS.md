@@ -53,6 +53,11 @@ serialized identity.
 The checked-in schema migration is
 `Wms.Infrastructure/Database/Migrations/20260921051743_AddReturnsAndDisposition.cs`.
 
+The disposable PostgreSQL harness also passes 30/30. It proves that return
+command idempotency keys are unique per `(ReturnAuthorizationId, Operation)`;
+the same client key remains reusable for another operation or another RMA.
+The test container is removed and the verification port is free after the run.
+
 ## Remaining release gates
 
 This is a committed returns execution progress slice, not full issue closure.
