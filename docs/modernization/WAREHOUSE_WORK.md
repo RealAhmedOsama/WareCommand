@@ -62,6 +62,9 @@ completion replay, scan identity validation, and missing handler dependency
 behavior. The PostgreSQL harness now proves that a putaway creation key can
 produce only one task per warehouse while the same key remains valid in a
 different warehouse; disposable PostgreSQL verification passed `22/22` and
-removed its container. Partial-LPN content movement, concurrent service-level
-generation/claiming, scanner/device journeys, and production qualification
-remain open gates for #48.
+removed its container. The command ledger identity is also proven at the
+PostgreSQL boundary: duplicate `(work, operation, idempotency key)` commands
+are rejected while reuse across operations and work items remains valid;
+verification passed `27/27` and removed its container. Partial-LPN content
+movement, concurrent service-level generation/claiming, scanner/device
+journeys, and production qualification remain open gates for #48/#54.
