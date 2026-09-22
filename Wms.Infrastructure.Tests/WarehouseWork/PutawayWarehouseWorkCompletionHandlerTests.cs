@@ -92,7 +92,10 @@ public sealed class PutawayWarehouseWorkCompletionHandlerTests : IDisposable
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>(),
-                It.IsAny<int?>()))
+                It.IsAny<int?>(),
+                It.IsAny<InventoryOwnerKind>(),
+                It.IsAny<int?>(),
+                It.IsAny<string?>()))
             .ReturnsAsync(Movement.CreatePutaway(
                 _item.Id,
                 _source.Id,
@@ -137,7 +140,10 @@ public sealed class PutawayWarehouseWorkCompletionHandlerTests : IDisposable
             "WORK-PUTAWAY-1",
             null,
             It.IsAny<CancellationToken>(),
-            null), Times.Once);
+            null,
+            It.IsAny<InventoryOwnerKind>(),
+            It.IsAny<int?>(),
+            It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]
