@@ -104,6 +104,68 @@ public sealed class PerformanceBudgetTests
         result.ErrorCode.Should().Be("performance.run_invalid");
     }
 
+    [Fact]
+    public void Rejects_production_or_unbounded_evidence_packets()
+    {
+        var packet = new PerformanceEvidencePacket(
+            "wms-performance-local-v1",
+            new PerformanceEvidenceMetadata(
+                "Production",
+                "dataset-fingerprint-1",
+                "local-postgresql-4cpu-16gb",
+                "revision-1",
+                10,
+                129,
+                DateTimeOffset.UtcNow.AddMinutes(-1),
+                DateTimeOffset.UtcNow),
+            [new PerformanceRunResult(
+                PerformanceWorkloadCatalog.Default[0],
+                Metadata(),
+                5,
+                100,
+                200,
+                300,
+                0,
+                0,
+                0,
+                true)]);
+
+        var result = PerformanceQualificationPolicy.ValidateEvidencePacket(packet);
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be("performance.evidence_invalid");
+    }
+
+    [Fact]
+    public void Accepts_bounded_local_evidence_with_complete_metadata()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var packet = new PerformanceEvidencePacket(
+            "wms-performance-local-v1",
+            new PerformanceEvidenceMetadata(
+                "LocalQualification",
+                "dataset-fingerprint-1",
+                "local-postgresql-4cpu-16gb",
+                "revision-1",
+                10,
+                4,
+                now.AddMinutes(-1),
+                now),
+            [new PerformanceRunResult(
+                PerformanceWorkloadCatalog.Default[0],
+                Metadata(),
+                5,
+                100,
+                200,
+                300,
+                0,
+                0,
+                0,
+                true)]);
+
+        PerformanceQualificationPolicy.ValidateEvidencePacket(packet).IsSuccess.Should().BeTrue();
+    }
+
     private static PerformanceRunMetadata Metadata() =>
         new(
             "qualification",

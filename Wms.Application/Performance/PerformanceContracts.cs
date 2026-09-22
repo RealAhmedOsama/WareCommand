@@ -47,6 +47,21 @@ public sealed record PerformanceRunResult(
     int ReconciliationErrorCount,
     bool BusinessOutcomeAssertionsPassed);
 
+public sealed record PerformanceEvidenceMetadata(
+    string Environment,
+    string DatasetFingerprint,
+    string HardwareProfile,
+    string ApplicationRevision,
+    int SampleCount,
+    int Concurrency,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset CompletedAtUtc);
+
+public sealed record PerformanceEvidencePacket(
+    string Schema,
+    PerformanceEvidenceMetadata Metadata,
+    IReadOnlyList<PerformanceRunResult> Runs);
+
 public sealed record PerformanceEvaluation(
     PerformanceWorkloadKind Workload,
     bool Passed,
@@ -74,6 +89,8 @@ public static class PerformanceWorkloadCatalog
 
 public static class PerformanceQualificationPolicy
 {
+    public const int MaximumEvidenceBytes = 1_000_000;
+
     public static Result ValidateBudget(PerformanceBudget budget)
     {
         ArgumentNullException.ThrowIfNull(budget);
@@ -118,6 +135,32 @@ public static class PerformanceQualificationPolicy
             return Result.Failure(WmsErrors.Validation(
                 "performance.run_invalid",
                 "A performance result requires bounded metrics and workload/environment metadata."));
+        }
+
+        return Result.Success();
+    }
+
+    public static Result ValidateEvidencePacket(PerformanceEvidencePacket packet)
+    {
+        ArgumentNullException.ThrowIfNull(packet);
+        if (!string.Equals(packet.Schema, "wms-performance-local-v1", StringComparison.Ordinal) ||
+            packet.Metadata is null ||
+            string.IsNullOrWhiteSpace(packet.Metadata.Environment) ||
+            string.Equals(packet.Metadata.Environment, "Production", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(packet.Metadata.Environment, "Staging", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(packet.Metadata.DatasetFingerprint) ||
+            string.IsNullOrWhiteSpace(packet.Metadata.HardwareProfile) ||
+            string.IsNullOrWhiteSpace(packet.Metadata.ApplicationRevision) ||
+            packet.Metadata.SampleCount < 1 ||
+            packet.Metadata.Concurrency is < 1 or > 128 ||
+            packet.Metadata.StartedAtUtc > packet.Metadata.CompletedAtUtc ||
+            packet.Runs is null ||
+            packet.Runs.Count == 0 ||
+            packet.Runs.Any(run => ValidateRun(run).IsFailure))
+        {
+            return Result.Failure(WmsErrors.Validation(
+                "performance.evidence_invalid",
+                "Performance evidence must be bounded, non-production, metadata-complete, and composed of valid runs."));
         }
 
         return Result.Success();
