@@ -581,6 +581,7 @@ public sealed class ShipmentService(
                         }
 
                         var item = await context.Items.SingleAsync(value => value.Id == stock.ItemId, cancellationToken);
+                        await ValidateShipmentStatusAsync(stock.InventoryStatusId, cancellationToken);
                         await ValidateLotIdentityAsync(item, stock.LotId, cancellationToken);
                         await ValidateSerialIdentityAsync(item, stock, cancellationToken);
                         var movement = Movement.CreateShip(
@@ -956,6 +957,22 @@ public sealed class ShipmentService(
         {
             throw new InvalidOperationException(
                 $"Serial '{serial.Number}' is not eligible for shipment allocation.");
+        }
+    }
+
+    private async Task ValidateShipmentStatusAsync(
+        int statusId,
+        CancellationToken cancellationToken)
+    {
+        var status = await context.InventoryStatuses.SingleOrDefaultAsync(
+            value => value.Id == statusId,
+            cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Inventory status {statusId} was not found before shipment.");
+        if (!status.IsActive || !status.IsShippable)
+        {
+            throw new InvalidOperationException(
+                $"Inventory status '{status.Code}' does not permit shipment.");
         }
     }
 

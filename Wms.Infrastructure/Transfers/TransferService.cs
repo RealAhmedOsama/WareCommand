@@ -575,6 +575,7 @@ public sealed class TransferService(
             line.InventoryOwnerId,
             line.OwnerCodeSnapshot)
             ?? throw new InvalidOperationException("The source stock dimension was not found.");
+        await ValidateTransferSourceStatusAsync(sourceStock.InventoryStatusId, cancellationToken);
         EnsureMovableStock(sourceStock, input.Quantity);
         var transitStock = await FindStockAsync(
             line.ItemId,
@@ -1288,6 +1289,22 @@ public sealed class TransferService(
         }
 
         return serial;
+    }
+
+    private async Task ValidateTransferSourceStatusAsync(
+        int statusId,
+        CancellationToken cancellationToken)
+    {
+        var status = await context.InventoryStatuses.SingleOrDefaultAsync(
+            value => value.Id == statusId,
+            cancellationToken)
+            ?? throw new InvalidOperationException(
+                $"Inventory status {statusId} was not found for transfer shipment.");
+        if (!status.IsActive || !status.IsAllocatable)
+        {
+            throw new InvalidOperationException(
+                $"Inventory status '{status.Code}' does not permit transfer allocation.");
+        }
     }
 
     private async Task<Stock?> FindStockAsync(

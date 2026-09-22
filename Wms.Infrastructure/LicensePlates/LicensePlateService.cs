@@ -595,6 +595,17 @@ public sealed class LicensePlateService : ILicensePlateService
                                 "A license plate with outstanding reservations cannot be shipped before the reservation workflow consumes them.");
                         }
 
+                        var status = await _unitOfWork.InventoryStatuses.GetByIdAsync(
+                            stock.InventoryStatusId,
+                            cancellationToken)
+                            ?? throw new InvalidOperationException(
+                                $"Inventory status {stock.InventoryStatusId} was not found before shipment.");
+                        if (!status.IsActive || !status.IsShippable)
+                        {
+                            throw new InvalidOperationException(
+                                $"Inventory status '{status.Code}' does not permit shipment.");
+                        }
+
                         var movement = Movement.CreateShip(
                             stock.ItemId,
                             stock.LocationId,
