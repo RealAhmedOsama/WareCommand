@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Wms.Application.ApiClients;
 using Wms.Application.Auditing;
 using Wms.Application.Context;
 using Wms.Application.Identity;
@@ -45,6 +46,7 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
         services.AddScoped<Wms.Application.Identity.ICurrentUser>(
             provider => provider.GetRequiredService<DesktopUserSession>());
         services.AddScoped<IWarehouseAccessService, WarehouseAccessService>();
+        services.AddScoped<IApiClientContextAccessor, ApiClientContextAccessor>();
         services.AddScoped<IUserAccessDirectory, UserAccessDirectory>();
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
         services.AddSingleton<IClock, SystemClock>();
