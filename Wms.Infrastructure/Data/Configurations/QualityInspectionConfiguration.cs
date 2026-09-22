@@ -68,7 +68,12 @@ public sealed class QualityInspectionConfiguration : IEntityTypeConfiguration<Qu
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(inspection => inspection.InspectionNumber).IsUnique();
-        builder.HasIndex(inspection => new { inspection.ReceiptLineId, inspection.LicensePlateId });
+        builder.HasIndex(inspection => inspection.ReceiptLineId)
+            .IsUnique()
+            .HasFilter("\"LicensePlateId\" IS NULL");
+        builder.HasIndex(inspection => new { inspection.ReceiptLineId, inspection.LicensePlateId })
+            .IsUnique()
+            .HasFilter("\"LicensePlateId\" IS NOT NULL");
         builder.HasIndex(inspection => new { inspection.WarehouseId, inspection.Status, inspection.CreatedAt });
         builder.HasIndex(inspection => new { inspection.ItemId, inspection.Status });
     }

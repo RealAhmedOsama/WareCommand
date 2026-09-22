@@ -631,6 +631,171 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task QualityInspectionIdentityIsUniquePerReceiptLineAndLicensePlate()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGQI-{token}", "Quality inspection warehouse");
+        var item = new Item($"PGQI-{token}", "Quality inspection item", "EA");
+        var status = new InventoryStatus(
+            $"PGQI-{token}",
+            "Quality inspection available",
+            "متاح للفحص",
+            isAvailable: true,
+            isAllocatable: true,
+            isPickable: true,
+            isShippable: true,
+            isCountable: true,
+            warehouseId: null,
+            isSystem: true);
+        seedContext.AddRange(warehouse, item, status);
+        await seedContext.SaveChangesAsync();
+
+        var location = new Location(
+            $"PGQI-{token}",
+            "Quality inspection receiving",
+            warehouse.Id,
+            type: LocationType.Receiving,
+            isPickable: false,
+            isReceivable: true);
+        var firstLicensePlate = new LicensePlate(
+            $"PGQI-LP1-{token}",
+            LicensePlateType.Pallet,
+            warehouse.Id);
+        var secondLicensePlate = new LicensePlate(
+            $"PGQI-LP2-{token}",
+            LicensePlateType.Pallet,
+            warehouse.Id);
+        seedContext.AddRange(location, firstLicensePlate, secondLicensePlate);
+        await seedContext.SaveChangesAsync();
+
+        var receipt = new Receipt(
+            $"PGQI-RECEIPT-{token}",
+            warehouse.Id,
+            warehouse.Code,
+            supplierId: null,
+            supplierCodeSnapshot: null,
+            supplierNameSnapshot: null,
+            purchaseOrderId: null,
+            advanceShippingNoticeId: null,
+            dockLocationId: null,
+            receivingLocationId: location.Id,
+            sourceType: "MANUAL",
+            createdByUserId: "postgres-test");
+        var line = new ReceiptLine(
+            1,
+            warehouse.Id,
+            item.Id,
+            item.Sku,
+            item.Name,
+            "EA",
+            10m,
+            "EA",
+            10m,
+            1m,
+            0,
+            QuantityRoundingMode.Reject,
+            0m,
+            "BASE",
+            string.Empty,
+            receivingLocationId: location.Id,
+            inventoryStatusId: status.Id,
+            inventoryStatusCodeSnapshot: status.Code,
+            inventoryStatusNameSnapshot: status.Name);
+        receipt.AddLine(line);
+        receipt.Open("postgres-test", DateTime.UtcNow);
+        seedContext.Receipts.Add(receipt);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.QualityInspections.Add(new QualityInspection(
+            $"QI-{token}-NULL-1",
+            receipt.Id,
+            line.Id,
+            warehouse.Id,
+            item.Id,
+            item.Sku,
+            item.Name,
+            10m,
+            10m,
+            status.Id,
+            sourceType: "MANUAL",
+            createdByUserId: "postgres-test"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateLineContext = database.CreateContext())
+        {
+            duplicateLineContext.QualityInspections.Add(new QualityInspection(
+                $"QI-{token}-NULL-2",
+                receipt.Id,
+                line.Id,
+                warehouse.Id,
+                item.Id,
+                item.Sku,
+                item.Name,
+                10m,
+                10m,
+                status.Id,
+                sourceType: "MANUAL",
+                createdByUserId: "postgres-test"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateLineContext.SaveChangesAsync());
+        }
+
+        seedContext.QualityInspections.Add(new QualityInspection(
+            $"QI-{token}-LP1-1",
+            receipt.Id,
+            line.Id,
+            warehouse.Id,
+            item.Id,
+            item.Sku,
+            item.Name,
+            10m,
+            10m,
+            status.Id,
+            sourceType: "MANUAL",
+            licensePlateId: firstLicensePlate.Id,
+            createdByUserId: "postgres-test"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateLicensePlateContext = database.CreateContext())
+        {
+            duplicateLicensePlateContext.QualityInspections.Add(new QualityInspection(
+                $"QI-{token}-LP1-2",
+                receipt.Id,
+                line.Id,
+                warehouse.Id,
+                item.Id,
+                item.Sku,
+                item.Name,
+                10m,
+                10m,
+                status.Id,
+                sourceType: "MANUAL",
+                licensePlateId: firstLicensePlate.Id,
+                createdByUserId: "postgres-test"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateLicensePlateContext.SaveChangesAsync());
+        }
+
+        await using var otherLicensePlateContext = database.CreateContext();
+        otherLicensePlateContext.QualityInspections.Add(new QualityInspection(
+            $"QI-{token}-LP2-1",
+            receipt.Id,
+            line.Id,
+            warehouse.Id,
+            item.Id,
+            item.Sku,
+            item.Name,
+            10m,
+            10m,
+            status.Id,
+            sourceType: "MANUAL",
+            licensePlateId: secondLicensePlate.Id,
+            createdByUserId: "postgres-test"));
+        await otherLicensePlateContext.SaveChangesAsync();
+    }
+
+    [PostgreSqlFact]
     public async Task SupplierCodeAndExternalIdentityIndexesRejectDuplicates()
     {
         await using var context = database.CreateContext();
