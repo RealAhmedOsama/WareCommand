@@ -65,6 +65,63 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task PutawayCreationKeyAllowsOneTaskPerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGW-{token}", "Putaway identity warehouse");
+        var secondWarehouse = new Warehouse($"PGW2-{token}", "Second putaway identity warehouse");
+        var item = new Item($"PGW-{token}", "Putaway identity item", "EA");
+        seedContext.AddRange(firstWarehouse, secondWarehouse, item);
+        await seedContext.SaveChangesAsync();
+
+        var creationKey = $"receipt:putaway:{token}";
+        var firstWork = new WarehouseWorkEntity(
+            $"WORK-PGW-{token}",
+            creationKey,
+            WarehouseWorkType.Putaway,
+            firstWarehouse.Id,
+            "ReceiptLine",
+            token);
+        firstWork.AddLine(new WarehouseWorkLine(1, firstWarehouse.Id, item.Id, 5m, "EA"));
+        firstWork.MakeAvailable(DateTime.UtcNow);
+        seedContext.WarehouseWorks.Add(firstWork);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            var duplicateWork = new WarehouseWorkEntity(
+                $"WORK-PGW-DUP-{token}",
+                creationKey,
+                WarehouseWorkType.Putaway,
+                firstWarehouse.Id,
+                "ReceiptLine",
+                $"duplicate-{token}");
+            duplicateWork.AddLine(new WarehouseWorkLine(1, firstWarehouse.Id, item.Id, 5m, "EA"));
+            duplicateWork.MakeAvailable(DateTime.UtcNow);
+            duplicateContext.WarehouseWorks.Add(duplicateWork);
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        var secondWarehouseWork = new WarehouseWorkEntity(
+            $"WORK-PGW-SECOND-{token}",
+            creationKey,
+            WarehouseWorkType.Putaway,
+            secondWarehouse.Id,
+            "ReceiptLine",
+            $"second-{token}");
+        secondWarehouseWork.AddLine(new WarehouseWorkLine(1, secondWarehouse.Id, item.Id, 5m, "EA"));
+        secondWarehouseWork.MakeAvailable(DateTime.UtcNow);
+        seedContext.WarehouseWorks.Add(secondWarehouseWork);
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.WarehouseWorks
+            .CountAsync(work => work.CreationKey == creationKey))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task RevisionTokenRejectsConcurrentWorkMutation()
     {
         await using var seedContext = database.CreateContext();
