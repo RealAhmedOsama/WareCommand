@@ -1075,6 +1075,7 @@ body.wms-shell a:focus-visible {
 @media (max-width: 575.98px) {
   .wms-command-bar {
     margin-inline: .75rem;
+    width: calc(100% - 1.5rem);
   }
 
   .wms-quick-scan {
@@ -1106,6 +1107,34 @@ body.wms-shell a:focus-visible {
 
   .wms-page-header__actions {
     justify-content: flex-start;
+  }
+}
+
+/* Keep the authenticated navigation usable when every permission-driven item
+   and both context selectors cannot fit in the wide navbar container. */
+@media (min-width: 992px) and (max-width: 1499.98px) {
+  .wms-shell-header .navbar-expand-lg .navbar-toggler {
+    display: block;
+  }
+
+  .wms-shell-header .navbar-expand-lg .navbar-collapse {
+    display: none !important;
+    flex-basis: 100%;
+  }
+
+  .wms-shell-header .navbar-expand-lg .navbar-collapse.show {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wms-shell-header .navbar-expand-lg .navbar-collapse.show > .navbar-nav {
+    flex-direction: column;
+  }
+
+  .wms-shell-header .navbar-expand-lg .navbar-collapse.show > .language-form {
+    margin-inline-start: 0 !important;
+    margin-block-start: .5rem;
   }
 }
 
