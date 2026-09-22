@@ -451,22 +451,59 @@ public class StockMovementServiceTests : IDisposable
     {
         // Arrange
         var quantity = new Quantity(5.0m);
-        var lot = new Lot("LOT-001", _item.Id);
+        var lotControlledItem = new Item("LOT-WIDGET-001", "Lot controlled widget", "EA", requiresLot: true);
+        _context.Items.Add(lotControlledItem);
+        await _context.SaveChangesAsync();
+        var lot = new Lot("LOT-001", lotControlledItem.Id);
         _context.Lots.Add(lot);
         await _context.SaveChangesAsync();
         var lotId = lot.Id;
 
         // Act
-        var movement = await _service.ReceiveAsync(_item.Id, _location.Id, quantity, "USER1", lotId);
+        var movement = await _service.ReceiveAsync(lotControlledItem.Id, _location.Id, quantity, "USER1", lotId);
         await _context.SaveChangesAsync(); // Save changes to persist data
 
         // Assert
         movement.LotId.Should().Be(lotId);
 
         var stock = await _context.Stock.FirstOrDefaultAsync(s =>
-            s.ItemId == _item.Id && s.LocationId == _location.Id && s.LotId == lotId);
+            s.ItemId == lotControlledItem.Id && s.LocationId == _location.Id && s.LotId == lotId);
         stock.Should().NotBeNull();
         stock!.LotId.Should().Be(lotId);
+    }
+
+    [Fact]
+    public async Task PutawayAsync_PreservesQuarantinedLotWithoutTreatingItAsAllocatable()
+    {
+        var lotControlledItem = new Item("LOT-PUTAWAY-001", "Lot controlled putaway item", "EA", requiresLot: true);
+        var destination = new Location("Z-QC", "Quality hold", _warehouse.Id);
+        _context.Items.Add(lotControlledItem);
+        _context.Locations.Add(destination);
+        await _context.SaveChangesAsync();
+        var lot = new Lot("LOT-QC", lotControlledItem.Id, status: LotStatus.Quarantine);
+        _context.Lots.Add(lot);
+        await _context.SaveChangesAsync();
+
+        _context.Stock.Add(new Stock(
+            lotControlledItem.Id,
+            _location.Id,
+            new Quantity(5m),
+            lot.Id));
+        await _context.SaveChangesAsync();
+
+        var movement = await _service.PutawayAsync(
+            lotControlledItem.Id,
+            _location.Id,
+            destination.Id,
+            new Quantity(2m),
+            "USER1",
+            lot.Id);
+        await _context.SaveChangesAsync();
+
+        movement.LotId.Should().Be(lot.Id);
+        (await _context.Stock.SingleAsync(value =>
+            value.ItemId == lotControlledItem.Id && value.LocationId == destination.Id)).LotId
+            .Should().Be(lot.Id);
     }
 
     [Fact]

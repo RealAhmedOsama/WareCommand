@@ -581,6 +581,7 @@ public sealed class ShipmentService(
                         }
 
                         var item = await context.Items.SingleAsync(value => value.Id == stock.ItemId, cancellationToken);
+                        await ValidateLotIdentityAsync(item, stock.LotId, cancellationToken);
                         var movement = Movement.CreateShip(
                             stock.ItemId,
                             stock.LocationId,
@@ -862,6 +863,45 @@ public sealed class ShipmentService(
             .Include(value => value.Loads)
             .Include(value => value.TrackingEvents)
             .SingleOrDefaultAsync(value => value.ShipmentNumber == shipmentNumber.Trim(), cancellationToken);
+
+    private async Task ValidateLotIdentityAsync(
+        Item item,
+        int? lotId,
+        CancellationToken cancellationToken)
+    {
+        if (!lotId.HasValue)
+        {
+            if (item.RequiresLot)
+            {
+                throw new InvalidOperationException(
+                    $"Item '{item.Sku}' requires a persisted lot identity before shipment.");
+            }
+
+            return;
+        }
+
+        if (!item.RequiresLot)
+        {
+            throw new InvalidOperationException(
+                $"Item '{item.Sku}' is not lot controlled and cannot carry lot '{lotId.Value}'.");
+        }
+
+        var lot = await context.Lots.SingleOrDefaultAsync(
+            value => value.Id == lotId.Value,
+            cancellationToken)
+            ?? throw new InvalidOperationException($"Lot {lotId.Value} was not found.");
+        if (lot.ItemId != item.Id)
+        {
+            throw new InvalidOperationException(
+                $"Lot '{lot.Number}' does not belong to item '{item.Sku}'.");
+        }
+
+        if (!lot.IsAllocationEligible(DateOnly.FromDateTime(clock.UtcNow.DateTime)))
+        {
+            throw new InvalidOperationException(
+                $"Lot '{lot.Number}' is not eligible for shipment allocation.");
+        }
+    }
 
     private async Task<Result<ShipmentDto>?> TryReplayAsync(
         Shipment shipment,

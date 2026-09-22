@@ -381,6 +381,11 @@ public sealed class TransferService(
                 var item = await context.Items.SingleOrDefaultAsync(value => value.Id == input.ItemId, cancellationToken)
                     ?? throw new InvalidOperationException("The internal movement item was not found.");
                 EnsureUnit(item, input.BaseUnitOfMeasure);
+                await ValidateLotIdentityAsync(
+                    item,
+                    input.LotId,
+                    requireAllocationEligibility: false,
+                    cancellationToken);
                 var identity = await ResolveIdentityAsync(
                     input.ItemId,
                     input.LotId,
@@ -529,6 +534,11 @@ public sealed class TransferService(
 
         var item = await context.Items.SingleAsync(value => value.Id == line.ItemId, cancellationToken);
         EnsureUnit(item, line.BaseUnitOfMeasure);
+        await ValidateLotIdentityAsync(
+            item,
+            line.LotId,
+            requireAllocationEligibility: true,
+            cancellationToken);
         var identity = await ResolveIdentityAsync(
             line.ItemId,
             line.LotId,
@@ -660,6 +670,11 @@ public sealed class TransferService(
         }
 
         var item = await context.Items.SingleAsync(value => value.Id == line.ItemId, cancellationToken);
+        await ValidateLotIdentityAsync(
+            item,
+            line.LotId,
+            requireAllocationEligibility: false,
+            cancellationToken);
         var identity = await ResolveIdentityAsync(
             line.ItemId,
             line.LotId,
@@ -1057,6 +1072,11 @@ public sealed class TransferService(
             var item = await context.Items.SingleOrDefaultAsync(value => value.Id == line.ItemId, cancellationToken)
                 ?? throw new InvalidOperationException($"Item {line.ItemId} was not found.");
             EnsureUnit(item, line.BaseUnitOfMeasure);
+            await ValidateLotIdentityAsync(
+                item,
+                line.LotId,
+                requireAllocationEligibility: false,
+                cancellationToken);
             if (line.SourceInventoryStatusId == InventoryStatusSystemIds.InTransit ||
                 line.DestinationInventoryStatusId == InventoryStatusSystemIds.InTransit)
             {
@@ -1117,6 +1137,49 @@ public sealed class TransferService(
             serial?.Number ?? NormalizeOptional(serialNumber),
             licensePlateId,
             serial);
+    }
+
+    private async Task<Lot?> ValidateLotIdentityAsync(
+        Item item,
+        int? lotId,
+        bool requireAllocationEligibility,
+        CancellationToken cancellationToken)
+    {
+        if (!lotId.HasValue)
+        {
+            if (item.RequiresLot)
+            {
+                throw new InvalidOperationException(
+                    $"Item '{item.Sku}' requires a persisted lot identity for this transfer.");
+            }
+
+            return null;
+        }
+
+        var lot = await context.Lots.SingleOrDefaultAsync(
+            value => value.Id == lotId.Value,
+            cancellationToken)
+            ?? throw new InvalidOperationException($"Lot {lotId.Value} was not found.");
+        if (!item.RequiresLot)
+        {
+            throw new InvalidOperationException(
+                $"Item '{item.Sku}' is not lot controlled and cannot carry lot '{lot.Number}'.");
+        }
+
+        if (lot.ItemId != item.Id)
+        {
+            throw new InvalidOperationException(
+                $"Lot '{lot.Number}' does not belong to item '{item.Sku}'.");
+        }
+
+        if (requireAllocationEligibility &&
+            !lot.IsAllocationEligible(DateOnly.FromDateTime(clock.UtcNow.DateTime)))
+        {
+            throw new InvalidOperationException(
+                $"Lot '{lot.Number}' is not eligible for transfer allocation.");
+        }
+
+        return lot;
     }
 
     private async Task<Stock?> FindStockAsync(

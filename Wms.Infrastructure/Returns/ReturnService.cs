@@ -93,6 +93,10 @@ public sealed class ReturnService(
                     : [];
                 foreach (var lineInput in input.Lines)
                 {
+                    await ValidateLotIdentityAsync(
+                        lineInput.ItemId,
+                        lineInput.ExpectedLotId,
+                        cancellationToken);
                     if (lineInput.ExpectedSerialNumberId.HasValue && lineInput.ExpectedQuantity != 1m)
                     {
                         throw new InvalidOperationException("A serial return line must authorize exactly one unit.");
@@ -257,6 +261,7 @@ public sealed class ReturnService(
                 var line = current.Lines.SingleOrDefault(value => value.Id == input.ReturnLineId)
                     ?? throw new InvalidOperationException("The return line was not found.");
                 var item = await context.Items.SingleAsync(value => value.Id == line.ItemId, cancellationToken);
+                await ValidateLotIdentityAsync(item.Id, input.LotId, cancellationToken);
                 if (line.ExpectedLotId.HasValue && line.ExpectedLotId != input.LotId)
                 {
                     throw new InvalidOperationException("The returned lot does not match the authorized shipment identity.");
@@ -852,6 +857,40 @@ public sealed class ReturnService(
             : input.SalesOrderLineId.HasValue
                 ? shipmentLines.SingleOrDefault(value => value.SalesOrderLineId == input.SalesOrderLineId.Value)
                 : shipmentLines.SingleOrDefault(value => value.ItemId == input.ItemId);
+
+    private async Task ValidateLotIdentityAsync(
+        int itemId,
+        int? lotId,
+        CancellationToken cancellationToken)
+    {
+        var item = await context.Items.SingleAsync(value => value.Id == itemId, cancellationToken);
+        if (!lotId.HasValue)
+        {
+            if (item.RequiresLot)
+            {
+                throw new InvalidOperationException(
+                    $"Item '{item.Sku}' requires a persisted lot identity for the return.");
+            }
+
+            return;
+        }
+
+        if (!item.RequiresLot)
+        {
+            throw new InvalidOperationException(
+                $"Item '{item.Sku}' is not lot controlled and cannot carry a lot identity.");
+        }
+
+        var lot = await context.Lots.SingleOrDefaultAsync(
+            value => value.Id == lotId.Value,
+            cancellationToken)
+            ?? throw new InvalidOperationException($"Lot {lotId.Value} was not found.");
+        if (lot.ItemId != item.Id)
+        {
+            throw new InvalidOperationException(
+                $"Lot '{lot.Number}' does not belong to item '{item.Sku}'.");
+        }
+    }
 
     private static async Task<Stock?> FindStockAsync(
         WmsDbContext context,

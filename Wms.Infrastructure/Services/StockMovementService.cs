@@ -457,7 +457,11 @@ public class StockMovementService : IStockMovementService
                 fromLocation!.WarehouseId,
                 fromLocationId,
                 cancellationToken);
-            await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: true, cancellationToken);
+            // Putaway moves received stock between locations. It must preserve the
+            // lot identity, but quarantine/hold lots are valid here because this
+            // is not an allocation decision. Picking/reservation remains guarded
+            // by allocation eligibility.
+            await ValidateLotAsync(itemId, lotId, requireAllocationEligibility: false, cancellationToken);
             var serial = await ResolveSerialForMovementAsync(
                 itemId,
                 lotId,
@@ -1759,6 +1763,12 @@ public class StockMovementService : IStockMovementService
         if (lot is null)
         {
             throw new InvalidOperationException($"Lot {lotId.Value} was not found.");
+        }
+
+        if (!item.RequiresLot)
+        {
+            throw new InvalidOperationException(
+                $"Item '{item.Sku}' is not lot controlled and cannot carry lot '{lot.Number}'.");
         }
 
         if (lot.ItemId != itemId)

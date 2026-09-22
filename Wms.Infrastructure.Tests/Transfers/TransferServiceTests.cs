@@ -209,6 +209,55 @@ public sealed class TransferServiceTests : IDisposable
         (await _context.TransferOrders.CountAsync()).Should().Be(0);
     }
 
+    [Fact]
+    public async Task TransferShipRejectsLotThatIsNotAllocationEligible()
+    {
+        var lotItem = new Item("TR-LOT-ITEM", "Lot transfer item", "EA", requiresLot: true);
+        _context.Items.Add(lotItem);
+        await _context.SaveChangesAsync();
+        var lot = new Lot("TR-LOT-HOLD", lotItem.Id, status: LotStatus.Hold);
+        _context.Lots.Add(lot);
+        await _context.SaveChangesAsync();
+        _context.Stock.Add(new Stock(lotItem.Id, _source.Id, new Quantity(3m), lot.Id));
+        await _context.SaveChangesAsync();
+
+        var created = await _service.CreateAsync(
+            new TransferOrderInput(
+                "TR-LOT-1001",
+                "create-tr-lot-1001",
+                _sourceWarehouse.Id,
+                _destinationWarehouse.Id,
+                _transit.Id,
+                [new TransferLineInput(
+                    lotItem.Id,
+                    3m,
+                    "EA",
+                    _source.Id,
+                    _destination.Id,
+                    LotId: lot.Id)]),
+            "operator-1");
+        created.IsSuccess.Should().BeTrue(created.FirstError?.Message);
+        var lineId = created.Value.Lines.Single().Id;
+        (await _service.ConfirmAsync(
+                new TransferCommandInput(created.Value.Id, "confirm-tr-lot-1001"),
+                "operator-1"))
+            .IsSuccess.Should().BeTrue();
+        (await _service.ReleaseAsync(
+                new TransferCommandInput(created.Value.Id, "release-tr-lot-1001"),
+                "operator-1"))
+            .IsSuccess.Should().BeTrue();
+
+        var shipped = await _service.ShipAsync(
+            new TransferQuantityCommandInput(created.Value.Id, lineId, 1m, "ship-tr-lot-1001"),
+            "operator-1");
+
+        shipped.IsSuccess.Should().BeFalse();
+        shipped.ErrorCode.Should().Be("transfer.ship_failed");
+        (await _context.Stock.SingleAsync(value =>
+                value.ItemId == lotItem.Id && value.LocationId == _source.Id))
+            .QuantityAvailable.Value.Should().Be(3m);
+    }
+
     public void Dispose()
     {
         _context.Dispose();

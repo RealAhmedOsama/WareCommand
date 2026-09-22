@@ -167,6 +167,27 @@ public sealed class LotServiceTests : IAsyncLifetime, IDisposable
         trace.Value.Movements.Should().ContainSingle(row => row.Type == MovementType.Receipt);
     }
 
+    [Fact]
+    public async Task MovementResolutionRejectsLotIdentityForNonLotControlledItem()
+    {
+        var item = new Item("NON-LOT-ITEM", "Non-lot item", "EA");
+        _context.Items.Add(item);
+        await _context.SaveChangesAsync();
+
+        var lot = new Lot("LOT-A", item.Id);
+        _context.Lots.Add(lot);
+        await _context.SaveChangesAsync();
+
+        var result = await _service.ResolveForMovementAsync(
+            item,
+            lot.Number,
+            requireAllocationEligibility: false,
+            new DateOnly(2026, 9, 20));
+
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be("lot.not_required");
+    }
+
     public async Task DisposeAsync()
     {
         await _context.DisposeAsync();

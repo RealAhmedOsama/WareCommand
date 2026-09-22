@@ -176,6 +176,13 @@ public sealed class LotService(
                 return Result.Success<Lot?>(null);
             }
 
+            if (!item.RequiresLot)
+            {
+                return Result.Failure<Lot?>(WmsErrors.Validation(
+                    "lot.not_required",
+                    $"Item '{item.Sku}' is not lot controlled and cannot carry a lot identity."));
+            }
+
             var lot = await unitOfWork.Lots.GetByItemAndNumberAsync(
                 item.Id,
                 lotNumber,
