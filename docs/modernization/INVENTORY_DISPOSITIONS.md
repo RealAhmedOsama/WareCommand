@@ -31,6 +31,13 @@ still intentionally open.
 - Read-only metrics, audit actions, API routes, EF configuration, and the
   migration `20260921113248_AddInventoryDispositions` are included.
 
+The targeted PostgreSQL identity proof
+`InventoryDispositionPolicyKeysAreUniquePerWarehouse` passed 1/1 against a
+disposable PostgreSQL 17 instance on 2026-09-22. It proves that a disposition
+policy key cannot be reused inside one warehouse while the same normalized key
+remains valid in another warehouse; the disposable container and port were
+cleared after the run. Commit: `f35ad9f`.
+
 ## Existing protection reused
 
 Expired/recalled lots and non-allocatable inventory statuses are already
