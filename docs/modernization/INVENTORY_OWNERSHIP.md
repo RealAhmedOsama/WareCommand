@@ -63,6 +63,10 @@ been applied to a production or shared database.
   receipt line, and `LicensePlateServiceTests` rejects mixed-owner content.
 - Existing cycle-count, LPN, packing, and inventory-inquiry tests pass with
   the expanded dimensions.
+- `scripts/verify-postgresql.ps1 -Port 55497` passed 44/44 on 2026-09-22;
+  the new harness regression proves normalized owner-code uniqueness and
+  rejects duplicate owner-separated balance identities while allowing a
+  second owner dimension in the same warehouse.
 - Infrastructure and ASP builds are warning-free, and the EF migration is
   generated but intentionally not applied here.
 
