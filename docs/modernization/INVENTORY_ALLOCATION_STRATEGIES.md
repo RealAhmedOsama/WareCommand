@@ -49,6 +49,11 @@ ledger or reservation state.
   migration warning suppression.
 - Migration: `20260921080706_AddInventoryAllocationStrategies`.
 
+A targeted disposable PostgreSQL proof also passes 1/1. It confirms that
+normalized strategy policy keys are unique within a warehouse while separate
+warehouses can carry independent strategies. The container and verification
+port were clean after the run.
+
 Live PostgreSQL migration execution, provider-backed performance evidence, and
 browser/UI acceptance remain deployment/provider gates. No remote issue state
 was changed; the local execution tracker records the committed progress and
