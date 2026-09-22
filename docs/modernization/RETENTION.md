@@ -61,3 +61,13 @@ retry idempotent. No production purge or archive was executed as part of this
 implementation; live execution still requires explicit operational approval,
 verified backup evidence, restore compatibility evidence, and provider/live
 qualification.
+
+The PostgreSQL boundary is also qualified for the core identities: the same
+policy key can be reused across warehouses but not duplicated within one
+warehouse/company scope; each run has one count per retention class; and an
+archive reference cannot be duplicated for the same class/source identity.
+The disposable PostgreSQL 17 harness passed 50/50 on 2026-09-22 (port 55504)
+and removed its test container afterward. This proves persistence and
+constraint behavior only; it does not qualify external artifact stores,
+archive/export adapters, large-batch contention, backup/restore rehearsal, or
+production authorization.
