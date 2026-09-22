@@ -538,6 +538,99 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task ReceivingScanClientOperationKeysAreUniqueWithinTheirSession()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGRS-{token}", "Receiving-session warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        var location = new Location($"PGRS-{token}", "Receiving-session location", warehouse.Id);
+        seedContext.Locations.Add(location);
+        await seedContext.SaveChangesAsync();
+
+        var now = DateTime.UtcNow;
+        var session = new ReceivingSession(
+            warehouse.Id,
+            location.Id,
+            ReceivingSessionSourceType.BlindReceipt,
+            $"SESSION-{token}",
+            "postgres-test",
+            now,
+            supervisorOverride: true,
+            supervisorOverrideReason: "Provider qualification");
+        session.AddScan(new ReceivingSessionScan(
+            session,
+            $"OP-{token}",
+            $"ITEM-{token}",
+            $"ITEM-{token}",
+            1m,
+            "EA",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "postgres-test",
+            now));
+        seedContext.ReceivingSessions.Add(session);
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            var existingSession = await duplicateContext.ReceivingSessions
+                .SingleAsync(value => value.Id == session.Id);
+            duplicateContext.ReceivingSessionScans.Add(new ReceivingSessionScan(
+                existingSession,
+                $"OP-{token}",
+                $"ITEM2-{token}",
+                $"ITEM2-{token}",
+                1m,
+                "EA",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "postgres-test",
+                now));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        await using var otherSessionContext = database.CreateContext();
+        var otherSession = new ReceivingSession(
+            warehouse.Id,
+            location.Id,
+            ReceivingSessionSourceType.BlindReceipt,
+            $"SESSION2-{token}",
+            "postgres-test",
+            now,
+            supervisorOverride: true,
+            supervisorOverrideReason: "Provider qualification");
+        otherSession.AddScan(new ReceivingSessionScan(
+            otherSession,
+            $"OP-{token}",
+            $"ITEM3-{token}",
+            $"ITEM3-{token}",
+            1m,
+            "EA",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "postgres-test",
+            now));
+        otherSessionContext.ReceivingSessions.Add(otherSession);
+        await otherSessionContext.SaveChangesAsync();
+    }
+
+    [PostgreSqlFact]
     public async Task SupplierCodeAndExternalIdentityIndexesRejectDuplicates()
     {
         await using var context = database.CreateContext();
