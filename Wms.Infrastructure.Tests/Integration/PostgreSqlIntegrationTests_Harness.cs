@@ -148,4 +148,39 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
         duplicateBarcodeContext.Items.Add(duplicateBarcode);
         await Assert.ThrowsAsync<DbUpdateException>(() => duplicateBarcodeContext.SaveChangesAsync());
     }
+
+    [PostgreSqlFact]
+    public async Task UomConversionPrecisionAndVersionUniquenessArePersisted()
+    {
+        await using var context = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var item = new Item($"PGU-{token}", "UOM precision item", "EA");
+        var each = new UnitOfMeasure($"EA-{token}", UnitOfMeasureCategory.Count, 12, "ea", "Each");
+        var caseUnit = new UnitOfMeasure($"CS-{token}", UnitOfMeasureCategory.Count, 12, "case", "Case");
+        context.AddRange(item, each, caseUnit);
+        await context.SaveChangesAsync();
+
+        var conversion = new ItemUnitConversion(
+            item.Id,
+            caseUnit.Code,
+            each.Code,
+            12.345678901234m,
+            12,
+            QuantityRoundingMode.ToEven);
+        context.ItemUnitConversions.Add(conversion);
+        await context.SaveChangesAsync();
+
+        var saved = await context.ItemUnitConversions.SingleAsync();
+        Assert.Equal(12.345678901234m, saved.ConversionFactor);
+        Assert.Equal(12, saved.ResultPrecision);
+
+        context.ItemUnitConversions.Add(new ItemUnitConversion(
+            item.Id,
+            caseUnit.Code,
+            each.Code,
+            10m,
+            12,
+            version: 1));
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+    }
 }
