@@ -97,4 +97,34 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
             () => secondContext.SaveChangesAsync());
         Assert.IsType<DbUpdateConcurrencyException>(exception.InnerException);
     }
+
+    [PostgreSqlFact]
+    public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGL-{token}", "Location uniqueness warehouse");
+        var secondWarehouse = new Warehouse($"PGL2-{token}", "Second location uniqueness warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        await using var firstContext = database.CreateContext();
+        await using var duplicateContext = database.CreateContext();
+        await using var secondWarehouseContext = database.CreateContext();
+
+        firstContext.Locations.Add(new Location($"LOC-{token}", "First location", firstWarehouse.Id));
+        await firstContext.SaveChangesAsync();
+
+        duplicateContext.Locations.Add(new Location($" loc-{token} ", "Duplicate location", firstWarehouse.Id));
+        await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+
+        secondWarehouseContext.Locations.Add(new Location($"LOC-{token}", "Second warehouse location", secondWarehouse.Id));
+        await secondWarehouseContext.SaveChangesAsync();
+
+        Assert.Equal(
+            2,
+            await seedContext.Locations
+                .Where(location => location.Code == $"LOC-{token}")
+                .CountAsync());
+    }
 }
