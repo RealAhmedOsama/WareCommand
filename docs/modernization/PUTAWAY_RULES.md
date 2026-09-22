@@ -32,7 +32,10 @@ The persisted CRUD/evaluation API and SQLite qualification cover precedence,
 fixed-location selection, simulation exclusion, and capacity/no-match
 explanations. A no-match result explicitly tells the caller to route to the
 exception/staging process; #50 owns the durable staging assignment and
-exception-resolution workflow. The current slice still needs PostgreSQL
-query/volume qualification, concurrent capacity revalidation at execution,
+exception-resolution workflow. PostgreSQL verification now proves the
+warehouse-scoped normalized rule-code index: a duplicate code is rejected in
+one warehouse while the same code is valid in another; the disposable suite
+passed `23/23` with container cleanup. The current slice still needs query/
+volume qualification, concurrent capacity revalidation at execution,
 handheld/browser UI, localized RTL/LTR screens, import/export, and richer
 packaging-dimensional capacity calculations before #49 can be closed.
