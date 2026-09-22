@@ -50,6 +50,14 @@ routing, queue capacity, idempotent replay, activity facts, metrics, and the
 non-punitive interpretation contract. Migration/model checks and Debug builds
 are separate gates.
 
+The targeted PostgreSQL identity proof
+`WorkforceProfilesAndQueueCodesAreUniqueWithinTheirWarehouse` passed 1/1
+against a disposable PostgreSQL 17 instance on 2026-09-22. It proves that a
+worker has at most one profile per user/warehouse and a queue code is unique
+per warehouse while the same user and code remain valid in another warehouse;
+the disposable container and port were cleared after the run. Commit:
+`d9d3137`.
+
 The issue remains open after this progress slice. Closure still requires:
 
 - provider-backed PostgreSQL contention tests for simultaneous claims on the
