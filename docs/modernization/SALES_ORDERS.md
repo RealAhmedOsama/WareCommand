@@ -26,6 +26,7 @@ Migration: `20260921025547_AddSalesOrders`.
 
 - `Wms.Domain.Tests/Entities/SalesOrderTests.cs`: 3 focused domain tests passed.
 - `Wms.Infrastructure.Tests/SalesOrders/SalesOrderServiceTests.cs`: 3 focused service tests passed.
+- `Wms.Infrastructure.Tests/Integration/PostgreSqlIntegrationTests_Harness.cs`: normalized `(warehouse, source, external reference)` duplicates are rejected while the same reference is valid in another warehouse; disposable PostgreSQL verification passed `26/26` with container cleanup.
 - `Wms.ASP/Controllers/SalesOrdersController.cs`.
 - Debug ASP build passed with 0 warnings and 0 errors.
 - `scripts/verify-migrations.ps1` passed.
