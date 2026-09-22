@@ -53,3 +53,12 @@ handlers, Shopify/WooCommerce/marketplace/carrier adapters, PostgreSQL concurren
 and provider/load tests, browser localization, and production credential rollout
 remain separate gates. No network is called by the checked-in reference
 adapters, and no production migration or deployment has been performed.
+
+The PostgreSQL persistence boundary is qualified for connector mapping profile
+identity, connector instance names, per-instance run idempotency, and
+per-instance external-record identity. Later mapping versions and reuse across
+separate connector instances are accepted; duplicates within each protected
+scope are rejected. The disposable PostgreSQL 17 harness passed 55/55 on
+2026-09-22 (port 55509) and cleaned its test container. Live transports,
+schedule/handler wiring, concurrency/load, localization, and production
+credential gates remain open.
