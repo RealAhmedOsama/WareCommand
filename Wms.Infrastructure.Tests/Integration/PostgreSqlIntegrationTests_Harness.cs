@@ -331,6 +331,32 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task LicensePlateNumbersRejectDuplicateSsccValuesAtTheDatabaseBoundary()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGLP-{token}", "License plate warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.LicensePlates.Add(new LicensePlate(
+            "000123456789012343",
+            LicensePlateType.Pallet,
+            warehouse.Id,
+            isSscc: true));
+        await seedContext.SaveChangesAsync();
+
+        await using var duplicateContext = database.CreateContext();
+        duplicateContext.LicensePlates.Add(new LicensePlate(
+            " 000123456789012343 ",
+            LicensePlateType.Pallet,
+            warehouse.Id,
+            isSscc: true));
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+    }
+
+    [PostgreSqlFact]
     public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
     {
         await using var context = database.CreateContext();
