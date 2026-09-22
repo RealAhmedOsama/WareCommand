@@ -7,10 +7,17 @@ remote issue closure. Remote issue/checkpoint synchronization is recorded
 explicitly per row and is performed only after an authorized push.
 
 Audit checkpoint — 2026-09-22: all 106 in-scope issues (#2–#107) have
-committed local evidence. Three rows (#22–#24) record remote closure, while
-83 rows (#25–#107) remain explicitly open pending push/review and their listed
-provider, client, migration, production, or other external gates. No remote
-issue state was changed by this audit.
+committed local evidence. The pushed revision is `86906be`; GitHub issues
+#2–#107 are now synchronized, labeled `completed`, and closed as delivered
+implementation slices. This remote state does not erase the provider, client,
+migration, production, or other external gates listed by the rows.
+
+Remote reconciliation — 2026-09-22: historical row text below may still say
+`remote open (pending push)` because it preserves the evidence captured at the
+time of each implementation commit. The current follow-up inventory is
+`docs/implementation/REMAINING_GATES.md`, with focused local workstreams in
+#109–#114 and master-plan roll-up #108. Those follow-up issues must carry fresh
+evidence; #108 is not a production-release sign-off.
 
 | Issue | State | Acceptance evidence | Commit | Dependencies / blocker | Exact next action |
 | ---: | --- | --- | --- | --- | --- |
