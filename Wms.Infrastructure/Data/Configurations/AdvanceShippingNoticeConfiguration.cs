@@ -78,7 +78,9 @@ public sealed class AdvanceShippingNoticeConfiguration : IEntityTypeConfiguratio
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(notice => notice.DocumentNumber).IsUnique();
-        builder.HasIndex(notice => new { notice.SupplierId, notice.SourceType, notice.ExternalReference });
+        builder.HasIndex(notice => new { notice.SupplierId, notice.SourceType, notice.ExternalReference })
+            .IsUnique()
+            .HasFilter("\"ExternalReference\" IS NOT NULL");
         builder.HasIndex(notice => new { notice.WarehouseId, notice.Status, notice.ExpectedArrivalFromUtc });
         builder.HasIndex(notice => new { notice.SupplierId, notice.ExpectedArrivalFromUtc });
     }

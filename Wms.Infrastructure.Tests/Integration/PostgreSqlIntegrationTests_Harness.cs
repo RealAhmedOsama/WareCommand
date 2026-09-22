@@ -643,6 +643,78 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task AdvanceShippingNoticeExternalReferencesAreUniquePerSupplierAndSource()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGASN-{token}", "ASN warehouse");
+        var firstSupplier = new Supplier($"PGASN1-{token}", "First ASN supplier");
+        var secondSupplier = new Supplier($"PGASN2-{token}", "Second ASN supplier");
+        seedContext.AddRange(warehouse, firstSupplier, secondSupplier);
+        await seedContext.SaveChangesAsync();
+
+        seedContext.AdvanceShippingNotices.Add(new AdvanceShippingNotice(
+            $"ASN-{token}-1",
+            warehouse.Id,
+            warehouse.Code,
+            firstSupplier.Id,
+            firstSupplier.Code,
+            firstSupplier.LegalName,
+            externalReference: $" EXT-{token} ",
+            sourceType: "EDI"));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.AdvanceShippingNotices.Add(new AdvanceShippingNotice(
+                $"ASN-{token}-2",
+                warehouse.Id,
+                warehouse.Code,
+                firstSupplier.Id,
+                firstSupplier.Code,
+                firstSupplier.LegalName,
+                externalReference: $"ext-{token}",
+                sourceType: "edi"));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        await using (var otherSupplierContext = database.CreateContext())
+        {
+            otherSupplierContext.AdvanceShippingNotices.Add(new AdvanceShippingNotice(
+                $"ASN-{token}-3",
+                warehouse.Id,
+                warehouse.Code,
+                secondSupplier.Id,
+                secondSupplier.Code,
+                secondSupplier.LegalName,
+                externalReference: $"EXT-{token}",
+                sourceType: "EDI"));
+            await otherSupplierContext.SaveChangesAsync();
+        }
+
+        await using var nullReferenceContext = database.CreateContext();
+        nullReferenceContext.AdvanceShippingNotices.AddRange(
+            new AdvanceShippingNotice(
+                $"ASN-{token}-4",
+                warehouse.Id,
+                warehouse.Code,
+                firstSupplier.Id,
+                firstSupplier.Code,
+                firstSupplier.LegalName,
+                sourceType: "EDI"),
+            new AdvanceShippingNotice(
+                $"ASN-{token}-5",
+                warehouse.Id,
+                warehouse.Code,
+                firstSupplier.Id,
+                firstSupplier.Code,
+                firstSupplier.LegalName,
+                sourceType: "EDI"));
+        await nullReferenceContext.SaveChangesAsync();
+    }
+
+    [PostgreSqlFact]
     public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
     {
         await using var context = database.CreateContext();
