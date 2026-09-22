@@ -9,6 +9,7 @@ using Wms.Domain.Entities;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.ApiClients;
 using Wms.Infrastructure.BulkExchange;
+using Wms.Infrastructure.B2bDocuments;
 using Wms.Infrastructure.Connectors;
 using Wms.Infrastructure.Data.Configurations;
 using Wms.Infrastructure.Identity;
@@ -232,6 +233,16 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<WmsConnectorExternalRecordEntity> ConnectorExternalRecords =>
         Set<WmsConnectorExternalRecordEntity>();
+
+    public DbSet<WmsB2bMappingProfileEntity> B2bMappingProfiles =>
+        Set<WmsB2bMappingProfileEntity>();
+
+    public DbSet<WmsTradingPartnerEntity> TradingPartners => Set<WmsTradingPartnerEntity>();
+
+    public DbSet<WmsB2bDocumentEntity> B2bDocuments => Set<WmsB2bDocumentEntity>();
+
+    public DbSet<WmsB2bAcknowledgementEntity> B2bAcknowledgements =>
+        Set<WmsB2bAcknowledgementEntity>();
 
     public DbSet<WmsRetentionPolicyEntity> RetentionPolicies => Set<WmsRetentionPolicyEntity>();
 
@@ -568,6 +579,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new WmsConnectorInstanceConfiguration());
         builder.ApplyConfiguration(new WmsConnectorRunConfiguration());
         builder.ApplyConfiguration(new WmsConnectorExternalRecordConfiguration());
+        builder.ApplyConfiguration(new WmsB2bMappingProfileConfiguration());
+        builder.ApplyConfiguration(new WmsTradingPartnerConfiguration());
+        builder.ApplyConfiguration(new WmsB2bDocumentConfiguration());
+        builder.ApplyConfiguration(new WmsB2bAcknowledgementConfiguration());
         builder.ApplyConfiguration(new WmsRetentionPolicyConfiguration());
         builder.ApplyConfiguration(new WmsRetentionHoldConfiguration());
         builder.ApplyConfiguration(new WmsRetentionRunConfiguration());
