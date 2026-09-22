@@ -24,6 +24,18 @@ The evidence packet must not contain passwords, connection-string secrets,
 cookies, bearer tokens, Data Protection keys, raw integration payloads, or an
 unredacted database dump.
 
+The local packet validator is `scripts/verify-release-evidence-packet.ps1`.
+It runs the checked-in release preflight, migration lifecycle, security-boundary,
+and support/security tests, then emits a bounded secret-free packet. Its local
+decision is always `GO_WITH_RESTRICTIONS`; it cannot imply production approval.
+
+```powershell
+pwsh -NoProfile -File scripts/verify-release-evidence-packet.ps1 -PlanOnly
+pwsh -NoProfile -File scripts/verify-release-evidence-packet.ps1 `
+  -Environment LocalQualification `
+  -EvidencePath artifacts/release-local.json
+```
+
 ## Preflight gates
 
 1. Review the scoped diff and confirm the source revision is immutable. Run the
