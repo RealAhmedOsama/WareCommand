@@ -1453,6 +1453,68 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task InventoryDispositionPolicyKeysAreUniquePerWarehouse()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var firstWarehouse = new Warehouse($"PGDP-{token}", "Disposition policy warehouse");
+        var secondWarehouse = new Warehouse($"PGDP2-{token}", "Second disposition policy warehouse");
+        seedContext.AddRange(firstWarehouse, secondWarehouse);
+        await seedContext.SaveChangesAsync();
+
+        var policyKey = $"disposition-policy-{token}";
+        seedContext.InventoryDispositionPolicies.AddRange(
+            new InventoryDispositionPolicy(
+                firstWarehouse.Id,
+                policyKey,
+                "First disposition policy",
+                priority: 10,
+                itemId: null,
+                itemCategory: "FOOD",
+                warningDays: 7,
+                minimumShelfLifeDays: 3,
+                requireApprovalForScrap: true,
+                requireWitnessForDestruction: true,
+                effectiveFromUtc: DateTime.UtcNow.AddDays(-1)),
+            new InventoryDispositionPolicy(
+                secondWarehouse.Id,
+                policyKey,
+                "Second disposition policy",
+                priority: 20,
+                itemId: null,
+                itemCategory: "FOOD",
+                warningDays: 14,
+                minimumShelfLifeDays: 5,
+                requireApprovalForScrap: true,
+                requireWitnessForDestruction: false,
+                effectiveFromUtc: DateTime.UtcNow.AddDays(-1)));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicatePolicyContext = database.CreateContext())
+        {
+            duplicatePolicyContext.InventoryDispositionPolicies.Add(
+                new InventoryDispositionPolicy(
+                    firstWarehouse.Id,
+                    policyKey,
+                    "Duplicate disposition policy",
+                    priority: 30,
+                    itemId: null,
+                    itemCategory: "FOOD",
+                    warningDays: 21,
+                    minimumShelfLifeDays: 7,
+                    requireApprovalForScrap: false,
+                    requireWitnessForDestruction: false,
+                    effectiveFromUtc: DateTime.UtcNow.AddDays(-1)));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicatePolicyContext.SaveChangesAsync());
+        }
+
+        var normalizedPolicyKey = policyKey.ToUpperInvariant();
+        (await seedContext.InventoryDispositionPolicies
+                .CountAsync(policy => policy.PolicyKey == normalizedPolicyKey))
+            .Should().Be(2);
+    }
+
+    [PostgreSqlFact]
     public async Task WaveCreationAndProcessingIdentityIsEnforcedByPostgreSql()
     {
         await using var seedContext = database.CreateContext();
