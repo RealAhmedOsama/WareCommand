@@ -27,6 +27,7 @@ Migration: `20260921023248_AddCustomersAndShipToMasterData`.
 
 - `Wms.Domain.Tests/Entities/CustomerTests.cs`
 - `Wms.Infrastructure.Tests/Customers/CustomerManagementServiceTests.cs`
+- `Wms.Infrastructure.Tests/Integration/PostgreSqlIntegrationTests_Harness.cs` proves normalized customer code, ERP identifier, and channel identifier duplicates are rejected while omitted external identifiers remain reusable; disposable PostgreSQL verification passed `25/25` with container cleanup.
 - `Wms.ASP/Controllers/CustomersController.cs`
 
 The remaining #51 qualification is the browser/handheld master-data UI, Arabic/English RTL/LTR visual run, PostgreSQL provider/volume run, and wiring into the #52 order confirmation and #55 return documents. Those are intentionally tracked as open dependencies rather than claimed complete by the backend slice.
