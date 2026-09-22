@@ -56,6 +56,11 @@ gating, idempotent resolution replay/conflict, and non-mutating rejection.
 The checked-in schema migration is
 `Wms.Infrastructure/Database/Migrations/20260921054513_AddOutboundExceptions.cs`.
 
+The disposable PostgreSQL harness also passes 31/31. It proves that a
+resolution command key is unique per `(OutboundExceptionId, Operation)` while
+the same client key can be reused for another operation or another exception.
+The test container is removed and the verification port is free after the run.
+
 ## Remaining release gates
 
 This is a committed outbound-exception progress slice, not full issue closure.
