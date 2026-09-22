@@ -429,6 +429,56 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task InventoryCommandKeysAreUniqueWithinCallerScopeAtTheDatabaseBoundary()
+    {
+        await using var context = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var now = DateTimeOffset.UtcNow;
+        var commandKey = $"COMMAND-{token}";
+
+        context.InventoryCommandIdempotencies.Add(new InventoryCommandIdempotency(
+            commandKey,
+            "reserve",
+            "scanner-1",
+            $"HASH-{token}",
+            $"CORR-{token}",
+            "postgres-test",
+            warehouseId: null,
+            now,
+            now.AddHours(1)));
+        await context.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.InventoryCommandIdempotencies.Add(new InventoryCommandIdempotency(
+                commandKey,
+                "reserve",
+                "scanner-1",
+                $"HASH2-{token}",
+                $"CORR2-{token}",
+                "postgres-test",
+                warehouseId: null,
+                now,
+                now.AddHours(1)));
+
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        await using var otherCallerContext = database.CreateContext();
+        otherCallerContext.InventoryCommandIdempotencies.Add(new InventoryCommandIdempotency(
+            commandKey,
+            "reserve",
+            "integration-1",
+            $"HASH3-{token}",
+            $"CORR3-{token}",
+            "postgres-test",
+            warehouseId: null,
+            now,
+            now.AddHours(1)));
+        await otherCallerContext.SaveChangesAsync();
+    }
+
+    [PostgreSqlFact]
     public async Task SerializedStockRejectsFractionalQuantityAtTheDatabaseBoundary()
     {
         await using var context = database.CreateContext();
