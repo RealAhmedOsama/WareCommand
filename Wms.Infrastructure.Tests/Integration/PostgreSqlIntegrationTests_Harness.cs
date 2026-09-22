@@ -453,6 +453,102 @@ public sealed class PostgreSqlIntegrationTests_Harness(PostgreSqlTestDatabase da
     }
 
     [PostgreSqlFact]
+    public async Task PackingSessionCommandKeysAreUniquePerOperationAndSession()
+    {
+        await using var seedContext = database.CreateContext();
+        var token = Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+        var warehouse = new Warehouse($"PGPK-{token}", "Packing command warehouse");
+        seedContext.Warehouses.Add(warehouse);
+        await seedContext.SaveChangesAsync();
+
+        var location = new Location(
+            $"PGPK-{token}",
+            "Packing station location",
+            warehouse.Id,
+            type: LocationType.Packing,
+            isPickable: false,
+            isReceivable: false);
+        seedContext.Locations.Add(location);
+        await seedContext.SaveChangesAsync();
+
+        var station = new PackingStation(
+            $"PGPK-{token}",
+            "Packing station",
+            warehouse.Id,
+            location.Id);
+        seedContext.PackingStations.Add(station);
+        await seedContext.SaveChangesAsync();
+
+        var firstSession = new PackingSession(
+            $"SESSION-PGPK-1-{token}",
+            warehouse.Id,
+            station.Id,
+            PackingSourceType.SalesOrder,
+            $"sales-order-{token}",
+            salesOrderId: null,
+            stagingLicensePlateId: null,
+            "packer-1",
+            DateTime.UtcNow);
+        var secondSession = new PackingSession(
+            $"SESSION-PGPK-2-{token}",
+            warehouse.Id,
+            station.Id,
+            PackingSourceType.SalesOrder,
+            $"sales-order-2-{token}",
+            salesOrderId: null,
+            stagingLicensePlateId: null,
+            "packer-1",
+            DateTime.UtcNow);
+        seedContext.PackingSessions.AddRange(firstSession, secondSession);
+        await seedContext.SaveChangesAsync();
+
+        var key = $"pack-command-{token}";
+        seedContext.PackingCommands.Add(new PackingCommand(
+            firstSession.Id,
+            shipmentPackageId: null,
+            "scan",
+            key,
+            "hash-1",
+            "packer-1",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        await using (var duplicateContext = database.CreateContext())
+        {
+            duplicateContext.PackingCommands.Add(new PackingCommand(
+                firstSession.Id,
+                shipmentPackageId: null,
+                "scan",
+                key,
+                "hash-1",
+                "packer-1",
+                DateTime.UtcNow));
+            await Assert.ThrowsAsync<DbUpdateException>(() => duplicateContext.SaveChangesAsync());
+        }
+
+        seedContext.PackingCommands.Add(new PackingCommand(
+            firstSession.Id,
+            shipmentPackageId: null,
+            "close",
+            key,
+            "hash-2",
+            "packer-1",
+            DateTime.UtcNow));
+        seedContext.PackingCommands.Add(new PackingCommand(
+            secondSession.Id,
+            shipmentPackageId: null,
+            "scan",
+            key,
+            "hash-3",
+            "packer-1",
+            DateTime.UtcNow));
+        await seedContext.SaveChangesAsync();
+
+        (await seedContext.PackingCommands.CountAsync(command => command.IdempotencyKey == key))
+            .Should().Be(3);
+    }
+
+    [PostgreSqlFact]
     public async Task LocationCodesAreWarehouseScopedAndDatabaseUnique()
     {
         await using var seedContext = database.CreateContext();
