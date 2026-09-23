@@ -115,6 +115,18 @@ public sealed class WebhookSubscriptionService(
         return true;
     }
 
+    public async Task<WebhookDeliveryVerificationSummary> GetDeliveryVerificationSummaryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var active = context.WebhookSubscriptions
+            .AsNoTracking()
+            .Where(subscription => subscription.Status == WmsWebhookSubscriptionStatuses.Active);
+        var activeCount = await active.CountAsync(cancellationToken);
+        var verifiedCount = await active
+            .CountAsync(subscription => subscription.LastDeliveryAtUtc.HasValue, cancellationToken);
+        return new WebhookDeliveryVerificationSummary(activeCount, verifiedCount);
+    }
+
     internal string UnprotectSecret(WmsWebhookSubscriptionEntity entity) =>
         secretProtector.Unprotect(entity.SecretCiphertext);
 
@@ -129,7 +141,9 @@ public sealed class WebhookSubscriptionService(
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Name);
         if (!Uri.TryCreate(request.EndpointUrl, UriKind.Absolute, out var endpoint) ||
             endpoint.Scheme != Uri.UriSchemeHttps && endpoint.Scheme != Uri.UriSchemeHttp ||
-            string.IsNullOrWhiteSpace(endpoint.Host))
+            string.IsNullOrWhiteSpace(endpoint.Host) ||
+            !string.IsNullOrEmpty(endpoint.UserInfo) ||
+            !string.IsNullOrEmpty(endpoint.Fragment))
         {
             throw new ArgumentException("Webhook endpoint must be an absolute HTTP or HTTPS URL.", nameof(request));
         }
@@ -193,6 +207,10 @@ public sealed class WebhookSubscriptionService(
 
 public sealed class UnconfiguredWebhookDeliveryTransport : IWebhookDeliveryTransport
 {
+    public WebhookDeliveryTransportCapability Capability { get; } = new(
+        Enabled: false,
+        Configured: false);
+
     public Task<WebhookDeliveryResult> SendAsync(
         WebhookDeliveryRequest request,
         CancellationToken cancellationToken = default) =>

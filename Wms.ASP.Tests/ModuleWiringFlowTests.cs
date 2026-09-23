@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Wms.Application.B2bDocuments;
@@ -59,6 +60,12 @@ public sealed class ModuleWiringFlowTests(WareCommandWebApplicationFactory facto
 
         using var integrations = await client.GetAsync("/api/integrations/capabilities");
         Assert.Equal(HttpStatusCode.OK, integrations.StatusCode);
-        Assert.Contains("outbox", await integrations.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+        using var integrationJson = JsonDocument.Parse(await integrations.Content.ReadAsStringAsync());
+        Assert.True(integrationJson.RootElement.TryGetProperty("outbox", out _));
+        var webhook = integrationJson.RootElement.GetProperty("webhook");
+        Assert.Equal("Disabled", webhook.GetProperty("status").GetString());
+        Assert.False(webhook.GetProperty("enabled").GetBoolean());
+        Assert.False(webhook.GetProperty("configured").GetBoolean());
+        Assert.False(webhook.GetProperty("verified").GetBoolean());
     }
 }

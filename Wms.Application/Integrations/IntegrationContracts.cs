@@ -127,14 +127,25 @@ public sealed record WebhookDeliveryRequest(
     string EventType,
     Guid EventId,
     string PayloadJson,
-    IReadOnlyDictionary<string, string> Headers);
+    IReadOnlyDictionary<string, string> Headers,
+    long DeliveryId = 0,
+    int PayloadVersion = 1);
 
 public sealed record WebhookDeliveryResult(
     bool Succeeded,
     bool Retryable,
     int? ResponseStatusCode = null,
     string? ResponseBody = null,
-    string? Error = null);
+    string? Error = null,
+    DateTimeOffset? RetryAfterUtc = null);
+
+public sealed record WebhookDeliveryTransportCapability(
+    bool Enabled,
+    bool Configured);
+
+public sealed record WebhookDeliveryVerificationSummary(
+    int ActiveSubscriptions,
+    int VerifiedSubscriptions);
 
 public interface IIntegrationEventWriter
 {
@@ -172,6 +183,8 @@ public interface IIntegrationOutboxDispatcher
 
 public interface IWebhookDeliveryTransport
 {
+    WebhookDeliveryTransportCapability Capability { get; }
+
     Task<WebhookDeliveryResult> SendAsync(
         WebhookDeliveryRequest request,
         CancellationToken cancellationToken = default);
@@ -195,6 +208,9 @@ public interface IWebhookSubscriptionService
         long subscriptionId,
         string status,
         CancellationToken cancellationToken = default);
+
+    Task<WebhookDeliveryVerificationSummary> GetDeliveryVerificationSummaryAsync(
+        CancellationToken cancellationToken = default);
 }
 
 public interface IWebhookSecretProtector
@@ -208,6 +224,10 @@ public static class WebhookSignature
 {
     public const string HeaderName = "X-WareCommand-Signature";
     public const string TimestampHeaderName = "X-WareCommand-Timestamp";
+    public const string EventIdHeaderName = "X-WareCommand-Event-Id";
+    public const string DeliveryIdHeaderName = "X-WareCommand-Delivery-Id";
+    public const string EventTypeHeaderName = "X-WareCommand-Event-Type";
+    public const string VersionHeaderName = "X-WareCommand-Event-Version";
 
     public static string Create(string secret, string payloadJson, DateTimeOffset timestampUtc)
     {
@@ -280,6 +300,31 @@ public static class WebhookSignature
                 System.Globalization.CultureInfo.InvariantCulture),
             ["Content-Type"] = "application/json"
         };
+
+    public static IReadOnlyDictionary<string, string> CreateHeaders(
+        string secret,
+        string payloadJson,
+        DateTimeOffset timestampUtc,
+        Guid eventId,
+        long deliveryId,
+        string eventType,
+        int version)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(eventType);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(deliveryId);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(version);
+
+        var headers = new Dictionary<string, string>(
+            CreateHeaders(secret, payloadJson, timestampUtc),
+            StringComparer.OrdinalIgnoreCase)
+        {
+            [EventIdHeaderName] = eventId.ToString("D"),
+            [DeliveryIdHeaderName] = deliveryId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            [EventTypeHeaderName] = eventType,
+            [VersionHeaderName] = version.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        };
+        return headers;
+    }
 }
 
 public static class IntegrationPayload

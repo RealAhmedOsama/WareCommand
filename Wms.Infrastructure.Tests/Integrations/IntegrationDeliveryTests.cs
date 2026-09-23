@@ -1,8 +1,22 @@
+using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using FluentAssertions;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Wms.Application.Context;
 using Wms.Application.Integrations;
 using Wms.Infrastructure.Auditing;
@@ -139,6 +153,14 @@ public sealed class IntegrationDeliveryTests : IAsyncLifetime, IDisposable
         var sent = transport.Requests[0];
         sent.SubscriptionId.Should().Be(issue.Subscription.Id);
         sent.EventId.Should().Be(eventId);
+        sent.DeliveryId.Should().BeGreaterThan(0);
+        sent.PayloadVersion.Should().Be(1);
+        sent.Headers[WebhookSignature.EventIdHeaderName].Should().Be(eventId.ToString("D"));
+        sent.Headers[WebhookSignature.DeliveryIdHeaderName]
+            .Should().Be(sent.DeliveryId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        sent.Headers[WebhookSignature.EventTypeHeaderName]
+            .Should().Be(WmsIntegrationEventTypes.InventoryMovementRecorded);
+        sent.Headers[WebhookSignature.VersionHeaderName].Should().Be("1");
         WebhookSignature.Verify(
                 issue.Secret,
                 sent.PayloadJson,
@@ -150,6 +172,175 @@ public sealed class IntegrationDeliveryTests : IAsyncLifetime, IDisposable
             .Should().Be(WmsIntegrationEventStatuses.Delivered);
         (await _context.WebhookDeliveries.SingleAsync()).Status
             .Should().Be(WmsWebhookDeliveryStatuses.Delivered);
+    }
+
+    [Fact]
+    public async Task HttpDispatcherHonorsRetryAfterUsesRotatedSecretAndKeepsResponseOutOfDeliveryRecord()
+    {
+        var attempts = 0;
+        var businessMutationCount = 0;
+        var appliedEventIds = new HashSet<string>(StringComparer.Ordinal);
+        var requests = new List<(byte[] Body, Dictionary<string, string> Headers)>();
+        await using var receiver = await WebhookReceiver.StartAsync(async context =>
+        {
+            await using var body = new MemoryStream();
+            await context.Request.Body.CopyToAsync(body, context.RequestAborted);
+            requests.Add((
+                body.ToArray(),
+                context.Request.Headers.ToDictionary(
+                    pair => pair.Key,
+                    pair => pair.Value.ToString(),
+                    StringComparer.OrdinalIgnoreCase)));
+
+            var attempt = Interlocked.Increment(ref attempts);
+            var receivedEventId = context.Request.Headers[WebhookSignature.EventIdHeaderName].ToString();
+            if (attempt == 1)
+            {
+                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                context.Response.Headers.RetryAfter = _clock.UtcNow
+                    .AddMinutes(30)
+                    .ToString("r", CultureInfo.InvariantCulture);
+                await context.Response.WriteAsync("sensitive receiver response", context.RequestAborted);
+                return;
+            }
+
+            if (appliedEventIds.Add(receivedEventId))
+            {
+                Interlocked.Increment(ref businessMutationCount);
+            }
+
+            if (attempt == 2)
+            {
+                context.Abort();
+                return;
+            }
+
+            context.Response.StatusCode = StatusCodes.Status202Accepted;
+            await context.Response.WriteAsync("accepted", context.RequestAborted);
+        });
+
+        var options = Options.Create(new WebhookDeliveryTransportOptions
+        {
+            Enabled = true,
+            AllowedHosts = [receiver.BaseAddress.Host],
+            AllowedSchemes = [Uri.UriSchemeHttp],
+            AllowedPorts = [receiver.BaseAddress.Port],
+            AllowLocalHttpForDevelopment = true
+        });
+        var destinationPolicy = new WebhookDestinationPolicy(
+            options,
+            new TestHostEnvironment(Environments.Development),
+            new SystemWebhookDnsResolver());
+        using var httpClient = new HttpClient(new SocketsHttpHandler
+        {
+            AllowAutoRedirect = false,
+            ConnectCallback = destinationPolicy.ConnectAsync,
+            ConnectTimeout = TimeSpan.FromSeconds(2),
+            UseCookies = false,
+            UseProxy = false
+        })
+        {
+            Timeout = TimeSpan.FromSeconds(5)
+        };
+        var transport = new HttpWebhookDeliveryTransport(
+            httpClient,
+            options,
+            destinationPolicy,
+            NullLogger<HttpWebhookDeliveryTransport>.Instance);
+        var subscriptions = new WebhookSubscriptionService(_context, _secretProtector, _clock);
+        var issue = await subscriptions.CreateAsync(new WebhookSubscriptionCreateRequest(
+            "Local receiver",
+            new Uri(receiver.BaseAddress, "/events").ToString(),
+            [WmsIntegrationEventTypes.InventoryMovementRecorded]));
+        var rotation = await subscriptions.RotateSecretAsync(issue.Subscription.Id, TimeSpan.FromHours(2));
+        var eventId = Guid.NewGuid();
+        await _writer.EnqueueAsync(CreateDraft(eventId));
+        await _context.SaveChangesAsync();
+
+        var dispatcher = new IntegrationOutboxDispatcher(
+            _context,
+            transport,
+            _secretProtector,
+            _clock,
+            NullLogger<IntegrationOutboxDispatcher>.Instance);
+
+        var firstDispatch = await dispatcher.DispatchAsync();
+        firstDispatch.DeliveriesAttempted.Should().Be(1);
+        firstDispatch.DeliveriesFailed.Should().Be(1);
+        var failedDelivery = await _context.WebhookDeliveries.SingleAsync();
+        failedDelivery.Status.Should().Be(WmsWebhookDeliveryStatuses.Failed);
+        failedDelivery.NextAttemptAtUtc.Should().Be(_clock.UtcNow.AddMinutes(30));
+        failedDelivery.ResponseStatusCode.Should().Be(429);
+        failedDelivery.ResponseBody.Should().BeNull();
+        (await _context.IntegrationOutbox.SingleAsync()).NextAttemptAtUtc
+            .Should().Be(failedDelivery.NextAttemptAtUtc);
+
+        var prematureDispatch = await dispatcher.DispatchAsync();
+        prematureDispatch.EventsClaimed.Should().Be(0);
+        attempts.Should().Be(1);
+
+        _clock.UtcNow = failedDelivery.NextAttemptAtUtc!.Value;
+        var responseLossDispatch = await dispatcher.DispatchAsync();
+        responseLossDispatch.DeliveriesAttempted.Should().Be(1);
+        responseLossDispatch.DeliveriesFailed.Should().Be(1);
+        attempts.Should().Be(2);
+        var responseLossDelivery = await _context.WebhookDeliveries.SingleAsync();
+        responseLossDelivery.Status.Should().Be(WmsWebhookDeliveryStatuses.Failed);
+        responseLossDelivery.LastError.Should().Be("webhook_connection_failed");
+        responseLossDelivery.NextAttemptAtUtc.Should().Be(_clock.UtcNow.AddMinutes(2));
+        responseLossDelivery.ResponseBody.Should().BeNull();
+
+        _context.ChangeTracker.Clear();
+        var resumedDispatcher = new IntegrationOutboxDispatcher(
+            _context,
+            transport,
+            _secretProtector,
+            _clock,
+            NullLogger<IntegrationOutboxDispatcher>.Instance);
+        var earlyRetry = await resumedDispatcher.DispatchAsync();
+        earlyRetry.EventsClaimed.Should().Be(0);
+        attempts.Should().Be(2);
+
+        _clock.UtcNow = responseLossDelivery.NextAttemptAtUtc!.Value;
+        var retryDispatch = await resumedDispatcher.DispatchAsync();
+        retryDispatch.DeliveriesAttempted.Should().Be(1);
+        retryDispatch.DeliveriesSucceeded.Should().Be(1);
+        attempts.Should().Be(3);
+        businessMutationCount.Should().Be(1);
+
+        var deliveredDelivery = await _context.WebhookDeliveries.SingleAsync();
+        deliveredDelivery.Status.Should().Be(WmsWebhookDeliveryStatuses.Delivered);
+        deliveredDelivery.AttemptCount.Should().Be(3);
+        deliveredDelivery.ResponseBody.Should().BeNull();
+        (await _context.IntegrationOutbox.SingleAsync()).Status
+            .Should().Be(WmsIntegrationEventStatuses.Delivered);
+        requests.Should().HaveCount(3);
+        requests[0].Body.Should().Equal(requests[1].Body);
+        requests[1].Body.Should().Equal(requests[2].Body);
+        requests.Should().OnlyContain(request =>
+            request.Headers[WebhookSignature.EventIdHeaderName] == eventId.ToString("D"));
+        requests.Select(request => request.Headers[WebhookSignature.DeliveryIdHeaderName])
+            .Distinct(StringComparer.Ordinal)
+            .Should().ContainSingle();
+        var transmittedPayload = Encoding.UTF8.GetString(requests[2].Body);
+        var signedAt = DateTimeOffset.FromUnixTimeSeconds(long.Parse(
+            requests[2].Headers[WebhookSignature.TimestampHeaderName],
+            CultureInfo.InvariantCulture));
+        WebhookSignature.Verify(
+                rotation.Secret,
+                transmittedPayload,
+                requests[2].Headers[WebhookSignature.HeaderName],
+                signedAt)
+            .Should().BeTrue();
+        WebhookSignature.Verify(
+                issue.Secret,
+                transmittedPayload,
+                requests[2].Headers[WebhookSignature.HeaderName],
+                signedAt)
+            .Should().BeFalse();
+        var verification = await subscriptions.GetDeliveryVerificationSummaryAsync();
+        verification.ActiveSubscriptions.Should().Be(1);
+        verification.VerifiedSubscriptions.Should().Be(1);
     }
 
     [Fact]
@@ -174,6 +365,24 @@ public sealed class IntegrationDeliveryTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task UnconfiguredTransportReportsDisabledAndNeverClaimsDelivery()
+    {
+        var transport = new UnconfiguredWebhookDeliveryTransport();
+
+        var result = await transport.SendAsync(new WebhookDeliveryRequest(
+            SubscriptionId: 1,
+            EndpointUrl: "https://receiver.example.test/events",
+            EventType: WmsIntegrationEventTypes.InventoryMovementRecorded,
+            EventId: Guid.NewGuid(),
+            PayloadJson: "{}",
+            Headers: new Dictionary<string, string>()));
+
+        transport.Capability.Should().Be(new WebhookDeliveryTransportCapability(false, false));
+        result.Succeeded.Should().BeFalse();
+        result.Retryable.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task NonRetryableDeliveryBecomesVisibleAsDeadLetter()
     {
         var subscriptionService = new WebhookSubscriptionService(
@@ -185,7 +394,7 @@ public sealed class IntegrationDeliveryTests : IAsyncLifetime, IDisposable
                 "ERP",
                 "https://erp.example.test/wms/events",
                 [WmsIntegrationEventTypes.InventoryMovementRecorded],
-                MaximumAttempts: 1));
+                MaximumAttempts: 8));
         await _writer.EnqueueAsync(CreateDraft(Guid.NewGuid()));
         await _context.SaveChangesAsync();
 
@@ -230,6 +439,8 @@ public sealed class IntegrationDeliveryTests : IAsyncLifetime, IDisposable
 
     private sealed class CapturingWebhookTransport : IWebhookDeliveryTransport
     {
+        public WebhookDeliveryTransportCapability Capability { get; } = new(true, true);
+
         public List<WebhookDeliveryRequest> Requests { get; } = [];
 
         public Task<WebhookDeliveryResult> SendAsync(
@@ -243,18 +454,61 @@ public sealed class IntegrationDeliveryTests : IAsyncLifetime, IDisposable
 
     private sealed class FailingWebhookTransport : IWebhookDeliveryTransport
     {
+        public WebhookDeliveryTransportCapability Capability { get; } = new(true, true);
+
         public Task<WebhookDeliveryResult> SendAsync(
             WebhookDeliveryRequest request,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new WebhookDeliveryResult(
                 Succeeded: false,
                 Retryable: false,
-                ResponseStatusCode: 502,
-                Error: "provider rejected the payload"));
+                ResponseStatusCode: 422,
+                Error: "webhook_http_permanent_failure"));
     }
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {
-        public DateTimeOffset UtcNow { get; } = utcNow;
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
+    }
+
+    private sealed class TestHostEnvironment(string environmentName) : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = environmentName;
+        public string ApplicationName { get; set; } = "Wms.Infrastructure.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class WebhookReceiver(WebApplication app, Uri baseAddress) : IAsyncDisposable
+    {
+        public Uri BaseAddress { get; } = baseAddress;
+
+        public static async Task<WebhookReceiver> StartAsync(RequestDelegate handler)
+        {
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                EnvironmentName = Environments.Development,
+                ContentRootPath = AppContext.BaseDirectory
+            });
+            builder.Logging.ClearProviders();
+            builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+            var app = builder.Build();
+            app.Run(handler);
+            await app.StartAsync();
+            var address = app.Services
+                .GetRequiredService<IServer>()
+                .Features
+                .Get<IServerAddressesFeature>()?
+                .Addresses
+                .SingleOrDefault()
+                ?? throw new InvalidOperationException("The disposable HTTP receiver did not bind an address.");
+            return new WebhookReceiver(app, new Uri(address));
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
     }
 }

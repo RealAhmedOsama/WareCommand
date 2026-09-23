@@ -1,8 +1,10 @@
+using System.Net;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Wms.Application.Administration;
 using Wms.Application.ApiClients;
 using Wms.Application.Approvals;
@@ -60,8 +62,8 @@ using Wms.Infrastructure.B2bDocuments;
 using Wms.Infrastructure.BulkExchange;
 using Wms.Infrastructure.Connectors;
 using Wms.Infrastructure.Customers;
-using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Dashboard;
+using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.Identification;
 using Wms.Infrastructure.Identity;
@@ -117,6 +119,7 @@ public static class InfrastructureServiceCollectionExtensions
     {
         services.AddPersistence(connectionString, provider);
         services.AddDataProtection();
+        services.AddWebhookDeliveryTransport(configuration);
         services.AddAttachmentInfrastructure(configuration);
         services.AddInventoryInfrastructure();
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
@@ -137,7 +140,6 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IIntegrationOutboxDispatcher, IntegrationOutboxDispatcher>();
         services.AddScoped<IWebhookSubscriptionService, WebhookSubscriptionService>();
         services.AddScoped<IWebhookSecretProtector, DataProtectionWebhookSecretProtector>();
-        services.AddScoped<IWebhookDeliveryTransport, UnconfiguredWebhookDeliveryTransport>();
         services.AddScoped<IConnectorService, ConnectorService>();
         services.AddScoped<IConnectorAdapter, GenericErpReferenceConnectorAdapter>();
         services.AddScoped<IConnectorAdapter, EcommerceOrderReferenceConnectorAdapter>();
@@ -336,6 +338,59 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryReconciliationService, InventoryReconciliationService>();
         services.AddScoped<IDashboardReadService, DashboardReadService>();
         services.AddScoped<IValueAddedService, ValueAddedService>();
+        return services;
+    }
+
+    private static IServiceCollection AddWebhookDeliveryTransport(
+        this IServiceCollection services,
+        IConfiguration? configuration)
+    {
+        var enabled = configuration?.GetValue<bool>(
+            WebhookDeliveryTransportOptions.SectionName + ":Enabled") == true;
+        if (!enabled)
+        {
+            services.AddScoped<IWebhookDeliveryTransport, UnconfiguredWebhookDeliveryTransport>();
+            return services;
+        }
+
+        services.AddOptions<WebhookDeliveryTransportOptions>()
+            .Bind(configuration!.GetSection(WebhookDeliveryTransportOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<
+            IValidateOptions<WebhookDeliveryTransportOptions>,
+            WebhookDeliveryTransportOptionsValidator>();
+        services.AddSingleton<IWebhookDnsResolver, SystemWebhookDnsResolver>();
+        services.AddSingleton<WebhookDestinationPolicy>();
+        services.AddHttpClient<HttpWebhookDeliveryTransport>((serviceProvider, client) =>
+            {
+                var options = serviceProvider
+                    .GetRequiredService<IOptions<WebhookDeliveryTransportOptions>>()
+                    .Value;
+                client.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
+            })
+            .RemoveAllLoggers()
+            .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
+            {
+                var options = serviceProvider
+                    .GetRequiredService<IOptions<WebhookDeliveryTransportOptions>>()
+                    .Value;
+                return new SocketsHttpHandler
+                {
+                    AllowAutoRedirect = false,
+                    AutomaticDecompression = DecompressionMethods.None,
+                    ConnectCallback = serviceProvider
+                        .GetRequiredService<WebhookDestinationPolicy>()
+                        .ConnectAsync,
+                    ConnectTimeout = TimeSpan.FromSeconds(options.ConnectTimeoutSeconds),
+                    MaxConnectionsPerServer = 32,
+                    MaxResponseHeadersLength = 16,
+                    PooledConnectionLifetime = TimeSpan.FromMinutes(1),
+                    UseCookies = false,
+                    UseProxy = false
+                };
+            });
+        services.AddScoped<IWebhookDeliveryTransport>(serviceProvider =>
+            serviceProvider.GetRequiredService<HttpWebhookDeliveryTransport>());
         return services;
     }
 

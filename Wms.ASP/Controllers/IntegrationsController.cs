@@ -15,23 +15,46 @@ public sealed class IntegrationsController(
     IIntegrationEventWriter integrationEventWriter,
     IIntegrationInboxService integrationInboxService,
     IIntegrationOutboxDispatcher integrationOutboxDispatcher,
-    IWebhookDeliveryTransport webhookDeliveryTransport) : ControllerBase
+    IWebhookDeliveryTransport webhookDeliveryTransport,
+    IWebhookSubscriptionService webhookSubscriptionService) : ControllerBase
 {
     [HttpGet("capabilities")]
-    public IActionResult Capabilities() => Ok(new
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Capabilities(CancellationToken cancellationToken)
     {
-        outbox = new
+        var capability = webhookDeliveryTransport.Capability;
+        var verification = await webhookSubscriptionService.GetDeliveryVerificationSummaryAsync(
+            cancellationToken);
+        var verified = capability.Enabled &&
+                       capability.Configured &&
+                       verification.VerifiedSubscriptions > 0;
+        var status = !capability.Enabled || !capability.Configured
+            ? "Disabled"
+            : verified
+                ? "Verified"
+                : "Configured";
+
+        return Ok(new
         {
-            writer = integrationEventWriter.GetType().Name,
-            dispatcher = integrationOutboxDispatcher.GetType().Name
-        },
-        inbox = new
-        {
-            handler = integrationInboxService.GetType().Name
-        },
-        webhook = new
-        {
-            deliveryTransport = webhookDeliveryTransport.GetType().Name
-        }
-    });
+            outbox = new
+            {
+                writer = integrationEventWriter.GetType().Name,
+                dispatcher = integrationOutboxDispatcher.GetType().Name
+            },
+            inbox = new
+            {
+                handler = integrationInboxService.GetType().Name
+            },
+            webhook = new
+            {
+                deliveryTransport = webhookDeliveryTransport.GetType().Name,
+                status,
+                enabled = capability.Enabled,
+                configured = capability.Configured,
+                verified,
+                activeSubscriptionCount = verification.ActiveSubscriptions,
+                verifiedSubscriptionCount = verification.VerifiedSubscriptions
+            }
+        });
+    }
 }

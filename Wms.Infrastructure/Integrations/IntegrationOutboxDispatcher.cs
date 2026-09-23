@@ -14,8 +14,8 @@ public sealed class IntegrationOutboxDispatcher(
     ILogger<IntegrationOutboxDispatcher> logger) : IIntegrationOutboxDispatcher
 {
     private static readonly TimeSpan ProcessingLease = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan MaximumRetryDelay = TimeSpan.FromHours(1);
     private const int MaximumErrorLength = 2_000;
-    private const int MaximumResponseLength = 8_000;
 
     public async Task<IntegrationDispatchResult> DispatchAsync(
         int maximumCount = 100,
@@ -90,6 +90,11 @@ public sealed class IntegrationOutboxDispatcher(
                     item => item.OutboxMessageId == message.Id && item.SubscriptionId == subscription.Id,
                     cancellationToken);
                 var outcome = await DispatchDeliveryAsync(message, subscription, delivery, now, cancellationToken);
+                if (outcome is null)
+                {
+                    continue;
+                }
+
                 totals.DeliveriesAttempted++;
                 if (outcome.Succeeded)
                 {
@@ -159,7 +164,7 @@ public sealed class IntegrationOutboxDispatcher(
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<WebhookDeliveryResult> DispatchDeliveryAsync(
+    private async Task<WebhookDeliveryResult?> DispatchDeliveryAsync(
         WmsIntegrationOutboxEntity message,
         WmsWebhookSubscriptionEntity subscription,
         WmsWebhookDeliveryEntity delivery,
@@ -168,7 +173,14 @@ public sealed class IntegrationOutboxDispatcher(
     {
         if (delivery.Status == WmsWebhookDeliveryStatuses.Delivered)
         {
-            return new WebhookDeliveryResult(true, false);
+            return null;
+        }
+
+        if (delivery.Status == WmsWebhookDeliveryStatuses.Failed &&
+            delivery.NextAttemptAtUtc is { } nextAttemptAtUtc &&
+            nextAttemptAtUtc > now)
+        {
+            return null;
         }
 
         delivery.Status = WmsWebhookDeliveryStatuses.Processing;
@@ -187,7 +199,16 @@ public sealed class IntegrationOutboxDispatcher(
                     message.EventType,
                     message.EventId,
                     message.PayloadJson,
-                    WebhookSignature.CreateHeaders(secret, message.PayloadJson, now)),
+                    WebhookSignature.CreateHeaders(
+                        secret,
+                        message.PayloadJson,
+                        now,
+                        message.EventId,
+                        delivery.Id,
+                        message.EventType,
+                        message.Version),
+                    delivery.Id,
+                    message.Version),
                 cancellationToken);
         }
         catch (OperationCanceledException)
@@ -196,12 +217,20 @@ public sealed class IntegrationOutboxDispatcher(
         }
         catch (Exception exception)
         {
-            result = new WebhookDeliveryResult(Succeeded: false, Retryable: false, Error: exception.Message);
+            logger.LogError(
+                "Webhook delivery preparation failed for subscription {SubscriptionId}, event {EventId}; failure category {FailureCategory}",
+                subscription.Id,
+                message.EventId,
+                exception.GetType().Name);
+            result = new WebhookDeliveryResult(
+                Succeeded: false,
+                Retryable: false,
+                Error: "webhook_delivery_preparation_failed");
         }
 
         delivery.LeaseUntilUtc = null;
         delivery.ResponseStatusCode = result.ResponseStatusCode;
-        delivery.ResponseBody = Trim(result.ResponseBody, MaximumResponseLength);
+        delivery.ResponseBody = null;
         if (result.Succeeded)
         {
             delivery.Status = WmsWebhookDeliveryStatuses.Delivered;
@@ -219,7 +248,7 @@ public sealed class IntegrationOutboxDispatcher(
                 ? WmsWebhookDeliveryStatuses.Failed
                 : WmsWebhookDeliveryStatuses.DeadLettered;
             delivery.NextAttemptAtUtc = retry
-                ? now.Add(GetRetryDelay(delivery.AttemptCount))
+                ? GetNextAttemptAtUtc(now, delivery.AttemptCount, result.RetryAfterUtc)
                 : null;
             message.LastError = delivery.LastError;
             logger.LogWarning(
@@ -261,7 +290,12 @@ public sealed class IntegrationOutboxDispatcher(
         else
         {
             message.Status = WmsIntegrationEventStatuses.Failed;
-            message.NextAttemptAtUtc = now.Add(GetRetryDelay(message.AttemptCount));
+            message.NextAttemptAtUtc = deliveries
+                .Where(delivery => delivery.Status == WmsWebhookDeliveryStatuses.Failed)
+                .Select(delivery => delivery.NextAttemptAtUtc)
+                .OfType<DateTimeOffset>()
+                .DefaultIfEmpty(now.Add(GetRetryDelay(message.AttemptCount)))
+                .Min();
         }
 
         await context.SaveChangesAsync(cancellationToken);
@@ -280,6 +314,23 @@ public sealed class IntegrationOutboxDispatcher(
 
     private static TimeSpan GetRetryDelay(int attempt) =>
         TimeSpan.FromMinutes(Math.Min(60, Math.Pow(2, Math.Max(0, attempt - 1))));
+
+    private static DateTimeOffset GetNextAttemptAtUtc(
+        DateTimeOffset nowUtc,
+        int attempt,
+        DateTimeOffset? requestedRetryAtUtc)
+    {
+        var exponential = nowUtc.Add(GetRetryDelay(attempt));
+        if (!requestedRetryAtUtc.HasValue || requestedRetryAtUtc.Value <= nowUtc)
+        {
+            return exponential;
+        }
+
+        var cappedRetryAfter = requestedRetryAtUtc.Value > nowUtc.Add(MaximumRetryDelay)
+            ? nowUtc.Add(MaximumRetryDelay)
+            : requestedRetryAtUtc.Value;
+        return cappedRetryAfter > exponential ? cappedRetryAfter : exponential;
+    }
 
     private bool UsesPortableDateComparison() =>
         context.Database.ProviderName?.Contains(

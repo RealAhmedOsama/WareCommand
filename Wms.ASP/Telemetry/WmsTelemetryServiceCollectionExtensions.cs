@@ -4,6 +4,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Wms.Application.Telemetry;
+using Wms.Infrastructure.Integrations;
 
 namespace Wms.ASP.Telemetry;
 
@@ -40,7 +41,11 @@ public static class WmsTelemetryServiceCollectionExtensions
                     new TraceIdRatioBasedSampler(options.SamplingRatio)))
                 .AddSource(WmsTelemetry.ActivitySourceName)
                 .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
+                .AddHttpClientInstrumentation(instrumentation =>
+                    instrumentation.FilterHttpRequestMessage = static request =>
+                        !request.Options.TryGetValue(
+                            WebhookHttpTelemetryOptions.SuppressAutomaticTracing,
+                            out var suppressTracing) || !suppressTracing)
                 .AddEntityFrameworkCoreInstrumentation();
 
             ConfigureExporters(tracing, options);
