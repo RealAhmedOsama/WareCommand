@@ -22,7 +22,7 @@ public sealed class DataGenerationContractTests
     }
 
     [Fact]
-    public void ProductionAndStagingResetsAreRejected()
+    public void ProductionStagingUnknownTargetsAndResetsAreRejected()
     {
         var production = () => DataGenerationPlan.Create(new DataGenerationRequest(
             WmsDataGenerationProfiles.MinimalDevelopment,
@@ -32,9 +32,14 @@ public sealed class DataGenerationContractTests
             WmsDataGenerationProfiles.MinimalDevelopment,
             "seed",
             ResetExisting: true));
+        var unknownEnvironment = () => DataGenerationPlan.Create(new DataGenerationRequest(
+            WmsDataGenerationProfiles.MinimalDevelopment,
+            "seed",
+            Environment: "Preview-Unknown"));
 
         production.Should().Throw<InvalidOperationException>();
         unconfirmedReset.Should().Throw<InvalidOperationException>();
+        unknownEnvironment.Should().Throw<InvalidOperationException>();
     }
 
     [Fact]
@@ -49,5 +54,32 @@ public sealed class DataGenerationContractTests
         plan.EstimatedCounts["warehouses"].Should().Be(4);
         plan.EstimatedCounts["inventoryRows"].Should().Be(400);
         plan.PreviewRecords.Should().NotBeEmpty();
+        WmsDataGenerationProfiles.All.Should().OnlyContain(profile => profile.MaximumScale >= 1);
+    }
+
+    [Fact]
+    public void LargePerformanceScaleCannotExceedItsExplicitResourceBudget()
+    {
+        var plan = () => DataGenerationPlan.Create(new DataGenerationRequest(
+            WmsDataGenerationProfiles.LargePerformance,
+            "perf-seed"));
+        var unbounded = () => DataGenerationPlan.Create(new DataGenerationRequest(
+            WmsDataGenerationProfiles.LargePerformance,
+            "perf-seed",
+            Scale: 2));
+
+        plan.Should().NotThrow();
+        unbounded.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void OnlyEnglishAndArabicLocalesAreAccepted()
+    {
+        var unsupported = () => DataGenerationPlan.Create(new DataGenerationRequest(
+            WmsDataGenerationProfiles.FullDemo,
+            "seed",
+            Locale: "fr-FR"));
+
+        unsupported.Should().Throw<ArgumentException>();
     }
 }

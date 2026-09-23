@@ -1,36 +1,70 @@
-# Deterministic data-generation boundary
+# Deterministic non-production data generation
 
-The Application data-generation contracts define versioned, deterministic
-scenario profiles for development, demos, integration tests, edge cases, and
-explicit performance qualification. A plan contains a seed fingerprint,
-environment/locale, estimated entity counts, and a small preview; it does not
-silently reset or write a runtime database.
+`Wms.Application.DataGeneration` provides versioned profiles and a deterministic
+plan preview. The PostgreSQL integration fixture also writes a coherent WMS
+journey into a fresh, isolated test schema and reports the data it actually
+created. Planning and writing are separate operations: a plan never mutates a
+database.
 
-## Profiles
+## Profiles and bounds
 
-| Profile | Intended use |
-| --- | --- |
-| `minimal-development` | Small local feature development dataset |
-| `full-demo` | Non-production demonstrations with multilingual/edge data |
-| `edge-cases` | Boundary, shortage, expiry, and exception tests |
-| `integration-test` | Repeatable cross-module journey setup |
-| `large-performance` | Explicit load/capacity qualification only |
+| Profile | Purpose | Planned warehouses | Planned locations | Planned items | Planned inventory rows | Maximum scale |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `minimal-development` | Local feature development | 1 | 8 | 25 | 25 | 10 |
+| `full-demo` | Non-production demonstrations | 2 | 80 | 250 | 400 | 4 |
+| `edge-cases` | Boundary and exception coverage | 1 | 12 | 40 | 80 | 8 |
+| `integration-test` | Repeatable cross-module journeys | 2 | 40 | 100 | 200 | 5 |
+| `large-performance` | Explicit load and capacity data shape | 10 | 5,000 | 10,000 | 100,000 | 1 |
 
-The same profile/version/seed/locale produces the same plan and preview. Arabic
-and English labels are generated as data values so UI-independent journeys can
-exercise both languages. The scale is bounded to 1–100 and the performance
-profile must be requested explicitly.
+Counts shown are the bounded plan dimensions; the writer's report contains
+actual row counts for each persisted entity. A stable seed, generator version,
+profile, and locale produce stable business keys and a logical dataset
+fingerprint. English and Arabic names are supported. The writer uses a fixed
+clock for repeatable document and inventory outcomes; Identity passwords are
+random, ephemeral, and never included in the report.
 
-## Safety boundary
+Scale is restricted per profile. Only `Development`, `Testing`, `Test`, `CI`,
+and `Local` environments and English or Arabic locales are accepted. Production,
+staging, unknown environments, unsupported locales, and every reset request
+are refused.
 
-Plans reject `Production` and `Staging` environments. A destructive reset also
-requires the exact `RESET-NON-PRODUCTION` confirmation and must be implemented
-by an explicitly non-production host/tool. No default password or runtime DB
-file belongs in source control. Generated records must still enter WMS through
-normal commands/seed adapters or be independently reconciled; a generator must
-not bypass invariants merely to write faster.
+## PostgreSQL fixture
 
-The current slice provides the deterministic profile/plan contract and tests.
-Database writers, bounded bulk insertion, reconciliation output, Playwright
-fixture integration, and large-volume provider qualification remain follow-up
-gates.
+Run the disposable data-generation group from the repository root:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group data-generation -Port 55445
+```
+
+The runner starts its own PostgreSQL 17 container. Each test fixture creates a
+new random `wms_test_*` schema, applies all migrations, and drops only that
+schema and the owned container during cleanup. The writer verifies the
+Npgsql provider, exact schema search path, fixture-owned target, and empty
+schema before inserting anything. It refuses populated targets and never
+resets or reuses an existing database.
+
+Reference dimensions (warehouses, locations, units, items, suppliers,
+customers, and the seeded test actor) are inserted directly where no normal
+operational command exists. The actor is provisioned through ASP.NET Identity,
+assigned the warehouse-manager role, and scoped to the generated warehouses.
+Purchase, receiving, putaway, sales, allocation, pick, pack, shipment, return,
+cycle-count, and opening-balance changes use application services and use cases.
+The writer fails if profile dimensions or inventory row targets exceed their
+planned bounds.
+
+The returned report contains generator/profile and seed fingerprints, target
+schema identifier, elapsed time, actual entity counts, operation outcomes,
+logical dataset fingerprint, and deep reconciliation status and transaction
+count. The PostgreSQL runner includes both separate-schema reports in its
+`dataGenerationReports` JSON field; the reports contain no credentials. The
+test runs the same seed into two
+separate schemas, compares logical fingerprints and counts, checks document
+and inventory links, queries persisted data through application services, and
+proves that a populated target, production environment, and reset request are
+refused.
+
+This group qualifies deterministic provider-backed fixture generation. It is
+not a production seed path or a production/staging qualification result. Use
+the separate browser and load qualification gates for those workflows; they
+must consume a generated dataset before their evidence can be considered
+complete.

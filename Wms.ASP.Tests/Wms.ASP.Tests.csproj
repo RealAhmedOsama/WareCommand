@@ -22,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Wms.Infrastructure.Tests\Wms.Infrastructure.Tests.csproj" />
     <ProjectReference Include="..\Wms.ASP\Wms.ASP.csproj" />
     <ProjectReference Include="..\Wms.Infrastructure\Wms.Infrastructure.csproj" />
   </ItemGroup>

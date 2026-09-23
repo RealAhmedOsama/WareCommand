@@ -109,7 +109,8 @@ public class StockMovementService : IStockMovementService
                 licensePlateId,
                 cancellationToken,
                 ownerKind,
-                inventoryOwnerId);
+                inventoryOwnerId,
+                ownerCodeSnapshot);
             await EnsureInboundCapacityAsync(
                 location,
                 itemId,

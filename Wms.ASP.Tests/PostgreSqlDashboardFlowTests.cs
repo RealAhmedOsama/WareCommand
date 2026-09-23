@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Wms.Application.AnomalyDetection;
+using Wms.Application.DataGeneration;
 using Wms.Application.Forecasting;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
@@ -18,6 +19,7 @@ using Wms.Domain.Inventory;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Identity;
+using Wms.Infrastructure.Tests.Integration;
 using Xunit;
 
 namespace Wms.ASP.Tests;
@@ -257,6 +259,113 @@ public sealed class PostgreSqlDashboardFlowTests
         }
     }
 
+    [PostgreSqlDashboardFact]
+    public async Task GeneratedDatasetDrivesAuthenticatedMvcAndBoundedInventoryReads()
+    {
+        await using var target = new PostgreSqlTestDatabase();
+        await target.InitializeAsync();
+        var fixture = await DeterministicPostgreSqlDataGenerationFixture.WriteWithActorCredentialsAsync(
+            target,
+            new DataGenerationRequest(
+                WmsDataGenerationProfiles.MinimalDevelopment,
+                "issue-129-http-fixture",
+                Environment: "Testing",
+                Locale: "en-US"));
+        Assert.True(fixture.Report.ReconciliationClean);
+        var fixtureJson = JsonSerializer.Serialize(fixture);
+        Assert.DoesNotContain("password", fixtureJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(fixture.ActorCredentials.Password, fixtureJson, StringComparison.Ordinal);
+
+        var factory = new PostgreSqlDashboardApplicationFactory(
+            Environment.GetEnvironmentVariable("WARECOMMAND_TEST_POSTGRES_CONNECTION")!);
+        try
+        {
+            factory.UseExistingSchema(target.TestConnectionString);
+            using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false,
+                HandleCookies = true
+            });
+            using var login = await AuthenticationFlowTests.PostLoginAsync(
+                client,
+                fixture.ActorCredentials.UserName,
+                fixture.ActorCredentials.Password);
+            Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+
+            using var dashboard = await client.GetAsync("/Dashboard?culture=en-US&ui-culture=en-US");
+            var dashboardHtml = await dashboard.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, dashboard.StatusCode);
+            Assert.Contains("lang=\"en-US\" dir=\"ltr\"", dashboardHtml, StringComparison.Ordinal);
+
+            int warehouseId;
+            string itemSku;
+            string receivingLocationCode;
+            using (var context = target.CreateContext())
+            {
+                warehouseId = await context.Warehouses
+                    .OrderBy(value => value.Code)
+                    .Select(value => value.Id)
+                    .FirstAsync();
+                itemSku = await context.Items.AsNoTracking()
+                    .Where(value => !value.RequiresLot && !value.RequiresSerial)
+                    .OrderBy(value => value.Sku)
+                    .Select(value => value.Sku)
+                    .FirstAsync();
+                receivingLocationCode = await context.Locations.AsNoTracking()
+                    .Where(value => value.WarehouseId == warehouseId && value.Type == LocationType.Receiving)
+                    .Select(value => value.Code)
+                    .FirstAsync();
+            }
+
+            using var inventoryPage = await client.GetAsync("/Inventory?showSummary=true");
+            Assert.Equal(HttpStatusCode.OK, inventoryPage.StatusCode);
+            using var dashboardData = await client.GetAsync($"/Dashboard/RefreshData?warehouseId={warehouseId}");
+            Assert.Equal(HttpStatusCode.OK, dashboardData.StatusCode);
+
+            var statuses = new System.Collections.Concurrent.ConcurrentBag<HttpStatusCode>();
+            await Parallel.ForEachAsync(
+                Enumerable.Range(0, 8),
+                new ParallelOptions { MaxDegreeOfParallelism = 4 },
+                async (_, cancellationToken) =>
+                {
+                    using var response = await client.GetAsync(
+                        $"/Dashboard/RefreshData?warehouseId={warehouseId}",
+                        cancellationToken);
+                    statuses.Add(response.StatusCode);
+                });
+            Assert.Equal(8, statuses.Count);
+            Assert.All(statuses, status => Assert.Equal(HttpStatusCode.OK, status));
+
+            using var receivePage = await client.GetAsync("/Receiving/Receive");
+            var receiveHtml = await receivePage.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, receivePage.StatusCode);
+            var tokenMatch = Regex.Match(
+                receiveHtml,
+                "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            Assert.True(tokenMatch.Success, "Could not find the generated-actor receiving antiforgery token.");
+
+            using var receipt = await client.PostAsync(
+                "/Receiving/Receive",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["ItemSku"] = itemSku,
+                    ["LocationCode"] = receivingLocationCode,
+                    ["Quantity"] = "1",
+                    ["UnitOfMeasure"] = "EA",
+                    ["ReferenceNumber"] = "GEN-HTTP-RECEIPT",
+                    ["__RequestVerificationToken"] = WebUtility.HtmlDecode(tokenMatch.Groups[1].Value)
+                }));
+            Assert.Equal(HttpStatusCode.OK, receipt.StatusCode);
+            Assert.True(fixture.Report.ActualCounts["inventoryRows"] >= 25);
+        }
+        finally
+        {
+            await factory.DisposeDatabaseAsync();
+            factory.Dispose();
+        }
+    }
+
     private sealed class PostgreSqlDashboardApplicationFactory(string baseConnectionString)
         : WebApplicationFactory<Wms.ASP.Program>
     {
@@ -266,6 +375,7 @@ public sealed class PostgreSqlDashboardFlowTests
             "warecommand-dashboard-pg-" + Guid.NewGuid().ToString("N"),
             "keys");
         private string? _connectionString;
+        private bool _ownsSchema;
 
         public async Task CreateIsolatedDatabaseAsync()
         {
@@ -285,6 +395,7 @@ public sealed class PostgreSqlDashboardFlowTests
 
             connectionBuilder.SearchPath = _schema;
             _connectionString = connectionBuilder.ConnectionString;
+            _ownsSchema = true;
             var options = new DbContextOptionsBuilder<WmsDbContext>()
                 .UseNpgsql(_connectionString)
                 .Options;
@@ -355,20 +466,46 @@ public sealed class PostgreSqlDashboardFlowTests
                 return;
             }
 
-            var connectionBuilder = new NpgsqlConnectionStringBuilder(baseConnectionString)
+            if (_ownsSchema)
             {
-                ApplicationName = "WareCommand.Dashboard.PostgreSqlTests.Cleanup",
-                Pooling = false
-            };
-            await using var connection = new NpgsqlConnection(connectionBuilder.ConnectionString);
-            await connection.OpenAsync();
-            await using var command = new NpgsqlCommand($"DROP SCHEMA IF EXISTS \"{_schema}\" CASCADE", connection);
-            await command.ExecuteNonQueryAsync();
+                var connectionBuilder = new NpgsqlConnectionStringBuilder(baseConnectionString)
+                {
+                    ApplicationName = "WareCommand.Dashboard.PostgreSqlTests.Cleanup",
+                    Pooling = false
+                };
+                await using var connection = new NpgsqlConnection(connectionBuilder.ConnectionString);
+                await connection.OpenAsync();
+                await using var command = new NpgsqlCommand($"DROP SCHEMA IF EXISTS \"{_schema}\" CASCADE", connection);
+                await command.ExecuteNonQueryAsync();
+            }
+
             var dataProtectionRoot = Directory.GetParent(_dataProtectionPath)?.FullName;
             if (dataProtectionRoot is not null && Directory.Exists(dataProtectionRoot))
             {
                 Directory.Delete(dataProtectionRoot, recursive: true);
             }
+        }
+
+        public void UseExistingSchema(string scopedConnectionString)
+        {
+            if (_connectionString is not null)
+            {
+                throw new InvalidOperationException("The dashboard test database was already configured.");
+            }
+
+            var connectionBuilder = new NpgsqlConnectionStringBuilder(scopedConnectionString)
+            {
+                ApplicationName = "WareCommand.GeneratedDataset.BrowserTests",
+                Pooling = false
+            };
+            if (string.IsNullOrWhiteSpace(connectionBuilder.SearchPath) ||
+                !connectionBuilder.SearchPath.StartsWith("wms_test_", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("The generated dataset browser fixture requires an isolated test schema.");
+            }
+
+            _connectionString = connectionBuilder.ConnectionString;
+            _ownsSchema = false;
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)

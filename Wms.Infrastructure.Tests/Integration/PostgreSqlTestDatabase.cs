@@ -4,7 +4,7 @@ using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Tests.Integration;
 
-public sealed class PostgreSqlTestDatabase : IAsyncLifetime
+public sealed class PostgreSqlTestDatabase : IAsyncLifetime, IAsyncDisposable
 {
     private readonly string? _baseConnectionString =
         Environment.GetEnvironmentVariable("WARECOMMAND_TEST_POSTGRES_CONNECTION");
@@ -12,6 +12,13 @@ public sealed class PostgreSqlTestDatabase : IAsyncLifetime
     private string? _connectionString;
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(_connectionString);
+
+    public string TargetIdentifier => _schema ?? string.Empty;
+
+    public string TestConnectionString => _connectionString
+        ?? throw new InvalidOperationException("The isolated PostgreSQL target has not been initialized.");
+
+    internal string? ScopedConnectionString => _connectionString;
 
     public async Task InitializeAsync()
     {
@@ -78,6 +85,8 @@ public sealed class PostgreSqlTestDatabase : IAsyncLifetime
             connection);
         await command.ExecuteNonQueryAsync();
     }
+
+    ValueTask IAsyncDisposable.DisposeAsync() => new(DisposeAsync());
 
     private static string QuoteIdentifier(string value) =>
         $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";

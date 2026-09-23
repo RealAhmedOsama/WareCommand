@@ -14,7 +14,8 @@ public sealed record WmsDataGenerationProfile(
     int Documents,
     int InventoryRows,
     bool IncludeEdgeCases,
-    bool IncludeIntegrationHistory);
+    bool IncludeIntegrationHistory,
+    int MaximumScale);
 
 public static class WmsDataGenerationProfiles
 {
@@ -28,15 +29,15 @@ public static class WmsDataGenerationProfiles
         new Dictionary<string, WmsDataGenerationProfile>(StringComparer.OrdinalIgnoreCase)
         {
             [MinimalDevelopment] = new(
-                MinimalDevelopment, "Local feature development", 1, 8, 25, 3, 5, 10, 25, false, false),
+                MinimalDevelopment, "Local feature development", 1, 8, 25, 3, 5, 10, 25, false, false, 10),
             [FullDemo] = new(
-                FullDemo, "Non-production demonstrations", 2, 40, 250, 15, 40, 150, 400, true, true),
+                FullDemo, "Non-production demonstrations", 2, 40, 250, 15, 40, 150, 400, true, true, 4),
             [EdgeCases] = new(
-                EdgeCases, "Boundary and exception tests", 1, 12, 40, 5, 10, 80, 80, true, true),
+                EdgeCases, "Boundary and exception tests", 1, 12, 40, 5, 10, 80, 80, true, true, 8),
             [IntegrationTest] = new(
-                IntegrationTest, "Repeatable integration journeys", 2, 20, 100, 10, 20, 100, 200, true, true),
+                IntegrationTest, "Repeatable integration journeys", 2, 20, 100, 10, 20, 100, 200, true, true, 5),
             [LargePerformance] = new(
-                LargePerformance, "Explicit load/performance qualification", 10, 500, 10_000, 250, 2_000, 50_000, 100_000, true, true)
+                LargePerformance, "Explicit load/performance qualification", 10, 500, 10_000, 250, 2_000, 50_000, 100_000, true, true, 1)
         };
 
     public static IReadOnlyCollection<WmsDataGenerationProfile> All => Profiles.Values.ToArray();
@@ -142,24 +143,47 @@ public sealed record DataGenerationPlan(
             throw new ArgumentOutOfRangeException(nameof(request), "Scale must be between 1 and 100.");
         }
 
-        var environment = request.Environment.Trim();
-        if (environment.Equals("Production", StringComparison.OrdinalIgnoreCase) ||
-            environment.Equals("Staging", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(request.Environment))
         {
-            throw new InvalidOperationException("Data generation is disabled for production and staging environments.");
+            throw new InvalidOperationException("A recognized non-production environment is required.");
         }
 
-        if (request.ResetExisting && !string.Equals(
-                request.ResetConfirmation,
-                "RESET-NON-PRODUCTION",
-                StringComparison.Ordinal))
+        var environment = request.Environment.Trim();
+        if (!IsKnownNonProductionEnvironment(environment))
         {
             throw new InvalidOperationException(
-                "ResetExisting requires the exact non-production confirmation token.");
+                "Data generation is allowed only for Development, Testing, Test, CI, or Local environments.");
+        }
+
+        if (request.Scale > profile.MaximumScale)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request),
+                $"Scale for profile '{profile.Name}' must be between 1 and {profile.MaximumScale}.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Locale) ||
+            !(request.Locale.StartsWith("en", StringComparison.OrdinalIgnoreCase) ||
+              request.Locale.StartsWith("ar", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException("The locale must be English or Arabic.", nameof(request));
+        }
+
+        if (request.ResetExisting)
+        {
+            throw new InvalidOperationException(
+                "Existing databases cannot be reset by the data generator. Use a new isolated target.");
         }
 
         return profile;
     }
+
+    private static bool IsKnownNonProductionEnvironment(string environment) =>
+        environment.Equals("Development", StringComparison.OrdinalIgnoreCase) ||
+        environment.Equals("Testing", StringComparison.OrdinalIgnoreCase) ||
+        environment.Equals("Test", StringComparison.OrdinalIgnoreCase) ||
+        environment.Equals("CI", StringComparison.OrdinalIgnoreCase) ||
+        environment.Equals("Local", StringComparison.OrdinalIgnoreCase);
 
     private sealed class DeterministicSequence
     {

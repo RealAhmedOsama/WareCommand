@@ -21,7 +21,10 @@ The harness currently proves:
   timestamps, and transaction rollback;
 - the work-engine revision token rejects concurrent mutation through the
   application's safe `ConcurrencyConflictException` boundary;
-- the existing core PostgreSQL query and startup migration gate.
+- the existing core PostgreSQL query and startup migration gate;
+- deterministic data generation in a fresh schema, linked receiving-to-shipping
+  journeys, deep inventory reconciliation, repeatable logical fingerprints,
+  and fail-closed target/environment checks.
 
 Run it with:
 
@@ -29,7 +32,7 @@ Run it with:
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Port 55432
 ```
 
-The runner is bounded into two exact test-class groups so a large provider
+The runner is bounded into four exact test-class groups so a large provider
 qualification run does not require one unbounded test host invocation. Inspect
 the planned groups without starting Docker:
 
@@ -44,12 +47,16 @@ same disposable database:
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group core -Port 55432
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group harness -Port 55433
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group dashboard -Port 55434
-pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group all -Port 55435 -EvidencePath artifacts/postgresql-provider.json
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group data-generation -Port 55435
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group all -Port 55436 -EvidencePath artifacts/postgresql-provider.json
 ```
 
 The JSON result records only the repository revision, provider image, selected
 groups, filters, durations, and cleanup policy; credentials and connection
-strings are never written to evidence.
+strings are never written to evidence. When the data-generation group runs,
+`dataGenerationReports` includes actual entity counts, outcomes, seed and
+dataset fingerprints, target schema identifiers, elapsed time, and
+reconciliation results from both isolated writer runs.
 
 The harness intentionally does not replace fast unit tests. Remaining
 provider work belongs to the functional issues as their schemas and workflows

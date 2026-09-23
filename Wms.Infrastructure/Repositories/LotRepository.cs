@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using NpgsqlTypes;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
@@ -140,11 +142,27 @@ public sealed class LotRepository : Repository<Lot>, ILotRepository
 
         if (_context.Database.ProviderName?.Contains("Npgsql", StringComparison.Ordinal) == true)
         {
-            await _context.Database.ExecuteSqlInterpolatedAsync($"""
+            await _context.Database.ExecuteSqlRawAsync(
+                """
                 INSERT INTO "Lots" ("Number", "ItemId", "ExpiryDate", "ManufacturedDate", "RetestDate", "HoldUntil", "SupplierLotNumber", "Notes", "Status", "IsActive", "RecallReason", "RecalledAt", "CreatedAt", "UpdatedAt")
-                VALUES ({normalizedNumber}, {itemId}, {normalizedExpiryDate}, {normalizedManufacturedDate}, {normalizedRetestDate}, {normalizedHoldUntil}, {normalizedSupplierLotNumber}, {normalizedNotes}, {(int)status}, {status != LotStatus.Closed}, {null}, {null}, {normalizedCreatedAtUtc}, {normalizedCreatedAtUtc})
+                VALUES (@number, @itemId, @expiryDate, @manufacturedDate, @retestDate, @holdUntil, @supplierLotNumber, @notes, @status, @isActive, NULL, NULL, @createdAt, @updatedAt)
                 ON CONFLICT ("ItemId", "Number") DO NOTHING
-                """, cancellationToken);
+                """,
+                [
+                    new NpgsqlParameter("number", NpgsqlDbType.Text) { Value = normalizedNumber },
+                    new NpgsqlParameter("itemId", NpgsqlDbType.Integer) { Value = itemId },
+                    new NpgsqlParameter("expiryDate", NpgsqlDbType.Timestamp) { Value = (object?)normalizedExpiryDate ?? DBNull.Value },
+                    new NpgsqlParameter("manufacturedDate", NpgsqlDbType.Timestamp) { Value = (object?)normalizedManufacturedDate ?? DBNull.Value },
+                    new NpgsqlParameter("retestDate", NpgsqlDbType.Timestamp) { Value = (object?)normalizedRetestDate ?? DBNull.Value },
+                    new NpgsqlParameter("holdUntil", NpgsqlDbType.Timestamp) { Value = (object?)normalizedHoldUntil ?? DBNull.Value },
+                    new NpgsqlParameter("supplierLotNumber", NpgsqlDbType.Text) { Value = (object?)normalizedSupplierLotNumber ?? DBNull.Value },
+                    new NpgsqlParameter("notes", NpgsqlDbType.Text) { Value = (object?)normalizedNotes ?? DBNull.Value },
+                    new NpgsqlParameter("status", NpgsqlDbType.Integer) { Value = (int)status },
+                    new NpgsqlParameter("isActive", NpgsqlDbType.Boolean) { Value = status != LotStatus.Closed },
+                    new NpgsqlParameter("createdAt", NpgsqlDbType.TimestampTz) { Value = normalizedCreatedAtUtc },
+                    new NpgsqlParameter("updatedAt", NpgsqlDbType.TimestampTz) { Value = normalizedCreatedAtUtc }
+                ],
+                cancellationToken);
         }
         else
         {
