@@ -10,11 +10,12 @@ namespace Wms.Infrastructure.Notifications;
 public sealed class NotificationDeliveryService(
     WmsDbContext context,
     IEnumerable<INotificationChannelAdapter> adapters,
+    INotificationRecipientDirectory recipientDirectory,
     IClock clock,
     ILogger<NotificationDeliveryService> logger) : INotificationDeliveryService
 {
     private const int MaximumAttempts = 10;
-    private const int MaximumErrorLength = 2_000;
+    private static readonly TimeSpan ProcessingLease = TimeSpan.FromMinutes(5);
 
     public async Task<int> DispatchPendingAsync(
         int maximumCount = 100,
@@ -65,30 +66,112 @@ public sealed class NotificationDeliveryService(
         foreach (var recipient in rows)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            recipient.AttemptCount++;
-            recipient.LastAttemptAtUtc = nowUtc;
-            recipient.LeaseUntilUtc = nowUtc.AddMinutes(5);
+            recipient.LeaseUntilUtc = nowUtc.Add(ProcessingLease);
             await context.SaveChangesAsync(cancellationToken);
 
+            var profile = (await recipientDirectory.ResolveAsync(
+                    new NotificationAudience(
+                        UserIds: [recipient.RecipientUserId],
+                        WarehouseId: recipient.Notification.WarehouseId),
+                    recipient.Notification.RequiredPermission,
+                    cancellationToken))
+                .SingleOrDefault(candidate => string.Equals(
+                    candidate.UserId,
+                    recipient.RecipientUserId,
+                    StringComparison.Ordinal));
+            if (profile is null)
+            {
+                SetTerminal(recipient, NotificationDeliveryStatus.Suppressed, "recipient_not_eligible");
+                await context.SaveChangesAsync(cancellationToken);
+                processed++;
+                continue;
+            }
+
+            recipient.RecipientEmail = profile.Email;
+
+            if (recipient.Channel == NotificationChannel.Email && string.IsNullOrWhiteSpace(profile.Email))
+            {
+                SetTerminal(recipient, NotificationDeliveryStatus.Disabled, "recipient_email_unavailable");
+                await context.SaveChangesAsync(cancellationToken);
+                processed++;
+                continue;
+            }
+
+            var userIds = new[] { profile.UserId };
+            var roleNames = profile.Roles.ToArray();
+            var preferences = await context.NotificationPreferences
+                .AsNoTracking()
+                .Where(preference =>
+                    (preference.UserId != null && userIds.Contains(preference.UserId)) ||
+                    (preference.RoleName != null && roleNames.Contains(preference.RoleName)) ||
+                    (recipient.Notification.WarehouseId.HasValue &&
+                     preference.WarehouseId == recipient.Notification.WarehouseId.Value))
+                .ToListAsync(cancellationToken);
+            var preference = NotificationPreferencePolicy.Resolve(
+                preferences,
+                profile,
+                recipient.Notification.WarehouseId,
+                recipient.Notification.Kind,
+                recipient.Channel,
+                nowUtc,
+                recipient.Notification.Mandatory,
+                recipient.Notification.CreatedAtUtc);
+            if (!preference.IsEnabled)
+            {
+                SetTerminal(recipient, NotificationDeliveryStatus.Suppressed, "recipient_preference_disabled");
+                await context.SaveChangesAsync(cancellationToken);
+                processed++;
+                continue;
+            }
+
+            if (preference.NextAttemptAtUtc is { } scheduledAtUtc && scheduledAtUtc > nowUtc)
+            {
+                recipient.NextAttemptAtUtc = scheduledAtUtc;
+                recipient.LeaseUntilUtc = null;
+                await context.SaveChangesAsync(cancellationToken);
+                processed++;
+                continue;
+            }
+
+            if (recipient.AttemptCount >= MaximumAttempts)
+            {
+                SetTerminal(recipient, NotificationDeliveryStatus.DeadLettered, "delivery_attempt_limit_reached");
+                await context.SaveChangesAsync(cancellationToken);
+                processed++;
+                continue;
+            }
+
             var result = adapterMap.TryGetValue(recipient.Channel, out var adapter)
-                ? await DeliverAsync(adapter, recipient, cancellationToken)
+                ? await DeliverAsync(adapter, recipient, profile, cancellationToken)
                 : new NotificationDeliveryResult(
                     Succeeded: false,
                     Retryable: false,
-                    Error: $"No adapter is registered for notification channel '{recipient.Channel}'.");
+                    Error: "notification_adapter_unavailable");
 
+            recipient.AttemptCount++;
+            recipient.LastAttemptAtUtc = nowUtc;
             recipient.LeaseUntilUtc = null;
             if (result.Succeeded)
             {
-                recipient.DeliveryStatus = NotificationDeliveryStatus.Delivered;
+                recipient.DeliveryStatus = result.SuccessStatus is
+                    NotificationDeliveryStatus.Queued or NotificationDeliveryStatus.TransportAccepted
+                    ? result.SuccessStatus.Value
+                    : NotificationDeliveryStatus.TransportAccepted;
                 recipient.NextAttemptAtUtc = null;
                 recipient.LastError = null;
             }
+            else if (result.Disabled)
+            {
+                SetTerminal(recipient, NotificationDeliveryStatus.Disabled, result.Error);
+            }
             else
             {
-                recipient.DeliveryStatus = NotificationDeliveryStatus.Failed;
-                recipient.LastError = TrimError(result.Error ?? "Notification delivery failed.");
-                recipient.NextAttemptAtUtc = result.Retryable && recipient.AttemptCount < MaximumAttempts
+                var shouldRetry = result.Retryable && recipient.AttemptCount < MaximumAttempts;
+                recipient.DeliveryStatus = shouldRetry
+                    ? NotificationDeliveryStatus.Failed
+                    : NotificationDeliveryStatus.DeadLettered;
+                recipient.LastError = NormalizeError(result.Error);
+                recipient.NextAttemptAtUtc = shouldRetry
                     ? nowUtc.Add(GetRetryDelay(recipient.AttemptCount))
                     : null;
             }
@@ -98,11 +181,10 @@ public sealed class NotificationDeliveryService(
             if (!result.Succeeded)
             {
                 logger.LogWarning(
-                    "Notification delivery failed for recipient {RecipientId} on channel {Channel}; attempt {Attempt}; retryable {Retryable}",
-                    recipient.Id,
+                    "Notification delivery failed on channel {Channel}; attempt {Attempt}; retryable {Retryable}",
                     recipient.Channel,
                     recipient.AttemptCount,
-                    result.Retryable);
+                    recipient.DeliveryStatus == NotificationDeliveryStatus.Failed);
             }
         }
 
@@ -112,6 +194,7 @@ public sealed class NotificationDeliveryService(
     private static async Task<NotificationDeliveryResult> DeliverAsync(
         INotificationChannelAdapter adapter,
         WmsNotificationRecipientEntity recipient,
+        NotificationRecipientProfile profile,
         CancellationToken cancellationToken)
     {
         try
@@ -121,7 +204,7 @@ public sealed class NotificationDeliveryService(
                     recipient.NotificationId,
                     recipient.Id,
                     recipient.RecipientUserId,
-                    recipient.RecipientEmail,
+                    profile.Email,
                     recipient.Notification.Kind,
                     recipient.Notification.Severity,
                     recipient.Notification.TitleEn,
@@ -131,27 +214,48 @@ public sealed class NotificationDeliveryService(
                     recipient.Notification.DeepLink,
                     recipient.Notification.WarehouseId,
                     recipient.Notification.Mandatory,
-                    recipient.Notification.CorrelationId),
+                    recipient.Notification.CorrelationId,
+                    profile.Locale),
                 cancellationToken);
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception)
         {
             return new NotificationDeliveryResult(
                 Succeeded: false,
                 Retryable: true,
-                Error: exception.Message);
+                Error: "notification_adapter_failed");
         }
     }
 
     private static TimeSpan GetRetryDelay(int attempt) =>
         TimeSpan.FromMinutes(Math.Min(60, Math.Pow(2, Math.Max(0, attempt - 1))));
 
-    private static string TrimError(string error) =>
-        error.Length <= MaximumErrorLength ? error : error[..MaximumErrorLength];
+    private static void SetTerminal(
+        WmsNotificationRecipientEntity recipient,
+        NotificationDeliveryStatus status,
+        string? error)
+    {
+        recipient.DeliveryStatus = status;
+        recipient.NextAttemptAtUtc = null;
+        recipient.LeaseUntilUtc = null;
+        recipient.LastError = NormalizeError(error);
+    }
+
+    private static string NormalizeError(string? error)
+    {
+        if (string.IsNullOrWhiteSpace(error) || error.Length > 80 ||
+            error.Any(character =>
+                !(char.IsAsciiLetterOrDigit(character) || character is '_' or '-')))
+        {
+            return "delivery_failed";
+        }
+
+        return error.ToLowerInvariant();
+    }
 
     private bool UsesPortableDateComparison() =>
         context.Database.ProviderName?.Contains(

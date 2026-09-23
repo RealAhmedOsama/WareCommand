@@ -11,6 +11,7 @@ public static class WmsIntegrationEventTypes
     public const string WarehouseChanged = "warehouse.changed.v1";
     public const string ItemChanged = "item.changed.v1";
     public const string WorkLifecycleChanged = "work.lifecycle-changed.v1";
+    public const string NotificationPublished = "notification.published.v1";
 
     public static bool IsSupported(string eventType) => eventType switch
     {
@@ -18,7 +19,8 @@ public static class WmsIntegrationEventTypes
         InventoryStockAdjusted or
         WarehouseChanged or
         ItemChanged or
-        WorkLifecycleChanged => true,
+        WorkLifecycleChanged or
+        NotificationPublished => true,
         _ => false
     };
 }

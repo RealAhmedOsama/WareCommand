@@ -29,6 +29,8 @@ public sealed class ModuleWiringFlowTests(WareCommandWebApplicationFactory facto
             Assert.NotNull(services.GetRequiredService<IIntegrationEventWriter>());
             Assert.NotNull(services.GetRequiredService<IIntegrationInboxService>());
             Assert.NotNull(services.GetRequiredService<IIntegrationOutboxDispatcher>());
+            Assert.NotNull(services.GetRequiredService<IEmailTransport>());
+            Assert.NotNull(services.GetRequiredService<INotificationChannelHealthService>());
             Assert.Equal(2, services.GetServices<IConnectorAdapter>().Count());
             Assert.Equal(2, services.GetServices<INotificationChannelAdapter>().Count());
             Assert.Equal(4, services.GetServices<IWarehouseWorkCompletionHandler>().Count());
@@ -67,5 +69,15 @@ public sealed class ModuleWiringFlowTests(WareCommandWebApplicationFactory facto
         Assert.False(webhook.GetProperty("enabled").GetBoolean());
         Assert.False(webhook.GetProperty("configured").GetBoolean());
         Assert.False(webhook.GetProperty("verified").GetBoolean());
+
+        using var notifications = await client.GetAsync("/api/notifications/capabilities");
+        Assert.Equal(HttpStatusCode.OK, notifications.StatusCode);
+        using var notificationJson = JsonDocument.Parse(await notifications.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "Disabled",
+            notificationJson.RootElement.GetProperty("email").GetProperty("status").GetString());
+        Assert.Equal(
+            "Disabled",
+            notificationJson.RootElement.GetProperty("webhook").GetProperty("status").GetString());
     }
 }

@@ -79,6 +79,10 @@ public sealed class IntegrationOutboxDispatcher(
                 message.DeliveredAtUtc = now;
                 message.LeaseUntilUtc = null;
                 message.NextAttemptAtUtc = null;
+                await UpdateNotificationRecipientsAsync(
+                    message,
+                    NotificationRecipientDeliveryState.Disabled,
+                    cancellationToken);
                 await context.SaveChangesAsync(cancellationToken);
                 continue;
             }
@@ -298,7 +302,62 @@ public sealed class IntegrationOutboxDispatcher(
                 .Min();
         }
 
+        if (message.Status == WmsIntegrationEventStatuses.Delivered)
+        {
+            await UpdateNotificationRecipientsAsync(
+                message,
+                NotificationRecipientDeliveryState.TransportAccepted,
+                cancellationToken);
+        }
+        else if (message.Status == WmsIntegrationEventStatuses.DeadLettered)
+        {
+            await UpdateNotificationRecipientsAsync(
+                message,
+                NotificationRecipientDeliveryState.DeadLettered,
+                cancellationToken);
+        }
+
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task UpdateNotificationRecipientsAsync(
+        WmsIntegrationOutboxEntity message,
+        NotificationRecipientDeliveryState state,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(
+                message.EventType,
+                WmsIntegrationEventTypes.NotificationPublished,
+                StringComparison.Ordinal) ||
+            !long.TryParse(message.AggregateKey, out var notificationId))
+        {
+            return;
+        }
+
+        var recipients = await context.NotificationRecipients
+            .Where(recipient =>
+                recipient.NotificationId == notificationId &&
+                recipient.Channel == Wms.Domain.Enums.NotificationChannel.Webhook &&
+                recipient.DeliveryStatus == Wms.Domain.Enums.NotificationDeliveryStatus.Queued)
+            .ToListAsync(cancellationToken);
+        foreach (var recipient in recipients)
+        {
+            recipient.DeliveryStatus = state switch
+            {
+                NotificationRecipientDeliveryState.TransportAccepted =>
+                    Wms.Domain.Enums.NotificationDeliveryStatus.TransportAccepted,
+                NotificationRecipientDeliveryState.DeadLettered =>
+                    Wms.Domain.Enums.NotificationDeliveryStatus.DeadLettered,
+                _ => Wms.Domain.Enums.NotificationDeliveryStatus.Disabled
+            };
+            recipient.LastError = state switch
+            {
+                NotificationRecipientDeliveryState.TransportAccepted => null,
+                NotificationRecipientDeliveryState.DeadLettered => "webhook_dead_lettered",
+                _ => "webhook_no_scoped_subscription"
+            };
+            recipient.NextAttemptAtUtc = null;
+        }
     }
 
     private static bool Matches(
@@ -307,6 +366,17 @@ public sealed class IntegrationOutboxDispatcher(
     {
         var eventTypes = WebhookSubscriptionService.ReadEventTypes(subscription);
         var warehouseIds = WebhookSubscriptionService.ReadWarehouseIds(subscription);
+        if (string.Equals(
+                message.EventType,
+                WmsIntegrationEventTypes.NotificationPublished,
+                StringComparison.Ordinal))
+        {
+            return message.WarehouseId.HasValue &&
+                warehouseIds.Count > 0 &&
+                warehouseIds.Contains(message.WarehouseId.Value) &&
+                (eventTypes.Count == 0 || eventTypes.Contains(message.EventType, StringComparer.Ordinal));
+        }
+
         return (eventTypes.Count == 0 || eventTypes.Contains(message.EventType, StringComparer.Ordinal)) &&
             (warehouseIds.Count == 0 ||
              message.WarehouseId.HasValue && warehouseIds.Contains(message.WarehouseId.Value));
@@ -355,5 +425,12 @@ public sealed class IntegrationOutboxDispatcher(
         public int DeliveriesSucceeded { get; set; }
         public int DeliveriesFailed { get; set; }
         public int EventsDeadLettered { get; set; }
+    }
+
+    private enum NotificationRecipientDeliveryState
+    {
+        Disabled,
+        TransportAccepted,
+        DeadLettered
     }
 }

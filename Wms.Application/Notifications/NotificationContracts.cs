@@ -133,12 +133,60 @@ public sealed record NotificationDeliveryMessage(
     string? DeepLink,
     int? WarehouseId,
     bool Mandatory,
-    string CorrelationId);
+    string CorrelationId,
+    string Locale = "en-US");
 
 public sealed record NotificationDeliveryResult(
     bool Succeeded,
     bool Retryable,
-    string? Error = null);
+    string? Error = null,
+    NotificationDeliveryStatus? SuccessStatus = null,
+    bool Disabled = false);
+
+public sealed record EmailMessage(
+    string Recipient,
+    string Subject,
+    string Body,
+    string StableMessageId);
+
+public sealed record EmailTransportCapability(
+    bool Enabled,
+    bool Configured,
+    bool Verified);
+
+public sealed record EmailTransportResult(
+    bool Accepted,
+    bool Retryable,
+    string ErrorCode);
+
+public interface IEmailTransport
+{
+    EmailTransportCapability Capability { get; }
+
+    Task<EmailTransportResult> SendAsync(
+        EmailMessage message,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed record NotificationChannelHealth(
+    string Status,
+    bool Enabled,
+    bool Configured,
+    bool Verified,
+    int Queued,
+    int Failed,
+    int Disabled,
+    int DeadLettered,
+    int TransportAccepted);
+
+public sealed record NotificationChannelHealthDto(
+    NotificationChannelHealth Email,
+    NotificationChannelHealth Webhook);
+
+public interface INotificationChannelHealthService
+{
+    Task<NotificationChannelHealthDto> GetAsync(CancellationToken cancellationToken = default);
+}
 
 public interface INotificationChannelAdapter
 {

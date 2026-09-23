@@ -19,7 +19,11 @@ public enum NotificationDeliveryStatus
     Pending = 1,
     Delivered = 2,
     Failed = 3,
-    Suppressed = 4
+    Suppressed = 4,
+    Queued = 5,
+    TransportAccepted = 6,
+    Disabled = 7,
+    DeadLettered = 8
 }
 
 public enum NotificationPreferenceScope

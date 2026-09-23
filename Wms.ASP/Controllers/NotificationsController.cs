@@ -14,8 +14,16 @@ namespace Wms.ASP.Controllers;
 [Route("api/notifications")]
 [Authorize]
 [EnableRateLimiting(WmsRateLimitPolicies.Api)]
-public sealed class NotificationsController(INotificationService notificationService) : ControllerBase
+public sealed class NotificationsController(
+    INotificationService notificationService,
+    INotificationChannelHealthService channelHealthService) : ControllerBase
 {
+    [HttpGet("capabilities")]
+    [Authorize(Policy = WmsPermissions.SettingsManage)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Capabilities(CancellationToken cancellationToken) =>
+        Ok(await channelHealthService.GetAsync(cancellationToken));
+
     [HttpGet]
     [Authorize(Policy = WmsPermissions.NotificationsRead)]
     public async Task<IActionResult> List(

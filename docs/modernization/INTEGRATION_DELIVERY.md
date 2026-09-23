@@ -26,6 +26,11 @@ WareCommand now has a provider-neutral integration delivery foundation:
   DNS answers, rejects private/link-local/metadata destinations, disables
   redirects and proxies, bounds request/response bytes, and honors bounded
   exponential backoff plus `Retry-After`.
+- Notification events use `notification.published.v1` and the same outbox,
+  signature, retry, and dead-letter path. The dispatcher requires an explicit
+  warehouse subscription for this event type, even when a subscription with an
+  empty warehouse filter would normally match global events. Payloads omit
+  recipient IDs and email addresses.
 - `GET /api/integrations/capabilities` distinguishes `Disabled`, `Configured`,
   and `Verified`. Verification means an active subscription has received a
   successful response; it does not claim partner-side business acceptance.

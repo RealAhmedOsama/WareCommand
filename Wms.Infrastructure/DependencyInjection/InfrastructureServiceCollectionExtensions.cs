@@ -120,6 +120,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddPersistence(connectionString, provider);
         services.AddDataProtection();
         services.AddWebhookDeliveryTransport(configuration);
+        services.AddSingleton<IEmailTransport, SmtpEmailTransport>();
         services.AddAttachmentInfrastructure(configuration);
         services.AddInventoryInfrastructure();
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
@@ -153,8 +154,9 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<INotificationRecipientDirectory, NotificationRecipientDirectory>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<INotificationDeliveryService, NotificationDeliveryService>();
-        services.AddScoped<INotificationChannelAdapter, UnconfiguredEmailNotificationAdapter>();
-        services.AddScoped<INotificationChannelAdapter, UnconfiguredWebhookNotificationAdapter>();
+        services.AddScoped<INotificationChannelAdapter, EmailNotificationAdapter>();
+        services.AddScoped<INotificationChannelAdapter, IntegrationWebhookNotificationAdapter>();
+        services.AddScoped<INotificationChannelHealthService, NotificationChannelHealthService>();
         services.AddScoped<IWmsJobExecutionStore, WmsJobExecutionStore>();
         services.AddScoped<IRetentionService, RetentionService>();
         services.AddScoped<WmsJobHandlerCatalog>();

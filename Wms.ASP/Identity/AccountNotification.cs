@@ -1,7 +1,5 @@
-using System.Net;
-using System.Net.Mail;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Wms.Application.Notifications;
 using Wms.Infrastructure.Identity;
 
 namespace Wms.ASP.Identity;
@@ -15,7 +13,7 @@ public interface IAccountNotificationSender
 }
 
 public sealed class SmtpAccountNotificationSender(
-    IConfiguration configuration,
+    IEmailTransport emailTransport,
     ILogger<SmtpAccountNotificationSender> logger) : IAccountNotificationSender
 {
     public async Task SendPasswordResetAsync(
@@ -23,9 +21,7 @@ public sealed class SmtpAccountNotificationSender(
         string resetUrl,
         CancellationToken cancellationToken = default)
     {
-        var host = configuration["Authentication:Smtp:Host"];
-        var fromAddress = configuration["Authentication:Smtp:FromAddress"];
-        if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(fromAddress))
+        if (!emailTransport.Capability.Enabled || !emailTransport.Capability.Configured)
         {
             throw new InvalidOperationException(
                 "Password reset email delivery is not configured. Set Authentication:Smtp:Host and Authentication:Smtp:FromAddress.");
@@ -36,31 +32,18 @@ public sealed class SmtpAccountNotificationSender(
             throw new InvalidOperationException("The account does not have an email address for password reset delivery.");
         }
 
-        var port = configuration.GetValue("Authentication:Smtp:Port", 587);
-        var enableSsl = configuration.GetValue("Authentication:Smtp:EnableSsl", true);
-        using var client = new SmtpClient(host, port)
+        var result = await emailTransport.SendAsync(
+            new EmailMessage(
+                user.Email,
+                "WareCommand password reset",
+                $"A password reset was requested for your WareCommand account. Follow this link to choose a new password:\n\n{resetUrl}\n\nIf you did not request this, you can ignore this message.",
+                $"password-reset-{Guid.NewGuid():N}"),
+            cancellationToken);
+        if (!result.Accepted)
         {
-            EnableSsl = enableSsl,
-            DeliveryMethod = SmtpDeliveryMethod.Network,
-            UseDefaultCredentials = false
-        };
-
-        var username = configuration["Authentication:Smtp:Username"];
-        var password = configuration["Authentication:Smtp:Password"];
-        if (!string.IsNullOrWhiteSpace(username))
-        {
-            client.Credentials = new NetworkCredential(username, password);
+            throw new InvalidOperationException("Password reset email delivery failed.");
         }
 
-        using var message = new MailMessage(fromAddress, user.Email)
-        {
-            Subject = "WareCommand password reset",
-            Body =
-                $"A password reset was requested for your WareCommand account. Follow this link to choose a new password:\n\n{resetUrl}\n\nIf you did not request this, you can ignore this message.",
-            IsBodyHtml = false
-        };
-
-        await client.SendMailAsync(message, cancellationToken);
-        logger.LogInformation("Password reset notification sent for user {UserId}", user.Id);
+        logger.LogInformation("Password reset message accepted by the configured SMTP server.");
     }
 }

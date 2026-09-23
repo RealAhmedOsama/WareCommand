@@ -178,6 +178,7 @@ public sealed class NotificationServiceTests : IDisposable
         var delivery = new NotificationDeliveryService(
             _context,
             [adapter],
+            _directory,
             _clock,
             NullLogger<NotificationDeliveryService>.Instance);
 
@@ -189,9 +190,136 @@ public sealed class NotificationServiceTests : IDisposable
         published.IsSuccess.Should().BeTrue();
         dispatched.Should().Be(1);
         adapter.Calls.Should().Be(1);
-        delivered.DeliveryStatus.Should().Be(NotificationDeliveryStatus.Delivered);
+        delivered.DeliveryStatus.Should().Be(NotificationDeliveryStatus.TransportAccepted);
         delivered.AttemptCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task Delivery_rechecks_current_recipient_and_channel_preference()
+    {
+        _directory.Recipients = [Profile("user-1", "en-US")];
+        await _service.PublishAsync(CreateInput(
+            deduplicationKey: "stock:low:disabled-user",
+            channels: [NotificationChannel.Email]));
+        var adapter = new SuccessfulAdapter();
+        var delivery = CreateDeliveryService(adapter);
+        _directory.Recipients = [];
+
+        await delivery.DispatchPendingAsync();
+
+        var inactiveRecipient = await _context.NotificationRecipients.SingleAsync();
+        inactiveRecipient.DeliveryStatus.Should().Be(NotificationDeliveryStatus.Suppressed);
+        inactiveRecipient.AttemptCount.Should().Be(0);
+        adapter.Calls.Should().Be(0);
+
+        _directory.Recipients = [Profile("user-1", "en-US")];
+        await _service.PublishAsync(CreateInput(
+            deduplicationKey: "stock:low:preference-change",
+            channels: [NotificationChannel.Email]) with
+        {
+            CooldownKey = null,
+            Cooldown = null
+        });
+        _context.NotificationPreferences.Add(new WmsNotificationPreferenceEntity
+        {
+            Scope = NotificationPreferenceScope.User,
+            UserId = "user-1",
+            Kind = "stock.low",
+            Channel = NotificationChannel.Email,
+            IsEnabled = false,
+            TimeZone = "UTC",
+            UpdatedAtUtc = _clock.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        await delivery.DispatchPendingAsync();
+
+        var preferenceSuppressed = await _context.NotificationRecipients
+            .Where(row => row.Notification.DeduplicationKey == "stock:low:preference-change")
+            .SingleAsync();
+        preferenceSuppressed.DeliveryStatus.Should().Be(NotificationDeliveryStatus.Suppressed);
+        preferenceSuppressed.AttemptCount.Should().Be(0);
+        adapter.Calls.Should().Be(0);
+
+        _context.NotificationPreferences.RemoveRange(await _context.NotificationPreferences.ToListAsync());
+        await _context.SaveChangesAsync();
+        await _service.PublishAsync(CreateInput(
+            deduplicationKey: "stock:low:digest-change",
+            channels: [NotificationChannel.Email]) with
+        {
+            CooldownKey = null,
+            Cooldown = null
+        });
+        _context.NotificationPreferences.Add(new WmsNotificationPreferenceEntity
+        {
+            Scope = NotificationPreferenceScope.User,
+            UserId = "user-1",
+            Kind = "stock.low",
+            Channel = NotificationChannel.Email,
+            IsEnabled = true,
+            DigestMinutes = 60,
+            TimeZone = "UTC",
+            UpdatedAtUtc = _clock.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        await delivery.DispatchPendingAsync();
+
+        var deferred = await _context.NotificationRecipients
+            .Where(row => row.Notification.DeduplicationKey == "stock:low:digest-change")
+            .SingleAsync();
+        deferred.DeliveryStatus.Should().Be(NotificationDeliveryStatus.Pending);
+        deferred.AttemptCount.Should().Be(0);
+        deferred.NextAttemptAtUtc.Should().Be(_clock.UtcNow.AddMinutes(60));
+        adapter.Calls.Should().Be(0);
+
+        _clock.UtcNow = deferred.NextAttemptAtUtc!.Value;
+        await delivery.DispatchPendingAsync();
+        (await _context.NotificationRecipients
+                .Where(row => row.Notification.DeduplicationKey == "stock:low:digest-change")
+                .SingleAsync())
+            .DeliveryStatus.Should().Be(NotificationDeliveryStatus.TransportAccepted);
+        adapter.Calls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Retryable_transport_failures_are_bounded_and_store_only_safe_error_codes()
+    {
+        _directory.Recipients = [Profile("user-1", "en-US")];
+        await _service.PublishAsync(CreateInput(
+            deduplicationKey: "stock:low:retry-limit",
+            channels: [NotificationChannel.Email]));
+        var adapter = new FailingAdapter();
+        var delivery = CreateDeliveryService(adapter);
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            await delivery.DispatchPendingAsync();
+            var recipient = await _context.NotificationRecipients.SingleAsync();
+            if (recipient.DeliveryStatus == NotificationDeliveryStatus.Failed)
+            {
+                _clock.UtcNow = recipient.NextAttemptAtUtc!.Value;
+            }
+        }
+
+        var terminal = await _context.NotificationRecipients.SingleAsync();
+        terminal.DeliveryStatus.Should().Be(NotificationDeliveryStatus.DeadLettered);
+        terminal.AttemptCount.Should().Be(10);
+        terminal.NextAttemptAtUtc.Should().BeNull();
+        terminal.LastError.Should().Be("delivery_failed");
+        terminal.LastError.Should().NotContain("user-1");
+        terminal.LastError.Should().NotContain("secret-token");
+        adapter.Calls.Should().Be(10);
+        (await delivery.DispatchPendingAsync()).Should().Be(0);
+    }
+
+    private NotificationDeliveryService CreateDeliveryService(params INotificationChannelAdapter[] adapters) =>
+        new(
+            _context,
+            adapters,
+            _directory,
+            _clock,
+            NullLogger<NotificationDeliveryService>.Instance);
 
     private static NotificationPublishInput CreateInput(
         string deduplicationKey,
@@ -227,7 +355,7 @@ public sealed class NotificationServiceTests : IDisposable
 
     private sealed class FixedClock(DateTimeOffset utcNow) : IClock
     {
-        public DateTimeOffset UtcNow => utcNow;
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
     }
 
     private sealed class TestRecipientDirectory : INotificationRecipientDirectory
@@ -253,6 +381,24 @@ public sealed class NotificationServiceTests : IDisposable
         {
             Calls++;
             return Task.FromResult(new NotificationDeliveryResult(true, false));
+        }
+    }
+
+    private sealed class FailingAdapter : INotificationChannelAdapter
+    {
+        public NotificationChannel Channel => NotificationChannel.Email;
+
+        public int Calls { get; private set; }
+
+        public Task<NotificationDeliveryResult> DeliverAsync(
+            NotificationDeliveryMessage message,
+            CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            return Task.FromResult(new NotificationDeliveryResult(
+                Succeeded: false,
+                Retryable: true,
+                Error: "smtp failed for user-1@example.test with secret-token=abc"));
         }
     }
 }
