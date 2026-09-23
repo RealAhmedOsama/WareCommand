@@ -13,6 +13,7 @@ using Wms.Application.BulkExchange;
 using Wms.Application.Connectors;
 using Wms.Application.Context;
 using Wms.Application.Customers;
+using Wms.Application.Dashboard;
 using Wms.Application.Idempotency;
 using Wms.Application.Identification;
 using Wms.Application.Identity;
@@ -60,6 +61,7 @@ using Wms.Infrastructure.BulkExchange;
 using Wms.Infrastructure.Connectors;
 using Wms.Infrastructure.Customers;
 using Wms.Infrastructure.Data;
+using Wms.Infrastructure.Dashboard;
 using Wms.Infrastructure.Database;
 using Wms.Infrastructure.Identification;
 using Wms.Infrastructure.Identity;
@@ -332,6 +334,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryDispositionService, InventoryDispositionService>();
         services.AddScoped<ICycleCountService, CycleCountService>();
         services.AddScoped<IInventoryReconciliationService, InventoryReconciliationService>();
+        services.AddScoped<IDashboardReadService, DashboardReadService>();
         services.AddScoped<IValueAddedService, ValueAddedService>();
         return services;
     }

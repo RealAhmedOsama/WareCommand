@@ -43,7 +43,8 @@ same disposable database:
 ```powershell
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group core -Port 55432
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group harness -Port 55433
-pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group all -Port 55434 -EvidencePath artifacts/postgresql-provider.json
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group dashboard -Port 55434
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group all -Port 55435 -EvidencePath artifacts/postgresql-provider.json
 ```
 
 The JSON result records only the repository revision, provider image, selected

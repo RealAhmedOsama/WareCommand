@@ -44,7 +44,8 @@ public sealed record MovementLedgerQuery(
     bool Descending = true,
     int Page = 1,
     int PageSize = 50,
-    string? DisplayUnitOfMeasure = null);
+    string? DisplayUnitOfMeasure = null,
+    string? BusinessTimeZoneId = null);
 
 public sealed record ReportMetadata(
     string ReportName,

@@ -34,6 +34,49 @@ public sealed class ItemManagementService(
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    public async Task<Result<ItemCatalogCountsDto>> GetDashboardCountsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var authorization = await AuthorizeAsync(WmsPermissions.ItemsRead, cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<ItemCatalogCountsDto>();
+        }
+
+        try
+        {
+            var counts = await context.Items
+                .AsNoTracking()
+                .GroupBy(item => item.IsActive)
+                .Select(group => new
+                {
+                    IsActive = group.Key,
+                    Count = group.Count()
+                })
+                .ToListAsync(cancellationToken);
+
+            var activeItems = counts
+                .Where(row => row.IsActive)
+                .Select(row => row.Count)
+                .SingleOrDefault();
+            return Result.Success(new ItemCatalogCountsDto(
+                counts.Sum(row => row.Count),
+                activeItems));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Item dashboard counts could not be loaded");
+            return Result.Failure<ItemCatalogCountsDto>(WmsErrors.FromException(
+                exception,
+                "items.dashboard_counts_failed",
+                "Item dashboard counts could not be loaded. Please try again."));
+        }
+    }
+
     public async Task<Result<ItemPageDto>> ListAsync(
         ItemListQuery request,
         CancellationToken cancellationToken = default)

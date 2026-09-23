@@ -427,7 +427,8 @@ public sealed record WmsWarehouseOption(
     int Id,
     string Code,
     string Name,
-    bool IsDefault);
+    bool IsDefault,
+    string TimeZoneId = "UTC");
 
 public interface IWarehouseAccessService
 {

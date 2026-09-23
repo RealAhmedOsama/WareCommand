@@ -98,6 +98,14 @@
   <data name="Dashboard.Refreshing" xml:space="preserve"><value>Refreshing...</value></data>
   <data name="Dashboard.RefreshFailed" xml:space="preserve"><value>Refresh failed. Please try again.</value></data>
   <data name="Dashboard.Refreshed" xml:space="preserve"><value>Dashboard refreshed</value></data>
+  <data name="Dashboard.AllAuthorizedWarehouses" xml:space="preserve"><value>All accessible warehouses</value></data>
+  <data name="Dashboard.WarehouseScope" xml:space="preserve"><value>Warehouse scope</value></data>
+  <data name="Dashboard.LastSuccessfulRefresh" xml:space="preserve"><value>Last successful refresh:</value></data>
+  <data name="Dashboard.RefreshComplete" xml:space="preserve"><value>Dashboard data updated.</value></data>
+  <data name="Dashboard.SomeDataUnavailable" xml:space="preserve"><value>Some dashboard data is unavailable.</value></data>
+  <data name="Dashboard.SectionUnavailable" xml:space="preserve"><value>This dashboard data is unavailable.</value></data>
+  <data name="Dashboard.TimeZone" xml:space="preserve"><value>Time zone</value></data>
+  <data name="Dashboard.NoReplenishmentSignals" xml:space="preserve"><value>No active replenishment signals.</value></data>
   <data name="Movement.Type" xml:space="preserve"><value>Type</value></data>
   <data name="Movement.Sku" xml:space="preserve"><value>SKU</value></data>
   <data name="Movement.Quantity" xml:space="preserve"><value>Quantity</value></data>

@@ -31,6 +31,10 @@ public sealed record ItemPageDto(
     int TotalCount,
     int TotalPages);
 
+public sealed record ItemCatalogCountsDto(
+    int TotalItems,
+    int ActiveItems);
+
 public sealed record ItemCommercialRequest(
     string Name,
     string? LocalizedName = null,
@@ -139,6 +143,9 @@ public sealed record ItemImportResult(
 
 public interface IItemManagementService
 {
+    Task<Result<ItemCatalogCountsDto>> GetDashboardCountsAsync(
+        CancellationToken cancellationToken = default);
+
     Task<Result<ItemPageDto>> ListAsync(
         ItemListQuery request,
         CancellationToken cancellationToken = default);

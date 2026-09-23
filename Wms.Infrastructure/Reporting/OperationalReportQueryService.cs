@@ -185,9 +185,19 @@ public sealed class OperationalReportQueryService(
         MovementLedgerQuery query,
         WmsSettingsValues settings)
     {
+        var timeZoneId = string.IsNullOrWhiteSpace(query.BusinessTimeZoneId)
+            ? settings.Localization.TimeZone
+            : query.BusinessTimeZoneId.Trim();
+        if (!WmsTimeZoneCatalog.TryNormalize(timeZoneId, out timeZoneId))
+        {
+            return Result.Failure<EffectiveMovementLedgerQuery>(WmsErrors.Validation(
+                "reports.time_zone_invalid",
+                "The requested business time zone is invalid."));
+        }
+
         var today = WmsBusinessTime.GetBusinessDate(
             clock.UtcNow,
-            settings.Localization.TimeZone);
+            timeZoneId);
         var fromDate = query.FromDate ?? today.AddDays(-settings.Reports.DefaultPeriodDays);
         var toDate = query.ToDate ?? today;
         if (toDate < fromDate)
@@ -227,7 +237,7 @@ public sealed class OperationalReportQueryService(
             Math.Max(1, query.Page),
             pageSize,
             NormalizeOptional(query.DisplayUnitOfMeasure),
-            settings.Localization.TimeZone,
+            timeZoneId,
             MovementReportGroupBy.None));
     }
 
@@ -531,7 +541,7 @@ public sealed class OperationalReportQueryService(
             "movement-ledger",
             clock.UtcNow,
             clock.UtcNow,
-            settings.Localization.TimeZone,
+            query.TimeZoneId,
             currentUser.UserId,
             new Dictionary<string, string?>(StringComparer.Ordinal)
             {

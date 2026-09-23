@@ -2,7 +2,7 @@
 param(
     [int]$Port = 55432,
     [string]$ContainerName = "warecommand-postgres-test-$([Guid]::NewGuid().ToString('N'))",
-    [ValidateSet('all', 'core', 'harness')]
+    [ValidateSet('all', 'core', 'harness', 'dashboard')]
     [string]$Group = 'all',
     [switch]$PlanOnly,
     [string]$EvidencePath
@@ -12,21 +12,30 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $testProject = Join-Path $repositoryRoot 'Wms.Infrastructure.Tests/Wms.Infrastructure.Tests.csproj'
+$dashboardTestProject = Join-Path $repositoryRoot 'Wms.ASP.Tests/Wms.ASP.Tests.csproj'
 $providerGroups = [ordered]@{
     core = [pscustomobject]@{
+        testProject = $testProject
         filter = 'FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlIntegrationTests&FullyQualifiedName!~_Harness'
         expectedClass = 'Wms.Infrastructure.Tests.Integration.PostgreSqlIntegrationTests.'
     }
     harness = [pscustomobject]@{
+        testProject = $testProject
         filter = 'FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlIntegrationTests_Harness'
         expectedClass = 'Wms.Infrastructure.Tests.Integration.PostgreSqlIntegrationTests_Harness.'
     }
+    dashboard = [pscustomobject]@{
+        testProject = $dashboardTestProject
+        filter = 'FullyQualifiedName~Wms.ASP.Tests.PostgreSqlDashboardFlowTests'
+        expectedClass = 'Wms.ASP.Tests.PostgreSqlDashboardFlowTests.'
+    }
 }
-$selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness') } else { @($Group) }
+$selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard') } else { @($Group) }
 
 if ($PlanOnly) {
     foreach ($groupName in $selectedGroupNames) {
         Write-Output "provider-group=$groupName"
+        Write-Output "test-project=$($providerGroups[$groupName].testProject)"
         Write-Output "filter=$($providerGroups[$groupName].filter)"
     }
     exit 0
@@ -97,8 +106,9 @@ try {
     foreach ($groupName in $selectedGroupNames) {
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         $groupSpec = $providerGroups[$groupName]
+        $groupTestProject = $groupSpec.testProject
         $filter = $groupSpec.filter
-        $listedTests = (& dotnet test $testProject -c Release --no-restore --list-tests --logger 'console;verbosity=minimal' --filter $filter 2>&1 | Out-String)
+        $listedTests = (& dotnet test $groupTestProject -c Release --no-restore --list-tests --logger 'console;verbosity=minimal' --filter $filter 2>&1 | Out-String)
         if ($LASTEXITCODE -ne 0) {
             throw "PostgreSQL integration group '$groupName' could not enumerate tests."
         }
@@ -106,7 +116,7 @@ try {
             throw "PostgreSQL integration group '$groupName' selected no tests for '$filter'."
         }
 
-        & dotnet test $testProject -c Release --no-restore --logger 'console;verbosity=minimal' --filter $filter
+        & dotnet test $groupTestProject -c Release --no-restore --logger 'console;verbosity=minimal' --filter $filter
         $exitCode = $LASTEXITCODE
         $stopwatch.Stop()
         if ($exitCode -ne 0) {
@@ -115,6 +125,7 @@ try {
 
         $results += [pscustomobject]@{
             group = $groupName
+            testProject = [System.IO.Path]::GetRelativePath($repositoryRoot, $groupTestProject).Replace([System.IO.Path]::DirectorySeparatorChar, '/')
             filter = $filter
             durationSeconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
             exitCode = $exitCode

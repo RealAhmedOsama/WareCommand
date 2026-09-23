@@ -98,6 +98,14 @@
   <data name="Dashboard.Refreshing" xml:space="preserve"><value>جارٍ التحديث...</value></data>
   <data name="Dashboard.RefreshFailed" xml:space="preserve"><value>فشل التحديث. حاول مرة أخرى.</value></data>
   <data name="Dashboard.Refreshed" xml:space="preserve"><value>تم تحديث لوحة التحكم</value></data>
+  <data name="Dashboard.AllAuthorizedWarehouses" xml:space="preserve"><value>جميع المستودعات المسموح بها</value></data>
+  <data name="Dashboard.WarehouseScope" xml:space="preserve"><value>نطاق المستودع</value></data>
+  <data name="Dashboard.LastSuccessfulRefresh" xml:space="preserve"><value>آخر تحديث ناجح:</value></data>
+  <data name="Dashboard.RefreshComplete" xml:space="preserve"><value>تم تحديث بيانات لوحة التحكم.</value></data>
+  <data name="Dashboard.SomeDataUnavailable" xml:space="preserve"><value>بعض بيانات لوحة التحكم غير متاحة.</value></data>
+  <data name="Dashboard.SectionUnavailable" xml:space="preserve"><value>بيانات لوحة التحكم هذه غير متاحة.</value></data>
+  <data name="Dashboard.TimeZone" xml:space="preserve"><value>المنطقة الزمنية</value></data>
+  <data name="Dashboard.NoReplenishmentSignals" xml:space="preserve"><value>لا توجد إشارات إعادة توريد نشطة.</value></data>
   <data name="Movement.Type" xml:space="preserve"><value>النوع</value></data>
   <data name="Movement.Sku" xml:space="preserve"><value>رمز الصنف</value></data>
   <data name="Movement.Quantity" xml:space="preserve"><value>الكمية</value></data>

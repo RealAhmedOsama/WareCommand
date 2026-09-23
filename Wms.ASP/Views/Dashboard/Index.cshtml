@@ -9,14 +9,43 @@
         @T["Dashboard.Title"]
     </h2>
     <div>
+        @if (Model.Snapshot.AvailableWarehouses.Count > 1)
+        {
+            <select class="form-select form-select-sm d-inline-block w-auto me-2"
+                    id="dashboardWarehouseSelector"
+                    aria-label="@T["Dashboard.WarehouseScope"]">
+                <option value="" selected="@(Model.Snapshot.WarehouseId is null)">
+                    @T["Dashboard.AllAuthorizedWarehouses"]
+                </option>
+                @foreach (var warehouse in Model.Snapshot.AvailableWarehouses)
+                {
+                    <option value="@warehouse.Id" selected="@(Model.Snapshot.WarehouseId == warehouse.Id)">
+                        @warehouse.Code — @warehouse.Name
+                    </option>
+                }
+            </select>
+        }
         <button type="button" class="btn btn-outline-primary" id="refreshBtn">
             <i class="bi bi-arrow-clockwise me-1"></i>
             @T["Dashboard.Refresh"]
+            <span class="spinner-border spinner-border-sm ms-1 d-none" id="refreshSpinner" aria-hidden="true"></span>
         </button>
-        <small class="text-muted ms-3">
-            @Model.LastRefresh.ToString("g")
+        <small class="text-muted ms-3" id="dashboardLastSuccessLabel">
+            @T["Dashboard.LastSuccessfulRefresh"]
+            <time id="dashboardLastSuccess" datetime="@Model.Snapshot.GeneratedAtUtc.ToString("O")">@Wms.Application.Time.WmsBusinessTime.ToLocalDateTime(Model.Snapshot.GeneratedAtUtc.UtcDateTime, Model.DisplayTimeZone).ToString("g")</time>
         </small>
+        <small class="text-muted ms-2" id="dashboardTimeZone">@T["Dashboard.TimeZone"]: @Model.DisplayTimeZone</small>
     </div>
+</div>
+<div class="alert alert-warning py-2 mb-4 d-none" role="status" id="dashboardRefreshStatus"
+     data-refreshing="@T["Dashboard.Refreshing"]"
+     data-updated="@T["Dashboard.RefreshComplete"]"
+     data-partial="@T["Dashboard.SomeDataUnavailable"]"
+     data-failed="@T["Dashboard.RefreshFailed"]">
+</div>
+<div class="alert alert-warning py-2 mb-4 @(Model.CatalogAvailable && Model.InventoryAvailable && Model.LowStockSignalsAvailable && Model.RecentMovementsAvailable ? "d-none" : string.Empty)"
+     role="status" id="dashboardSectionStatus">
+    @T["Dashboard.SomeDataUnavailable"]
 </div>
 
 <!-- KPI Cards Row -->
@@ -29,9 +58,9 @@
                         <i class="bi bi-box text-primary fs-3"></i>
                     </div>
                 </div>
-                <h3 class="mb-1">@Model.TotalItems.ToString("N0")</h3>
+                <h3 class="mb-1" data-dashboard-value="catalog.totalItems">@(Model.CatalogAvailable ? Model.TotalItems.ToString("N0") : "—")</h3>
                 <h6 class="text-muted mb-0">@T["Dashboard.TotalItems"]</h6>
-                <small class="text-success">@Model.ActiveItems.ToString("N0") @T["Dashboard.Active"]</small>
+                <small class="text-success"><span data-dashboard-value="catalog.activeItems">@(Model.CatalogAvailable ? Model.ActiveItems.ToString("N0") : "—")</span> @T["Dashboard.Active"]</small>
             </div>
         </div>
     </div>
@@ -44,7 +73,7 @@
                         <i class="bi bi-list-check text-success fs-3"></i>
                     </div>
                 </div>
-                <h3 class="mb-1">@Model.TotalSKUs.ToString("N0")</h3>
+                <h3 class="mb-1" data-dashboard-value="inventory.stockKeepingUnits">@(Model.InventoryAvailable ? Model.TotalSKUs.ToString("N0") : "—")</h3>
                 <h6 class="text-muted mb-0">@T["Dashboard.TotalSkus"]</h6>
                 <small class="text-info">@T["Dashboard.InStock"]</small>
             </div>
@@ -59,7 +88,7 @@
                         <i class="bi bi-stack text-warning fs-3"></i>
                     </div>
                 </div>
-                <h3 class="mb-1">@Model.TotalOnHandUnits.ToString("N0")</h3>
+                <h3 class="mb-1" data-dashboard-value="inventory.onHandQuantity">@(Model.InventoryAvailable ? Model.TotalOnHandUnits.ToString("N1") : "—")</h3>
                 <h6 class="text-muted mb-0">@T["Dashboard.TotalUnits"]</h6>
                 <small class="text-warning">@T["Dashboard.OnHand"]</small>
             </div>
@@ -74,7 +103,7 @@
                         <i class="bi bi-geo-alt text-info fs-3"></i>
                     </div>
                 </div>
-                <h3 class="mb-1">@Model.StockLocations.ToString("N0")</h3>
+                <h3 class="mb-1" data-dashboard-value="inventory.stockLocations">@(Model.InventoryAvailable ? Model.StockLocations.ToString("N0") : "—")</h3>
                 <h6 class="text-muted mb-0">@T["Dashboard.StockLocations"]</h6>
                 <small class="text-info">@T["Dashboard.Active"]</small>
             </div>
@@ -94,31 +123,31 @@
         <div class="wms-stat-grid">
             <div class="wms-stat">
                 <div class="wms-stat__label">@T["Dashboard.OnHand"]</div>
-                <div class="wms-stat__value">@Model.TotalOnHandUnits.ToString("N0")</div>
+                <div class="wms-stat__value" data-dashboard-value="inventory.onHandQuantity">@(Model.InventoryAvailable ? Model.TotalOnHandUnits.ToString("N1") : "—")</div>
             </div>
             <div class="wms-stat">
                 <div class="wms-stat__label">@T["Dashboard.Reserved"]</div>
-                <div class="wms-stat__value">@Model.ReservedUnits.ToString("N0")</div>
+                <div class="wms-stat__value" data-dashboard-value="inventory.reservedQuantity">@(Model.InventoryAvailable ? Model.ReservedUnits.ToString("N1") : "—")</div>
             </div>
             <div class="wms-stat">
                 <div class="wms-stat__label">@T["Dashboard.Available"]</div>
-                <div class="wms-stat__value">@Model.AvailableUnits.ToString("N0")</div>
+                <div class="wms-stat__value" data-dashboard-value="inventory.availableQuantity">@(Model.InventoryAvailable ? Model.AvailableUnits.ToString("N1") : "—")</div>
             </div>
             <div class="wms-stat">
                 <div class="wms-stat__label">@T["Dashboard.Held"]</div>
-                <div class="wms-stat__value">@Model.HeldUnits.ToString("N0")</div>
+                <div class="wms-stat__value" data-dashboard-value="inventory.heldQuantity">@(Model.InventoryAvailable ? Model.HeldUnits.ToString("N1") : "—")</div>
             </div>
             <div class="wms-stat">
                 <div class="wms-stat__label">@T["Dashboard.Damaged"]</div>
-                <div class="wms-stat__value">@Model.DamagedUnits.ToString("N0")</div>
+                <div class="wms-stat__value" data-dashboard-value="inventory.damagedQuantity">@(Model.InventoryAvailable ? Model.DamagedUnits.ToString("N1") : "—")</div>
             </div>
             <div class="wms-stat">
                 <div class="wms-stat__label">@T["Dashboard.Expired"]</div>
-                <div class="wms-stat__value">@Model.ExpiredUnits.ToString("N0")</div>
+                <div class="wms-stat__value" data-dashboard-value="inventory.expiredQuantity">@(Model.InventoryAvailable ? Model.ExpiredUnits.ToString("N1") : "—")</div>
             </div>
             <div class="wms-stat">
                 <div class="wms-stat__label">@T["Dashboard.Expiring"]</div>
-                <div class="wms-stat__value">@Model.ExpiringUnits.ToString("N0")</div>
+                <div class="wms-stat__value" data-dashboard-value="inventory.expiringQuantity">@(Model.InventoryAvailable ? Model.ExpiringUnits.ToString("N1") : "—")</div>
             </div>
         </div>
     </div>
@@ -136,7 +165,15 @@
                 </h5>
             </div>
             <div class="card-body p-0">
-                @if (Model.RecentMovements.Any())
+                <div id="dashboardRecentMovementsContent">
+                @if (!Model.RecentMovementsAvailable)
+                {
+                    <div class="text-center py-5 text-muted" data-dashboard-unavailable="movements">
+                        <i class="bi bi-exclamation-circle fs-1 mb-3"></i>
+                        <p class="mb-0">@T["Dashboard.SectionUnavailable"]</p>
+                    </div>
+                }
+                else if (Model.RecentMovements.Any())
                 {
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
@@ -149,7 +186,7 @@
                                 <th>@T["Movement.User"]</th>
                             </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="dashboardRecentMovementsBody">
                             @foreach (var movement in Model.RecentMovements)
                             {
                                 <tr>
@@ -175,6 +212,7 @@
                         <p class="mb-0">@T["Dashboard.NoRecentMovements"]</p>
                     </div>
                 }
+                </div>
             </div>
         </div>
     </div>
@@ -189,7 +227,15 @@
                 </h5>
             </div>
             <div class="card-body p-0">
-                @if (Model.LowStockSignals.Any())
+                <div id="dashboardLowStockContent">
+                @if (!Model.LowStockSignalsAvailable)
+                {
+                    <div class="text-center py-5 text-muted" data-dashboard-unavailable="lowStockSignals">
+                        <i class="bi bi-exclamation-circle fs-1 mb-3"></i>
+                        <p class="mb-0">@T["Dashboard.SectionUnavailable"]</p>
+                    </div>
+                }
+                else if (Model.LowStockSignals.Any())
                 {
                     <div class="list-group list-group-flush">
                         @foreach (var signal in Model.LowStockSignals)
@@ -222,9 +268,10 @@
                 {
                     <div class="text-center py-5 text-success">
                         <i class="bi bi-check-circle fs-1 mb-3"></i>
-                        <p class="mb-0">@T["Dashboard.AllItemsWellStocked"]</p>
+                        <p class="mb-0">@T["Dashboard.NoReplenishmentSignals"]</p>
                     </div>
                 }
+                </div>
             </div>
         </div>
     </div>
@@ -232,16 +279,276 @@
 
 @section Scripts {
     <script nonce="@Context.Items[SecurityHeadersMiddleware.ContentSecurityPolicyNonceItem]">
-        $(document).ready(function() {
-            $('#refreshBtn').click(function() {
-                window.location.reload();
+        (() => {
+            const refreshButton = document.getElementById('refreshBtn');
+            const refreshSpinner = document.getElementById('refreshSpinner');
+            const refreshStatus = document.getElementById('dashboardRefreshStatus');
+            const sectionStatus = document.getElementById('dashboardSectionStatus');
+            const lastSuccess = document.getElementById('dashboardLastSuccess');
+            const warehouseSelector = document.getElementById('dashboardWarehouseSelector');
+            const refreshIntervalSeconds = @Model.DashboardRefreshIntervalSeconds;
+            let timeZoneId = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.DisplayTimeZone));
+            const locale = document.documentElement.lang || undefined;
+            let refreshInProgress = false;
+
+            const numberFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+            const decimalFormat = new Intl.NumberFormat(locale, {
+                minimumFractionDigits: 1, maximumFractionDigits: 1
             });
 
-            const refreshIntervalSeconds = @Model.DashboardRefreshIntervalSeconds;
-            setInterval(function() {
-                window.location.reload();
+            function showStatus(message, isError = false) {
+                refreshStatus.textContent = message;
+                refreshStatus.classList.toggle('d-none', !message);
+                refreshStatus.classList.toggle('alert-danger', isError);
+                refreshStatus.classList.toggle('alert-warning', !isError);
+            }
+
+            function setMetric(path, value, format = numberFormat) {
+                document.querySelectorAll('[data-dashboard-value="' + path + '"]').forEach((node) => {
+                    node.textContent = value === null || value === undefined ? '—' : format.format(value);
+                });
+            }
+
+            function sectionAvailable(section) {
+                return section && String(section.status).toLowerCase() === 'available' && section.data !== null;
+            }
+
+            function movementColor(type) {
+                switch (String(type).toLowerCase()) {
+                    case 'receive':
+                    case 'receiving': return 'success';
+                    case 'pick':
+                    case 'picking': return 'primary';
+                    case 'putaway': return 'info';
+                    case 'adjustment': return 'warning';
+                    default: return 'secondary';
+                }
+            }
+
+            function signalColor(kind) {
+                switch (String(kind).toLowerCase()) {
+                    case 'outofstock': return 'danger';
+                    case 'overstock': return 'info';
+                    default: return 'warning';
+                }
+            }
+
+            function localTimestamp(value) {
+                const date = new Date(value);
+                try {
+                    return new Intl.DateTimeFormat(locale, {
+                        dateStyle: 'short', timeStyle: 'short', timeZone: timeZoneId
+                    }).format(date);
+                } catch {
+                    return date.toLocaleString(locale);
+                }
+            }
+
+            function renderMovements(section) {
+                const container = document.getElementById('dashboardRecentMovementsContent');
+                container.replaceChildren();
+                if (!sectionAvailable(section)) {
+                    container.append(createEmptyState('bi-exclamation-circle', refreshStatus.dataset.partial));
+                    return false;
+                }
+
+                const rows = section.data;
+                if (!rows.length) {
+                    container.append(createEmptyState('bi-inbox', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Dashboard.NoRecentMovements"].Value))));
+                    return true;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'table-responsive';
+                const table = document.createElement('table');
+                table.className = 'table table-hover mb-0';
+                const headers = [
+                    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Movement.Type"].Value)),
+                    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Movement.Sku"].Value)),
+                    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Movement.Quantity"].Value)),
+                    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Movement.Time"].Value)),
+                    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Movement.User"].Value))
+                ];
+                const head = document.createElement('thead');
+                head.className = 'table-light';
+                const headerRow = document.createElement('tr');
+                headers.forEach((label, index) => {
+                    const cell = document.createElement('th');
+                    if (index === 2) cell.className = 'text-end';
+                    cell.textContent = label;
+                    headerRow.append(cell);
+                });
+                head.append(headerRow);
+                table.append(head);
+                const body = document.createElement('tbody');
+                body.id = 'dashboardRecentMovementsBody';
+                for (const movement of rows) {
+                    const row = document.createElement('tr');
+                    const typeCell = document.createElement('td');
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-' + movementColor(movement.type);
+                    badge.textContent = movementTypeLabels[movement.type] || movement.type;
+                    typeCell.append(badge);
+                    const skuCell = document.createElement('td');
+                    skuCell.className = 'fw-medium wms-identifier';
+                    skuCell.textContent = movement.itemSku;
+                    const quantityCell = document.createElement('td');
+                    quantityCell.className = 'text-end wms-number';
+                    quantityCell.textContent = decimalFormat.format(movement.quantity);
+                    const timeCell = document.createElement('td');
+                    timeCell.className = 'text-muted';
+                    timeCell.textContent = localTimestamp(movement.timestamp);
+                    const userCell = document.createElement('td');
+                    userCell.className = 'text-muted';
+                    userCell.textContent = movement.userId;
+                    row.append(typeCell, skuCell, quantityCell, timeCell, userCell);
+                    body.append(row);
+                }
+                table.append(body);
+                wrapper.append(table);
+                container.append(wrapper);
+                return true;
+            }
+
+            function createEmptyState(iconClass, message) {
+                const state = document.createElement('div');
+                state.className = 'text-center py-5 text-muted';
+                const icon = document.createElement('i');
+                icon.className = 'bi ' + iconClass + ' fs-1 mb-3';
+                icon.setAttribute('aria-hidden', 'true');
+                const text = document.createElement('p');
+                text.className = 'mb-0';
+                text.textContent = message;
+                state.append(icon, text);
+                return state;
+            }
+
+            function renderLowStock(section) {
+                const container = document.getElementById('dashboardLowStockContent');
+                container.replaceChildren();
+                if (!sectionAvailable(section)) {
+                    container.append(createEmptyState('bi-exclamation-circle', refreshStatus.dataset.partial));
+                    return false;
+                }
+
+                const signals = section.data;
+                if (!signals.length) {
+                    const state = createEmptyState('bi-check-circle', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Dashboard.NoReplenishmentSignals"].Value)));
+                    state.classList.remove('text-muted');
+                    state.classList.add('text-success');
+                    container.append(state);
+                    return true;
+                }
+
+                const list = document.createElement('div');
+                list.className = 'list-group list-group-flush';
+                for (const signal of signals) {
+                    const item = document.createElement('div');
+                    item.className = 'list-group-item border-0 py-3';
+                    const row = document.createElement('div');
+                    row.className = 'd-flex justify-content-between align-items-start';
+                    const details = document.createElement('div');
+                    details.className = 'flex-grow-1';
+                    const sku = document.createElement('h6');
+                    sku.className = 'mb-1 fw-medium wms-identifier';
+                    sku.textContent = signal.itemSku;
+                    const name = document.createElement('p');
+                    name.className = 'mb-1 text-muted small';
+                    name.textContent = signal.itemName;
+                    const location = document.createElement('small');
+                    location.className = 'text-muted';
+                    location.textContent = signal.locationCode || signal.warehouseCode;
+                    details.append(sku, name, location);
+                    const quantity = document.createElement('div');
+                    quantity.className = 'text-end';
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-' + signalColor(signal.signalKind) + ' rounded-pill';
+                    badge.textContent = decimalFormat.format(signal.evaluatedQuantity);
+                    const kind = document.createElement('small');
+                    kind.className = 'd-block text-muted';
+                    kind.textContent = signal.signalKind;
+                    quantity.append(badge, kind);
+                    row.append(details, quantity);
+                    item.append(row);
+                    list.append(item);
+                }
+                container.append(list);
+                const footer = document.createElement('div');
+                footer.className = 'card-footer bg-light text-center';
+                const link = document.createElement('a');
+                link.className = 'btn btn-sm btn-outline-warning';
+                link.href = '@Url.Action("Index", "Inventory")';
+                link.textContent = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Nav.Inventory"].Value));
+                footer.append(link);
+                container.append(footer);
+                return true;
+            }
+
+            function applySnapshot(snapshot) {
+                timeZoneId = snapshot.timeZoneId;
+                const catalogAvailable = sectionAvailable(snapshot.catalog);
+                setMetric('catalog.totalItems', catalogAvailable ? snapshot.catalog.data.totalItems : null);
+                setMetric('catalog.activeItems', catalogAvailable ? snapshot.catalog.data.activeItems : null);
+
+                const inventoryAvailable = sectionAvailable(snapshot.inventory);
+                const inventory = inventoryAvailable ? snapshot.inventory.data : null;
+                setMetric('inventory.stockKeepingUnits', inventory?.stockKeepingUnits);
+                setMetric('inventory.onHandQuantity', inventory?.onHandQuantity, decimalFormat);
+                setMetric('inventory.reservedQuantity', inventory?.reservedQuantity, decimalFormat);
+                setMetric('inventory.availableQuantity', inventory?.availableQuantity, decimalFormat);
+                setMetric('inventory.heldQuantity', inventory?.heldQuantity, decimalFormat);
+                setMetric('inventory.damagedQuantity', inventory?.damagedQuantity, decimalFormat);
+                setMetric('inventory.expiredQuantity', inventory?.expiredQuantity, decimalFormat);
+                setMetric('inventory.expiringQuantity', inventory?.expiringQuantity, decimalFormat);
+                setMetric('inventory.stockLocations', inventory?.stockLocations);
+
+                const movementsAvailable = renderMovements(snapshot.recentMovements);
+                const signalsAvailable = renderLowStock(snapshot.lowStockSignals);
+                const anyUnavailable = !catalogAvailable || !inventoryAvailable || !movementsAvailable || !signalsAvailable;
+                sectionStatus.classList.toggle('d-none', !anyUnavailable);
+
+                lastSuccess.dateTime = snapshot.generatedAtUtc;
+                lastSuccess.textContent = localTimestamp(snapshot.generatedAtUtc);
+                document.getElementById('dashboardTimeZone').textContent = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(T["Dashboard.TimeZone"].Value)) + ': ' + timeZoneId;
+                showStatus(anyUnavailable ? refreshStatus.dataset.partial : refreshStatus.dataset.updated);
+            }
+
+            async function refreshDashboard() {
+                if (refreshInProgress) return;
+                refreshInProgress = true;
+                refreshButton.setAttribute('aria-busy', 'true');
+                refreshSpinner.classList.remove('d-none');
+                showStatus(refreshStatus.dataset.refreshing);
+                try {
+                    const warehouseId = warehouseSelector ? warehouseSelector.value : '@(Model.Snapshot.WarehouseId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")';
+                    const url = new URL('@Url.Action("RefreshData", "Dashboard")', window.location.origin);
+                    if (warehouseId) url.searchParams.set('warehouseId', warehouseId);
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        cache: 'no-store',
+                        headers: { 'Accept': 'application/json' }
+                    });
+                    if (!response.ok) throw new Error('dashboard_refresh_failed');
+                    applySnapshot(await response.json());
+                } catch {
+                    showStatus(refreshStatus.dataset.failed, true);
+                } finally {
+                    refreshSpinner.classList.add('d-none');
+                    refreshButton.removeAttribute('aria-busy');
+                    refreshInProgress = false;
+                }
+            }
+
+            refreshButton.addEventListener('click', refreshDashboard);
+            if (warehouseSelector) warehouseSelector.addEventListener('change', refreshDashboard);
+            window.setInterval(() => {
+                if (!document.hidden) refreshDashboard();
             }, refreshIntervalSeconds * 1000);
-        });
+        })();
+        const movementTypeLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Enum.GetNames(typeof(Wms.Domain.Enums.MovementType))
+                .ToDictionary(type => type, type => T[$"Movement.{type}"].Value)));
     </script>
 }
 

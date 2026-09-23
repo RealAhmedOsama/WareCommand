@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Wms.Application.Dashboard;
 using Wms.Application.DTOs;
 using Wms.Application.Identity;
 using Wms.Application.Inventory;
@@ -8,28 +9,34 @@ using Wms.Domain.Enums;
 
 namespace Wms.ASP.Models;
 
-public class DashboardViewModel
+public sealed class DashboardViewModel(DashboardReadSnapshot snapshot)
 {
-    public int TotalItems { get; set; }
-    public int ActiveItems { get; set; }
-    public int TotalSKUs { get; set; }
-    public decimal TotalOnHandUnits { get; set; }
-    public decimal ReservedUnits { get; set; }
-    public decimal AvailableUnits { get; set; }
-    public decimal HeldUnits { get; set; }
-    public decimal DamagedUnits { get; set; }
-    public decimal ExpiredUnits { get; set; }
-    public decimal ExpiringUnits { get; set; }
-    public int StockLocations { get; set; }
-    public List<MovementReportDto> RecentMovements { get; set; } = new();
-    public List<StockDto> LowStockItems { get; set; } = new();
-    public List<InventoryReplenishmentSignalDto> LowStockSignals { get; set; } = new();
-    public DateTime LastRefresh { get; set; }
-    public string DisplayTimeZone { get; set; } = "UTC";
-    public decimal LowStockThreshold { get; set; }
-    public int LowStockAlertLimit { get; set; }
-    public int RecentMovementPeriodDays { get; set; }
-    public int DashboardRefreshIntervalSeconds { get; set; }
+    public DashboardReadSnapshot Snapshot { get; } = snapshot;
+    public int TotalItems => Snapshot.Catalog.Data?.TotalItems ?? 0;
+    public int ActiveItems => Snapshot.Catalog.Data?.ActiveItems ?? 0;
+    public int TotalSKUs => Snapshot.Inventory.Data?.StockKeepingUnits ?? 0;
+    public decimal TotalOnHandUnits => Snapshot.Inventory.Data?.OnHandQuantity ?? 0m;
+    public decimal ReservedUnits => Snapshot.Inventory.Data?.ReservedQuantity ?? 0m;
+    public decimal AvailableUnits => Snapshot.Inventory.Data?.AvailableQuantity ?? 0m;
+    public decimal HeldUnits => Snapshot.Inventory.Data?.HeldQuantity ?? 0m;
+    public decimal DamagedUnits => Snapshot.Inventory.Data?.DamagedQuantity ?? 0m;
+    public decimal ExpiredUnits => Snapshot.Inventory.Data?.ExpiredQuantity ?? 0m;
+    public decimal ExpiringUnits => Snapshot.Inventory.Data?.ExpiringQuantity ?? 0m;
+    public int StockLocations => Snapshot.Inventory.Data?.StockLocations ?? 0;
+    public IReadOnlyList<MovementReportDto> RecentMovements => Snapshot.RecentMovements.Data ?? [];
+    public IReadOnlyList<InventoryReplenishmentSignalDto> LowStockSignals =>
+        Snapshot.LowStockSignals.Data ?? [];
+    public string DisplayTimeZone => Snapshot.TimeZoneId;
+    public int RecentMovementPeriodDays => Snapshot.RecentMovementPeriodDays;
+    public int DashboardRefreshIntervalSeconds => Snapshot.RefreshIntervalSeconds;
+    public bool CatalogAvailable => Snapshot.Catalog.Status == DashboardSectionStatus.Available;
+    public bool InventoryAvailable => Snapshot.Inventory.Status == DashboardSectionStatus.Available;
+    public bool LowStockSignalsAvailable =>
+        Snapshot.LowStockSignals.Status == DashboardSectionStatus.Available;
+    public bool RecentMovementsAvailable =>
+        Snapshot.RecentMovements.Status == DashboardSectionStatus.Available;
+
+    public static DashboardViewModel From(DashboardReadSnapshot snapshot) => new(snapshot);
 }
 
 public class InventoryViewModel

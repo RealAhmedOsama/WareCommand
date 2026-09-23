@@ -179,7 +179,8 @@ public sealed class WarehouseAccessService(
                     warehouse.Id,
                     warehouse.Code,
                     warehouse.Name,
-                    false))
+                    false,
+                    warehouse.TimeZone))
                 .ToListAsync(cancellationToken);
         }
 
@@ -212,7 +213,8 @@ public sealed class WarehouseAccessService(
                 warehouse.Id,
                 warehouse.Code,
                 warehouse.Name,
-                defaultWarehouseIds.Contains(warehouse.Id)))
+                defaultWarehouseIds.Contains(warehouse.Id),
+                warehouse.TimeZone))
             .ToListAsync(cancellationToken);
     }
 
