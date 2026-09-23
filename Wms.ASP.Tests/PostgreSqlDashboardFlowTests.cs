@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
@@ -19,6 +20,8 @@ namespace Wms.ASP.Tests;
 
 public sealed class PostgreSqlDashboardFlowTests
 {
+    private static readonly JsonSerializerOptions AssistantJsonOptions = new(JsonSerializerDefaults.Web);
+
     [PostgreSqlDashboardFact]
     public async Task DashboardPageAndRefreshUsePersistedPostgreSqlReceiptData()
     {
@@ -87,6 +90,48 @@ public sealed class PostgreSqlDashboardFlowTests
             Assert.NotEmpty(recentMovements.EnumerateArray());
             Assert.Equal("Receipt", recentMovements[0].GetProperty("type").GetString());
             Assert.Equal(5m, recentMovements[0].GetProperty("quantity").GetDecimal());
+
+            using var reportsPage = await client.GetAsync("/Reports?culture=en-US&ui-culture=en-US");
+            var reportsHtml = await reportsPage.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, reportsPage.StatusCode);
+            var reportToken = Regex.Match(
+                reportsHtml,
+                "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            Assert.True(reportToken.Success, "Could not find an antiforgery token on the PostgreSQL reports page.");
+            using var assistantRequest = new HttpRequestMessage(
+                HttpMethod.Post,
+                "/api/reporting-assistant/query")
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new
+                    {
+                        question = "Show movement ledger",
+                        locale = "en-US",
+                        maximumRows = 25
+                    }, AssistantJsonOptions),
+                    Encoding.UTF8,
+                    "application/json")
+            };
+            assistantRequest.Headers.TryAddWithoutValidation(
+                "RequestVerificationToken",
+                WebUtility.HtmlDecode(reportToken.Groups[1].Value));
+            using var assistantResponse = await client.SendAsync(assistantRequest);
+            var assistantBody = await assistantResponse.Content.ReadAsStringAsync();
+            Assert.True(
+                assistantResponse.StatusCode == HttpStatusCode.OK,
+                $"PostgreSQL reporting assistant returned {(int)assistantResponse.StatusCode}: {assistantBody[..Math.Min(assistantBody.Length, 300)]}");
+            using var assistantSnapshot = JsonDocument.Parse(assistantBody);
+            Assert.Equal("Answered", assistantSnapshot.RootElement.GetProperty("status").GetString());
+            Assert.NotEmpty(assistantSnapshot.RootElement.GetProperty("data").EnumerateArray());
+            Assert.All(
+                assistantSnapshot.RootElement.GetProperty("citations").EnumerateArray(),
+                citation =>
+                {
+                    Assert.Equal("reports.movements.read", citation.GetProperty("sourceTool").GetString());
+                    Assert.StartsWith("movement:", citation.GetProperty("reference").GetString(), StringComparison.Ordinal);
+                    Assert.True(citation.GetProperty("dataCutoffUtc").GetDateTimeOffset() > DateTimeOffset.MinValue);
+                });
 
             using var page = await client.GetAsync("/Dashboard?culture=en-US&ui-culture=en-US");
             var pageHtml = await page.Content.ReadAsStringAsync();

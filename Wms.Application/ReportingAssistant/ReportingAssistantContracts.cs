@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Wms.Application.Common;
 using Wms.Application.Identity;
 
@@ -21,6 +22,17 @@ public enum ReportingAssistantPlanStatus
     NeedsClarification
 }
 
+public enum ReportingAssistantAnswerStatus
+{
+    Answered,
+    NeedsClarification,
+    Unsupported,
+    Empty,
+    Truncated,
+    Unavailable,
+    TimedOut
+}
+
 /// <summary>
 /// A bounded, read-only natural-language reporting request. The planner never
 /// receives a database query or a provider prompt; it emits an allow-listed
@@ -32,6 +44,16 @@ public sealed record ReportingAssistantRequest(
     int? WarehouseId = null,
     IReadOnlySet<int>? AllowedWarehouseIds = null,
     IReadOnlySet<string>? PermissionCodes = null,
+    int MaximumRows = 50);
+
+/// <summary>
+/// Untrusted HTTP input. Authorization and warehouse scope are resolved by
+/// the server and deliberately are not accepted from a client.
+/// </summary>
+public sealed record ReportingAssistantQueryRequest(
+    string Question,
+    string Locale = "en-US",
+    int? WarehouseId = null,
     int MaximumRows = 50);
 
 public sealed record ReportingAssistantPlan(
@@ -53,18 +75,38 @@ public sealed record ReportingAssistantCitation(
     string? Field,
     DateTimeOffset DataCutoffUtc);
 
+public sealed record ReportingAssistantField(
+    string Name,
+    string? TextValue = null,
+    decimal? NumberValue = null,
+    string? Unit = null);
+
+public sealed record ReportingAssistantRow(
+    string Reference,
+    IReadOnlyList<ReportingAssistantField> Fields,
+    DateTimeOffset DataCutoffUtc);
+
 public sealed record ReportingAssistantAnswer(
     string Summary,
     IReadOnlyList<ReportingAssistantCitation> Citations,
-    ReportingAssistantPlan Plan,
+    ReportingAssistantPlan? Plan,
     DateTimeOffset GeneratedAtUtc,
-    DateTimeOffset DataCutoffUtc);
+    DateTimeOffset DataCutoffUtc,
+    ReportingAssistantAnswerStatus Status = ReportingAssistantAnswerStatus.Answered,
+    IReadOnlyList<ReportingAssistantRow>? Data = null,
+    IReadOnlyDictionary<string, string?>? Filters = null,
+    IReadOnlyList<string>? Limitations = null,
+    string? ErrorCode = null);
 
 public interface IReportingAssistantService
 {
-    Task<Result<ReportingAssistantPlan>> PlanAsync(
+    public Task<Result<ReportingAssistantPlan>> PlanAsync(
         ReportingAssistantRequest request,
         DateTimeOffset nowUtc,
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<ReportingAssistantAnswer>> ExecuteAsync(
+        ReportingAssistantQueryRequest request,
         CancellationToken cancellationToken = default);
 }
 
@@ -117,9 +159,16 @@ public static class ReportingAssistantPolicy
             [WmsPermissions.ReportsRead, WmsPermissions.ReceiptsRead],
             [ReportingAssistantQueryKind.OutboundStatus] =
             [WmsPermissions.ReportsRead, WmsPermissions.SalesOrdersRead],
-            [ReportingAssistantQueryKind.ExceptionSummary] = [WmsPermissions.ReportsRead],
-            [ReportingAssistantQueryKind.WarehouseKpi] = [WmsPermissions.ReportsRead]
+            [ReportingAssistantQueryKind.ExceptionSummary] =
+            [WmsPermissions.ReportsRead, WmsPermissions.AdvanceShippingNoticesRead, WmsPermissions.SalesOrdersRead],
+            [ReportingAssistantQueryKind.WarehouseKpi] =
+            [WmsPermissions.ReportsRead, WmsPermissions.DashboardView]
         };
+
+    public static IReadOnlyList<string> RequiredPermissionCatalog { get; } =
+        RequiredPermissions.Values.SelectMany(permissions => permissions)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 
     private static readonly string[] MutationTerms =
     [
@@ -127,6 +176,10 @@ public static class ReportingAssistantPolicy
         "execute", "reverse", "set stock", "change quantity", "حذف", "عدل", "اضبط", "انشئ",
         "إلغاء", "نقل", "اعتمد", "نفذ"
     ];
+
+    private static readonly Regex QueryLanguageSyntax = new(
+        @"(?:--|/\*|\*/|;|\b(?:select|union|drop|insert|alter|truncate|information_schema|pg_catalog|sqlite_master)\b)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     public static Result Validate(ReportingAssistantRequest request)
     {
@@ -159,6 +212,13 @@ public static class ReportingAssistantPolicy
             return Result.Failure(WmsErrors.Forbidden(
                 "reporting_assistant.read_only",
                 "The reporting assistant only supports read-only warehouse questions."));
+        }
+
+        if (QueryLanguageSyntax.IsMatch(question))
+        {
+            return Result.Failure(WmsErrors.Validation(
+                "reporting_assistant.query_language_unsupported",
+                "Database query syntax is not accepted by the reporting assistant."));
         }
 
         var matchedKinds = FindKinds(question);

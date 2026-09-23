@@ -153,6 +153,7 @@ public static class WmsSecurityRegistration
 
         builder.Services.AddAntiforgery(options =>
         {
+            options.HeaderName = "RequestVerificationToken";
             options.Cookie.Name = securityOptions.Antiforgery.CookieName;
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Strict;

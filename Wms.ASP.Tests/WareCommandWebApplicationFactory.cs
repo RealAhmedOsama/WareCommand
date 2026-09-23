@@ -24,6 +24,8 @@ public sealed class WareCommandWebApplicationFactory : WebApplicationFactory<Wms
 
     public int? AuthenticationPermitLimitOverride { get; set; }
 
+    public int? ReportPermitLimitOverride { get; set; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         Directory.CreateDirectory(_root);
@@ -44,6 +46,12 @@ public sealed class WareCommandWebApplicationFactory : WebApplicationFactory<Wms
                 "Security:RateLimiting:AuthenticationPermitLimit",
                 AuthenticationPermitLimitOverride.Value.ToString(CultureInfo.InvariantCulture));
         }
+        if (ReportPermitLimitOverride.HasValue)
+        {
+            builder.UseSetting(
+                "Security:RateLimiting:ReportPermitLimit",
+                ReportPermitLimitOverride.Value.ToString(CultureInfo.InvariantCulture));
+        }
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             var settings = new Dictionary<string, string?>
@@ -62,6 +70,11 @@ public sealed class WareCommandWebApplicationFactory : WebApplicationFactory<Wms
             {
                 settings["Security:RateLimiting:AuthenticationPermitLimit"] =
                     AuthenticationPermitLimitOverride.Value.ToString(CultureInfo.InvariantCulture);
+            }
+            if (ReportPermitLimitOverride.HasValue)
+            {
+                settings["Security:RateLimiting:ReportPermitLimit"] =
+                    ReportPermitLimitOverride.Value.ToString(CultureInfo.InvariantCulture);
             }
 
             configuration.AddInMemoryCollection(settings);
