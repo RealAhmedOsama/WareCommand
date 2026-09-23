@@ -52,6 +52,7 @@ public sealed class IntegrationsController(
                 enabled = capability.Enabled,
                 configured = capability.Configured,
                 verified,
+                verificationMeaning = "Verified means an active endpoint has accepted at least one signed delivery; it does not certify an external partner integration.",
                 activeSubscriptionCount = verification.ActiveSubscriptions,
                 verifiedSubscriptionCount = verification.VerifiedSubscriptions
             }

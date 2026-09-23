@@ -14,9 +14,24 @@ namespace Wms.ASP.Controllers;
 [EnableRateLimiting(WmsRateLimitPolicies.Api)]
 public sealed class B2bDocumentsController(IB2bDocumentService b2bDocumentService) : ControllerBase
 {
+    private static readonly string[] ImplementedLocalBehaviors =
+    [
+        "canonical-envelope-validation",
+        "mapping-profile-and-trading-partner-persistence",
+        "warehouse-scoped-document-state"
+    ];
+
     [HttpGet("capabilities")]
     public IActionResult Capabilities() => Ok(new
     {
+        implementationStatus = "ContractOnly",
+        configurationStatus = "Unconfigured",
+        verificationStatus = "Unverified",
+        implementedLocalBehaviors = ImplementedLocalBehaviors,
+        implementedPartnerStandards = Array.Empty<string>(),
+        implementedLocalDocumentModel = WmsB2bStandards.Canonical,
+        implementedTransportModes = Array.Empty<string>(),
+        livePartnerAcceptanceRequired = true,
         standards = new[] { WmsB2bStandards.Canonical, WmsB2bStandards.X12, WmsB2bStandards.Edifact },
         directions = new[] { WmsB2bDirections.Inbound, WmsB2bDirections.Outbound },
         transportModes = new[]

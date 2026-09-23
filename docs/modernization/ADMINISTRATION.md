@@ -6,7 +6,7 @@ Issue #85 is being delivered as a bounded console boundary while the owning modu
 
 - `/Administration` is protected by `access.manage` and only renders catalog entries authorized for the current user.
 - `/api/administration/catalog` exposes typed module metadata: English and Arabic labels, route, required permission, warehouse scope, dependencies, supported actions, and surface maturity.
-- `/api/administration/readiness` performs server-side checks for global settings, active warehouses, inbound operational locations, outbound operational locations, immutable audit storage, retention policy registration, and deployment health.
+- `/api/administration/readiness` performs server-side checks for global settings, active warehouses, inbound operational locations, outbound operational locations, immutable audit storage, retention policy registration, deployment health, and connector transport readiness.
 - `/api/administration/history` delegates to the existing paged audit query. The page intentionally shows safe scalar audit fields only; before/after payloads are not rendered in the console.
 - Deployment-managed settings and credentials are represented as boundaries. Secret values are never returned by this catalog or page.
 - Existing typed module screens remain the owners of validation, mutation, warehouse scope, and audit behavior. The catalog links to those screens and APIs instead of bypassing them.
@@ -26,6 +26,12 @@ database. The disposable PostgreSQL 17 harness passed 51/51 on 2026-09-22
 (port 55505) and cleaned its test container. This is persistence and scope
 evidence only; complete module CRUD/import/export, provider load, browser and
 handheld accessibility, and production qualification remain open.
+
+The readiness response also includes a non-blocking connector-transports check.
+Contract-only types and reference fixtures are not treated as live integrations;
+missing transports remain visible without blocking core warehouse workflows.
+Connector credentials are represented by deployment-managed references, and a
+stored reference is not proof that a provider secret resolves.
 
 ## Remaining #85 work
 

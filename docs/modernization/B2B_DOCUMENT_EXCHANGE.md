@@ -6,6 +6,12 @@ customer-specific partner mapping.
 
 ## Current foundation
 
+`GET /api/b2b/capabilities` keeps the standards, transports, and document-type
+catalogs for API compatibility, and reports implementation, configuration, and
+verification separately. Its current status is `ContractOnly`: canonical
+envelope validation and local persistence are implemented, while X12/EDIFACT
+parsers, serializers, and all partner transports remain unavailable.
+
 - Canonical versioned document types cover item/location master data, purchase
   orders, ASNs, receipts, sales/warehouse orders, inventory status, shipment
   confirmation, and returns.

@@ -1,64 +1,71 @@
-# Connector architecture
+# Connector architecture and provider inventory
 
-WareCommand keeps connector capability contracts in `Wms.Application.Connectors`
-and places adapters in `Wms.Infrastructure.Connectors`. Core business modules do
-not reference ERP, commerce, marketplace, carrier, or vendor SDKs.
+Connector contracts live in `Wms.Application.Connectors`; provider transports
+belong in `Wms.Infrastructure.Connectors`. The checked-in host does not register
+the generic ERP or e-commerce reference fixtures. `GET /api/connectors/capabilities`
+reports contract-only and implemented adapter status, configuration and
+verification separately. `GET /api/connectors` adds per-instance capability,
+configuration, and verification states while retaining its existing fields.
 
-## Current foundation
+## What is implemented locally
 
-- Connector types are versioned (`generic-erp.v1`, `ecommerce-orders.v1`,
-  `marketplace.v1`, and `carrier.v1`). Operations cover master data, inbound and
-  outbound documents, inventory availability, shipment confirmation, returns,
-  carrier labels/tracking, and acknowledgements.
-- Instances persist explicit warehouse scope, deployment-managed credential
-  references, credential version, enabled pull/push/webhook/file modes, an
-  optional schedule, mapping profile reference, cursor, health, and failure
-  counters. A raw secret or token is rejected at the application boundary.
-- Versioned mapping profiles provide an external-ID field, field transformations,
-  code/value maps, culture, and reject/prefer-external/prefer-WMS conflict policy.
-- Runs persist correlation, idempotency, cursor before/after, bounded batch size,
-  record counters, conflict state, safe error codes, and timestamps. A repeated
-  idempotency key returns the existing run instead of invoking an adapter again.
-- External record identities are deterministic hashes of connector, record type,
-  and external ID. Payload hashes detect retries and changes without storing raw
-  provider payloads in connector state.
-- Warehouse authorization is checked before connector creation, listing, secret
-  rotation, health checks, and synchronization. Adapter failure is isolated in
-  the connector run and health state.
-- The generic ERP and e-commerce reference adapters are deterministic, no-network
-  contract fixtures. They prove registration and boundary behavior; they do not
-  claim live provider connectivity.
+- Versioned type and operation catalogs, warehouse-scoped instance and mapping
+  profile persistence, credential-reference validation, and run history.
+- Field mapping, deterministic external-record identity, idempotency, cursor and
+  conflict handling, and typed fail-closed results when a transport is missing,
+  disabled, or reference-only.
+- `IConnectorAdapter` contracts for pull, push, and connection verification.
+  Adapters default to `ContractOnly` and must explicitly identify an implemented
+  provider transport. A registered operational adapter's modes and operations
+  are the only executable operations exposed by capability discovery.
+- Generic ERP and e-commerce reference classes remain test/contract fixtures.
+  They report `Reference`, advertise no runnable modes or operations, cannot be
+  activated, cannot pass connection checks, and throw if pull or push is called.
 
-## Adapter rules
+The instance credential field stores a deployment-managed reference only. The
+host has no connector credential resolver. `Configured` therefore means that the
+instance's configuration reference and mapping are stored; it does not mean the
+provider secret resolved. `Verified` requires a successful provider connection
+check. A healthy connector check also does not prove partner acceptance.
 
-An adapter must implement `IConnectorAdapter`, declare its connector type,
-supported modes, and supported operations, and use the supplied connector
-context. It must not log credential references as secrets, raw payloads, or
-authorization headers. Pull adapters return a bounded page and an opaque next
-cursor; push adapters must be retry-safe and use the connector run idempotency
-key when calling a remote system.
+## Adapter inventory
 
-Inbound webhook/file adapters should first use the shared integration inbox and
-bulk-exchange validation boundaries. Outbound events should use the shared
-transactional outbox. Mapping a document into a WMS module remains an explicit
-module handler and must not be hidden inside a vendor adapter.
+| Contract type | Local behavior | Missing code | Credential requirement | Live acceptance gate |
+| --- | --- | --- | --- | --- |
+| `generic-erp.v1` | Generic mapping/run persistence boundaries; reference class is test-only | Selected ERP protocol, authentication, network transport, provider paging and write semantics | Deployment-managed reference plus a provider-specific secret resolver | Selected ERP sandbox proves scoped pull/push, retry and reconciliation behavior |
+| `ecommerce-orders.v1` | Generic mapping/run persistence boundaries; reference class is test-only | Selected commerce API client, authentication, rate-limit and webhook behavior | Deployment-managed reference plus a provider-specific secret resolver | Selected store sandbox proves order, inventory and retry behavior |
+| `marketplace.v1` | Type and operation contract catalog only | A named marketplace API, transport, credential resolution and provider-specific mappings | Provider-issued secret through a deployment-managed resolver | Marketplace test account and provider acceptance |
+| `carrier.v1` | Type and operation contract catalog only | A named carrier API, label/tracking transport, credential resolution and lifecycle mapping | Carrier-issued secret through a deployment-managed resolver | Carrier sandbox proves label, tracking, cancellation and acceptance behavior |
 
-## Remaining qualification
+The credential-reference string is not a transport or proof of credentials. No
+carrier label/tracking or ERP/commerce/marketplace operation is currently
+runnable in the shipped host.
 
-This issue is a committed architecture slice, not live integration closure.
-XLSX/file attachment ingestion, background schedule registration, connector
-administration screens/API, connection-test provider implementations, real HTTP/
-SFTP/webhook transports, retry throttling, replay history, complete document
-handlers, Shopify/WooCommerce/marketplace/carrier adapters, PostgreSQL concurrency
-and provider/load tests, browser localization, and production credential rollout
-remain separate gates. No network is called by the checked-in reference
-adapters, and no production migration or deployment has been performed.
+## Related capability boundaries
 
-The PostgreSQL persistence boundary is qualified for connector mapping profile
-identity, connector instance names, per-instance run idempotency, and
-per-instance external-record identity. Later mapping versions and reuse across
-separate connector instances are accepted; duplicates within each protected
-scope are rejected. The disposable PostgreSQL 17 harness passed 55/55 on
-2026-09-22 (port 55509) and cleaned its test container. Live transports,
-schedule/handler wiring, concurrency/load, localization, and production
-credential gates remain open.
+- `/api/b2b/capabilities` retains its standards and transport-mode contract
+  catalogs for compatibility and adds `implementationStatus`,
+  `implementedTransportModes`, `configurationStatus`, and
+  `verificationStatus`. Only canonical envelope validation and local document
+  persistence are implemented; no EDI parser or B2B transport is registered.
+- `/api/integrations/capabilities` reports webhook configuration and delivery
+  evidence. `Verified` means an active endpoint accepted a signed delivery; it
+  does not claim external partner certification.
+- Administration readiness has a non-blocking connector-transports check.
+  Missing provider transports remain visible without blocking core warehouse
+  workflows.
+
+## Next provider work
+
+Open a separately scoped implementation issue only after a concrete provider and
+protocol are selected. That issue must name authentication and credential
+resolution, supported documents/operations, warehouse scope, paging and retry
+semantics, sandbox/test fixtures, partner acceptance evidence, and rollout
+gates. Do not build arbitrary ERP, marketplace, or carrier adapters from these
+generic contracts alone.
+
+The PostgreSQL persistence boundary was previously qualified for connector
+mapping profile identity, connector instance names, per-instance run idempotency,
+and per-instance external-record identity. The disposable PostgreSQL 17 harness
+passed 55/55 on 2026-09-22. That evidence covers local persistence only; it does
+not qualify a live provider transport.

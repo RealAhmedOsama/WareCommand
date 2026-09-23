@@ -14,6 +14,11 @@ namespace Wms.ASP.Controllers;
 [EnableRateLimiting(WmsRateLimitPolicies.Api)]
 public sealed class ConnectorsController(IConnectorService connectorService) : ControllerBase
 {
+    [HttpGet("capabilities")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Capabilities(CancellationToken cancellationToken = default) =>
+        ToActionResult(await connectorService.GetCapabilitiesAsync(cancellationToken));
+
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken cancellationToken = default) =>
         ToActionResult(await connectorService.ListAsync(cancellationToken));

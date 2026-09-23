@@ -142,8 +142,6 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IWebhookSubscriptionService, WebhookSubscriptionService>();
         services.AddScoped<IWebhookSecretProtector, DataProtectionWebhookSecretProtector>();
         services.AddScoped<IConnectorService, ConnectorService>();
-        services.AddScoped<IConnectorAdapter, GenericErpReferenceConnectorAdapter>();
-        services.AddScoped<IConnectorAdapter, EcommerceOrderReferenceConnectorAdapter>();
         services.AddScoped<IB2bDocumentService, B2bDocumentService>();
         services.AddScoped<IBulkCsvParser, BulkCsvParser>();
         services.AddScoped<IBulkImportService, BulkImportService>();

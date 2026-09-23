@@ -80,6 +80,11 @@ public sealed class AdministrationServiceTests : IDisposable
             .Should().Be(AdministrationReadinessStatus.Blocked);
         result.Value.Checks.Single(item => item.Key == $"outbound-execution-{warehouseId}").Status
             .Should().Be(AdministrationReadinessStatus.Blocked);
+        var connectors = result.Value.Checks.Single(item => item.Key == "connector-transports");
+        connectors.Status.Should().Be(AdministrationReadinessStatus.Warning);
+        connectors.IsBlocking.Should().BeFalse();
+        connectors.Detail.Should().Contain("contract-only");
+        connectors.Detail.Should().Contain("reference fixtures are excluded");
     }
 
     [Fact]

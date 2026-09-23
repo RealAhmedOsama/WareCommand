@@ -24,6 +24,67 @@ public sealed class ConnectorService(
     private const int MaximumBatchSize = 1_000;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    public async Task<Result<IReadOnlyList<ConnectorCapabilityDto>>> GetCapabilitiesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            ConnectorPermission,
+            cancellationToken: cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<IReadOnlyList<ConnectorCapabilityDto>>();
+        }
+
+        var capabilities = WmsConnectorTypes.All
+            .Order(StringComparer.Ordinal)
+            .Select(connectorType =>
+            {
+                var adapter = FindAdapter(connectorType);
+                var implementationStatus = ResolveImplementationStatus(adapter);
+                var isOperational = implementationStatus == WmsConnectorImplementationStatuses.Implemented;
+                var modes = isOperational
+                    ? adapter!.SupportedModes
+                        .Where(IsRunnableMode)
+                        .Order(StringComparer.OrdinalIgnoreCase)
+                        .ToArray()
+                    : [];
+                var operations = isOperational
+                    ? adapter!.SupportedOperations
+                        .Where(WmsConnectorOperations.IsKnown)
+                        .Order(StringComparer.OrdinalIgnoreCase)
+                        .ToArray()
+                    : [];
+
+                return new ConnectorCapabilityDto(
+                    connectorType,
+                    implementationStatus,
+                    isOperational && modes.Length > 0 && operations.Length > 0,
+                    modes,
+                    operations,
+                    implementationStatus switch
+                    {
+                        WmsConnectorImplementationStatuses.Reference or
+                        WmsConnectorImplementationStatuses.Disabled => WmsConnectorConfigurationStatuses.Disabled,
+                        _ => WmsConnectorConfigurationStatuses.Unconfigured
+                    },
+                    WmsConnectorVerificationStatuses.Unverified,
+                    WmsConnectorHealthStatuses.Unknown,
+                    "Use a deployment-managed credential reference; this host does not resolve provider secrets.",
+                    implementationStatus switch
+                    {
+                        WmsConnectorImplementationStatuses.Reference =>
+                            "Reference fixture only; no provider transport is available.",
+                        WmsConnectorImplementationStatuses.Implemented =>
+                            "A provider transport is registered; configure and verify its provider-specific requirements.",
+                        _ => "A provider-specific transport implementation is not registered."
+                    },
+                    LiveAcceptanceRequired: true);
+            })
+            .ToArray();
+
+        return Result.Success<IReadOnlyList<ConnectorCapabilityDto>>(capabilities);
+    }
+
     public async Task<Result<ConnectorMappingProfileDto>> SaveMappingProfileAsync(
         ConnectorMappingProfileRequest request,
         CancellationToken cancellationToken = default)
@@ -128,11 +189,40 @@ public sealed class ConnectorService(
                 "The selected connector mapping profile is not active or does not exist."));
         }
 
-        if (adapters.All(adapter => !string.Equals(adapter.ConnectorType, connectorType, StringComparison.OrdinalIgnoreCase)))
+        var adapter = FindAdapter(connectorType);
+        if (adapter is null)
         {
             return Result.Failure<ConnectorInstanceDto>(WmsErrors.Dependency(
-                "connector.adapter_not_registered",
-                "No connector adapter is registered for the selected connector type.",
+                "connector.transport_not_implemented",
+                "No provider transport is implemented for the selected connector type.",
+                isRetryable: false));
+        }
+
+        var implementationStatus = ResolveImplementationStatus(adapter);
+        if (request.Activate && implementationStatus != WmsConnectorImplementationStatuses.Implemented)
+        {
+            return Result.Failure<ConnectorInstanceDto>(WmsErrors.Conflict(
+                GetNonOperationalAdapterErrorCode(implementationStatus),
+                "Only an implemented provider transport can be activated."));
+        }
+
+        if (implementationStatus == WmsConnectorImplementationStatuses.Implemented &&
+            request.Modes.Any(mode =>
+                !IsRunnableMode(mode.Trim().ToLowerInvariant()) ||
+                !adapter.SupportedModes.Contains(mode.Trim().ToLowerInvariant())))
+        {
+            return Result.Failure<ConnectorInstanceDto>(WmsErrors.Validation(
+                "connector.mode_not_supported",
+                "The provider transport does not implement every requested synchronization mode."));
+        }
+
+        if (request.Activate && implementationStatus == WmsConnectorImplementationStatuses.Implemented &&
+            (!adapter.SupportedModes.Any(IsRunnableMode) ||
+             !adapter.SupportedOperations.Any(WmsConnectorOperations.IsKnown)))
+        {
+            return Result.Failure<ConnectorInstanceDto>(WmsErrors.Dependency(
+                "connector.capability_not_registered",
+                "The provider transport has no runnable synchronization operation.",
                 isRetryable: false));
         }
 
@@ -254,6 +344,10 @@ public sealed class ConnectorService(
 
         entity.CredentialReference = reference;
         entity.CredentialVersion++;
+        entity.HealthStatus = WmsConnectorHealthStatuses.Unknown;
+        entity.HealthSummary = null;
+        entity.LastHealthCheckAtUtc = null;
+        entity.ConsecutiveFailureCount = 0;
         entity.UpdatedAtUtc = clock.UtcNow;
         await context.SaveChangesAsync(cancellationToken);
         return Result.Success(ToDto(entity));
@@ -285,8 +379,17 @@ public sealed class ConnectorService(
         if (adapter is null)
         {
             return Result.Failure<ConnectorRunDto>(WmsErrors.Dependency(
-                "connector.adapter_not_registered",
-                "No connector adapter is registered for this connector instance.",
+                "connector.transport_not_implemented",
+                "No provider transport is implemented for this connector instance.",
+                isRetryable: false));
+        }
+
+        var implementationStatus = ResolveImplementationStatus(adapter);
+        if (implementationStatus != WmsConnectorImplementationStatuses.Implemented)
+        {
+            return Result.Failure<ConnectorRunDto>(WmsErrors.Dependency(
+                GetNonOperationalAdapterErrorCode(implementationStatus),
+                "The registered connector is not an operational provider transport.",
                 isRetryable: false));
         }
 
@@ -315,7 +418,9 @@ public sealed class ConnectorService(
             run.ErrorCode = health.Succeeded ? null : "connector.connection_test_failed";
             run.ErrorMessage = health.Succeeded ? null : ConnectorSecurityPolicy.Redact(health.Summary);
             run.CompletedAtUtc = clock.UtcNow;
-            entity.HealthStatus = health.HealthStatus;
+            entity.HealthStatus = health.Succeeded
+                ? health.HealthStatus
+                : WmsConnectorHealthStatuses.Unhealthy;
             entity.HealthSummary = Limit(ConnectorSecurityPolicy.Redact(health.Summary), 2_000);
             entity.ConsecutiveFailureCount = health.Succeeded ? 0 : entity.ConsecutiveFailureCount + 1;
             entity.UpdatedAtUtc = clock.UtcNow;
@@ -381,6 +486,14 @@ public sealed class ConnectorService(
 
         var requestedMode = request.Mode.Trim().ToLowerInvariant();
         var requestedOperation = request.Operation.Trim().ToLowerInvariant();
+        if (!IsRunnableMode(requestedMode))
+        {
+            return Result.Failure<ConnectorRunDto>(WmsErrors.Dependency(
+                "connector.mode_not_supported",
+                "The connector adapter supports pull or push synchronization modes only.",
+                isRetryable: false));
+        }
+
         var modes = DeserializeStrings(entity.ModesJson).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!modes.Contains(requestedMode))
         {
@@ -390,12 +503,29 @@ public sealed class ConnectorService(
         }
 
         var adapter = FindAdapter(entity.ConnectorType);
-        if (adapter is null || !adapter.SupportedModes.Contains(requestedMode) ||
+        if (adapter is null)
+        {
+            return Result.Failure<ConnectorRunDto>(WmsErrors.Dependency(
+                "connector.transport_not_implemented",
+                "No provider transport is implemented for this connector instance.",
+                isRetryable: false));
+        }
+
+        var implementationStatus = ResolveImplementationStatus(adapter);
+        if (implementationStatus != WmsConnectorImplementationStatuses.Implemented)
+        {
+            return Result.Failure<ConnectorRunDto>(WmsErrors.Dependency(
+                GetNonOperationalAdapterErrorCode(implementationStatus),
+                "The registered connector is not an operational provider transport.",
+                isRetryable: false));
+        }
+
+        if (!adapter.SupportedModes.Contains(requestedMode) ||
             !adapter.SupportedOperations.Contains(requestedOperation))
         {
             return Result.Failure<ConnectorRunDto>(WmsErrors.Dependency(
-                "connector.capability_not_registered",
-                "The registered connector adapter does not support this operation and mode.",
+                "connector.operation_not_supported",
+                "The registered provider transport does not implement this operation and mode.",
                 isRetryable: false));
         }
 
@@ -633,6 +763,26 @@ public sealed class ConnectorService(
         adapters.FirstOrDefault(adapter =>
             string.Equals(adapter.ConnectorType, connectorType, StringComparison.OrdinalIgnoreCase));
 
+    private static string ResolveImplementationStatus(IConnectorAdapter? adapter) =>
+        adapter?.ImplementationStatus switch
+        {
+            WmsConnectorImplementationStatuses.Implemented => WmsConnectorImplementationStatuses.Implemented,
+            WmsConnectorImplementationStatuses.Reference => WmsConnectorImplementationStatuses.Reference,
+            WmsConnectorImplementationStatuses.Disabled => WmsConnectorImplementationStatuses.Disabled,
+            _ => WmsConnectorImplementationStatuses.ContractOnly
+        };
+
+    private static string GetNonOperationalAdapterErrorCode(string implementationStatus) =>
+        implementationStatus switch
+        {
+            WmsConnectorImplementationStatuses.Reference => "connector.reference_adapter_not_operational",
+            WmsConnectorImplementationStatuses.Disabled => "connector.adapter_disabled",
+            _ => "connector.transport_not_implemented"
+        };
+
+    private static bool IsRunnableMode(string mode) =>
+        mode is WmsConnectorModes.Pull or WmsConnectorModes.Push;
+
     private static ResultError? ValidateMappingProfile(ConnectorMappingProfileRequest request)
     {
         if (!WmsConnectorTypes.IsKnown(request.ConnectorType?.Trim() ?? string.Empty))
@@ -776,8 +926,50 @@ public sealed class ConnectorService(
             entity.CreatedAtUtc,
             entity.UpdatedAtUtc);
 
-    private static ConnectorInstanceDto ToDto(WmsConnectorInstanceEntity entity) =>
-        new(
+    private ConnectorInstanceDto ToDto(WmsConnectorInstanceEntity entity)
+    {
+        var adapter = FindAdapter(entity.ConnectorType);
+        var implementationStatus = ResolveImplementationStatus(adapter);
+        var isOperational = implementationStatus == WmsConnectorImplementationStatuses.Implemented;
+        var hasConfiguration = !string.IsNullOrWhiteSpace(entity.CredentialReference) &&
+                               !string.IsNullOrWhiteSpace(entity.MappingProfileName) &&
+                               entity.MappingProfileVersion > 0;
+        var capabilityStatus = string.Equals(entity.Status, WmsConnectorStatuses.Disabled, StringComparison.Ordinal)
+            ? WmsConnectorCapabilityStatuses.Disabled
+            : !isOperational
+            ? implementationStatus switch
+            {
+                WmsConnectorImplementationStatuses.Reference => WmsConnectorCapabilityStatuses.Reference,
+                WmsConnectorImplementationStatuses.Disabled => WmsConnectorCapabilityStatuses.Disabled,
+                _ => WmsConnectorCapabilityStatuses.ContractOnly
+            }
+            : !hasConfiguration
+                ? WmsConnectorCapabilityStatuses.Unconfigured
+                : entity.LastHealthCheckAtUtc is null
+                    ? entity.Status == WmsConnectorStatuses.Active
+                        ? WmsConnectorCapabilityStatuses.Unverified
+                        : WmsConnectorCapabilityStatuses.Configured
+                    : entity.HealthStatus switch
+                    {
+                        WmsConnectorHealthStatuses.Healthy => WmsConnectorCapabilityStatuses.Healthy,
+                        WmsConnectorHealthStatuses.Degraded or WmsConnectorHealthStatuses.Unhealthy => WmsConnectorCapabilityStatuses.Failed,
+                        _ => WmsConnectorCapabilityStatuses.Unverified
+                    };
+        var configurationStatus = !isOperational
+            ? implementationStatus == WmsConnectorImplementationStatuses.Reference
+                ? WmsConnectorConfigurationStatuses.Disabled
+                : WmsConnectorConfigurationStatuses.Unconfigured
+            : hasConfiguration
+            ? WmsConnectorConfigurationStatuses.Configured
+            : WmsConnectorConfigurationStatuses.Unconfigured;
+        var hasVerification = isOperational && hasConfiguration && entity.LastHealthCheckAtUtc is not null;
+        var verificationStatus = !hasVerification
+            ? WmsConnectorVerificationStatuses.Unverified
+            : entity.HealthStatus == WmsConnectorHealthStatuses.Healthy
+                ? WmsConnectorVerificationStatuses.Verified
+                : WmsConnectorVerificationStatuses.Failed;
+
+        return new ConnectorInstanceDto(
             entity.Id,
             entity.ConnectorType,
             entity.Name,
@@ -790,14 +982,23 @@ public sealed class ConnectorService(
             entity.MappingProfileVersion,
             entity.Status,
             entity.Cursor,
-            entity.HealthStatus,
-            entity.HealthSummary,
+            isOperational && hasConfiguration ? entity.HealthStatus : WmsConnectorHealthStatuses.Unknown,
+            isOperational && hasConfiguration
+                ? entity.HealthSummary
+                : implementationStatus == WmsConnectorImplementationStatuses.Reference
+                    ? "Reference connector; provider transport is disabled."
+                    : "Provider transport is not implemented for this connector type.",
             entity.CreatedAtUtc,
             entity.UpdatedAtUtc,
             entity.LastRunAtUtc,
-            entity.LastSuccessfulRunAtUtc,
-            entity.LastHealthCheckAtUtc,
-            entity.ConsecutiveFailureCount);
+            isOperational && hasConfiguration ? entity.LastSuccessfulRunAtUtc : null,
+            hasVerification ? entity.LastHealthCheckAtUtc : null,
+            isOperational && hasConfiguration ? entity.ConsecutiveFailureCount : 0,
+            implementationStatus,
+            capabilityStatus,
+            configurationStatus,
+            verificationStatus);
+    }
 
     private static ConnectorRunDto ToDto(WmsConnectorRunEntity entity) =>
         new(
@@ -867,47 +1068,34 @@ public abstract class ReferenceConnectorAdapterBase : IConnectorAdapter
 {
     public abstract string ConnectorType { get; }
 
+    public string ImplementationStatus => WmsConnectorImplementationStatuses.Reference;
+
     public IReadOnlySet<string> SupportedModes { get; } = new HashSet<string>(
-        [WmsConnectorModes.Pull, WmsConnectorModes.Push, WmsConnectorModes.Webhook, WmsConnectorModes.File],
         StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlySet<string> SupportedOperations { get; } = new HashSet<string>(
-        [
-            WmsConnectorOperations.MasterDataSync,
-            WmsConnectorOperations.InboundOrders,
-            WmsConnectorOperations.AdvanceShippingNotices,
-            WmsConnectorOperations.OutboundOrders,
-            WmsConnectorOperations.InventoryAvailability,
-            WmsConnectorOperations.ShipmentConfirmation,
-            WmsConnectorOperations.Returns,
-            WmsConnectorOperations.CarrierLabels,
-            WmsConnectorOperations.Tracking,
-            WmsConnectorOperations.Acknowledgements
-        ],
         StringComparer.OrdinalIgnoreCase);
 
     public Task<ConnectorHealthResult> TestConnectionAsync(
         ConnectorInstanceContext connector,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(new ConnectorHealthResult(
-            true,
             false,
-            WmsConnectorHealthStatuses.Healthy,
-            "Reference adapter contract is registered; no remote network call was made."));
+            false,
+            WmsConnectorHealthStatuses.Unknown,
+            "Reference adapter is a contract fixture; provider transport is not implemented."));
 
     public Task<ConnectorPullResult> PullAsync(
         ConnectorPullRequest request,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(new ConnectorPullResult(
-            [],
-            request.Cursor,
-            false,
-            "reference-adapter"));
+        throw new NotSupportedException(
+            "Reference connector adapters are non-operational contract fixtures.");
 
     public Task<ConnectorPushResult> PushAsync(
         ConnectorPushRequest request,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult(new ConnectorPushResult(0, "reference-adapter"));
+        throw new NotSupportedException(
+            "Reference connector adapters are non-operational contract fixtures.");
 }
 
 public sealed class GenericErpReferenceConnectorAdapter : ReferenceConnectorAdapterBase

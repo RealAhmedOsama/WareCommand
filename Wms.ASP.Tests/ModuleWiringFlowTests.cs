@@ -31,7 +31,7 @@ public sealed class ModuleWiringFlowTests(WareCommandWebApplicationFactory facto
             Assert.NotNull(services.GetRequiredService<IIntegrationOutboxDispatcher>());
             Assert.NotNull(services.GetRequiredService<IEmailTransport>());
             Assert.NotNull(services.GetRequiredService<INotificationChannelHealthService>());
-            Assert.Equal(2, services.GetServices<IConnectorAdapter>().Count());
+            Assert.Empty(services.GetServices<IConnectorAdapter>());
             Assert.Equal(2, services.GetServices<INotificationChannelAdapter>().Count());
             Assert.Equal(4, services.GetServices<IWarehouseWorkCompletionHandler>().Count());
         }
@@ -52,9 +52,28 @@ public sealed class ModuleWiringFlowTests(WareCommandWebApplicationFactory facto
         using var connectors = await client.GetAsync("/api/connectors");
         Assert.Equal(HttpStatusCode.OK, connectors.StatusCode);
 
+        using var connectorCapabilities = await client.GetAsync("/api/connectors/capabilities");
+        Assert.Equal(HttpStatusCode.OK, connectorCapabilities.StatusCode);
+        using var connectorJson = JsonDocument.Parse(await connectorCapabilities.Content.ReadAsStringAsync());
+        var genericErp = connectorJson.RootElement
+            .EnumerateArray()
+            .Single(item => item.GetProperty("connectorType").GetString() == WmsConnectorTypes.GenericErpV1);
+        Assert.Equal("ContractOnly", genericErp.GetProperty("implementationStatus").GetString());
+        Assert.Equal("Unconfigured", genericErp.GetProperty("configurationStatus").GetString());
+        Assert.Equal("Unverified", genericErp.GetProperty("verificationStatus").GetString());
+        Assert.False(genericErp.GetProperty("canActivate").GetBoolean());
+        Assert.Empty(genericErp.GetProperty("supportedModes").EnumerateArray());
+        Assert.Empty(genericErp.GetProperty("supportedOperations").EnumerateArray());
+
         using var b2b = await client.GetAsync("/api/b2b/capabilities");
         Assert.Equal(HttpStatusCode.OK, b2b.StatusCode);
-        Assert.Contains(WmsB2bStandards.Canonical, await b2b.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        using var b2bJson = JsonDocument.Parse(await b2b.Content.ReadAsStringAsync());
+        Assert.Equal("ContractOnly", b2bJson.RootElement.GetProperty("implementationStatus").GetString());
+        Assert.Empty(b2bJson.RootElement.GetProperty("implementedTransportModes").EnumerateArray());
+        Assert.Contains(
+            WmsB2bStandards.Canonical,
+            b2bJson.RootElement.GetProperty("standards").GetRawText(),
+            StringComparison.Ordinal);
 
         using var bulk = await client.GetAsync("/api/bulk/capabilities");
         Assert.Equal(HttpStatusCode.OK, bulk.StatusCode);
@@ -69,6 +88,7 @@ public sealed class ModuleWiringFlowTests(WareCommandWebApplicationFactory facto
         Assert.False(webhook.GetProperty("enabled").GetBoolean());
         Assert.False(webhook.GetProperty("configured").GetBoolean());
         Assert.False(webhook.GetProperty("verified").GetBoolean());
+        Assert.Contains("not certify", webhook.GetProperty("verificationMeaning").GetString(), StringComparison.Ordinal);
 
         using var notifications = await client.GetAsync("/api/notifications/capabilities");
         Assert.Equal(HttpStatusCode.OK, notifications.StatusCode);

@@ -1,5 +1,10 @@
 # Transactional integration delivery
 
+`GET /api/integrations/capabilities` reports webhook configuration separately
+from delivery verification. A `Verified` webhook status means an active endpoint
+has accepted at least one signed delivery. It is local endpoint evidence, not
+external partner certification.
+
 ## Current boundary
 
 WareCommand now has a provider-neutral integration delivery foundation:

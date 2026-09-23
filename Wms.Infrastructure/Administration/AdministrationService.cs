@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Wms.Application.Administration;
 using Wms.Application.Auditing;
 using Wms.Application.Common;
+using Wms.Application.Connectors;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
@@ -14,7 +15,8 @@ public sealed class AdministrationService(
     WmsDbContext context,
     IClock clock,
     IWarehouseAccessService warehouseAccessService,
-    IAuditQueryService auditQueryService) : IAdministrationService
+    IAuditQueryService auditQueryService,
+    IEnumerable<IConnectorAdapter>? connectorAdapters = null) : IAdministrationService
 {
     private static readonly WarehouseOperationalLocationRole[] InboundRoles =
     [
@@ -297,6 +299,48 @@ public sealed class AdministrationService(
             "/health/ready",
             ["database", "storage", "background-jobs", "backup"]));
 
+        var activeConnectorInstances = await context.ConnectorInstances
+            .AsNoTracking()
+            .Where(instance => instance.Status == WmsConnectorStatuses.Active)
+            .ToListAsync(cancellationToken);
+        activeConnectorInstances = activeConnectorInstances
+            .Where(instance => scope.HasGlobalAccess ||
+                ReadWarehouseIds(instance.AllowedWarehouseIdsJson).Any(warehouseIds.Contains))
+            .ToList();
+        var operationalConnectorTypes = (connectorAdapters ?? [])
+            .Where(adapter => adapter.ImplementationStatus == WmsConnectorImplementationStatuses.Implemented)
+            .Select(adapter => adapter.ConnectorType)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missingTransportCount = activeConnectorInstances.Count(instance =>
+            !operationalConnectorTypes.Contains(instance.ConnectorType));
+        var unverifiedCount = activeConnectorInstances.Count(instance =>
+            operationalConnectorTypes.Contains(instance.ConnectorType) &&
+            (instance.LastHealthCheckAtUtc is null ||
+             instance.HealthStatus != WmsConnectorHealthStatuses.Healthy));
+        var connectorStatus = activeConnectorInstances.Count == 0 ||
+                              missingTransportCount > 0 ||
+                              unverifiedCount > 0
+            ? AdministrationReadinessStatus.Warning
+            : AdministrationReadinessStatus.Ready;
+        var connectorDetail = activeConnectorInstances.Count == 0
+            ? "No active production connector is configured. Published connector types are contract-only, and reference fixtures are excluded from operational readiness. Warehouse workflows remain available."
+            : missingTransportCount > 0
+                ? $"{missingTransportCount} active connector instance(s) have no implemented provider transport. They cannot connect or synchronize."
+                : unverifiedCount > 0
+                    ? $"{unverifiedCount} active connector instance(s) have not passed a provider connection check."
+                    : "Every active connector has an implemented transport and a successful connection check; partner acceptance remains a separate gate.";
+        checks.Add(new AdministrationReadinessCheckDto(
+            "connector-transports",
+            "organization.integrations",
+            "Connector transports",
+            "وسائل نقل الموصلات",
+            connectorStatus,
+            false,
+            connectorDetail,
+            "تعرض هذه الحالة التنفيذ المحلي للموصلات والتحقق من الاتصال؛ قبول الشريك الخارجي يظل خطوة مستقلة.",
+            "/api/connectors/capabilities",
+            ["provider-transport", "credential-resolution", "live-acceptance"]));
+
         return Result.Success(new AdministrationReadinessDto(
             clock.UtcNow,
             warehouseId,
@@ -376,6 +420,18 @@ public sealed class AdministrationService(
             WarehouseOperationalLocationRole.Transit => "العبور",
             _ => role.ToString()
         }));
+
+    private static int[] ReadWarehouseIds(string json)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<int[]>(json) ?? [];
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return [];
+        }
+    }
 
     private sealed record WarehouseReadinessRow(int Id, string Code, bool WorkflowEnabled);
 

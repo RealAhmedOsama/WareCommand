@@ -12,6 +12,14 @@ public static class WmsConnectorTypes
     public const string MarketplaceV1 = "marketplace.v1";
     public const string CarrierV1 = "carrier.v1";
 
+    public static IReadOnlyList<string> All { get; } =
+    [
+        GenericErpV1,
+        EcommerceOrdersV1,
+        MarketplaceV1,
+        CarrierV1
+    ];
+
     public static bool IsKnown(string value) => value switch
     {
         GenericErpV1 or EcommerceOrdersV1 or MarketplaceV1 or CarrierV1 => true,
@@ -77,6 +85,40 @@ public static class WmsConnectorHealthStatuses
     public const string Healthy = "Healthy";
     public const string Degraded = "Degraded";
     public const string Unhealthy = "Unhealthy";
+}
+
+public static class WmsConnectorImplementationStatuses
+{
+    public const string Implemented = "Implemented";
+    public const string Reference = "Reference";
+    public const string ContractOnly = "ContractOnly";
+    public const string Disabled = "Disabled";
+}
+
+public static class WmsConnectorConfigurationStatuses
+{
+    public const string Disabled = "Disabled";
+    public const string Unconfigured = "Unconfigured";
+    public const string Configured = "Configured";
+}
+
+public static class WmsConnectorVerificationStatuses
+{
+    public const string Unverified = "Unverified";
+    public const string Verified = "Verified";
+    public const string Failed = "Failed";
+}
+
+public static class WmsConnectorCapabilityStatuses
+{
+    public const string Disabled = "Disabled";
+    public const string Reference = "Reference";
+    public const string ContractOnly = "ContractOnly";
+    public const string Unconfigured = "Unconfigured";
+    public const string Configured = "Configured";
+    public const string Unverified = "Unverified";
+    public const string Healthy = "Healthy";
+    public const string Failed = "Failed";
 }
 
 public static class WmsConnectorRunStatuses
@@ -163,7 +205,24 @@ public sealed record ConnectorInstanceDto(
     DateTimeOffset? LastRunAtUtc,
     DateTimeOffset? LastSuccessfulRunAtUtc,
     DateTimeOffset? LastHealthCheckAtUtc,
-    int ConsecutiveFailureCount);
+    int ConsecutiveFailureCount,
+    string ImplementationStatus,
+    string CapabilityStatus,
+    string ConfigurationStatus,
+    string VerificationStatus);
+
+public sealed record ConnectorCapabilityDto(
+    string ConnectorType,
+    string ImplementationStatus,
+    bool CanActivate,
+    IReadOnlyList<string> SupportedModes,
+    IReadOnlyList<string> SupportedOperations,
+    string ConfigurationStatus,
+    string VerificationStatus,
+    string HealthStatus,
+    string CredentialRequirement,
+    string TransportRequirement,
+    bool LiveAcceptanceRequired);
 
 public sealed record ConnectorRunRequest(
     long ConnectorId,
@@ -249,6 +308,9 @@ public interface IConnectorAdapter
 {
     string ConnectorType { get; }
 
+    // Adapters are contract-only until they explicitly identify an implemented provider transport.
+    string ImplementationStatus => WmsConnectorImplementationStatuses.ContractOnly;
+
     IReadOnlySet<string> SupportedModes { get; }
 
     IReadOnlySet<string> SupportedOperations { get; }
@@ -268,6 +330,9 @@ public interface IConnectorAdapter
 
 public interface IConnectorService
 {
+    Task<Result<IReadOnlyList<ConnectorCapabilityDto>>> GetCapabilitiesAsync(
+        CancellationToken cancellationToken = default);
+
     Task<Result<ConnectorMappingProfileDto>> SaveMappingProfileAsync(
         ConnectorMappingProfileRequest request,
         CancellationToken cancellationToken = default);
