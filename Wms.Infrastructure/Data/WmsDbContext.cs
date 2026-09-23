@@ -13,6 +13,7 @@ using Wms.Infrastructure.B2bDocuments;
 using Wms.Infrastructure.BulkExchange;
 using Wms.Infrastructure.Connectors;
 using Wms.Infrastructure.Data.Configurations;
+using Wms.Infrastructure.Forecasting;
 using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.Integrations;
 using Wms.Infrastructure.Jobs;
@@ -20,7 +21,6 @@ using Wms.Infrastructure.Labels;
 using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Retention;
 using Wms.Infrastructure.Settings;
-using Wms.Infrastructure.Forecasting;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
 namespace Wms.Infrastructure.Data;
