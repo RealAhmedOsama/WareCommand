@@ -521,6 +521,14 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
         return services.BuildServiceProvider();
     }
 
+    internal static ServiceProvider CreateServiceProviderForExistingTarget(
+        PostgreSqlTestDatabase target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ValidateIsolatedTarget(target);
+        return BuildServiceProvider(target.ScopedConnectionString!);
+    }
+
     private static void ValidateIsolatedTarget(PostgreSqlTestDatabase target)
     {
         var schema = target.TargetIdentifier;

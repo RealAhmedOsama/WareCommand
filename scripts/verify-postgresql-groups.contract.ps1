@@ -9,12 +9,14 @@ if ($LASTEXITCODE -ne 0) {
 foreach ($required in @(
         'provider-group=core',
     'provider-group=harness',
-    'provider-group=dashboard',
-    'provider-group=data-generation',
+        'provider-group=dashboard',
+        'provider-group=data-generation',
+        'provider-group=journeys',
         'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlIntegrationTests',
         'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlIntegrationTests_Harness',
         'filter=FullyQualifiedName~Wms.ASP.Tests.PostgreSqlDashboardFlowTests',
-        'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlDataGenerationTests')) {
+        'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlDataGenerationTests',
+        'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlJourneyTests')) {
     if ($output -notmatch [regex]::Escape($required)) {
         throw "PostgreSQL group plan is missing '$required'. Output: $output"
     }

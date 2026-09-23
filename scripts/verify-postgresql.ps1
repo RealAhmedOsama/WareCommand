@@ -2,7 +2,7 @@
 param(
     [int]$Port = 55432,
     [string]$ContainerName = "warecommand-postgres-test-$([Guid]::NewGuid().ToString('N'))",
-    [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation')]
+    [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation', 'journeys')]
     [string]$Group = 'all',
     [switch]$PlanOnly,
     [string]$EvidencePath
@@ -51,8 +51,13 @@ $providerGroups = [ordered]@{
         filter = 'FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlDataGenerationTests'
         expectedClass = 'Wms.Infrastructure.Tests.Integration.PostgreSqlDataGenerationTests.'
     }
+    journeys = [pscustomobject]@{
+        testProject = $testProject
+        filter = 'FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlJourneyTests'
+        expectedClass = 'Wms.Infrastructure.Tests.Integration.PostgreSqlJourneyTests.'
+    }
 }
-$selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 'data-generation') } else { @($Group) }
+$selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 'data-generation', 'journeys') } else { @($Group) }
 
 if ($PlanOnly) {
     foreach ($groupName in $selectedGroupNames) {
@@ -65,13 +70,19 @@ if ($PlanOnly) {
 
 $previousConnectionString = $env:WARECOMMAND_TEST_POSTGRES_CONNECTION
 $previousDataGenerationEvidencePath = $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH
+$previousJourneyEvidencePath = $env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH
 $password = $env:WARECOMMAND_TEST_POSTGRES_PASSWORD
 $locationPushed = $false
 $containerStarted = $false
 $dataGenReportPath = $null
+$journeyReportPath = $null
 if ($selectedGroupNames -contains 'data-generation') {
     $dataGenReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-data-generation-$([Guid]::NewGuid().ToString('N')).json"
     $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH = $dataGenReportPath
+}
+if ($selectedGroupNames -contains 'journeys') {
+    $journeyReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-postgresql-journeys-$([Guid]::NewGuid().ToString('N')).json"
+    $env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH = $journeyReportPath
 }
 if ([string]::IsNullOrWhiteSpace($password)) {
     $password = [Guid]::NewGuid().ToString('N')
@@ -166,6 +177,11 @@ try {
         $dataGenerationEvidence = Get-Content -LiteralPath $dataGenReportPath -Raw | ConvertFrom-Json
         $dataGenerationReports = @($dataGenerationEvidence.reports)
     }
+    $journeyReports = @()
+    if ($null -ne $journeyReportPath -and (Test-Path -LiteralPath $journeyReportPath -PathType Leaf)) {
+        $journeyEvidence = Get-Content -LiteralPath $journeyReportPath -Raw | ConvertFrom-Json
+        $journeyReports = @($journeyEvidence.reports)
+    }
     $evidence = [pscustomobject]@{
         schema = 'wms-postgresql-provider-v1'
         revision = $revision
@@ -173,6 +189,7 @@ try {
         group = $Group
         groups = $results
         dataGenerationReports = $dataGenerationReports
+        journeyReports = $journeyReports
         cleanup = 'owned container removed in finally; fixture-owned schema dropped by test fixture'
     }
     $json = $evidence | ConvertTo-Json -Depth 6
@@ -201,11 +218,26 @@ finally {
     else {
         Remove-Item Env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH -ErrorAction SilentlyContinue
     }
+    if ($null -ne $previousJourneyEvidencePath) {
+        $env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH = $previousJourneyEvidencePath
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH -ErrorAction SilentlyContinue
+    }
     if ($null -ne $dataGenReportPath) {
         $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([char[]]@('\', '/')) + [System.IO.Path]::DirectorySeparatorChar
         $fullReportPath = [System.IO.Path]::GetFullPath($dataGenReportPath)
         if ($fullReportPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
             [System.IO.Path]::GetFileName($fullReportPath).StartsWith('warecommand-data-generation-', [System.StringComparison]::Ordinal) -and
+            (Test-Path -LiteralPath $fullReportPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $fullReportPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ($null -ne $journeyReportPath) {
+        $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([char[]]@('\', '/')) + [System.IO.Path]::DirectorySeparatorChar
+        $fullReportPath = [System.IO.Path]::GetFullPath($journeyReportPath)
+        if ($fullReportPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+            [System.IO.Path]::GetFileName($fullReportPath).StartsWith('warecommand-postgresql-journeys-', [System.StringComparison]::Ordinal) -and
             (Test-Path -LiteralPath $fullReportPath -PathType Leaf)) {
             Remove-Item -LiteralPath $fullReportPath -Force -ErrorAction SilentlyContinue
         }
