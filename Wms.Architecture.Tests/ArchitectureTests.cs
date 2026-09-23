@@ -40,6 +40,53 @@ public sealed class ArchitectureTests
         }
     }
 
+    [Theory]
+    [InlineData(@"..\Wms.Domain\Wms.Domain.csproj", "Wms.Domain")]
+    [InlineData("../Wms.Domain/Wms.Domain.csproj", "Wms.Domain")]
+    [InlineData(@"..\Wms.Domain/Wms.Domain.csproj", "Wms.Domain")]
+    public void ProjectReferenceNamesAreParsedAcrossSeparatorStyles(string include, string expectedName)
+    {
+        Assert.Equal(expectedName, GetProjectNameFromInclude(include));
+    }
+
+    [Fact]
+    public void ProjectPathLookupIgnoresBuildOutputDirectoriesOnEveryPlatform()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"wms-architecture-{Guid.NewGuid():N}");
+        var sourceProject = Path.Combine(root, "src", "Wms.Domain.csproj");
+        var generatedBinProject = Path.Combine(root, "src", "bin", "Debug", "Wms.Domain.csproj");
+        var generatedObjProject = Path.Combine(root, "src", "obj", "Debug", "Wms.Domain.csproj");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(sourceProject)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(generatedBinProject)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(generatedObjProject)!);
+            File.WriteAllText(sourceProject, "<Project />");
+            File.WriteAllText(generatedBinProject, "<Project />");
+            File.WriteAllText(generatedObjProject, "<Project />");
+
+            Assert.Equal(sourceProject, FindProjectPath(root, "Wms.Domain"));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(@"C:\repo\bin\Debug\Wms.Domain.csproj", true)]
+    [InlineData("/repo/obj/Debug/Wms.Domain.csproj", true)]
+    [InlineData(@"C:\repo/src\obj/Debug/Wms.Domain.csproj", true)]
+    [InlineData("/repo/src/bin-generated/Wms.Domain.csproj", false)]
+    public void BuildOutputPathDetectionUsesPortablePathSegments(string path, bool expected)
+    {
+        Assert.Equal(expected, IsInBuildOutputDirectory(path));
+    }
+
     [Fact]
     public void DomainAndApplicationDoNotReferenceOuterRuntimeLayers()
     {
@@ -270,10 +317,22 @@ public sealed class ArchitectureTests
     {
         var projectPath = Directory
             .EnumerateFiles(root, $"{projectName}.csproj", SearchOption.AllDirectories)
-            .SingleOrDefault(path => !path.Contains("\\bin\\", StringComparison.OrdinalIgnoreCase) &&
-                                     !path.Contains("\\obj\\", StringComparison.OrdinalIgnoreCase));
+            .SingleOrDefault(path => !IsInBuildOutputDirectory(path));
 
         return projectPath ?? throw new FileNotFoundException($"Could not locate project {projectName}.");
+    }
+
+    private static bool IsInBuildOutputDirectory(string path)
+    {
+        return path.Replace('\\', '/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries)
+            .Any(segment => string.Equals(segment, "bin", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(segment, "obj", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string GetProjectNameFromInclude(string include)
+    {
+        return Path.GetFileNameWithoutExtension(include.Replace('\\', '/'));
     }
 
     private static string[] ReadProjectReferences(string projectPath)
@@ -283,7 +342,7 @@ public sealed class ArchitectureTests
             .Descendants("ProjectReference")
             .Select(reference => reference.Attribute("Include")?.Value)
             .Where(include => !string.IsNullOrWhiteSpace(include))
-            .Select(include => Path.GetFileNameWithoutExtension(include!))
+            .Select(include => GetProjectNameFromInclude(include!))
             .ToArray();
     }
 }
