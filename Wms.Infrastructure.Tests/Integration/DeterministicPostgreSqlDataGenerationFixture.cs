@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -865,32 +865,32 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
     private static async Task<IReadOnlyDictionary<string, int>> CountActualRowsAsync(
         WmsDbContext context,
         CancellationToken cancellationToken) => new Dictionary<string, int>(StringComparer.Ordinal)
-    {
-        ["warehouses"] = await context.Warehouses.CountAsync(cancellationToken),
-        ["locations"] = await context.Locations.CountAsync(cancellationToken),
-        ["items"] = await context.Items.CountAsync(cancellationToken),
-        ["uoms"] = await context.UnitOfMeasures.CountAsync(cancellationToken),
-        ["suppliers"] = await context.Suppliers.CountAsync(cancellationToken),
-        ["customers"] = await context.Customers.CountAsync(cancellationToken),
-        ["lots"] = await context.Lots.CountAsync(cancellationToken),
-        ["serials"] = await context.SerialNumbers.CountAsync(cancellationToken),
-        ["licensePlates"] = await context.LicensePlates.CountAsync(cancellationToken),
-        ["owners"] = await context.InventoryOwners.CountAsync(cancellationToken),
-        ["purchaseOrders"] = await context.PurchaseOrders.CountAsync(cancellationToken),
-        ["receipts"] = await context.Receipts.CountAsync(cancellationToken),
-        ["salesOrders"] = await context.SalesOrders.CountAsync(cancellationToken),
-        ["warehouseWorks"] = await context.WarehouseWorks.CountAsync(cancellationToken),
-        ["shipments"] = await context.Shipments.CountAsync(cancellationToken),
-        ["returns"] = await context.ReturnAuthorizations.CountAsync(cancellationToken),
-        ["cycleCountPlans"] = await context.CycleCountPlans.CountAsync(cancellationToken),
-        ["cycleCountTasks"] = await context.CycleCountTasks.CountAsync(cancellationToken),
-        ["cycleCountLines"] = await context.CycleCountLines.CountAsync(cancellationToken),
-        ["inventoryRows"] = await context.Stock.CountAsync(cancellationToken),
-        ["reservations"] = await context.InventoryReservations.CountAsync(cancellationToken),
-        ["reservationAllocations"] = await context.InventoryReservationAllocations.CountAsync(cancellationToken),
-        ["inventoryTransactions"] = await context.InventoryTransactions.CountAsync(cancellationToken),
-        ["purchaseOrderReceiptAllocations"] = await context.PurchaseOrderReceiptAllocations.CountAsync(cancellationToken)
-    };
+        {
+            ["warehouses"] = await context.Warehouses.CountAsync(cancellationToken),
+            ["locations"] = await context.Locations.CountAsync(cancellationToken),
+            ["items"] = await context.Items.CountAsync(cancellationToken),
+            ["uoms"] = await context.UnitOfMeasures.CountAsync(cancellationToken),
+            ["suppliers"] = await context.Suppliers.CountAsync(cancellationToken),
+            ["customers"] = await context.Customers.CountAsync(cancellationToken),
+            ["lots"] = await context.Lots.CountAsync(cancellationToken),
+            ["serials"] = await context.SerialNumbers.CountAsync(cancellationToken),
+            ["licensePlates"] = await context.LicensePlates.CountAsync(cancellationToken),
+            ["owners"] = await context.InventoryOwners.CountAsync(cancellationToken),
+            ["purchaseOrders"] = await context.PurchaseOrders.CountAsync(cancellationToken),
+            ["receipts"] = await context.Receipts.CountAsync(cancellationToken),
+            ["salesOrders"] = await context.SalesOrders.CountAsync(cancellationToken),
+            ["warehouseWorks"] = await context.WarehouseWorks.CountAsync(cancellationToken),
+            ["shipments"] = await context.Shipments.CountAsync(cancellationToken),
+            ["returns"] = await context.ReturnAuthorizations.CountAsync(cancellationToken),
+            ["cycleCountPlans"] = await context.CycleCountPlans.CountAsync(cancellationToken),
+            ["cycleCountTasks"] = await context.CycleCountTasks.CountAsync(cancellationToken),
+            ["cycleCountLines"] = await context.CycleCountLines.CountAsync(cancellationToken),
+            ["inventoryRows"] = await context.Stock.CountAsync(cancellationToken),
+            ["reservations"] = await context.InventoryReservations.CountAsync(cancellationToken),
+            ["reservationAllocations"] = await context.InventoryReservationAllocations.CountAsync(cancellationToken),
+            ["inventoryTransactions"] = await context.InventoryTransactions.CountAsync(cancellationToken),
+            ["purchaseOrderReceiptAllocations"] = await context.PurchaseOrderReceiptAllocations.CountAsync(cancellationToken)
+        };
 
     private static async Task<string> FingerprintLogicalDatasetAsync(
         WmsDbContext context,
