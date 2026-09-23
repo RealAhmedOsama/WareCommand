@@ -270,6 +270,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<AnomalyFindingObservationEntity> AnomalyFindingObservations =>
         Set<AnomalyFindingObservationEntity>();
     public DbSet<AnomalyFindingHistoryEntity> AnomalyFindingHistory => Set<AnomalyFindingHistoryEntity>();
+    public DbSet<GovernedRecommendation> GovernedRecommendations => Set<GovernedRecommendation>();
+    public DbSet<GovernedRecommendationEvent> GovernedRecommendationEvents =>
+        Set<GovernedRecommendationEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -579,6 +582,8 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ReasonCodeConfiguration());
         builder.ApplyConfiguration(new ApprovalPolicyConfiguration());
         builder.ApplyConfiguration(new ApprovalRequestConfiguration());
+        builder.ApplyConfiguration(new GovernedRecommendationConfiguration());
+        builder.ApplyConfiguration(new GovernedRecommendationEventConfiguration());
         builder.ApplyConfiguration(new ApprovalDecisionConfiguration());
         builder.ApplyConfiguration(new ApprovalExecutionConfiguration());
         builder.ApplyConfiguration(new ApprovalInboxItemConfiguration());

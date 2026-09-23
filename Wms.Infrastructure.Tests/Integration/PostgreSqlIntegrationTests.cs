@@ -54,6 +54,52 @@ public sealed class PostgreSqlIntegrationTests
         var found = Assert.Single(result);
         Assert.Equal(item.Sku, found.Sku);
         Assert.Equal(DateTimeKind.Utc, found.CreatedAt.Kind);
+
+        var recommendationKey = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N");
+        var now = DateTimeOffset.UtcNow;
+        var recommendation = new GovernedRecommendation(
+            recommendationKey,
+            0,
+            warehouse.Id,
+            $"replenishment-plan:{token}",
+            now.AddMinutes(-1),
+            now,
+            new string('a', 64),
+            "deterministic-wms",
+            "rules-v1",
+            "inventory-replenishment-policy/v1",
+            1m,
+            "Deterministic replenishment proposal.",
+            "{\"actionType\":\"replenishment-policy\",\"targetReference\":\"1\"}",
+            "{}",
+            0m,
+            1m,
+            now,
+            now.AddDays(7),
+            shadowMode: true,
+            shadowComparison: "deterministic-baseline-matched",
+            createdByUserId: "postgres-integration-test");
+        context.GovernedRecommendations.Add(recommendation);
+        await context.SaveChangesAsync();
+        context.GovernedRecommendationEvents.Add(new GovernedRecommendationEvent(
+            recommendation.Id,
+            $"created:{recommendationKey}",
+            "created",
+            "postgres-integration-test",
+            now,
+            recommendation.Revision,
+            stateFingerprint: recommendation.SourceStateFingerprint));
+        await context.SaveChangesAsync();
+
+        await using var restartedContext = new WmsDbContext(options);
+        var persisted = await restartedContext.GovernedRecommendations.AsNoTracking()
+            .SingleAsync(row => row.RecommendationId == recommendationKey);
+        Assert.Equal(0, persisted.Status);
+        Assert.True(persisted.ShadowMode);
+        Assert.False(persisted.CanMutateInventory);
+        Assert.Single(await restartedContext.GovernedRecommendationEvents.AsNoTracking()
+            .Where(entry => entry.RecommendationId == persisted.Id)
+            .ToArrayAsync());
     }
 }
 

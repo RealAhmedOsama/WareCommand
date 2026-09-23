@@ -38,6 +38,7 @@ using Wms.Application.Purchasing;
 using Wms.Application.Putaway;
 using Wms.Application.Quality;
 using Wms.Application.Receiving;
+using Wms.Application.Recommendations;
 using Wms.Application.Reporting;
 using Wms.Application.ReportingAssistant;
 using Wms.Application.Retention;
@@ -90,6 +91,7 @@ using Wms.Infrastructure.Purchasing;
 using Wms.Infrastructure.Putaway;
 using Wms.Infrastructure.Quality;
 using Wms.Infrastructure.Receiving;
+using Wms.Infrastructure.Recommendations;
 using Wms.Infrastructure.Reporting;
 using Wms.Infrastructure.ReportingAssistant;
 using Wms.Infrastructure.Repositories;
@@ -129,6 +131,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IEmailTransport, SmtpEmailTransport>();
         services.AddAttachmentInfrastructure(configuration);
         services.AddInventoryInfrastructure();
+        services.AddRecommendationInfrastructure(configuration);
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
         services.AddScoped<IAccountDirectory, AccountDirectory>();
         services.AddScoped<IWarehouseAccessService, WarehouseAccessService>();
@@ -349,6 +352,31 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IInventoryReconciliationService, InventoryReconciliationService>();
         services.AddScoped<IDashboardReadService, DashboardReadService>();
         services.AddScoped<IValueAddedService, ValueAddedService>();
+        return services;
+    }
+
+    private static IServiceCollection AddRecommendationInfrastructure(
+        this IServiceCollection services,
+        IConfiguration? configuration)
+    {
+        var options = services.AddOptions<RecommendationGovernanceOptions>();
+        if (configuration is not null)
+        {
+            options.Bind(configuration.GetSection(RecommendationGovernanceOptions.SectionName));
+        }
+
+        options
+            .Validate(value =>
+                    value.MaximumProposalsPerRequest is >= 1 and <= 200 &&
+                    value.ProviderTimeoutSeconds is >= 1 and <= 60 &&
+                    !string.IsNullOrWhiteSpace(value.ProviderName) &&
+                    value.ProviderName.Trim().Length <= 100,
+                "Recommendation budgets, provider timeout, or provider name are invalid.")
+            .ValidateOnStart();
+
+        services.AddSingleton<IRecommendationDraftProvider, DeterministicReplenishmentDraftProvider>();
+        services.AddScoped<IRecommendationCommandAdapter, ReplenishmentRecommendationCommandAdapter>();
+        services.AddScoped<IRecommendationGovernanceService, RecommendationGovernanceService>();
         return services;
     }
 

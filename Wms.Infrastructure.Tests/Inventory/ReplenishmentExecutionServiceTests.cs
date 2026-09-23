@@ -213,6 +213,29 @@ public sealed class ReplenishmentExecutionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DryRunProducesFingerprintAndEligibilityWithoutCreatingWork()
+    {
+        SetupSignal(shortfall: 8m);
+
+        var result = await _service.GenerateAsync(
+            new ReplenishmentGenerationQuery(_warehouse.Id, _policy.Id, DryRun: true),
+            "planner-1");
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        result.Value.WorkCreated.Should().Be(0);
+        result.Value.Blocked.Should().Be(0);
+        result.Value.Plans.Should().ContainSingle();
+        result.Value.Plans.Single().Decision.Should().Be("dry-run-eligible");
+        result.Value.Plans.Single().SourceStateFingerprint.Should().HaveLength(64);
+        result.Value.Plans.Single().Lines.Should().ContainSingle();
+        _workService.Verify(service => service.CreateAsync(
+            It.IsAny<WarehouseWorkInput>(),
+            It.IsAny<string>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        (await _context.WarehouseWorks.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     public async Task ExistingOpenWorkIsReturnedWithoutGeneratingDuplicate()
     {
         SetupSignal(shortfall: 8m);

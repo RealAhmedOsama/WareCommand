@@ -24,6 +24,25 @@ public sealed class RecommendationGovernanceTests
     }
 
     [Fact]
+    public void Fingerprint_is_stable_when_the_same_source_is_proposed_again_later()
+    {
+        var initial = RecommendationPolicy.Create(Request(), Now).Value;
+        var laterRequest = Request() with
+        {
+            Draft = Request().Draft with
+            {
+                GeneratedAtUtc = Now.AddHours(1),
+                ExpiresAtUtc = Now.AddDays(8)
+            }
+        };
+
+        var replay = RecommendationPolicy.Create(laterRequest, Now.AddHours(1));
+
+        replay.IsSuccess.Should().BeTrue(replay.Error);
+        replay.Value.RecommendationId.Should().Be(initial.RecommendationId);
+    }
+
+    [Fact]
     public void Rejects_kill_switch_and_prompt_injection_before_record_creation()
     {
         var disabled = RecommendationPolicy.Create(

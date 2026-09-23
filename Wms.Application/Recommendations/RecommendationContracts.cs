@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Wms.Application.Common;
 using Wms.Application.Identity;
+using Wms.Application.Inventory;
 
 namespace Wms.Application.Recommendations;
 
@@ -21,7 +22,9 @@ public enum RecommendationStatus
     Approved,
     Rejected,
     Expired,
-    Executed
+    Executed,
+    Executing,
+    ExecutionFailed
 }
 
 public sealed record RecommendationAction(
@@ -80,7 +83,12 @@ public sealed record RecommendationRecord(
     bool ShadowMode,
     bool RequiresRevalidation,
     bool CanMutateInventory,
-    string? LastDispositionComment);
+    string? LastDispositionComment,
+    long Revision = 1,
+    string? ExecutionReference = null,
+    string? LastExecutionErrorCode = null,
+    int ExecutionAttempts = 0,
+    string? ShadowComparison = null);
 
 public sealed record RecommendationApprovalRequest(
     string CurrentStateFingerprint,
@@ -88,17 +96,123 @@ public sealed record RecommendationApprovalRequest(
     IReadOnlySet<int>? AllowedWarehouseIds,
     IReadOnlySet<string>? PermissionCodes);
 
+public sealed record RecommendationQuery(
+    int? WarehouseId = null,
+    RecommendationType? Type = null,
+    RecommendationStatus? Status = null,
+    int Page = 1,
+    int PageSize = 50);
+
+public sealed record RecommendationPage(
+    IReadOnlyList<RecommendationRecord> Items,
+    int Page,
+    int PageSize,
+    int TotalCount,
+    int TotalPages);
+
+public sealed record RecommendationGenerationRequest(int WarehouseId, int Limit = 50);
+
+public sealed record RecommendationLifecycleCommand(
+    long ExpectedRevision,
+    string IdempotencyKey,
+    string? Comment = null);
+
+public sealed record RecommendationHistoryEntry(
+    string EventType,
+    string ActorUserId,
+    DateTimeOffset OccurredAtUtc,
+    long ResultingRevision,
+    string? Comment,
+    string? StateFingerprint,
+    string? CommandReference,
+    string? OutcomeCode);
+
+public sealed record RecommendationRevalidation(
+    string CurrentStateFingerprint,
+    bool DeterministicEligibility,
+    string? Reason = null);
+
+public sealed record RecommendationCommandResult(
+    string CommandReference,
+    string OutcomeCode);
+
+public sealed record ReplenishmentRecommendationSource(
+    ReplenishmentWorkPlanDto Plan,
+    DateTimeOffset GeneratedAtUtc,
+    DateTimeOffset ExpiresAtUtc);
+
+public interface IRecommendationDraftProvider
+{
+    string Name { get; }
+
+    bool IsAvailable { get; }
+
+    Task<Result<RecommendationDraft>> CreateReplenishmentDraftAsync(
+        ReplenishmentRecommendationSource source,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Connects one advisory type to authoritative WMS reads and existing commands.
+/// Implementations must never mutate inventory directly.
+/// </summary>
+public interface IRecommendationCommandAdapter
+{
+    RecommendationType Type { get; }
+
+    Task<Result<RecommendationRevalidation>> RevalidateAsync(
+        RecommendationRecord recommendation,
+        string actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationCommandResult>> ExecuteAsync(
+        RecommendationRecord recommendation,
+        string actorUserId,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IRecommendationGovernanceService
 {
-    Task<Result<RecommendationRecord>> CreateAsync(
-        RecommendationRequest request,
-        DateTimeOffset nowUtc,
+    Task<Result<IReadOnlyList<RecommendationRecord>>> GenerateReplenishmentAsync(
+        RecommendationGenerationRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationPage>> SearchAsync(
+        RecommendationQuery query,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationRecord>> GetAsync(
+        string recommendationId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<IReadOnlyList<RecommendationHistoryEntry>>> GetHistoryAsync(
+        string recommendationId,
         CancellationToken cancellationToken = default);
 
     Task<Result<RecommendationRecord>> ApproveAsync(
-        RecommendationRecord recommendation,
-        RecommendationApprovalRequest request,
-        DateTimeOffset nowUtc,
+        string recommendationId,
+        RecommendationLifecycleCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationRecord>> ReviewAsync(
+        string recommendationId,
+        RecommendationLifecycleCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationRecord>> RejectAsync(
+        string recommendationId,
+        RecommendationLifecycleCommand command,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationRecord>> ExpireAsync(
+        string recommendationId,
+        long expectedRevision,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationRecord>> ExecuteAsync(
+        string recommendationId,
+        RecommendationLifecycleCommand command,
         CancellationToken cancellationToken = default);
 }
 
@@ -306,7 +420,7 @@ public static class RecommendationPolicy
     private static bool HasPermission(IReadOnlySet<string> permissions, string requiredPermission) =>
         permissions.Contains(WmsPermissions.All) || permissions.Contains(requiredPermission);
 
-    private static string Fingerprint(RecommendationDraft draft)
+    public static string Fingerprint(RecommendationDraft draft)
     {
         var canonical = string.Join(
             "|",
@@ -320,7 +434,12 @@ public static class RecommendationPolicy
             draft.Confidence.ToString(System.Globalization.CultureInfo.InvariantCulture),
             draft.Action.ActionType.Trim(),
             draft.Action.TargetReference.Trim(),
-            draft.GeneratedAtUtc.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+            draft.Action.SuggestedQuantity?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+            draft.Action.SuggestedLocation?.Trim() ?? string.Empty,
+            string.Join(";", draft.NumericFeatures.OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .Select(pair => $"{pair.Key}={pair.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}")),
+            draft.ExpectedImpactLow.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            draft.ExpectedImpactHigh.ToString(System.Globalization.CultureInfo.InvariantCulture));
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)))
             .ToLowerInvariant();
     }
@@ -431,7 +550,7 @@ public static class RecommendationLifecycle
         RecommendationRecord recommendation,
         string normalCommandId,
         DateTimeOffset nowUtc) =>
-        recommendation.Status == RecommendationStatus.Approved &&
+        (recommendation.Status is RecommendationStatus.Approved or RecommendationStatus.ExecutionFailed) &&
         recommendation.ExpiresAtUtc > nowUtc &&
         !string.IsNullOrWhiteSpace(normalCommandId)
             ? Result.Success(recommendation with

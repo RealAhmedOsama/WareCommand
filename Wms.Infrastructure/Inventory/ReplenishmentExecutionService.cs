@@ -84,7 +84,7 @@ public sealed class ReplenishmentExecutionService(
             foreach (var signal in signals)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var plan = await PlanSignalAsync(signal, actorUserId, cancellationToken);
+                var plan = await PlanSignalAsync(signal, actorUserId, query.DryRun, cancellationToken);
                 plans.Add(plan.Plan);
                 workCreated += plan.WorkCreated;
                 workReused += plan.WorkReused;
@@ -116,6 +116,7 @@ public sealed class ReplenishmentExecutionService(
     private async Task<PlanResult> PlanSignalAsync(
         InventoryReplenishmentSignalDto signal,
         string actorUserId,
+        bool dryRun,
         CancellationToken cancellationToken)
     {
         var policy = await context.InventoryReplenishmentPolicies
@@ -155,7 +156,7 @@ public sealed class ReplenishmentExecutionService(
         {
             var existing = openWorks[0];
             return new PlanResult(
-                new ReplenishmentWorkPlanDto(
+                Fingerprinted(signal, new ReplenishmentWorkPlanDto(
                     signal.PolicyId,
                     signal.ItemId,
                     signal.ItemSku,
@@ -167,7 +168,7 @@ public sealed class ReplenishmentExecutionService(
                     "open-work-already-covers-signal",
                     existing.Id,
                     existing.WorkNumber,
-                    []),
+                    [])),
                 0,
                 1,
                 0);
@@ -177,7 +178,7 @@ public sealed class ReplenishmentExecutionService(
         if (requiredQuantity <= 0m)
         {
             return new PlanResult(
-                new ReplenishmentWorkPlanDto(
+                Fingerprinted(signal, new ReplenishmentWorkPlanDto(
                     signal.PolicyId,
                     signal.ItemId,
                     signal.ItemSku,
@@ -189,7 +190,7 @@ public sealed class ReplenishmentExecutionService(
                     "no-shortage-after-open-work",
                     null,
                     null,
-                    []),
+                    [])),
                 0,
                 0,
                 0);
@@ -271,7 +272,10 @@ public sealed class ReplenishmentExecutionService(
                 balance.BaseUnitOfMeasure,
                 policy.Item.UseFefo
                     ? "FEFO, then source-location priority and receipt age."
-                    : "FIFO, then source-location priority and receipt age."));
+                    : "FIFO, then source-location priority and receipt age.",
+                balance.OwnerKind,
+                balance.InventoryOwnerId,
+                balance.OwnerCodeSnapshot));
             remaining -= planned;
         }
 
@@ -289,12 +293,42 @@ public sealed class ReplenishmentExecutionService(
                 line.PlannedQuantity.ToString("0.############", CultureInfo.InvariantCulture),
                 line.LotId,
                 line.SerialNumberId,
-                line.LicensePlateId)));
+                line.SerialNumber,
+                line.LicensePlateId,
+                line.InventoryStatusId,
+                line.OwnerKind,
+                line.InventoryOwnerId,
+                line.OwnerCodeSnapshot)));
         var fingerprintHash = Convert.ToHexString(
                 SHA256.HashData(Encoding.UTF8.GetBytes(fingerprint)))
             .ToLowerInvariant()[..16];
         var creationKey =
             $"replenishment:{signal.PolicyId}:{destination.Id}:{fingerprintHash}";
+
+        if (dryRun)
+        {
+            return new PlanResult(
+                Fingerprinted(signal, new ReplenishmentWorkPlanDto(
+                    signal.PolicyId,
+                    signal.ItemId,
+                    signal.ItemSku,
+                    signal.WarehouseId,
+                    destination.Id,
+                    signal.ShortfallQuantity,
+                    openQuantity,
+                    plannedQuantity,
+                    "dry-run-eligible",
+                    null,
+                    null,
+                    lines)
+                {
+                    CapacityAvailableQuantity = capacity
+                }),
+                0,
+                0,
+                0);
+        }
+
         var existingByKey = await context.WarehouseWorks
             .AsNoTracking()
             .Include(work => work.Lines)
@@ -305,7 +339,7 @@ public sealed class ReplenishmentExecutionService(
         if (existingByKey is not null)
         {
             return new PlanResult(
-                new ReplenishmentWorkPlanDto(
+                Fingerprinted(signal, new ReplenishmentWorkPlanDto(
                     signal.PolicyId,
                     signal.ItemId,
                     signal.ItemSku,
@@ -317,7 +351,7 @@ public sealed class ReplenishmentExecutionService(
                     "idempotent-work-replay",
                     existingByKey.Id,
                     existingByKey.WorkNumber,
-                    lines),
+                    lines)),
                 0,
                 1,
                 0);
@@ -350,14 +384,17 @@ public sealed class ReplenishmentExecutionService(
                     line.LicensePlateId,
                     line.InventoryStatusId,
                     SourceReference: $"balance:{line.SourceLocationId}",
-                    DimensionsSnapshot: "planned-from-inventory-balance"))
+                    DimensionsSnapshot: "planned-from-inventory-balance",
+                    OwnerKind: line.OwnerKind,
+                    InventoryOwnerId: line.InventoryOwnerId,
+                    OwnerCodeSnapshot: line.OwnerCodeSnapshot))
                     .ToArray()),
             actorUserId,
             cancellationToken);
         if (workResult.IsFailure)
         {
             return new PlanResult(
-                new ReplenishmentWorkPlanDto(
+                Fingerprinted(signal, new ReplenishmentWorkPlanDto(
                     signal.PolicyId,
                     signal.ItemId,
                     signal.ItemSku,
@@ -369,14 +406,14 @@ public sealed class ReplenishmentExecutionService(
                     "work-generation-failed",
                     null,
                     null,
-                    lines),
+                    lines)),
                 0,
                 0,
                 1);
         }
 
         return new PlanResult(
-            new ReplenishmentWorkPlanDto(
+            Fingerprinted(signal, new ReplenishmentWorkPlanDto(
                 signal.PolicyId,
                 signal.ItemId,
                 signal.ItemSku,
@@ -388,7 +425,7 @@ public sealed class ReplenishmentExecutionService(
                 remaining == 0m ? "work-created" : "partial-source-work-created",
                 workResult.Value.Id,
                 workResult.Value.WorkNumber,
-                lines),
+                lines)),
             1,
             0,
             0);
@@ -446,7 +483,7 @@ public sealed class ReplenishmentExecutionService(
         decimal openQuantity,
         string decision) =>
         new(
-            new ReplenishmentWorkPlanDto(
+            Fingerprinted(signal, new ReplenishmentWorkPlanDto(
                 signal.PolicyId,
                 signal.ItemId,
                 signal.ItemSku,
@@ -458,10 +495,18 @@ public sealed class ReplenishmentExecutionService(
                 decision,
                 null,
                 null,
-                []),
+                [])),
             0,
             0,
             1);
+
+    private static ReplenishmentWorkPlanDto Fingerprinted(
+        InventoryReplenishmentSignalDto signal,
+        ReplenishmentWorkPlanDto plan) =>
+        plan with
+        {
+            SourceStateFingerprint = ReplenishmentWorkPlanFingerprint.Create(signal, plan)
+        };
 
     private static int NormalizeLimit(int value) => value switch
     {
