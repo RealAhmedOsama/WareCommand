@@ -54,7 +54,9 @@ public sealed class SmtpEmailTransport(
             EnableSsl = settings.EnableSsl,
             DeliveryMethod = SmtpDeliveryMethod.Network,
             UseDefaultCredentials = false,
-            Timeout = checked(settings.TimeoutSeconds * 1_000)
+            // The linked cancellation token owns timeout classification. Keep SmtpClient's
+            // native fallback later so the two deadlines cannot race into different errors.
+            Timeout = checked((settings.TimeoutSeconds + 5) * 1_000)
         };
         if (!string.IsNullOrEmpty(settings.Username))
         {
