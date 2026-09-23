@@ -1,7 +1,9 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Wms.Application.AnomalyDetection;
 using Wms.Application.Backups;
+using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Forecasting;
 using Wms.Application.Idempotency;
@@ -14,6 +16,7 @@ using Wms.Application.Outbound;
 using Wms.Application.Retention;
 using Wms.Application.Settings;
 using Wms.Application.Time;
+using Wms.Infrastructure.AnomalyDetection;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Forecasting;
 
@@ -33,7 +36,8 @@ public sealed class WmsJobHandlerCatalog(
     WmsWavePlanningJob wavePlanningJob,
     WmsInventoryHealthCheckJob inventoryHealthCheckJob,
     WmsInventoryReconciliationJob inventoryReconciliationJob,
-    WmsForecastRecalculationJob forecastRecalculationJob)
+    WmsForecastRecalculationJob forecastRecalculationJob,
+    WmsAnomalyDetectionJob anomalyDetectionJob)
 {
     private readonly Dictionary<string, IWmsJobHandler> _handlers =
         new IWmsJobHandler[]
@@ -51,13 +55,88 @@ public sealed class WmsJobHandlerCatalog(
             wavePlanningJob,
             inventoryHealthCheckJob,
             inventoryReconciliationJob,
-            forecastRecalculationJob
+            forecastRecalculationJob,
+            anomalyDetectionJob
         }.ToDictionary(handler => handler.JobName, StringComparer.Ordinal);
 
     public IWmsJobHandler Resolve(string jobName) =>
         _handlers.TryGetValue(jobName, out var handler)
             ? handler
             : throw new WmsPermanentJobException($"No handler is registered for job '{jobName}'.");
+}
+
+public sealed class WmsAnomalyDetectionJob(
+    IAnomalyDetectionService anomalyDetectionService) : IWmsJobHandler
+{
+    public string JobName => WmsJobNames.AnomalyDetection;
+
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
+        WmsJobContext context,
+        CancellationToken cancellationToken = default)
+    {
+        if (context.Envelope.WarehouseId is { } warehouseId)
+        {
+            var (fromUtc, toUtc) = ParseWindow(context.Envelope.ReferenceId);
+            var manualResult = await anomalyDetectionService.RecalculateAsync(
+                new AnomalyRecalculationInput(warehouseId, fromUtc, toUtc),
+                context.Envelope.ActorUserId,
+                cancellationToken);
+            if (manualResult.IsFailure)
+            {
+                ThrowForFailure(manualResult, "The requested anomaly detection run could not be completed.");
+            }
+
+            return new WmsJobExecutionResult(
+                manualResult.Value.SourceSignals,
+                manualResult.Value.FindingsCreated,
+                $"Evaluated {manualResult.Value.SourceSignals} signals for warehouse {warehouseId}; " +
+                $"created {manualResult.Value.FindingsCreated} findings.");
+        }
+
+        var result = await anomalyDetectionService.RecalculateScheduledAsync(cancellationToken);
+        if (result.IsFailure)
+        {
+            ThrowForFailure(result, "The scheduled anomaly detection run could not be completed.");
+        }
+
+        var outcome = result.Value;
+        return new WmsJobExecutionResult(
+            outcome.WarehousesExamined,
+            outcome.RunsCreated,
+            $"Examined {outcome.WarehousesExamined} warehouses; created {outcome.RunsCreated} runs and reused {outcome.RunsReused}. " +
+            $"Data quality flags: {string.Join(", ", outcome.DataQualityFlags)}.");
+    }
+
+    private static (DateTimeOffset? FromUtc, DateTimeOffset? ToUtc) ParseWindow(string? referenceId)
+    {
+        if (string.IsNullOrWhiteSpace(referenceId))
+        {
+            return (null, null);
+        }
+
+        var parts = referenceId.Split('|', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2 ||
+            !DateTimeOffset.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var fromUtc) ||
+            !DateTimeOffset.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal, out var toUtc))
+        {
+            throw new WmsPermanentJobException("The anomaly recalculation window is invalid.");
+        }
+
+        return (fromUtc.ToUniversalTime(), toUtc.ToUniversalTime());
+    }
+
+    private static void ThrowForFailure(Result result, string message)
+    {
+        var error = result.FirstError;
+        if (error?.IsRetryable == true || error?.Type == ErrorType.Conflict)
+        {
+            throw new InvalidOperationException(message);
+        }
+
+        throw new WmsPermanentJobException(message);
+    }
 }
 
 public sealed class WmsForecastRecalculationJob(

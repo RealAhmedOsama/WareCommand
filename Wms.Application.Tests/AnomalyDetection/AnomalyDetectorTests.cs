@@ -40,6 +40,31 @@ public sealed class AnomalyDetectorTests
     }
 
     [Fact]
+    public void Current_snapshot_rules_may_be_observed_after_the_event_window()
+    {
+        var snapshot = Signal(AnomalyRuleKind.NegativeBalance, -2, 0, 0) with
+        {
+            ObservedAtUtc = To.AddHours(2)
+        };
+
+        var result = AnomalyDetector.Detect(Request(snapshot), To);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().ContainSingle();
+        result.Value[0].ObservedAtUtc.Should().Be(To.AddHours(2));
+    }
+
+    [Fact]
+    public void Corrected_observations_keep_the_same_source_and_rule_fingerprint()
+    {
+        var original = Signal(AnomalyRuleKind.CountVariance, 14, 10, 1);
+        var corrected = original with { ObservedValue = 10, ObservedAtUtc = original.ObservedAtUtc.AddMinutes(5) };
+
+        AnomalyDetector.Fingerprint(original, "countvariance.v1")
+            .Should().Be(AnomalyDetector.Fingerprint(corrected, "countvariance.v1"));
+    }
+
+    [Fact]
     public void Requires_reports_permission_and_warehouse_scope()
     {
         var noPermission = AnomalyDetector.Detect(

@@ -37,6 +37,7 @@ public static class WmsJobNames
     public const string InventoryHealthCheck = "wms.inventory-health-check";
     public const string InventoryReconciliation = "wms.inventory-reconciliation";
     public const string ForecastRecalculation = "wms.forecast-recalculation";
+    public const string AnomalyDetection = "wms.anomaly-detection";
 }
 
 public static class WmsJobScheduleTimeZones
@@ -159,7 +160,14 @@ public static class WmsJobCatalog
             "15 5 * * *",
             TimeSpan.FromDays(1),
             TimeSpan.FromMinutes(30),
-            "Recalculate a bounded rotating batch of deterministic advisory forecasts.")
+            "Recalculate a bounded rotating batch of deterministic advisory forecasts."),
+        new(
+            WmsJobNames.AnomalyDetection,
+            WmsJobQueues.Alerts,
+            "10 0 * * *",
+            TimeSpan.FromDays(1),
+            TimeSpan.FromMinutes(30),
+            "Evaluate bounded warehouse-scoped operational anomaly signals and persist findings.")
     ];
 
     private static readonly Dictionary<string, WmsJobDefinition> DefinitionMap =
@@ -269,49 +277,49 @@ public sealed record WmsJobNotification(
 
 public interface IWmsJobHandler
 {
-    string JobName { get; }
+    public string JobName { get; }
 
-    Task<WmsJobExecutionResult> ExecuteAsync(
+    public Task<WmsJobExecutionResult> ExecuteAsync(
         WmsJobContext context,
         CancellationToken cancellationToken = default);
 }
 
 public interface IWmsJobExecutionStore
 {
-    Task<WmsJobExecutionLease> TryStartAsync(
+    public Task<WmsJobExecutionLease> TryStartAsync(
         WmsJobEnvelope envelope,
         DateTimeOffset nowUtc,
         CancellationToken cancellationToken = default);
 
-    Task CompleteAsync(
+    public Task CompleteAsync(
         WmsJobExecutionLease lease,
         WmsJobExecutionResult result,
         DateTimeOffset completedAtUtc,
         CancellationToken cancellationToken = default);
 
-    Task MarkFailedAsync(
+    public Task MarkFailedAsync(
         WmsJobExecutionLease lease,
         Exception exception,
         DateTimeOffset failedAtUtc,
         CancellationToken cancellationToken = default);
 
-    Task MarkCanceledAsync(
+    public Task MarkCanceledAsync(
         WmsJobExecutionLease lease,
         DateTimeOffset canceledAtUtc,
         CancellationToken cancellationToken = default);
 
-    Task MarkDeadLetteredAsync(
+    public Task MarkDeadLetteredAsync(
         WmsJobExecutionLease lease,
         Exception exception,
         DateTimeOffset failedAtUtc,
         CancellationToken cancellationToken = default);
 
-    Task UpsertNotificationAsync(
+    public Task UpsertNotificationAsync(
         WmsJobNotification notification,
         DateTimeOffset nowUtc,
         CancellationToken cancellationToken = default);
 
-    Task<int> PruneAsync(
+    public Task<int> PruneAsync(
         DateTimeOffset completedBeforeUtc,
         DateTimeOffset notificationBeforeUtc,
         CancellationToken cancellationToken = default);

@@ -46,7 +46,9 @@ public sealed record AnomalySignal(
     decimal ExpectedValue,
     decimal Threshold,
     DateTimeOffset ObservedAtUtc,
-    string? ActorReference = null);
+    string? ActorReference = null,
+    string? RuleVersion = null,
+    string? Explanation = null);
 
 public sealed record AnomalyDetectionRequest(
     int WarehouseId,
@@ -74,7 +76,9 @@ public sealed record AnomalyFinding(
     DateTimeOffset GeneratedAtUtc,
     string RuleVersion,
     bool CanMutateInventory,
-    bool CanBlockUser);
+    bool CanBlockUser,
+    DateTimeOffset? SourceWindowFromUtc = null,
+    DateTimeOffset? SourceWindowToUtc = null);
 
 public sealed record AnomalyDispositionRequest(
     AnomalyStatus CurrentStatus,
@@ -83,11 +87,181 @@ public sealed record AnomalyDispositionRequest(
     DateTimeOffset? SuppressionExpiresAtUtc = null,
     IReadOnlyList<string>? EvidenceReferences = null);
 
+public sealed record AnomalyAssignmentInput(
+    string? AssignedToUserId,
+    string? AssignedTeamCode,
+    string Comment);
+
+public sealed record AnomalyRuleSettingInput(
+    AnomalyRuleKind RuleKind,
+    decimal Threshold,
+    bool IsEnabled,
+    int? WarehouseId = null,
+    bool UseExternalNotifications = false);
+
+public sealed record AnomalyRuleSettingDto(
+    int Id,
+    AnomalyRuleKind RuleKind,
+    int? WarehouseId,
+    int Version,
+    decimal Threshold,
+    bool IsEnabled,
+    bool UseExternalNotifications,
+    string CreatedByUserId,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed record AnomalyRecalculationInput(
+    int WarehouseId,
+    DateTimeOffset? FromUtc = null,
+    DateTimeOffset? ToUtc = null);
+
+public sealed record AnomalyFindingSearchQuery(
+    int? WarehouseId = null,
+    AnomalyRuleKind? RuleKind = null,
+    AnomalySeverity? Severity = null,
+    AnomalyStatus? Status = null,
+    int Page = 1,
+    int PageSize = 50);
+
+public sealed record AnomalyFindingSearchItemDto(
+    string Fingerprint,
+    int WarehouseId,
+    AnomalyRuleKind RuleKind,
+    AnomalySeverity Severity,
+    AnomalyStatus Status,
+    string RuleVersion,
+    string SourceType,
+    string SourceId,
+    decimal ObservedValue,
+    decimal ExpectedValue,
+    decimal Threshold,
+    string Explanation,
+    DateTimeOffset ObservedAtUtc,
+    DateTimeOffset FirstDetectedAtUtc,
+    string? AssignedToUserId,
+    string? AssignedTeamCode,
+    DateTimeOffset? SuppressionExpiresAtUtc,
+    long Revision);
+
+public sealed record AnomalyFindingObservationDto(
+    int RunId,
+    DateTimeOffset SourceWindowFromUtc,
+    DateTimeOffset SourceWindowToUtc,
+    bool SourcePresent,
+    bool IsAnomalous,
+    decimal? ObservedValue,
+    decimal? ExpectedValue,
+    decimal? Threshold,
+    string? Explanation,
+    DateTimeOffset ObservedAtUtc,
+    DateTimeOffset RecordedAtUtc);
+
+public sealed record AnomalyFindingHistoryDto(
+    int Sequence,
+    string Action,
+    AnomalyStatus? FromStatus,
+    AnomalyStatus? ToStatus,
+    string? AssignedToUserId,
+    string? AssignedTeamCode,
+    string? Comment,
+    IReadOnlyList<string> EvidenceReferences,
+    DateTimeOffset? SuppressionExpiresAtUtc,
+    string ActorUserId,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed record AnomalyFindingDto(
+    string Fingerprint,
+    int WarehouseId,
+    AnomalyRuleKind RuleKind,
+    AnomalySeverity Severity,
+    AnomalyStatus Status,
+    string RuleVersion,
+    string SourceType,
+    string SourceId,
+    DateTimeOffset SourceWindowFromUtc,
+    DateTimeOffset SourceWindowToUtc,
+    decimal ObservedValue,
+    decimal ExpectedValue,
+    decimal Threshold,
+    string Explanation,
+    DateTimeOffset ObservedAtUtc,
+    DateTimeOffset FirstDetectedAtUtc,
+    string? AssignedToUserId,
+    string? AssignedTeamCode,
+    DateTimeOffset? SuppressionExpiresAtUtc,
+    bool SuppressionExpired,
+    long Revision,
+    IReadOnlyList<AnomalyFindingObservationDto> Observations,
+    IReadOnlyList<AnomalyFindingHistoryDto> History);
+
+public sealed record AnomalyFindingPageDto(
+    int Page,
+    int PageSize,
+    int TotalItems,
+    IReadOnlyList<AnomalyFindingSearchItemDto> Items);
+
+public sealed record AnomalyDetectionRunDto(
+    int Id,
+    int WarehouseId,
+    DateTimeOffset SourceWindowFromUtc,
+    DateTimeOffset SourceWindowToUtc,
+    string InputFingerprint,
+    int SourceSignals,
+    int FindingsCreated,
+    int FindingsReused,
+    IReadOnlyList<string> DataQualityFlags,
+    DateTimeOffset StartedAtUtc,
+    DateTimeOffset CompletedAtUtc,
+    bool WasReused);
+
+public sealed record AnomalyScheduledRunResult(
+    int WarehousesExamined,
+    int RunsCreated,
+    int RunsReused,
+    IReadOnlyList<string> DataQualityFlags);
+
 public interface IAnomalyDetectionService
 {
-    Task<Result<IReadOnlyList<AnomalyFinding>>> DetectAsync(
+    public Task<Result<IReadOnlyList<AnomalyFinding>>> DetectAsync(
         AnomalyDetectionRequest request,
         DateTimeOffset generatedAtUtc,
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<AnomalyDetectionRunDto>> RecalculateAsync(
+        AnomalyRecalculationInput input,
+        string? startedByUserId = null,
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<AnomalyScheduledRunResult>> RecalculateScheduledAsync(
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<AnomalyFindingPageDto>> SearchAsync(
+        AnomalyFindingSearchQuery query,
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<AnomalyFindingDto>> GetAsync(
+        string fingerprint,
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<AnomalyFindingDto>> TransitionAsync(
+        string fingerprint,
+        AnomalyDispositionRequest request,
+        string actorUserId,
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<AnomalyFindingDto>> AssignAsync(
+        string fingerprint,
+        AnomalyAssignmentInput input,
+        string actorUserId,
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<IReadOnlyList<AnomalyRuleSettingDto>>> ListRuleSettingsAsync(
+        int? warehouseId = null,
+        CancellationToken cancellationToken = default);
+
+    public Task<Result<AnomalyRuleSettingDto>> SaveRuleSettingAsync(
+        AnomalyRuleSettingInput input,
+        string actorUserId,
         CancellationToken cancellationToken = default);
 }
 
@@ -152,14 +326,19 @@ public static class AnomalyDetectionPolicy
 
         foreach (var signal in request.Signals)
         {
-            if (signal.WarehouseId != request.WarehouseId ||
+            var isCurrentSnapshot = signal.RuleKind is AnomalyRuleKind.AgeingWork or AnomalyRuleKind.NegativeBalance;
+            if (!Enum.IsDefined(signal.RuleKind) ||
+                signal.WarehouseId != request.WarehouseId ||
                 string.IsNullOrWhiteSpace(signal.ReferenceType) ||
                 string.IsNullOrWhiteSpace(signal.ReferenceId) ||
                 signal.ReferenceType.Trim().Length > 100 ||
                 signal.ReferenceId.Trim().Length > 200 ||
                 signal.Threshold < 0 ||
-                signal.ObservedAtUtc < request.FromUtc ||
-                signal.ObservedAtUtc > request.ToUtc)
+                (signal.RuleVersion is not null &&
+                    (string.IsNullOrWhiteSpace(signal.RuleVersion) || signal.RuleVersion.Trim().Length > 100)) ||
+                (signal.Explanation is not null && signal.Explanation.Trim().Length > 500) ||
+                (!isCurrentSnapshot &&
+                 (signal.ObservedAtUtc < request.FromUtc || signal.ObservedAtUtc > request.ToUtc)))
             {
                 return Result.Failure(WmsErrors.Validation(
                     "anomaly.signal_invalid",
@@ -217,6 +396,15 @@ public static class AnomalyDetectionPolicy
                 "A suppression expiry is only valid for a suppressed finding."));
         }
 
+        if (request.EvidenceReferences is { Count: > 20 } ||
+            request.EvidenceReferences?.Any(reference =>
+                string.IsNullOrWhiteSpace(reference) || reference.Trim().Length > 200) == true)
+        {
+            return Result.Failure(WmsErrors.Validation(
+                "anomaly.evidence_invalid",
+                "At most twenty bounded evidence references may be recorded."));
+        }
+
         return Result.Success();
     }
 
@@ -252,7 +440,14 @@ public static class AnomalyDetector
 
         var findings = request.Signals
             .Where(IsAnomalous)
-            .Select(signal => CreateFinding(signal, request.RuleVersion.Trim(), generatedAtUtc))
+            .Select(signal => CreateFinding(
+                signal,
+                string.IsNullOrWhiteSpace(signal.RuleVersion)
+                    ? request.RuleVersion.Trim()
+                    : signal.RuleVersion.Trim(),
+                generatedAtUtc,
+                request.FromUtc,
+                request.ToUtc))
             .DistinctBy(finding => finding.Fingerprint, StringComparer.Ordinal)
             .OrderByDescending(finding => finding.Severity)
             .ThenBy(finding => finding.ObservedAtUtc)
@@ -271,7 +466,9 @@ public static class AnomalyDetector
     private static AnomalyFinding CreateFinding(
         AnomalySignal signal,
         string ruleVersion,
-        DateTimeOffset generatedAtUtc)
+        DateTimeOffset generatedAtUtc,
+        DateTimeOffset sourceWindowFromUtc,
+        DateTimeOffset sourceWindowToUtc)
     {
         var delta = Math.Abs(signal.ObservedValue - signal.ExpectedValue);
         var ratio = signal.Threshold > 0 ? delta / signal.Threshold : decimal.MaxValue;
@@ -292,15 +489,19 @@ public static class AnomalyDetector
             signal.ObservedValue,
             signal.ExpectedValue,
             signal.Threshold,
-            $"{signal.RuleKind} observed {signal.ObservedValue} against expected {signal.ExpectedValue} with threshold {signal.Threshold}.",
+            string.IsNullOrWhiteSpace(signal.Explanation)
+                ? $"{signal.RuleKind} observed {signal.ObservedValue} against expected {signal.ExpectedValue} with threshold {signal.Threshold}."
+                : signal.Explanation.Trim(),
             signal.ObservedAtUtc,
             generatedAtUtc,
             ruleVersion,
             false,
-            false);
+            false,
+            sourceWindowFromUtc,
+            sourceWindowToUtc);
     }
 
-    private static string Fingerprint(AnomalySignal signal, string ruleVersion)
+    public static string Fingerprint(AnomalySignal signal, string ruleVersion)
     {
         var input = string.Join(
             "|",
@@ -308,7 +509,6 @@ public static class AnomalyDetector
             signal.RuleKind,
             signal.ReferenceType.Trim(),
             signal.ReferenceId.Trim(),
-            signal.ObservedAtUtc.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture),
             ruleVersion);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(input)))
             .ToLowerInvariant();

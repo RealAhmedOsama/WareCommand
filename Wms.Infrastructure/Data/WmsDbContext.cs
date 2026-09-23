@@ -7,6 +7,7 @@ using Wms.Application.Context;
 using Wms.Domain.Common;
 using Wms.Domain.Entities;
 using Wms.Domain.Services;
+using Wms.Infrastructure.AnomalyDetection;
 using Wms.Infrastructure.ApiClients;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.B2bDocuments;
@@ -263,6 +264,12 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
     public DbSet<ForecastRunEntity> ForecastRuns => Set<ForecastRunEntity>();
     public DbSet<ForecastRunPointEntity> ForecastRunPoints => Set<ForecastRunPointEntity>();
     public DbSet<ForecastOverrideEntity> ForecastOverrides => Set<ForecastOverrideEntity>();
+    public DbSet<AnomalyRuleConfigurationEntity> AnomalyRuleConfigurations => Set<AnomalyRuleConfigurationEntity>();
+    public DbSet<AnomalyDetectionRunEntity> AnomalyDetectionRuns => Set<AnomalyDetectionRunEntity>();
+    public DbSet<AnomalyFindingEntity> AnomalyFindings => Set<AnomalyFindingEntity>();
+    public DbSet<AnomalyFindingObservationEntity> AnomalyFindingObservations =>
+        Set<AnomalyFindingObservationEntity>();
+    public DbSet<AnomalyFindingHistoryEntity> AnomalyFindingHistory => Set<AnomalyFindingHistoryEntity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -365,6 +372,11 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new ForecastRunConfiguration());
         builder.ApplyConfiguration(new ForecastRunPointConfiguration());
         builder.ApplyConfiguration(new ForecastOverrideConfiguration());
+        builder.ApplyConfiguration(new AnomalyRuleConfigurationEntityConfiguration());
+        builder.ApplyConfiguration(new AnomalyDetectionRunEntityConfiguration());
+        builder.ApplyConfiguration(new AnomalyFindingEntityConfiguration());
+        builder.ApplyConfiguration(new AnomalyFindingObservationEntityConfiguration());
+        builder.ApplyConfiguration(new AnomalyFindingHistoryEntityConfiguration());
         builder.ApplyConfiguration(new InventoryAllocationStrategyPolicyConfiguration());
         builder.ApplyConfiguration(new SlottingPolicyConfiguration());
         builder.ApplyConfiguration(new SlottingRecommendationConfiguration());
@@ -753,6 +765,54 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         {
             throw new InvalidOperationException(
                 "Forecast runs, their input/output points, and overrides are immutable and append-only.");
+        }
+
+        if (ChangeTracker.Entries<AnomalyRuleConfigurationEntity>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted) ||
+            ChangeTracker.Entries<AnomalyDetectionRunEntity>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted) ||
+            ChangeTracker.Entries<AnomalyFindingObservationEntity>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted) ||
+            ChangeTracker.Entries<AnomalyFindingHistoryEntity>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException(
+                "Anomaly rules, runs, observations, and investigation history are immutable and append-only.");
+        }
+
+        var immutableFindingProperties = new[]
+        {
+            nameof(AnomalyFindingEntity.Fingerprint),
+            nameof(AnomalyFindingEntity.WarehouseId),
+            nameof(AnomalyFindingEntity.RuleKind),
+            nameof(AnomalyFindingEntity.Severity),
+            nameof(AnomalyFindingEntity.RuleVersion),
+            nameof(AnomalyFindingEntity.SourceType),
+            nameof(AnomalyFindingEntity.SourceId),
+            nameof(AnomalyFindingEntity.FirstDetectionRunId),
+            nameof(AnomalyFindingEntity.SourceWindowFromUtc),
+            nameof(AnomalyFindingEntity.SourceWindowToUtc),
+            nameof(AnomalyFindingEntity.ObservedValue),
+            nameof(AnomalyFindingEntity.ExpectedValue),
+            nameof(AnomalyFindingEntity.Threshold),
+            nameof(AnomalyFindingEntity.Explanation),
+            nameof(AnomalyFindingEntity.ObservedAtUtc),
+            nameof(AnomalyFindingEntity.FirstDetectedAtUtc)
+        };
+        foreach (var entry in ChangeTracker.Entries<AnomalyFindingEntity>()
+                     .Where(entry => entry.State == EntityState.Modified))
+        {
+            if (immutableFindingProperties.Any(property =>
+                    !Equals(entry.Property(property).OriginalValue, entry.Property(property).CurrentValue)))
+            {
+                throw new InvalidOperationException(
+                    "Anomaly finding source evidence is immutable; corrected evidence must be appended as an observation.");
+            }
+        }
+
+        if (ChangeTracker.Entries<AnomalyFindingEntity>().Any(entry => entry.State == EntityState.Deleted))
+        {
+            throw new InvalidOperationException("Anomaly findings cannot be deleted.");
         }
     }
 }

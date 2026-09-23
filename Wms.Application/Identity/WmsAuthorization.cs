@@ -85,6 +85,9 @@ public static class WmsPermissions
     public const string AttachmentsManage = "attachments.manage";
     public const string NotificationsRead = "notifications.read";
     public const string NotificationsManage = "notifications.manage";
+    public const string AnomalyRead = "anomalies.read";
+    public const string AnomalyManage = "anomalies.manage";
+    public const string AnomalyRulesManage = "anomalies.rules.manage";
 
     public static IReadOnlyList<string> Catalog { get; } =
     [
@@ -141,7 +144,10 @@ public static class WmsPermissions
         AttachmentsRead,
         AttachmentsManage,
         NotificationsRead,
-        NotificationsManage
+        NotificationsManage,
+        AnomalyRead,
+        AnomalyManage,
+        AnomalyRulesManage
     ];
 
     public static IReadOnlyDictionary<string, string> Descriptions { get; } =
@@ -200,7 +206,10 @@ public static class WmsPermissions
             [AttachmentsRead] = "View authorized warehouse attachments and evidence",
             [AttachmentsManage] = "Upload, retain, quarantine, and request deletion of attachments",
             [NotificationsRead] = "View authorized in-app notifications and delivery state",
-            [NotificationsManage] = "Manage role and warehouse notification preferences"
+            [NotificationsManage] = "Manage role and warehouse notification preferences",
+            [AnomalyRead] = "View warehouse-scoped anomaly findings",
+            [AnomalyManage] = "Investigate, assign, and disposition anomaly findings",
+            [AnomalyRulesManage] = "Create versioned anomaly detection rule settings"
         };
 
     public static bool IsKnown(string permission) =>
@@ -259,6 +268,9 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.AllocationManage,
                 WmsPermissions.CountingExecute,
                 WmsPermissions.ReportsRead,
+                WmsPermissions.AnomalyRead,
+                WmsPermissions.AnomalyManage,
+                WmsPermissions.AnomalyRulesManage,
                 WmsPermissions.ForecastingRecalculate,
                 WmsPermissions.ForecastingOverride,
                 WmsPermissions.AuditRead,
@@ -349,6 +361,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.WorkExecute,
                 WmsPermissions.WorkOverride,
                 WmsPermissions.ReportsRead,
+                WmsPermissions.AnomalyRead,
+                WmsPermissions.AnomalyManage,
                 WmsPermissions.ApprovalRead,
                 WmsPermissions.ApprovalManage,
                 WmsPermissions.AttachmentsRead,
@@ -370,6 +384,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.ReportsRead,
+                WmsPermissions.AnomalyRead,
                 WmsPermissions.AuditRead,
                 WmsPermissions.ApprovalRead,
                 WmsPermissions.AttachmentsRead
@@ -390,6 +405,7 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.SupplierReturnsRead,
                 WmsPermissions.WorkRead,
                 WmsPermissions.ReportsRead,
+                WmsPermissions.AnomalyRead,
                 WmsPermissions.AttachmentsRead
             ],
             [WmsRoleNames.WarehouseStaff] =
@@ -442,19 +458,19 @@ public sealed record WmsWarehouseOption(
 
 public interface IWarehouseAccessService
 {
-    Task<bool> HasPermissionAsync(
+    public Task<bool> HasPermissionAsync(
         string permission,
         CancellationToken cancellationToken = default);
 
-    Task<Result> AuthorizeAsync(
+    public Task<Result> AuthorizeAsync(
         string permission,
         int? warehouseId = null,
         CancellationToken cancellationToken = default);
 
-    Task<WarehouseAccessScope> GetScopeAsync(
+    public Task<WarehouseAccessScope> GetScopeAsync(
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<WmsWarehouseOption>> GetAccessibleWarehousesAsync(
+    public Task<IReadOnlyList<WmsWarehouseOption>> GetAccessibleWarehousesAsync(
         string permission,
         CancellationToken cancellationToken = default);
 }

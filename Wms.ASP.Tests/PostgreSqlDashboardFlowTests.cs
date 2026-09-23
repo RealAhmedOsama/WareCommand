@@ -9,9 +9,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using Wms.Application.AnomalyDetection;
 using Wms.Application.Forecasting;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
+using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Identity;
@@ -144,6 +147,69 @@ public sealed class PostgreSqlDashboardFlowTests
                     HorizonPeriods: 3));
                 Assert.True(recalculated.IsSuccess, recalculated.Error);
                 Assert.Equal(1, recalculated.Value.RunsCreated);
+
+                var anomalies = scope.ServiceProvider.GetRequiredService<IAnomalyDetectionService>();
+                var anomalyToUtc = DateTimeOffset.UtcNow.AddMinutes(-1);
+                var anomalyFromUtc = anomalyToUtc.AddDays(-7);
+                var anomalyRun = await anomalies.RecalculateAsync(new AnomalyRecalculationInput(
+                    scenario.WarehouseId,
+                    anomalyFromUtc,
+                    anomalyToUtc));
+                var repeatedAnomalyRun = await anomalies.RecalculateAsync(new AnomalyRecalculationInput(
+                    scenario.WarehouseId,
+                    anomalyFromUtc,
+                    anomalyToUtc));
+                Assert.True(anomalyRun.IsSuccess, anomalyRun.Error);
+                Assert.True(repeatedAnomalyRun.IsSuccess, repeatedAnomalyRun.Error);
+                Assert.False(anomalyRun.Value.WasReused);
+                Assert.True(repeatedAnomalyRun.Value.WasReused);
+
+                var context = scope.ServiceProvider.GetRequiredService<WmsDbContext>();
+                var sourceRow = await context.InventoryTransactions.AsNoTracking()
+                    .Where(row => row.WarehouseId == scenario.WarehouseId)
+                    .OrderByDescending(row => row.Id)
+                    .FirstAsync();
+                var key = new InventoryBalanceKey(
+                    sourceRow.WarehouseId,
+                    sourceRow.LocationId,
+                    sourceRow.ItemId,
+                    sourceRow.LotId,
+                    sourceRow.SerialNumberId,
+                    sourceRow.SerialNumber,
+                    sourceRow.LicensePlateId,
+                    sourceRow.InventoryStatusId,
+                    sourceRow.BaseUnitOfMeasure,
+                    sourceRow.OwnerKind,
+                    sourceRow.InventoryOwnerId,
+                    sourceRow.OwnerCodeSnapshot);
+                var occurredAtUtc = DateTime.UtcNow.AddMinutes(-2);
+                context.InventoryTransactions.AddRange(Enumerable.Range(1, 1_001).Select(index =>
+                    new InventoryTransaction(
+                        InventoryTransactionType.Adjustment,
+                        key,
+                        quantityDelta: 8m,
+                        quantityBefore: 10m,
+                        quantityAfter: 18m,
+                        reservedQuantityDelta: 0m,
+                        reservedQuantityBefore: 0m,
+                        reservedQuantityAfter: 0m,
+                        actorUserId: "postgres-anomaly-fixture",
+                        occurredAtUtc,
+                        correlationId: $"pg-anomaly-cap-{index}",
+                        idempotencyKey: $"pg-anomaly-cap-{index}",
+                        transactionGroupId: $"pg-anomaly-cap-{index}",
+                        entrySequence: 1)));
+                await context.SaveChangesAsync();
+
+                var cappedToUtc = DateTimeOffset.UtcNow.AddSeconds(-1);
+                var cappedRun = await anomalies.RecalculateAsync(new AnomalyRecalculationInput(
+                    scenario.WarehouseId,
+                    cappedToUtc.AddDays(-7),
+                    cappedToUtc));
+                Assert.True(cappedRun.IsSuccess, cappedRun.Error);
+                Assert.Contains(
+                    "InventoryAdjustment-source-capped-at-1000-rule-skipped",
+                    cappedRun.Value.DataQualityFlags);
             }
 
             using var forecastList = await client.GetAsync(
