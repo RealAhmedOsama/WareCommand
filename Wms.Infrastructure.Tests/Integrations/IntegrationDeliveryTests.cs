@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Wms.Application.Context;
 using Wms.Application.Integrations;
-using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Auditing;
+using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Integrations;
 
 namespace Wms.Infrastructure.Tests.Integrations;

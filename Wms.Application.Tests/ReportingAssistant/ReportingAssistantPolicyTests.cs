@@ -1,5 +1,5 @@
-using FluentAssertions;
 using System.Globalization;
+using FluentAssertions;
 using Wms.Application.Identity;
 using Wms.Application.ReportingAssistant;
 

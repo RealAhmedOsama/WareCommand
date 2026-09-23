@@ -10,8 +10,8 @@ using Wms.Domain.Enums;
 using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Identity;
-using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Lots;
+using Wms.Infrastructure.Repositories;
 
 namespace Wms.Infrastructure.Tests.Lots;
 

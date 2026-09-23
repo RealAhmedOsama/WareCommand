@@ -8,11 +8,11 @@ using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
-using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Auditing;
+using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Inventory;
-using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.InventoryStatuses;
+using Wms.Infrastructure.Repositories;
 
 namespace Wms.Infrastructure.Tests.InventoryStatuses;
 

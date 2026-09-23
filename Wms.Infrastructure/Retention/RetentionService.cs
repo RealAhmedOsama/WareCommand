@@ -2,8 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Wms.Application.Auditing;
 using Wms.Application.Attachments;
+using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
@@ -588,14 +588,14 @@ public sealed class RetentionService : IRetentionService
         {
             return WmsErrors.BusinessRule(
                 "retention.destructive_gate",
-                "Destructive retention requires explicit authorization, a verified backup, and a reference." );
+                "Destructive retention requires explicit authorization, a verified backup, and a reference.");
         }
 
         if (!input.PreviewRunId.HasValue)
         {
             return WmsErrors.BusinessRule(
                 "retention.preview_required",
-                "Run a dry-run preview and provide its identifier before destructive execution." );
+                "Run a dry-run preview and provide its identifier before destructive execution.");
         }
 
         var preview = await context.RetentionRuns
@@ -605,7 +605,7 @@ public sealed class RetentionService : IRetentionService
         {
             return WmsErrors.Conflict(
                 "retention.preview_invalid",
-                "The supplied retention preview is missing or is not a completed dry-run." );
+                "The supplied retention preview is missing or is not a completed dry-run.");
         }
 
         if (preview.AsOfUtc != asOfUtc || preview.WarehouseId != input.WarehouseId ||
@@ -613,7 +613,7 @@ public sealed class RetentionService : IRetentionService
         {
             return WmsErrors.Conflict(
                 "retention.preview_mismatch",
-                "The destructive run must use the same time boundary and warehouse scope as its preview." );
+                "The destructive run must use the same time boundary and warehouse scope as its preview.");
         }
 
         return null;
@@ -625,21 +625,21 @@ public sealed class RetentionService : IRetentionService
         {
             return WmsErrors.Validation(
                 "retention.warehouse_invalid",
-                "The warehouse scope must be a positive identifier." );
+                "The warehouse scope must be a positive identifier.");
         }
 
         if (input.BatchSize is < 1 or > 1_000)
         {
             return WmsErrors.Validation(
                 "retention.batch_invalid",
-                "The retention batch size must be between 1 and 1,000." );
+                "The retention batch size must be between 1 and 1,000.");
         }
 
         if (input.DryRun && (input.AllowDestructive || input.BackupVerified))
         {
             return WmsErrors.Validation(
                 "retention.dry_run_flags_invalid",
-                "A dry-run cannot request destructive execution or claim backup verification." );
+                "A dry-run cannot request destructive execution or claim backup verification.");
         }
 
         return null;
@@ -709,147 +709,147 @@ public sealed class RetentionService : IRetentionService
             switch (descriptor.Class)
             {
                 case RetentionClass.Documents:
-                {
-                    var rows = await context.Attachments
-                        .AsNoTracking()
-                        .Where(attachment =>
-                            (!warehouseId.HasValue || attachment.WarehouseId == warehouseId.Value) &&
-                            attachment.RetentionState == AttachmentRetentionState.PendingDeletion &&
-                            !attachment.IsImmutableEvidence)
-                        .OrderBy(attachment => attachment.Id)
-                        .ToListAsync(cancellationToken);
-                    candidates.AddRange(rows
-                        .Where(attachment =>
-                            attachment.UploadedAtUtc <= cutoff &&
-                            (!attachment.RetentionUntilUtc.HasValue || attachment.RetentionUntilUtc <= asOfUtc))
-                        .Select(attachment => new RetentionCandidate(
-                        descriptor.Class,
-                        AttachmentTargetType,
-                        attachment.Id.ToString(CultureInfo.InvariantCulture),
-                        attachment.WarehouseId,
-                        attachment.StorageKey,
-                        attachment.Sha256,
-                        JsonSerializer.Serialize(new
-                        {
-                            attachment.ReferenceType,
-                            attachment.ReferenceId,
-                            attachment.FileName,
-                            attachment.ContentType,
-                            attachment.SizeBytes,
-                            attachment.Sha256
-                        }),
-                        policy)));
-                    break;
-                }
-                case RetentionClass.Notifications:
-                {
-                    var rows = await context.Notifications
-                        .Include(notification => notification.Recipients)
-                        .AsNoTracking()
-                        .Where(notification =>
-                            !warehouseId.HasValue || notification.WarehouseId == warehouseId.Value)
-                        .OrderBy(notification => notification.Id)
-                        .ToListAsync(cancellationToken);
-                    candidates.AddRange(rows
-                        .Where(notification => notification.CreatedAtUtc <= cutoff)
-                        .Where(CanPurgeNotification)
-                        .Select(notification => new RetentionCandidate(
+                    {
+                        var rows = await context.Attachments
+                            .AsNoTracking()
+                            .Where(attachment =>
+                                (!warehouseId.HasValue || attachment.WarehouseId == warehouseId.Value) &&
+                                attachment.RetentionState == AttachmentRetentionState.PendingDeletion &&
+                                !attachment.IsImmutableEvidence)
+                            .OrderBy(attachment => attachment.Id)
+                            .ToListAsync(cancellationToken);
+                        candidates.AddRange(rows
+                            .Where(attachment =>
+                                attachment.UploadedAtUtc <= cutoff &&
+                                (!attachment.RetentionUntilUtc.HasValue || attachment.RetentionUntilUtc <= asOfUtc))
+                            .Select(attachment => new RetentionCandidate(
                             descriptor.Class,
-                            NotificationTargetType,
+                            AttachmentTargetType,
+                            attachment.Id.ToString(CultureInfo.InvariantCulture),
+                            attachment.WarehouseId,
+                            attachment.StorageKey,
+                            attachment.Sha256,
+                            JsonSerializer.Serialize(new
+                            {
+                                attachment.ReferenceType,
+                                attachment.ReferenceId,
+                                attachment.FileName,
+                                attachment.ContentType,
+                                attachment.SizeBytes,
+                                attachment.Sha256
+                            }),
+                            policy)));
+                        break;
+                    }
+                case RetentionClass.Notifications:
+                    {
+                        var rows = await context.Notifications
+                            .Include(notification => notification.Recipients)
+                            .AsNoTracking()
+                            .Where(notification =>
+                                !warehouseId.HasValue || notification.WarehouseId == warehouseId.Value)
+                            .OrderBy(notification => notification.Id)
+                            .ToListAsync(cancellationToken);
+                        candidates.AddRange(rows
+                            .Where(notification => notification.CreatedAtUtc <= cutoff)
+                            .Where(CanPurgeNotification)
+                            .Select(notification => new RetentionCandidate(
+                                descriptor.Class,
+                                NotificationTargetType,
+                                notification.Id.ToString(CultureInfo.InvariantCulture),
+                                notification.WarehouseId,
+                                $"db:WmsNotifications/{notification.Id}",
+                                null,
+                                JsonSerializer.Serialize(new
+                                {
+                                    notification.Kind,
+                                    notification.SourceType,
+                                    notification.SourceId,
+                                    notification.CreatedAtUtc
+                                }),
+                                policy)));
+                        break;
+                    }
+                case RetentionClass.Idempotency:
+                    {
+                        var rows = await context.InventoryCommandIdempotencies
+                            .AsNoTracking()
+                            .Where(command =>
+                                (!warehouseId.HasValue || command.WarehouseId == warehouseId.Value) &&
+                                command.Status != InventoryCommandIdempotencyStatus.InProgress)
+                            .OrderBy(command => command.Id)
+                            .ToListAsync(cancellationToken);
+                        candidates.AddRange(rows
+                            .Where(command => command.CreatedAt <= cutoff.UtcDateTime && command.ExpiresAtUtc <= asOfUtc)
+                            .Select(command => new RetentionCandidate(
+                            descriptor.Class,
+                            IdempotencyTargetType,
+                            command.Id.ToString(CultureInfo.InvariantCulture),
+                            command.WarehouseId,
+                            $"db:InventoryCommandIdempotencies/{command.Id}",
+                            command.RequestHash,
+                            JsonSerializer.Serialize(new
+                            {
+                                command.CommandKey,
+                                command.OperationType,
+                                command.Status,
+                                command.ExpiresAtUtc
+                            }),
+                            policy)));
+                        break;
+                    }
+                case RetentionClass.Temporary:
+                    {
+                        var executions = await context.JobExecutions
+                            .AsNoTracking()
+                            .Where(execution =>
+                                (!warehouseId.HasValue || execution.WarehouseId == warehouseId.Value) &&
+                                execution.Status != WmsJobExecutionStatuses.Running)
+                            .OrderBy(execution => execution.Id)
+                            .ToListAsync(cancellationToken);
+                        candidates.AddRange(executions
+                            .Where(execution => execution.CreatedAtUtc <= cutoff)
+                            .Select(execution => new RetentionCandidate(
+                            descriptor.Class,
+                            JobExecutionTargetType,
+                            execution.Id.ToString(CultureInfo.InvariantCulture),
+                            execution.WarehouseId,
+                            $"db:WmsJobExecutions/{execution.Id}",
+                            null,
+                            JsonSerializer.Serialize(new
+                            {
+                                execution.JobName,
+                                execution.Status,
+                                execution.CreatedAtUtc,
+                                execution.CompletedAtUtc
+                            }),
+                            policy)));
+
+                        var notifications = await context.JobNotifications
+                            .AsNoTracking()
+                            .Where(notification =>
+                                (!warehouseId.HasValue || notification.WarehouseId == warehouseId.Value) &&
+                                notification.ResolvedAtUtc.HasValue)
+                            .OrderBy(notification => notification.Id)
+                            .ToListAsync(cancellationToken);
+                        candidates.AddRange(notifications
+                            .Where(notification => notification.CreatedAtUtc <= cutoff)
+                            .Select(notification => new RetentionCandidate(
+                            descriptor.Class,
+                            JobNotificationTargetType,
                             notification.Id.ToString(CultureInfo.InvariantCulture),
                             notification.WarehouseId,
-                            $"db:WmsNotifications/{notification.Id}",
+                            $"db:WmsJobNotifications/{notification.Id}",
                             null,
                             JsonSerializer.Serialize(new
                             {
                                 notification.Kind,
-                                notification.SourceType,
-                                notification.SourceId,
-                                notification.CreatedAtUtc
+                                notification.CreatedAtUtc,
+                                notification.ResolvedAtUtc
                             }),
                             policy)));
-                    break;
-                }
-                case RetentionClass.Idempotency:
-                {
-                    var rows = await context.InventoryCommandIdempotencies
-                        .AsNoTracking()
-                        .Where(command =>
-                            (!warehouseId.HasValue || command.WarehouseId == warehouseId.Value) &&
-                            command.Status != InventoryCommandIdempotencyStatus.InProgress)
-                        .OrderBy(command => command.Id)
-                        .ToListAsync(cancellationToken);
-                    candidates.AddRange(rows
-                        .Where(command => command.CreatedAt <= cutoff.UtcDateTime && command.ExpiresAtUtc <= asOfUtc)
-                        .Select(command => new RetentionCandidate(
-                        descriptor.Class,
-                        IdempotencyTargetType,
-                        command.Id.ToString(CultureInfo.InvariantCulture),
-                        command.WarehouseId,
-                        $"db:InventoryCommandIdempotencies/{command.Id}",
-                        command.RequestHash,
-                        JsonSerializer.Serialize(new
-                        {
-                            command.CommandKey,
-                            command.OperationType,
-                            command.Status,
-                            command.ExpiresAtUtc
-                        }),
-                        policy)));
-                    break;
-                }
-                case RetentionClass.Temporary:
-                {
-                    var executions = await context.JobExecutions
-                        .AsNoTracking()
-                        .Where(execution =>
-                            (!warehouseId.HasValue || execution.WarehouseId == warehouseId.Value) &&
-                            execution.Status != WmsJobExecutionStatuses.Running)
-                        .OrderBy(execution => execution.Id)
-                        .ToListAsync(cancellationToken);
-                    candidates.AddRange(executions
-                        .Where(execution => execution.CreatedAtUtc <= cutoff)
-                        .Select(execution => new RetentionCandidate(
-                        descriptor.Class,
-                        JobExecutionTargetType,
-                        execution.Id.ToString(CultureInfo.InvariantCulture),
-                        execution.WarehouseId,
-                        $"db:WmsJobExecutions/{execution.Id}",
-                        null,
-                        JsonSerializer.Serialize(new
-                        {
-                            execution.JobName,
-                            execution.Status,
-                            execution.CreatedAtUtc,
-                            execution.CompletedAtUtc
-                        }),
-                        policy)));
-
-                    var notifications = await context.JobNotifications
-                        .AsNoTracking()
-                        .Where(notification =>
-                            (!warehouseId.HasValue || notification.WarehouseId == warehouseId.Value) &&
-                            notification.ResolvedAtUtc.HasValue)
-                        .OrderBy(notification => notification.Id)
-                        .ToListAsync(cancellationToken);
-                    candidates.AddRange(notifications
-                        .Where(notification => notification.CreatedAtUtc <= cutoff)
-                        .Select(notification => new RetentionCandidate(
-                        descriptor.Class,
-                        JobNotificationTargetType,
-                        notification.Id.ToString(CultureInfo.InvariantCulture),
-                        notification.WarehouseId,
-                        $"db:WmsJobNotifications/{notification.Id}",
-                        null,
-                        JsonSerializer.Serialize(new
-                        {
-                            notification.Kind,
-                            notification.CreatedAtUtc,
-                            notification.ResolvedAtUtc
-                        }),
-                        policy)));
-                    break;
-                }
+                        break;
+                    }
             }
         }
 
@@ -896,111 +896,111 @@ public sealed class RetentionService : IRetentionService
             switch (candidate.TargetType)
             {
                 case AttachmentTargetType:
-                {
-                    if (attachmentStorage is null)
                     {
-                        return new PurgeOutcome(archiveCreated, false, true);
-                    }
+                        if (attachmentStorage is null)
+                        {
+                            return new PurgeOutcome(archiveCreated, false, true);
+                        }
 
-                    if (!int.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var attachmentId))
-                    {
-                        return new PurgeOutcome(archiveCreated, false, true);
-                    }
+                        if (!int.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var attachmentId))
+                        {
+                            return new PurgeOutcome(archiveCreated, false, true);
+                        }
 
-                    try
-                    {
-                        await attachmentStorage.DeleteAsync(candidate.ArchiveLocator, cancellationToken);
-                    }
-                    catch (Exception exception) when (exception is not OperationCanceledException)
-                    {
-                        logger.LogWarning(
-                            exception,
-                            "Retention could not delete attachment storage for {AttachmentId}; the archive reference remains retryable",
-                            attachmentId);
-                        return new PurgeOutcome(archiveCreated, false, true);
-                    }
+                        try
+                        {
+                            await attachmentStorage.DeleteAsync(candidate.ArchiveLocator, cancellationToken);
+                        }
+                        catch (Exception exception) when (exception is not OperationCanceledException)
+                        {
+                            logger.LogWarning(
+                                exception,
+                                "Retention could not delete attachment storage for {AttachmentId}; the archive reference remains retryable",
+                                attachmentId);
+                            return new PurgeOutcome(archiveCreated, false, true);
+                        }
 
-                    var attachment = await context.Attachments.SingleOrDefaultAsync(
-                        item => item.Id == attachmentId,
-                        cancellationToken);
-                    if (attachment is not null && attachment.RetentionState == AttachmentRetentionState.PendingDeletion)
-                    {
-                        attachment.MarkDeleted(clock.UtcNow);
-                    }
+                        var attachment = await context.Attachments.SingleOrDefaultAsync(
+                            item => item.Id == attachmentId,
+                            cancellationToken);
+                        if (attachment is not null && attachment.RetentionState == AttachmentRetentionState.PendingDeletion)
+                        {
+                            attachment.MarkDeleted(clock.UtcNow);
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case NotificationTargetType:
-                {
-                    if (!long.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var notificationId))
                     {
-                        return new PurgeOutcome(archiveCreated, false, true);
-                    }
+                        if (!long.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var notificationId))
+                        {
+                            return new PurgeOutcome(archiveCreated, false, true);
+                        }
 
-                    var notification = await context.Notifications.SingleOrDefaultAsync(
-                        item => item.Id == notificationId,
-                        cancellationToken);
-                    if (notification is not null)
-                    {
-                        context.Notifications.Remove(notification);
-                    }
+                        var notification = await context.Notifications.SingleOrDefaultAsync(
+                            item => item.Id == notificationId,
+                            cancellationToken);
+                        if (notification is not null)
+                        {
+                            context.Notifications.Remove(notification);
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case IdempotencyTargetType:
-                {
-                    if (!long.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var commandId))
                     {
-                        return new PurgeOutcome(archiveCreated, false, true);
-                    }
+                        if (!long.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var commandId))
+                        {
+                            return new PurgeOutcome(archiveCreated, false, true);
+                        }
 
-                    var command = await context.InventoryCommandIdempotencies.SingleOrDefaultAsync(
-                        item => item.Id == commandId &&
-                                item.Status != InventoryCommandIdempotencyStatus.InProgress,
-                        cancellationToken);
-                    if (command is not null)
-                    {
-                        context.InventoryCommandIdempotencies.Remove(command);
-                    }
+                        var command = await context.InventoryCommandIdempotencies.SingleOrDefaultAsync(
+                            item => item.Id == commandId &&
+                                    item.Status != InventoryCommandIdempotencyStatus.InProgress,
+                            cancellationToken);
+                        if (command is not null)
+                        {
+                            context.InventoryCommandIdempotencies.Remove(command);
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case JobExecutionTargetType:
-                {
-                    if (!long.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var executionId))
                     {
-                        return new PurgeOutcome(archiveCreated, false, true);
-                    }
+                        if (!long.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var executionId))
+                        {
+                            return new PurgeOutcome(archiveCreated, false, true);
+                        }
 
-                    var execution = await context.JobExecutions.SingleOrDefaultAsync(
-                        item => item.Id == executionId &&
-                                item.Status != WmsJobExecutionStatuses.Running,
-                        cancellationToken);
-                    if (execution is not null)
-                    {
-                        context.JobExecutions.Remove(execution);
-                    }
+                        var execution = await context.JobExecutions.SingleOrDefaultAsync(
+                            item => item.Id == executionId &&
+                                    item.Status != WmsJobExecutionStatuses.Running,
+                            cancellationToken);
+                        if (execution is not null)
+                        {
+                            context.JobExecutions.Remove(execution);
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 case JobNotificationTargetType:
-                {
-                    if (!long.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var jobNotificationId))
                     {
-                        return new PurgeOutcome(archiveCreated, false, true);
-                    }
+                        if (!long.TryParse(candidate.TargetId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var jobNotificationId))
+                        {
+                            return new PurgeOutcome(archiveCreated, false, true);
+                        }
 
-                    var notification = await context.JobNotifications.SingleOrDefaultAsync(
-                        item => item.Id == jobNotificationId &&
-                                item.ResolvedAtUtc.HasValue,
-                        cancellationToken);
-                    if (notification is not null)
-                    {
-                        context.JobNotifications.Remove(notification);
-                    }
+                        var notification = await context.JobNotifications.SingleOrDefaultAsync(
+                            item => item.Id == jobNotificationId &&
+                                    item.ResolvedAtUtc.HasValue,
+                            cancellationToken);
+                        if (notification is not null)
+                        {
+                            context.JobNotifications.Remove(notification);
+                        }
 
-                    break;
-                }
+                        break;
+                    }
                 default:
                     return new PurgeOutcome(archiveCreated, false, true);
             }

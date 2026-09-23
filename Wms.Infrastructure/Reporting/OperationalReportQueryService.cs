@@ -231,7 +231,7 @@ public sealed class OperationalReportQueryService(
             MovementReportGroupBy.None));
     }
 
-    #pragma warning disable CA1304, CA1311
+#pragma warning disable CA1304, CA1311
     private IQueryable<Movement> BuildMovementQuery(
         EffectiveMovementLedgerQuery query,
         WarehouseAccessScope scope)
@@ -342,7 +342,7 @@ public sealed class OperationalReportQueryService(
 
         return movements;
     }
-    #pragma warning restore CA1304, CA1311
+#pragma warning restore CA1304, CA1311
 
     private static IQueryable<Movement> ApplyOrdering(
         IQueryable<Movement> movements,

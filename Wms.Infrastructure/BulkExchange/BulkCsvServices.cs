@@ -4,9 +4,9 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Wms.Application.BulkExchange;
+using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
-using Wms.Application.Common;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.BulkExchange;

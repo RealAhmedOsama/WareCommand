@@ -9,12 +9,12 @@ using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
 using Wms.Domain.Services;
+using Wms.Infrastructure.Auditing;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Inventory;
+using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.Services;
-using Wms.Infrastructure.Auditing;
-using Wms.Infrastructure.Logging;
 
 namespace Wms.Infrastructure.Tests.Inventory;
 

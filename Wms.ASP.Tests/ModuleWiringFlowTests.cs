@@ -4,10 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Wms.Application.B2bDocuments;
 using Wms.Application.BulkExchange;
 using Wms.Application.Connectors;
+using Wms.Application.Identity;
 using Wms.Application.Integrations;
 using Wms.Application.Notifications;
 using Wms.Application.WarehouseWork;
-using Wms.Application.Identity;
 using Xunit;
 
 namespace Wms.ASP.Tests;

@@ -17,8 +17,8 @@ using Wms.Infrastructure.Identity;
 using Wms.Infrastructure.InventoryStatuses;
 using Wms.Infrastructure.Logging;
 using Wms.Infrastructure.Repositories;
-using Wms.Infrastructure.Services;
 using Wms.Infrastructure.SerialNumbers;
+using Wms.Infrastructure.Services;
 
 namespace Wms.Infrastructure.Tests.Services;
 
