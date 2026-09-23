@@ -254,19 +254,55 @@ jobs:
   security:
     name: Secret scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-      - name: Scan repository for secrets
-        uses: gitleaks/gitleaks-action@v2
+      - name: Scan the intended Git history
+        id: secret-scan
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_BEFORE: ${{ github.event.before }}
+          EVENT_AFTER: ${{ github.event.after }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/verify-secret-scan.sh
 
       - name: Publish job summary
         if: always()
         shell: bash
-        run: echo '## Secret scan' >> "$GITHUB_STEP_SUMMARY"
+        env:
+          SCAN_STATUS: ${{ steps.secret-scan.outputs.status || 'not-run' }}
+          SCAN_REASON: ${{ steps.secret-scan.outputs.reason || 'scan step did not produce a status' }}
+          SCAN_RANGE: ${{ steps.secret-scan.outputs.scan_range || 'unresolved' }}
+          SCAN_HEAD_SHA: ${{ steps.secret-scan.outputs.head_sha || github.sha }}
+          SCAN_COMMIT_COUNT: ${{ steps.secret-scan.outputs.commit_count || '0' }}
+          SCAN_REPORTED_COUNT: ${{ steps.secret-scan.outputs.scanner_commit_count || 'not-reported' }}
+          SCAN_SCANNER_EXIT: ${{ steps.secret-scan.outputs.scanner_exit || 'not-run' }}
+        run: |
+          {
+            echo '## Secret scan'
+            echo "- Status: $SCAN_STATUS"
+            echo "- Detail: $SCAN_REASON"
+            echo "- Scanned range: \`$SCAN_RANGE\`"
+            echo "- Head SHA: \`$SCAN_HEAD_SHA\`"
+            echo "- Non-merge commits in range: $SCAN_COMMIT_COUNT"
+            echo "- Commits Gitleaks reported scanning: $SCAN_REPORTED_COUNT"
+            echo "- Scanner exit code: $SCAN_SCANNER_EXIT"
+            echo '- Redacted SARIF and scan metadata are attached as the `secret-scan-results` artifact when available.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload redacted scan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secret-scan-results-${{ github.run_id }}
+          path: ${{ runner.temp }}/gitleaks-${{ github.run_id }}
+          if-no-files-found: warn
 
   dependency-review:
     name: Pull request dependency review

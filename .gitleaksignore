@@ -1,0 +1,6 @@
+# Synthetic idempotency values in test code, not credentials; each entry is one exact finding.
+f7f29ae18cf9c73cffbf724626fda10dadfca860:Wms.Infrastructure.Tests/Returns/ReturnServiceTests.cs:generic-api-key:277
+0ce86bd0c29d1dea8fa58715d3a3ec9757390a70:Wms.Domain.Tests/Entities/InboundExceptionTests.cs:generic-api-key:68
+ef60fcaa881633f73454050996a7f3d2d692a3ee:Wms.Domain.Tests/Entities/InventoryTransactionTests.cs:generic-api-key:25
+ef60fcaa881633f73454050996a7f3d2d692a3ee:Wms.Domain.Tests/Entities/InventoryTransactionTests.cs:generic-api-key:48
+ef60fcaa881633f73454050996a7f3d2d692a3ee:Wms.Infrastructure.Tests/Inventory/InventoryLedgerServiceTests.cs:generic-api-key:171
