@@ -65,7 +65,7 @@ public sealed class SmtpEmailTransport(
         {
             Subject = message.Subject,
             SubjectEncoding = Encoding.UTF8,
-            Body = message.Body,
+            Body = NormalizeLineEndings(message.Body),
             BodyEncoding = Encoding.UTF8,
             HeadersEncoding = Encoding.UTF8,
             IsBodyHtml = false
@@ -203,6 +203,11 @@ public sealed class SmtpEmailTransport(
         value.Length is > 0 and <= 100 &&
         value.All(character =>
             char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.');
+
+    private static string NormalizeLineEndings(string value) =>
+        value.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Replace("\n", "\r\n", StringComparison.Ordinal);
 
     private static bool TryInteger(string? value, int defaultValue, int minimum, int maximum, out int result)
     {
