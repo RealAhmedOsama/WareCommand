@@ -61,22 +61,15 @@ jobs:
           done
 
       - name: Run Linux-compatible tests with coverage
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/test-results/linux
-          for project in \
-            'Wms.Domain.Tests/Wms.Domain.Tests.csproj' \
-            'Wms.Application.Tests/Wms.Application.Tests.csproj' \
-            'Wms.Infrastructure.Tests/Wms.Infrastructure.Tests.csproj' \
-            'Wms.ASP.Tests/Wms.ASP.Tests.csproj' \
-            'Wms.Architecture.Tests/Wms.Architecture.Tests.csproj' \
-            'Wms.DataMigration.Tests/Wms.DataMigration.Tests.csproj'; do
-            dotnet test "$project" -c Release --no-restore --nologo \
-              --logger 'console;verbosity=minimal' \
-              --collect:'XPlat Code Coverage' \
-              --results-directory artifacts/test-results/linux
-          done
+        id: tests
+        shell: pwsh
+        run: pwsh -NoProfile -File './scripts/run-test-suite.ps1' -Platform linux -RunId '${{ github.run_id }}-${{ github.run_attempt }}'
+
+      - name: Verify Linux TRX and coverage evidence
+        id: verify-test-artifacts
+        if: always() && steps.tests.outcome != 'skipped'
+        shell: pwsh
+        run: pwsh -NoProfile -File './scripts/verify-test-artifacts.ps1' -Platform linux -ResultsRoot '${{ steps.tests.outputs.results_root }}'
 
       - name: Verify migration model and startup gate
         shell: pwsh
@@ -86,24 +79,35 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File './scripts/verify-unit-tests.ps1' -Repetitions 2
 
-      - name: Publish job summary
-        if: always()
-        shell: bash
-        run: |
-          {
-            echo '## Linux quality and coverage'
-            echo '- Restore is always executed; the NuGet cache is an accelerator only.'
-            echo '- Linux-compatible production projects and tests are covered here.'
-            echo '- Coverage files are uploaded from `artifacts/test-results/linux`.'
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload Linux test and coverage artifacts
+        id: upload-test-artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-test-results-${{ github.run_id }}
+          name: linux-test-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/test-results/linux
-          if-no-files-found: ignore
+          if-no-files-found: warn
+
+      - name: Publish job summary
+        if: always()
+        shell: pwsh
+        env:
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+          EVIDENCE_OUTCOME: ${{ steps.verify-test-artifacts.outcome || 'skipped' }}
+          UPLOAD_OUTCOME: ${{ steps.upload-test-artifacts.outcome || 'skipped' }}
+          RESULTS_ROOT: ${{ steps.tests.outputs.results_root }}
+        run: |
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '## Linux quality and coverage'
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Test step: $env:TEST_OUTCOME"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Evidence validation: $env:EVIDENCE_OUTCOME"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Artifact upload: $env:UPLOAD_OUTCOME"
+          $summaryFile = if ([string]::IsNullOrWhiteSpace($env:RESULTS_ROOT)) { $null } else { Join-Path $env:RESULTS_ROOT 'test-summary.md' }
+          if ($summaryFile -and (Test-Path -LiteralPath $summaryFile)) {
+            Get-Content -LiteralPath $summaryFile | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
+          else {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- No test summary was produced because tests did not run or artifact validation stopped early.'
+          }
 
   windows-quality:
     name: Windows solution quality and coverage
@@ -136,8 +140,15 @@ jobs:
         run: dotnet build 'Warehouse Management System.sln' -c Release --no-restore --nologo -v:minimal
 
       - name: Run complete solution tests with coverage
+        id: tests
         shell: pwsh
-        run: dotnet test 'Warehouse Management System.sln' -c Release --no-build --no-restore --nologo --logger 'console;verbosity=minimal' --collect 'XPlat Code Coverage' --results-directory 'artifacts/test-results/windows'
+        run: pwsh -NoProfile -File './scripts/run-test-suite.ps1' -Platform windows -NoBuild -RunId '${{ github.run_id }}-${{ github.run_attempt }}'
+
+      - name: Verify Windows TRX and coverage evidence
+        id: verify-test-artifacts
+        if: always() && steps.tests.outcome != 'skipped'
+        shell: pwsh
+        run: pwsh -NoProfile -File './scripts/verify-test-artifacts.ps1' -Platform windows -ResultsRoot '${{ steps.tests.outputs.results_root }}'
 
       - name: Verify formatting
         shell: pwsh
@@ -147,21 +158,35 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File './scripts/verify-migrations.ps1'
 
-      - name: Publish job summary
-        if: always()
-        shell: pwsh
-        run: |
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '## Windows solution quality and coverage'
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- Complete solution build includes the Windows-only WinForms target.'
-          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- Test and coverage files are uploaded from `artifacts/test-results/windows`.'
-
       - name: Upload Windows test and coverage artifacts
+        id: upload-test-artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-test-results-${{ github.run_id }}
+          name: windows-test-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/test-results/windows
-          if-no-files-found: ignore
+          if-no-files-found: warn
+
+      - name: Publish job summary
+        if: always()
+        shell: pwsh
+        env:
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+          EVIDENCE_OUTCOME: ${{ steps.verify-test-artifacts.outcome || 'skipped' }}
+          UPLOAD_OUTCOME: ${{ steps.upload-test-artifacts.outcome || 'skipped' }}
+          RESULTS_ROOT: ${{ steps.tests.outputs.results_root }}
+        run: |
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '## Windows solution quality and coverage'
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Test step: $env:TEST_OUTCOME"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Evidence validation: $env:EVIDENCE_OUTCOME"
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "- Artifact upload: $env:UPLOAD_OUTCOME"
+          $summaryFile = if ([string]::IsNullOrWhiteSpace($env:RESULTS_ROOT)) { $null } else { Join-Path $env:RESULTS_ROOT 'test-summary.md' }
+          if ($summaryFile -and (Test-Path -LiteralPath $summaryFile)) {
+            Get-Content -LiteralPath $summaryFile | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
+          else {
+            Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value '- No test summary was produced because tests did not run or artifact validation stopped early.'
+          }
 
   postgres-integration:
     name: Disposable PostgreSQL integration and migration
