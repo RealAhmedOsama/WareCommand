@@ -62,7 +62,7 @@ public sealed class ForecastBaselineEngineTests
     }
 
     [Fact]
-    public void Rejects_duplicate_periods_and_negative_demand()
+    public void Rejects_duplicate_periods_and_accepts_signed_return_adjustments()
     {
         var duplicate = Request([1, 2, 3]) with
         {
@@ -77,8 +77,10 @@ public sealed class ForecastBaselineEngineTests
 
         ForecastBaselineEngine.Generate(duplicate).ErrorCode
             .Should().Be("forecast.periods_duplicate");
-        ForecastBaselineEngine.Generate(negative).ErrorCode
-            .Should().Be("forecast.demand_invalid");
+        var netDemand = ForecastBaselineEngine.Generate(negative);
+        netDemand.IsSuccess.Should().BeTrue();
+        netDemand.Value.Periods.Should().AllSatisfy(period =>
+            period.ForecastQuantity.Should().BeGreaterThanOrEqualTo(0m));
     }
 
     [Fact]

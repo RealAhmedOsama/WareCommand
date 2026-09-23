@@ -20,6 +20,7 @@ using Wms.Infrastructure.Labels;
 using Wms.Infrastructure.Notifications;
 using Wms.Infrastructure.Retention;
 using Wms.Infrastructure.Settings;
+using Wms.Infrastructure.Forecasting;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
 namespace Wms.Infrastructure.Data;
@@ -259,6 +260,10 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
 
     public DbSet<WmsPrintJobEntity> PrintJobs => Set<WmsPrintJobEntity>();
 
+    public DbSet<ForecastRunEntity> ForecastRuns => Set<ForecastRunEntity>();
+    public DbSet<ForecastRunPointEntity> ForecastRunPoints => Set<ForecastRunPointEntity>();
+    public DbSet<ForecastOverrideEntity> ForecastOverrides => Set<ForecastOverrideEntity>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -357,6 +362,9 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         builder.ApplyConfiguration(new InventoryClassificationPolicyConfiguration());
         builder.ApplyConfiguration(new InventoryClassificationConfiguration());
         builder.ApplyConfiguration(new InventoryClassificationHistoryConfiguration());
+        builder.ApplyConfiguration(new ForecastRunConfiguration());
+        builder.ApplyConfiguration(new ForecastRunPointConfiguration());
+        builder.ApplyConfiguration(new ForecastOverrideConfiguration());
         builder.ApplyConfiguration(new InventoryAllocationStrategyPolicyConfiguration());
         builder.ApplyConfiguration(new SlottingPolicyConfiguration());
         builder.ApplyConfiguration(new SlottingRecommendationConfiguration());
@@ -734,6 +742,17 @@ public class WmsDbContext : IdentityDbContext<WmsUser, IdentityRole, string>
         {
             throw new InvalidOperationException(
                 "Approval decisions are immutable and cannot be updated or deleted.");
+        }
+
+        if (ChangeTracker.Entries<ForecastRunEntity>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted) ||
+            ChangeTracker.Entries<ForecastRunPointEntity>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted) ||
+            ChangeTracker.Entries<ForecastOverrideEntity>().Any(entry =>
+                entry.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException(
+                "Forecast runs, their input/output points, and overrides are immutable and append-only.");
         }
     }
 }

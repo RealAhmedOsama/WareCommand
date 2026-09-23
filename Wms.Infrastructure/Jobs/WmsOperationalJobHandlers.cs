@@ -13,7 +13,9 @@ using Wms.Application.Outbound;
 using Wms.Application.Retention;
 using Wms.Application.Settings;
 using Wms.Application.Time;
+using Wms.Application.Forecasting;
 using Wms.Infrastructure.Data;
+using Wms.Infrastructure.Forecasting;
 
 namespace Wms.Infrastructure.Jobs;
 
@@ -30,7 +32,8 @@ public sealed class WmsJobHandlerCatalog(
     WmsReplenishmentGenerationJob replenishmentGenerationJob,
     WmsWavePlanningJob wavePlanningJob,
     WmsInventoryHealthCheckJob inventoryHealthCheckJob,
-    WmsInventoryReconciliationJob inventoryReconciliationJob)
+    WmsInventoryReconciliationJob inventoryReconciliationJob,
+    WmsForecastRecalculationJob forecastRecalculationJob)
 {
     private readonly Dictionary<string, IWmsJobHandler> _handlers =
         new IWmsJobHandler[]
@@ -47,13 +50,70 @@ public sealed class WmsJobHandlerCatalog(
             replenishmentGenerationJob,
             wavePlanningJob,
             inventoryHealthCheckJob,
-            inventoryReconciliationJob
+            inventoryReconciliationJob,
+            forecastRecalculationJob
         }.ToDictionary(handler => handler.JobName, StringComparer.Ordinal);
 
     public IWmsJobHandler Resolve(string jobName) =>
         _handlers.TryGetValue(jobName, out var handler)
             ? handler
             : throw new WmsPermanentJobException($"No handler is registered for job '{jobName}'.");
+}
+
+public sealed class WmsForecastRecalculationJob(
+    IForecastingService forecastingService) : IWmsJobHandler
+{
+    public string JobName => WmsJobNames.ForecastRecalculation;
+
+    public async Task<WmsJobExecutionResult> ExecuteAsync(
+        WmsJobContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var granularity = ForecastGranularity.Weekly;
+        var horizonPeriods = 26;
+        int? itemId = null;
+        if (!string.IsNullOrWhiteSpace(context.Envelope.ReferenceId))
+        {
+            var parts = context.Envelope.ReferenceId.Split(':', 3, StringSplitOptions.TrimEntries);
+            if (parts.Length != 3 ||
+                !Enum.TryParse(parts[0], ignoreCase: false, out granularity) ||
+                !int.TryParse(parts[1], System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out horizonPeriods))
+            {
+                throw new WmsPermanentJobException("The forecast recalculation request is invalid.");
+            }
+
+            if (parts[2] != "*")
+            {
+                if (!int.TryParse(parts[2], System.Globalization.NumberStyles.None,
+                        System.Globalization.CultureInfo.InvariantCulture, out var parsedItemId) ||
+                    parsedItemId <= 0)
+                {
+                    throw new WmsPermanentJobException("The forecast recalculation request is invalid.");
+                }
+
+                itemId = parsedItemId;
+            }
+        }
+
+        var result = await forecastingService.RecalculateAsync(
+            new ForecastingRecalculationQuery(
+                context.Envelope.WarehouseId,
+                itemId,
+                granularity,
+                horizonPeriods),
+            cancellationToken);
+        if (result.IsFailure)
+        {
+            throw new WmsPermanentJobException("The forecast recalculation request could not be completed.");
+        }
+
+        var outcome = result.Value;
+        return new WmsJobExecutionResult(
+            outcome.ItemsExamined,
+            outcome.RunsCreated,
+            $"Examined {outcome.ItemsExamined} item and warehouse pairs; created {outcome.RunsCreated} runs and reused {outcome.RunsReused}.");
+    }
 }
 
 public sealed class WmsExpiryAlertJob(

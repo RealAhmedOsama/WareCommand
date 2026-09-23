@@ -73,6 +73,8 @@ public static class WmsPermissions
     public const string AllocationManage = "allocation.manage";
     public const string CountingExecute = "counting.execute";
     public const string ReportsRead = "reports.read";
+    public const string ForecastingRecalculate = "forecasting.recalculate";
+    public const string ForecastingOverride = "forecasting.override";
     public const string AuditRead = "audit.read";
     public const string WarehouseManage = "warehouse.manage";
     public const string SettingsManage = "settings.manage";
@@ -128,6 +130,8 @@ public static class WmsPermissions
         AllocationManage,
         CountingExecute,
         ReportsRead,
+        ForecastingRecalculate,
+        ForecastingOverride,
         AuditRead,
         WarehouseManage,
         SettingsManage,
@@ -185,6 +189,8 @@ public static class WmsPermissions
             [AllocationManage] = "Allocate and release outbound demand",
             [CountingExecute] = "Execute inventory counts",
             [ReportsRead] = "View operational reports",
+            [ForecastingRecalculate] = "Request advisory demand forecast recalculation",
+            [ForecastingOverride] = "Record versioned advisory forecast overrides",
             [AuditRead] = "View immutable audit history",
             [WarehouseManage] = "Manage warehouse master data",
             [SettingsManage] = "Manage system and warehouse settings",
@@ -253,6 +259,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.AllocationManage,
                 WmsPermissions.CountingExecute,
                 WmsPermissions.ReportsRead,
+                WmsPermissions.ForecastingRecalculate,
+                WmsPermissions.ForecastingOverride,
                 WmsPermissions.AuditRead,
                 WmsPermissions.WarehouseManage,
                 WmsPermissions.ApprovalRead,
@@ -328,6 +336,8 @@ public static class WmsRolePermissionCatalog
                 WmsPermissions.ValueAddedServiceRead,
                 WmsPermissions.ValueAddedServiceManage,
                 WmsPermissions.InventoryAdjust,
+                WmsPermissions.ForecastingRecalculate,
+                WmsPermissions.ForecastingOverride,
                 WmsPermissions.CountingExecute,
                 WmsPermissions.AllocationManage,
                 WmsPermissions.QualityRead,

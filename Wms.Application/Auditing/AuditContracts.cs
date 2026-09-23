@@ -36,6 +36,7 @@ public static class WmsAuditActions
     public const string RetentionHoldReleased = "retention.hold_released";
     public const string RetentionRunStarted = "retention.run_started";
     public const string RetentionRunCompleted = "retention.run_completed";
+    public const string ForecastOverrideCreated = "forecast.override.created";
 
     public const string ItemCreated = "master.item.created";
     public const string ItemUpdated = "master.item.updated";
@@ -580,6 +581,7 @@ public static class WmsAuditEntityTypes
     public const string CrossDockPlan = "CrossDockPlan";
     public const string LabelTemplate = "LabelTemplate";
     public const string PrintJob = "PrintJob";
+    public const string ForecastOverride = "ForecastOverride";
 }
 
 /// <summary>

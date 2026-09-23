@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using Wms.Application.Forecasting;
 using Wms.Application.Identity;
 using Wms.Domain.Entities;
 using Wms.Domain.ValueObjects;
@@ -133,6 +134,43 @@ public sealed class PostgreSqlDashboardFlowTests
                     Assert.True(citation.GetProperty("dataCutoffUtc").GetDateTimeOffset() > DateTimeOffset.MinValue);
                 });
 
+            using (var scope = factory.Services.CreateScope())
+            {
+                var forecasting = scope.ServiceProvider.GetRequiredService<IForecastingService>();
+                var recalculated = await forecasting.RecalculateAsync(new ForecastingRecalculationQuery(
+                    scenario.WarehouseId,
+                    scenario.ItemId,
+                    ForecastGranularity.Daily,
+                    HorizonPeriods: 3));
+                Assert.True(recalculated.IsSuccess, recalculated.Error);
+                Assert.Equal(1, recalculated.Value.RunsCreated);
+            }
+
+            using var forecastList = await client.GetAsync(
+                $"/api/forecasting?warehouseId={scenario.WarehouseId}&page=1&pageSize=10");
+            var forecastListBody = await forecastList.Content.ReadAsStringAsync();
+            Assert.True(
+                forecastList.StatusCode == HttpStatusCode.OK,
+                $"PostgreSQL forecast list returned {(int)forecastList.StatusCode}: {forecastListBody}");
+            using var forecastListSnapshot = JsonDocument.Parse(forecastListBody);
+            var forecastRun = Assert.Single(forecastListSnapshot.RootElement
+                .GetProperty("items").EnumerateArray());
+            var forecastRunId = forecastRun.GetProperty("id").GetInt32();
+            Assert.Equal("InsufficientData", forecastRun.GetProperty("dataStatus").GetString());
+
+            using var forecastDetails = await client.GetAsync($"/api/forecasting/{forecastRunId}");
+            Assert.Equal(HttpStatusCode.OK, forecastDetails.StatusCode);
+            using var forecastDetailsSnapshot = JsonDocument.Parse(
+                await forecastDetails.Content.ReadAsStringAsync());
+            Assert.Equal(
+                "Unknown",
+                forecastDetailsSnapshot.RootElement.GetProperty("riskLevel").GetString());
+            Assert.Empty(forecastDetailsSnapshot.RootElement.GetProperty("points").EnumerateArray());
+
+            using var forecastExport = await client.GetAsync($"/api/forecasting/{forecastRunId}/export.csv");
+            Assert.Equal(HttpStatusCode.OK, forecastExport.StatusCode);
+            Assert.Equal("text/csv", forecastExport.Content.Headers.ContentType?.MediaType);
+
             using var page = await client.GetAsync("/Dashboard?culture=en-US&ui-culture=en-US");
             var pageHtml = await page.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.OK, page.StatusCode);
@@ -142,6 +180,9 @@ public sealed class PostgreSqlDashboardFlowTests
             using var otherWarehouse = await client.GetAsync(
                 $"/Dashboard/RefreshData?warehouseId={scenario.OtherWarehouseId}");
             Assert.Equal(HttpStatusCode.Forbidden, otherWarehouse.StatusCode);
+            using var otherForecast = await client.GetAsync(
+                $"/api/forecasting?warehouseId={scenario.OtherWarehouseId}");
+            Assert.Equal(HttpStatusCode.Forbidden, otherForecast.StatusCode);
         }
         finally
         {
@@ -212,7 +253,7 @@ public sealed class PostgreSqlDashboardFlowTests
             return user;
         }
 
-        public async Task<(string LocationCode, string ItemSku, int OtherWarehouseId)> CreateScenarioAsync(string userId)
+        public async Task<(string LocationCode, string ItemSku, int OtherWarehouseId, int WarehouseId, int ItemId)> CreateScenarioAsync(string userId)
         {
             using var scope = Services.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<WmsDbContext>();
@@ -238,7 +279,7 @@ public sealed class PostgreSqlDashboardFlowTests
                 IsDefault = true
             });
             await context.SaveChangesAsync();
-            return (location.Code, item.Sku, otherWarehouse.Id);
+            return (location.Code, item.Sku, otherWarehouse.Id, warehouse.Id, item.Id);
         }
 
         public async Task DisposeDatabaseAsync()

@@ -171,7 +171,7 @@ public static class ForecastBaselineEngine
             request.HorizonPeriods,
             request.MovingAverageWindow);
         var uncertainty = selected.Metrics.MeanAbsoluteError * 1.96m;
-        var periodStart = usableHistory[^1].PeriodStart;
+        var periodStart = orderedHistory[^1].PeriodStart;
         var periods = futureValues
             .Select((quantity, index) =>
             {
@@ -206,8 +206,8 @@ public static class ForecastBaselineEngine
             ForecastDataStatus.Ready,
             selected.Model,
             request.ModelVersion.Trim(),
-            usableHistory[0].PeriodStart,
-            usableHistory[^1].PeriodStart,
+            orderedHistory[0].PeriodStart,
+            orderedHistory[^1].PeriodStart,
             request.HorizonPeriods,
             scores,
             periods,
@@ -236,12 +236,11 @@ public static class ForecastBaselineEngine
                 $"The forecast horizon must be between 1 and {MaximumHorizonPeriods} periods."));
         }
 
-        if (request.History is null ||
-            request.History.Count is < 1 or > MaximumHistoryPeriods)
+        if (request.History is null || request.History.Count > MaximumHistoryPeriods)
         {
             return Result.Failure(WmsErrors.Validation(
                 "forecast.history_invalid",
-                $"History must contain between 1 and {MaximumHistoryPeriods} periods."));
+                $"History cannot contain more than {MaximumHistoryPeriods} periods."));
         }
 
         if (request.TrainingWindowPeriods is < MinimumUsablePeriods or > MaximumHistoryPeriods ||
@@ -277,13 +276,6 @@ public static class ForecastBaselineEngine
             return Result.Failure(WmsErrors.Validation(
                 "forecast.periods_duplicate",
                 "Each history period must occur exactly once."));
-        }
-
-        if (request.History.Any(point => point.DemandQuantity < 0))
-        {
-            return Result.Failure(WmsErrors.Validation(
-                "forecast.demand_invalid",
-                "Demand quantities cannot be negative."));
         }
 
         return Result.Success();
@@ -456,6 +448,18 @@ public static class ForecastBaselineEngine
             .Append('|')
             .Append(request.TrainingWindowPeriods)
             .Append('|')
+            .Append(request.MovingAverageWindow)
+            .Append('|')
+            .Append(request.LeadTimePeriods)
+            .Append('|')
+            .Append(request.OnHandQuantity.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Append('|')
+            .Append(request.OnOrderQuantity.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Append('|')
+            .Append(request.InTransitQuantity.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Append('|')
+            .Append(request.SafetyStockQuantity?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none")
+            .Append('|')
             .Append(request.ModelVersion.Trim());
         foreach (var point in orderedHistory)
         {
@@ -470,4 +474,133 @@ public static class ForecastBaselineEngine
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())))
             .ToLowerInvariant();
     }
+}
+
+public sealed record ForecastingSearchQuery(
+    int? WarehouseId = null,
+    int? ItemId = null,
+    int Page = 1,
+    int PageSize = 50);
+
+public sealed record ForecastingRecalculationQuery(
+    int? WarehouseId = null,
+    int? ItemId = null,
+    ForecastGranularity Granularity = ForecastGranularity.Weekly,
+    int HorizonPeriods = 26);
+
+public sealed record ForecastRunSummaryDto(
+    int Id,
+    int WarehouseId,
+    int ItemId,
+    string ItemSku,
+    string ItemName,
+    ForecastGranularity Granularity,
+    ForecastDataStatus DataStatus,
+    ForecastModelKind? SelectedModel,
+    string ModelVersion,
+    DateTime SourceCutoffUtc,
+    bool? IsStale,
+    DateOnly? InputPeriodStart,
+    DateOnly? InputPeriodEnd,
+    int HorizonPeriods,
+    ForecastRiskLevel RiskLevel,
+    int ForecastPeriodCount,
+    IReadOnlyList<string> DataQualityFlags);
+
+public sealed record ForecastRunPointDto(
+    DateOnly PeriodStart,
+    decimal? ActualDemand,
+    decimal? ForecastQuantity,
+    decimal? LowerBound,
+    decimal? UpperBound,
+    bool WasStockoutCensored,
+    decimal? OverrideQuantity,
+    int? OverrideVersion);
+
+public sealed record ForecastRunDto(
+    int Id,
+    int WarehouseId,
+    int ItemId,
+    string ItemSku,
+    string ItemName,
+    string BaseUnitOfMeasure,
+    ForecastGranularity Granularity,
+    ForecastDataStatus DataStatus,
+    ForecastModelKind? SelectedModel,
+    string ModelVersion,
+    string InputFingerprint,
+    DateTime SourceCutoffUtc,
+    DateOnly? InputPeriodStart,
+    DateOnly? InputPeriodEnd,
+    int HorizonPeriods,
+    int TrainingWindowPeriods,
+    int MovingAverageWindow,
+    IReadOnlyList<ForecastModelScore> BacktestScores,
+    DateOnly? ProjectedStockoutPeriod,
+    decimal? DaysOfSupply,
+    ForecastRiskLevel RiskLevel,
+    string? InsufficientDataReason,
+    bool? IsStale,
+    IReadOnlyList<string> DataQualityFlags,
+    IReadOnlyList<ForecastRunPointDto> Points,
+    DateTime CreatedAtUtc);
+
+public sealed record ForecastRunPageDto(
+    int Page,
+    int PageSize,
+    int TotalItems,
+    IReadOnlyList<ForecastRunSummaryDto> Items);
+
+public sealed record ForecastActualComparisonDto(
+    int ForecastRunId,
+    int EvaluatedPeriods,
+    decimal? MeanAbsoluteError,
+    decimal? MeanAbsolutePercentageError,
+    decimal? Bias,
+    DateTime ActualsThroughUtc,
+    string MeasurementUom);
+
+public sealed record ForecastOverrideInput(
+    DateOnly PeriodStart,
+    decimal Quantity,
+    string Reason);
+
+public sealed record ForecastOverrideDto(
+    int RunId,
+    DateOnly PeriodStart,
+    decimal Quantity,
+    int Version,
+    string Reason,
+    string CreatedByUserId,
+    DateTime CreatedAtUtc);
+
+public sealed record ForecastRecalculationResultDto(
+    int ItemsExamined,
+    int RunsCreated,
+    int RunsReused,
+    IReadOnlyList<string> DataQualityFlags);
+
+public interface IForecastingService
+{
+    Task<Result<ForecastRecalculationResultDto>> RecalculateAsync(
+        ForecastingRecalculationQuery query,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<ForecastRunPageDto>> SearchAsync(
+        ForecastingSearchQuery query,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<ForecastRunDto>> GetAsync(
+        int runId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<ForecastActualComparisonDto>> CompareActualsAsync(
+        int runId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<ForecastOverrideDto>> CreateOverrideAsync(
+        int runId,
+        ForecastOverrideInput input,
+        string actorUserId,
+        CancellationToken cancellationToken = default);
 }

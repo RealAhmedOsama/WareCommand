@@ -36,6 +36,7 @@ public static class WmsJobNames
     public const string WavePlanning = "wms.wave-planning";
     public const string InventoryHealthCheck = "wms.inventory-health-check";
     public const string InventoryReconciliation = "wms.inventory-reconciliation";
+    public const string ForecastRecalculation = "wms.forecast-recalculation";
 }
 
 public static class WmsJobScheduleTimeZones
@@ -151,7 +152,14 @@ public static class WmsJobCatalog
             "0 5 * * *",
             TimeSpan.FromDays(1),
             TimeSpan.FromMinutes(30),
-            "Run a deep read-only inventory reconciliation report.")
+            "Run a deep read-only inventory reconciliation report."),
+        new(
+            WmsJobNames.ForecastRecalculation,
+            WmsJobQueues.Reports,
+            "15 5 * * *",
+            TimeSpan.FromDays(1),
+            TimeSpan.FromMinutes(30),
+            "Recalculate a bounded rotating batch of deterministic advisory forecasts.")
     ];
 
     private static readonly Dictionary<string, WmsJobDefinition> DefinitionMap =
