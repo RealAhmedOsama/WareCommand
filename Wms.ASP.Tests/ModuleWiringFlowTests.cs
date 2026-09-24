@@ -33,7 +33,7 @@ public sealed class ModuleWiringFlowTests(WareCommandWebApplicationFactory facto
             Assert.NotNull(services.GetRequiredService<INotificationChannelHealthService>());
             Assert.Empty(services.GetServices<IConnectorAdapter>());
             Assert.Equal(2, services.GetServices<INotificationChannelAdapter>().Count());
-            Assert.Equal(4, services.GetServices<IWarehouseWorkCompletionHandler>().Count());
+            Assert.Equal(5, services.GetServices<IWarehouseWorkCompletionHandler>().Count());
         }
 
         var administrator = await factory.CreateUserAsync(assignDefaultRole: false);
