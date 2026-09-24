@@ -2,6 +2,7 @@ using System.Data;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using Wms.Application.Auditing;
 using Wms.Application.Common;
 using Wms.Application.Context;
@@ -758,6 +759,14 @@ public sealed class CycleCountService(
                 "cycle_count.approval_concurrency_conflict",
                 "Inventory or the count task changed during approval. Reload and retry."));
         }
+        catch (Exception exception) when (IsPostgreSqlTransactionConflict(exception))
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            logger.LogInformation(exception, "Concurrent cycle-count approval was rejected by PostgreSQL.");
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Concurrency(
+                "cycle_count.approval_concurrency_conflict",
+                "Another count approval changed inventory or the task. Reload and retry."));
+        }
         catch (ArgumentException exception)
         {
             await transaction.RollbackAsync(CancellationToken.None);
@@ -778,6 +787,20 @@ public sealed class CycleCountService(
         context.CycleCountTasks
             .Include(task => task.Lines)
             .SingleOrDefaultAsync(task => task.Id == taskId, cancellationToken);
+
+    private static bool IsPostgreSqlTransactionConflict(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is PostgresException postgresException &&
+                postgresException.SqlState is "40001" or "40P01")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static InventoryBalanceKey CreateBalanceKey(CycleCountLine line) => new(
         line.WarehouseId,
