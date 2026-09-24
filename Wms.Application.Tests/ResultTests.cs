@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Wms.Application.Common;
 using Wms.Domain.Services;
 using Xunit;
