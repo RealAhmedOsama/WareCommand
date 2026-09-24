@@ -151,6 +151,31 @@ public sealed class ReceiptServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task OpenForReceivingAllocatesDistinctReceiptNumbersFromTheDatabaseSequence()
+    {
+        var first = await _service.OpenForReceivingAsync(
+            CreateReceivingInput(1m) with { ReferenceNumber = "sequence-first" },
+            "receiver-1");
+        var second = await _service.OpenForReceivingAsync(
+            CreateReceivingInput(1m) with { ReferenceNumber = "sequence-second" },
+            "receiver-1");
+
+        first.IsSuccess.Should().BeTrue(first.Error);
+        second.IsSuccess.Should().BeTrue(second.Error);
+        first.Value.DocumentNumber.Should().Be("RCPT-RCPT-WH-000001");
+        second.Value.DocumentNumber.Should().Be("RCPT-RCPT-WH-000002");
+        var sequence = await _context.WarehouseNumberSequences
+            .SingleAsync(value => value.WarehouseId == _warehouse.Id);
+        sequence.NextReceiptNumber.Should().Be(3);
+        sequence.AllocateOrderNumber().Should().Be(1);
+        await _context.SaveChangesAsync();
+        var persisted = await _context.WarehouseNumberSequences.AsNoTracking()
+            .SingleAsync(value => value.WarehouseId == _warehouse.Id);
+        persisted.NextReceiptNumber.Should().Be(3);
+        persisted.NextOrderNumber.Should().Be(2);
+    }
+
+    [Fact]
     public async Task OpenAndFinalize_PreservesExplicitOwnerDimension()
     {
         var owner = new InventoryOwner(

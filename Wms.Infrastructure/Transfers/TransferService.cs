@@ -1000,6 +1000,10 @@ public sealed class TransferService(
         {
             throw;
         }
+        catch (ConcurrencyConflictException exception)
+        {
+            return Result.Failure<T>(WmsErrors.Concurrency(exception.Code, exception.Message));
+        }
         catch (DbUpdateConcurrencyException exception)
         {
             return Result.Failure<T>(WmsErrors.Concurrency("transfer.concurrency_conflict", exception.Message));

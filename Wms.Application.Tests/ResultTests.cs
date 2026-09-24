@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using FluentAssertions;
 using Wms.Application.Common;
 using Wms.Domain.Services;
@@ -61,5 +62,43 @@ public sealed class ResultTests
         result.Code.Should().Be("data.concurrency_conflict");
         result.IsRetryable.Should().BeTrue();
         result.Message.Should().NotContain("Id=7");
+    }
+
+    [Theory]
+    [InlineData("23505", ErrorType.Conflict)]
+    [InlineData("40001", ErrorType.Concurrency)]
+    [InlineData("40P01", ErrorType.Concurrency)]
+    public void PostgreSqlWriteConflictsMapToTypedRetryableErrors(string sqlState, ErrorType expectedType)
+    {
+        var exception = new DbUpdateException(
+            "A database write failed.",
+            new PostgreSqlExceptionStub(sqlState));
+
+        var result = WmsErrors.FromException(
+            exception,
+            "inventory.failed",
+            "The inventory operation failed.");
+
+        result.Type.Should().Be(expectedType);
+        result.IsRetryable.Should().Be(expectedType is ErrorType.Concurrency);
+        result.Message.Should().NotContain(sqlState);
+        result.Message.Should().NotContain("PostgreSqlExceptionStub");
+    }
+
+    [Fact]
+    public void DatabaseUpdateFailureWithoutConflictStateRemainsDependencyError()
+    {
+        var result = WmsErrors.FromException(
+            new DbUpdateException("A database write failed."),
+            "inventory.failed",
+            "The inventory operation failed.");
+
+        result.Type.Should().Be(ErrorType.Dependency);
+        result.Code.Should().Be("data.dependency_failure");
+    }
+
+    private sealed class PostgreSqlExceptionStub(string sqlState) : Exception("PostgreSQL write failed.")
+    {
+        public string SqlState { get; } = sqlState;
     }
 }

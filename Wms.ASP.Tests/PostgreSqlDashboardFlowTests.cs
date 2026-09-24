@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -17,6 +18,7 @@ using Wms.Application.DataGeneration;
 using Wms.Application.Forecasting;
 using Wms.Application.Identity;
 using Wms.Application.Inventory;
+using Wms.Application.Performance;
 using Wms.Application.Recommendations;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -335,18 +337,41 @@ public sealed class PostgreSqlDashboardFlowTests
             Assert.Equal(HttpStatusCode.OK, dashboardData.StatusCode);
 
             var statuses = new System.Collections.Concurrent.ConcurrentBag<HttpStatusCode>();
+            var dashboardLatencies = new System.Collections.Concurrent.ConcurrentBag<double>();
+            var dashboardBatch = Stopwatch.StartNew();
             await Parallel.ForEachAsync(
                 Enumerable.Range(0, 8),
                 new ParallelOptions { MaxDegreeOfParallelism = 4 },
                 async (_, cancellationToken) =>
                 {
+                    var requestWatch = Stopwatch.StartNew();
                     using var response = await client.GetAsync(
                         $"/Dashboard/RefreshData?warehouseId={warehouseId}",
                         cancellationToken);
+                    await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                    requestWatch.Stop();
                     statuses.Add(response.StatusCode);
+                    dashboardLatencies.Add(requestWatch.Elapsed.TotalMilliseconds);
                 });
+            dashboardBatch.Stop();
             Assert.Equal(8, statuses.Count);
             Assert.All(statuses, status => Assert.Equal(HttpStatusCode.OK, status));
+            var orderedDashboardLatencies = dashboardLatencies.Order().ToArray();
+            var loginDashboardBudget = PerformanceWorkloadCatalog.Default.Single(
+                value => value.Workload == PerformanceWorkloadKind.LoginDashboard);
+            static double Percentile(double[] ordered, int percentile)
+            {
+                var index = Math.Clamp((int)Math.Ceiling(percentile / 100d * ordered.Length) - 1, 0, ordered.Length - 1);
+                return Math.Round(ordered[index], 3);
+            }
+            var dashboardP50 = Percentile(orderedDashboardLatencies, 50);
+            var dashboardP95 = Percentile(orderedDashboardLatencies, 95);
+            var dashboardP99 = Percentile(orderedDashboardLatencies, 99);
+            Console.WriteLine(
+                $"postgres-performance-smoke workload=dashboard-refresh samples={orderedDashboardLatencies.Length} concurrency=4 throughputPerSecond={8d / dashboardBatch.Elapsed.TotalSeconds:F3} p50Milliseconds={dashboardP50:F3} p95Milliseconds={dashboardP95:F3} p99Milliseconds={dashboardP99:F3} status=200");
+            Assert.True(
+                (decimal)dashboardP99 <= loginDashboardBudget.MaximumP99Milliseconds,
+                $"Authenticated dashboard refresh p99 {dashboardP99:F3} ms exceeded the existing {loginDashboardBudget.MaximumP99Milliseconds} ms budget.");
 
             using var receivePage = await client.GetAsync("/Receiving/Receive");
             var receiveHtml = await receivePage.Content.ReadAsStringAsync();
@@ -598,7 +623,7 @@ public sealed class PostgreSqlDashboardFlowTests
         return await client.SendAsync(request);
     }
 
-    private sealed class PostgreSqlDashboardApplicationFactory(string baseConnectionString)
+    internal sealed class PostgreSqlDashboardApplicationFactory(string baseConnectionString)
         : WebApplicationFactory<Wms.ASP.Program>
     {
         private readonly string _schema = "wms_dashboard_" + Guid.NewGuid().ToString("N");
@@ -609,6 +634,7 @@ public sealed class PostgreSqlDashboardFlowTests
         private string? _connectionString;
         private bool _ownsSchema;
         public bool RecommendationsEnabled { get; set; }
+        public int? RateLimitPermitLimitOverride { get; set; }
 
         public async Task CreateIsolatedDatabaseAsync()
         {
@@ -719,17 +745,27 @@ public sealed class PostgreSqlDashboardFlowTests
             }
         }
 
-        public void UseExistingSchema(string scopedConnectionString)
+        public void UseExistingSchema(
+            string scopedConnectionString,
+            string applicationName = "WareCommand.GeneratedDataset.BrowserTests",
+            bool pooling = false,
+            int maximumPoolSize = 100)
         {
             if (_connectionString is not null)
             {
                 throw new InvalidOperationException("The dashboard test database was already configured.");
             }
 
+            if (maximumPoolSize is < 1 or > 128)
+            {
+                throw new ArgumentOutOfRangeException(nameof(maximumPoolSize));
+            }
+
             var connectionBuilder = new NpgsqlConnectionStringBuilder(scopedConnectionString)
             {
-                ApplicationName = "WareCommand.GeneratedDataset.BrowserTests",
-                Pooling = false
+                ApplicationName = applicationName,
+                Pooling = pooling,
+                MaxPoolSize = maximumPoolSize
             };
             if (string.IsNullOrWhiteSpace(connectionBuilder.SearchPath) ||
                 !connectionBuilder.SearchPath.StartsWith("wms_test_", StringComparison.Ordinal))
@@ -748,9 +784,18 @@ public sealed class PostgreSqlDashboardFlowTests
             builder.UseSetting("ConnectionStrings:DefaultConnection", _connectionString);
             builder.UseSetting("Wms:DatabaseProvider", "PostgreSql");
             builder.UseSetting("Wms:SeedProfile", "None");
+            if (RateLimitPermitLimitOverride is int configuredPermitLimit)
+            {
+                var configuredValue = configuredPermitLimit.ToString(CultureInfo.InvariantCulture);
+                builder.UseSetting("Security:RateLimiting:GlobalPermitLimit", configuredValue);
+                builder.UseSetting("Security:RateLimiting:ReportPermitLimit", configuredValue);
+                builder.UseSetting("Security:RateLimiting:ApiPermitLimit", configuredValue);
+                builder.UseSetting("Security:RateLimiting:ScanningPermitLimit", configuredValue);
+                builder.UseSetting("Security:RateLimiting:ImportPermitLimit", configuredValue);
+            }
             builder.ConfigureAppConfiguration((_, configuration) =>
             {
-                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                var settings = new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:DefaultConnection"] = _connectionString,
                     ["Wms:DatabaseProvider"] = "PostgreSql",
@@ -765,7 +810,18 @@ public sealed class PostgreSqlDashboardFlowTests
                     ["Recommendations:ShadowMode"] = "true",
                     ["Recommendations:ProviderName"] = "deterministic-wms",
                     ["AllowedHosts"] = "*"
-                });
+                };
+                if (RateLimitPermitLimitOverride is int permitLimit)
+                {
+                    var value = permitLimit.ToString(CultureInfo.InvariantCulture);
+                    settings["Security:RateLimiting:GlobalPermitLimit"] = value;
+                    settings["Security:RateLimiting:ReportPermitLimit"] = value;
+                    settings["Security:RateLimiting:ApiPermitLimit"] = value;
+                    settings["Security:RateLimiting:ScanningPermitLimit"] = value;
+                    settings["Security:RateLimiting:ImportPermitLimit"] = value;
+                }
+
+                configuration.AddInMemoryCollection(settings);
             });
         }
     }

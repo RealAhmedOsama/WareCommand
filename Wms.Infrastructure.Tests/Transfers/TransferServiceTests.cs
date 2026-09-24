@@ -190,6 +190,46 @@ public sealed class TransferServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task InternalMovement_ReportsPersistenceConcurrencyAsRetryableConflict()
+    {
+        var conflict = new ConcurrencyConflictException(nameof(Stock), $"Id={_item.Id}");
+        var unitOfWork = new Mock<IUnitOfWork>();
+        unitOfWork
+            .Setup(value => value.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        unitOfWork
+            .Setup(value => value.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(conflict);
+        unitOfWork
+            .Setup(value => value.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var service = new TransferService(
+            _context,
+            unitOfWork.Object,
+            _access.Object,
+            _audit.Object,
+            _ledger,
+            _clock,
+            NullLogger<TransferService>.Instance);
+        var result = await service.MoveAsync(
+            new InternalMovementInput(
+                _sourceWarehouse.Id,
+                _item.Id,
+                1m,
+                "EA",
+                _source.Id,
+                _internalDestination.Id,
+                "internal-tr-concurrency"),
+            "operator-1");
+
+        result.IsFailure.Should().BeTrue();
+        result.FirstError!.Type.Should().Be(ErrorType.Concurrency);
+        result.FirstError.Code.Should().Be(conflict.Code);
+        result.FirstError.IsRetryable.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task TransferRejectsDestinationWarehouseMismatch_BeforeChangingStock()
     {
         var result = await _service.CreateAsync(

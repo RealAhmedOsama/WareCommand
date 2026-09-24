@@ -449,6 +449,12 @@ public sealed class SalesOrderAllocationService(
                 "allocation.concurrency_conflict",
                 "Inventory or order data changed while allocation was running. Retry the allocation."));
         }
+        catch (ConcurrencyConflictException exception)
+        {
+            return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.Concurrency(
+                exception.Code,
+                exception.Message));
+        }
         catch (ArgumentException exception)
         {
             return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.Validation(

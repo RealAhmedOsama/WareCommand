@@ -14,6 +14,7 @@ using Wms.Application.Workforce;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
+using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
 using WarehouseWorkEntity = Wms.Domain.Entities.WarehouseWork;
 
@@ -170,6 +171,12 @@ public sealed class WarehouseWorkService(
                 "work.putaway_generation_invalid",
                 exception.Message));
         }
+        catch (ConcurrencyConflictException exception)
+        {
+            return Result.Failure<IReadOnlyList<WarehouseWorkDto>>(WmsErrors.Concurrency(
+                exception.Code,
+                exception.Message));
+        }
         catch (InvalidOperationException exception)
         {
             return Result.Failure<IReadOnlyList<WarehouseWorkDto>>(WmsErrors.BusinessRule(
@@ -306,6 +313,12 @@ public sealed class WarehouseWorkService(
         {
             return Result.Failure<WarehouseWorkDto>(WmsErrors.Validation(
                 "work.invalid",
+                exception.Message));
+        }
+        catch (ConcurrencyConflictException exception)
+        {
+            return Result.Failure<WarehouseWorkDto>(WmsErrors.Concurrency(
+                exception.Code,
                 exception.Message));
         }
         catch (InvalidOperationException exception)
@@ -806,6 +819,12 @@ public sealed class WarehouseWorkService(
                 "work.completion_invalid",
                 exception.Message));
         }
+        catch (ConcurrencyConflictException exception)
+        {
+            return Result.Failure<WarehouseWorkDto>(WmsErrors.Concurrency(
+                exception.Code,
+                exception.Message));
+        }
         catch (InvalidOperationException exception)
         {
             return Result.Failure<WarehouseWorkDto>(WmsErrors.BusinessRule(
@@ -920,6 +939,12 @@ public sealed class WarehouseWorkService(
         {
             return Result.Failure<WarehouseWorkDto>(WmsErrors.Validation(
                 "work.command_invalid",
+                exception.Message));
+        }
+        catch (ConcurrencyConflictException exception)
+        {
+            return Result.Failure<WarehouseWorkDto>(WmsErrors.Concurrency(
+                exception.Code,
                 exception.Message));
         }
         catch (InvalidOperationException exception)

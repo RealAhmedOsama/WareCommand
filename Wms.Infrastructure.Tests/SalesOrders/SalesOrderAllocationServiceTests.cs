@@ -153,6 +153,37 @@ public sealed class SalesOrderAllocationServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AllocationReturnsRetryableConcurrencyErrorForReservationVersionConflict()
+    {
+        var order = await CreateOrderAsync(1m, allowPartialShipment: true);
+        var reservations = new Mock<IInventoryReservationService>();
+        reservations
+            .Setup(service => service.ReserveAsync(
+                It.IsAny<InventoryReservationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ConcurrencyConflictException(
+                nameof(InventoryReservation),
+                "Id=41"));
+        var service = new SalesOrderAllocationService(
+            _context,
+            _access.Object,
+            reservations.Object,
+            _work,
+            _audit.Object,
+            NullLogger<SalesOrderAllocationService>.Instance);
+
+        var result = await service.AllocateAsync(
+            order.Id,
+            new SalesOrderAllocationCommand(IdempotencyKey: "allocate-concurrency-conflict"),
+            "allocator-1");
+
+        result.IsFailure.Should().BeTrue();
+        result.FirstError!.Type.Should().Be(ErrorType.Concurrency);
+        result.FirstError.Code.Should().Be("data.concurrency_conflict");
+        result.FirstError.IsRetryable.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task SimulationExplainsShortageWithoutChangingReservationsOrOrder()
     {
         await SeedInventoryAsync(2m, "alloc-receipt-2");

@@ -35,6 +35,7 @@ public static class WmsErrors
     {
         ArgumentNullException.ThrowIfNull(exception);
 
+        var containsDatabaseUpdateException = false;
         for (var current = exception; current is not null; current = current.InnerException)
         {
             if (current is LocationConstraintViolationException locationConstraint)
@@ -57,6 +58,7 @@ public static class WmsErrors
 
             if (exceptionType.Name == "DbUpdateException")
             {
+                containsDatabaseUpdateException = true;
                 var sqlState = exceptionType.GetProperty("SqlState")?.GetValue(current) as string;
                 if (sqlState == "23505" ||
                     current.Message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase))
@@ -66,13 +68,35 @@ public static class WmsErrors
                         "The requested change conflicts with existing data.");
                 }
 
-                return Dependency(
-                    "data.dependency_failure",
-                    "The data service could not complete the request. Please try again.");
+                if (sqlState is "40001" or "40P01")
+                {
+                    return Concurrency(
+                        "data.concurrency_conflict",
+                        "The record changed while you were working. Reload it and try again.");
+                }
+            }
+
+            var providerSqlState = exceptionType.GetProperty("SqlState")?.GetValue(current) as string;
+            if (providerSqlState == "23505")
+            {
+                return Conflict(
+                    "data.conflict",
+                    "The requested change conflicts with existing data.");
+            }
+
+            if (providerSqlState is "40001" or "40P01")
+            {
+                return Concurrency(
+                    "data.concurrency_conflict",
+                    "The record changed while you were working. Reload it and try again.");
             }
         }
 
-        return Unexpected(code, safeMessage);
+        return containsDatabaseUpdateException
+            ? Dependency(
+                "data.dependency_failure",
+                "The data service could not complete the request. Please try again.")
+            : Unexpected(code, safeMessage);
     }
 
     public static ResultError Validation(

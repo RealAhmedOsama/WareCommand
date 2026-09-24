@@ -24,4 +24,23 @@ foreach ($required in @(
     }
 }
 
+if ($output -match 'provider-group=performance') {
+    throw 'The full PostgreSQL performance qualification must stay outside the default provider group.'
+}
+
+$performanceOutput = & pwsh -NoProfile -File $script -PlanOnly -Group performance -PerformanceSamples 20 -PerformanceRepeats 2 2>&1 | Out-String
+if ($LASTEXITCODE -ne 0) {
+    throw "PostgreSQL performance plan contract failed to execute: $performanceOutput"
+}
+foreach ($required in @(
+        'provider-group=performance',
+        'filter=FullyQualifiedName~Wms.ASP.Tests.PostgreSqlPerformanceQualificationTests',
+        'performance-repeats=2',
+        'performance-samples-per-level=20',
+        'extended-contention=False')) {
+    if ($performanceOutput -notmatch [regex]::Escape($required)) {
+        throw "PostgreSQL performance plan is missing '$required'. Output: $performanceOutput"
+    }
+}
+
 Write-Host 'PostgreSQL group plan contract passed.'

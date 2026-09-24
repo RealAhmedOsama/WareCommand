@@ -1601,17 +1601,50 @@ public sealed class ReceiptService : IReceiptService
         Warehouse warehouse,
         CancellationToken cancellationToken)
     {
-        var sequence = await _context.WarehouseNumberSequences.FirstOrDefaultAsync(
-            candidate => candidate.WarehouseId == warehouse.Id,
-            cancellationToken);
-        if (sequence is null)
+        var updatedAt = _clock.UtcNow.UtcDateTime;
+        var rowsUpdated = await _context.WarehouseNumberSequences
+            .Where(sequence => sequence.WarehouseId == warehouse.Id &&
+                               sequence.NextReceiptNumber < long.MaxValue)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(sequence => sequence.NextReceiptNumber, sequence => sequence.NextReceiptNumber + 1)
+                .SetProperty(sequence => sequence.Revision, sequence => sequence.Revision + 1)
+                .SetProperty(sequence => sequence.UpdatedAt, updatedAt),
+                cancellationToken);
+
+        long allocatedNumber;
+        if (rowsUpdated == 1)
         {
-            sequence = new WarehouseNumberSequence(warehouse.Id);
+            var nextNumber = await _context.WarehouseNumberSequences.AsNoTracking()
+                .Where(sequence => sequence.WarehouseId == warehouse.Id)
+                .Select(sequence => sequence.NextReceiptNumber)
+                .SingleAsync(cancellationToken);
+            var trackedSequence = _context.ChangeTracker
+                .Entries<WarehouseNumberSequence>()
+                .FirstOrDefault(entry => entry.Entity.WarehouseId == warehouse.Id);
+            if (trackedSequence is not null)
+            {
+                await trackedSequence.ReloadAsync(cancellationToken);
+            }
+
+            allocatedNumber = nextNumber - 1;
+        }
+        else
+        {
+            var currentNumber = await _context.WarehouseNumberSequences.AsNoTracking()
+                .Where(sequence => sequence.WarehouseId == warehouse.Id)
+                .Select(sequence => (long?)sequence.NextReceiptNumber)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (currentNumber.HasValue)
+            {
+                throw new InvalidOperationException("The warehouse receipt number sequence is exhausted.");
+            }
+
+            var sequence = new WarehouseNumberSequence(warehouse.Id);
+            allocatedNumber = sequence.AllocateReceiptNumber();
             _context.WarehouseNumberSequences.Add(sequence);
         }
 
-        var number = sequence.AllocateReceiptNumber();
-        return $"RCPT-{warehouse.Code}-{number:D6}";
+        return $"RCPT-{warehouse.Code}-{allocatedNumber:D6}";
     }
 
     private static QuantityConversionSnapshot EnsureConversionSnapshot(Quantity quantity, Item item)

@@ -8,6 +8,7 @@ using Wms.Application.Putaway;
 using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Repositories;
 using Wms.Infrastructure.WarehouseWork;
@@ -171,6 +172,35 @@ public sealed class WarehouseWorkServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CompletionMapsDomainConcurrencyConflictToRetryableConcurrencyResult()
+    {
+        var created = await _service.CreateAsync(CreateInput("completion-concurrency"), "creator-1");
+        var assigned = await _service.AssignAsync(
+            created.Value.Id,
+            new WarehouseWorkAssignmentInput("worker-1", null, "assign-concurrency"),
+            "manager-1");
+        var started = await _service.StartAsync(
+            created.Value.Id,
+            new WarehouseWorkCommandInput("start-concurrency"),
+            "worker-1");
+        _handler.ExceptionToThrow = new ConcurrencyConflictException(
+            nameof(WarehouseWorkEntity),
+            $"Id={created.Value.Id}");
+
+        var result = await _service.CompleteAsync(
+            created.Value.Id,
+            new WarehouseWorkCompletionInput("complete-concurrency"),
+            "worker-1");
+
+        assigned.IsSuccess.Should().BeTrue(assigned.Error);
+        started.IsSuccess.Should().BeTrue(started.Error);
+        result.IsFailure.Should().BeTrue();
+        result.FirstError!.Type.Should().Be(ErrorType.Concurrency);
+        result.FirstError.Code.Should().Be("data.concurrency_conflict");
+        result.FirstError.IsRetryable.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task EnsurePutawayForReceiptIsIdempotentAndAvailable()
     {
         _putawayRules
@@ -256,6 +286,7 @@ public sealed class WarehouseWorkServiceTests : IDisposable
     {
         public WarehouseWorkType WorkType => WarehouseWorkType.Putaway;
         public int ExecutionCount { get; private set; }
+        public Exception? ExceptionToThrow { get; set; }
 
         public Task<Result<WarehouseWorkHandlerResult>> ExecuteAsync(
             WarehouseWorkEntity work,
@@ -264,6 +295,11 @@ public sealed class WarehouseWorkServiceTests : IDisposable
             CancellationToken cancellationToken = default)
         {
             ExecutionCount++;
+            if (ExceptionToThrow is { } exception)
+            {
+                throw exception;
+            }
+
             var actualLines = input.Lines ?? work.Lines
                 .Select(line => new WarehouseWorkLineActualInput(line.Id, line.PlannedQuantity))
                 .ToArray();

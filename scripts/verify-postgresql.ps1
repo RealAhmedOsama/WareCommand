@@ -2,9 +2,14 @@
 param(
     [int]$Port = 55432,
     [string]$ContainerName = "warecommand-postgres-test-$([Guid]::NewGuid().ToString('N'))",
-    [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience')]
+    [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience', 'performance')]
     [string]$Group = 'all',
     [string]$TestName,
+    [ValidateRange(10, 100)]
+    [int]$PerformanceSamples = 40,
+    [ValidateRange(2, 5)]
+    [int]$PerformanceRepeats = 2,
+    [switch]$ExtendedContention,
     [switch]$PlanOnly,
     [string]$EvidencePath
 )
@@ -62,6 +67,11 @@ $providerGroups = [ordered]@{
         filter = 'FullyQualifiedName~Wms.ASP.Tests.PostgreSqlRuntimeResilienceTests'
         expectedClass = 'Wms.ASP.Tests.PostgreSqlRuntimeResilienceTests.'
     }
+    performance = [pscustomobject]@{
+        testProject = $dashboardTestProject
+        filter = 'FullyQualifiedName~Wms.ASP.Tests.PostgreSqlPerformanceQualificationTests'
+        expectedClass = 'Wms.ASP.Tests.PostgreSqlPerformanceQualificationTests.'
+    }
 }
 $selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience') } else { @($Group) }
 if (-not [string]::IsNullOrWhiteSpace($TestName) -and $TestName -notmatch '^[A-Za-z0-9_]+$') {
@@ -80,6 +90,11 @@ if ($PlanOnly) {
             $plannedFilter += "&FullyQualifiedName~$TestName"
         }
         Write-Output "filter=$plannedFilter"
+        if ($groupName -eq 'performance') {
+            Write-Output "performance-repeats=$PerformanceRepeats"
+            Write-Output "performance-samples-per-level=$PerformanceSamples"
+            Write-Output "extended-contention=$($ExtendedContention.IsPresent)"
+        }
     }
     exit 0
 }
@@ -89,6 +104,10 @@ $previousTestContainerName = $env:WARECOMMAND_TEST_POSTGRES_CONTAINER
 $previousDataGenerationEvidencePath = $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH
 $previousJourneyEvidencePath = $env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH
 $previousResilienceEvidencePath = $env:WARECOMMAND_POSTGRES_RESILIENCE_EVIDENCE_PATH
+$previousPerformanceEvidencePath = $env:WARECOMMAND_PERFORMANCE_EVIDENCE_PATH
+$previousPerformanceRepeats = $env:WARECOMMAND_PERF_REPEATS
+$previousPerformanceSamples = $env:WARECOMMAND_PERF_SAMPLES
+$previousPerformanceExtendedContention = $env:WARECOMMAND_PERF_EXTENDED_CONTENTION
 $previousVerificationRevision = $env:WARECOMMAND_VERIFICATION_REVISION
 $password = $env:WARECOMMAND_TEST_POSTGRES_PASSWORD
 $locationPushed = $false
@@ -97,6 +116,9 @@ $containerId = $null
 $dataGenReportPath = $null
 $journeyReportPath = $null
 $resilienceReportPath = $null
+$performanceReportPath = $null
+$performanceEvidence = $null
+$verificationFailure = $null
 if ($selectedGroupNames -contains 'data-generation') {
     $dataGenReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-data-generation-$([Guid]::NewGuid().ToString('N')).json"
     $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH = $dataGenReportPath
@@ -108,6 +130,13 @@ if ($selectedGroupNames -contains 'journeys') {
 if ($selectedGroupNames -contains 'resilience') {
     $resilienceReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-postgresql-resilience-$([Guid]::NewGuid().ToString('N')).json"
     $env:WARECOMMAND_POSTGRES_RESILIENCE_EVIDENCE_PATH = $resilienceReportPath
+}
+if ($selectedGroupNames -contains 'performance') {
+    $performanceReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-postgresql-performance-$([Guid]::NewGuid().ToString('N')).json"
+    $env:WARECOMMAND_PERFORMANCE_EVIDENCE_PATH = $performanceReportPath
+    $env:WARECOMMAND_PERF_REPEATS = $PerformanceRepeats.ToString([System.Globalization.CultureInfo]::InvariantCulture)
+    $env:WARECOMMAND_PERF_SAMPLES = $PerformanceSamples.ToString([System.Globalization.CultureInfo]::InvariantCulture)
+    $env:WARECOMMAND_PERF_EXTENDED_CONTENTION = $ExtendedContention.IsPresent.ToString().ToLowerInvariant()
 }
 if ([string]::IsNullOrWhiteSpace($password)) {
     $password = [Guid]::NewGuid().ToString('N')
@@ -197,7 +226,7 @@ try {
         $exitCode = $LASTEXITCODE
         $stopwatch.Stop()
         if ($exitCode -ne 0) {
-            throw "PostgreSQL integration group '$groupName' failed with exit code $exitCode."
+            $verificationFailure = "PostgreSQL integration group '$groupName' failed with exit code $exitCode."
         }
 
         $results += [pscustomobject]@{
@@ -206,6 +235,9 @@ try {
             filter = $filter
             durationSeconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
             exitCode = $exitCode
+        }
+        if ($null -ne $verificationFailure) {
+            break
         }
     }
 
@@ -224,6 +256,22 @@ try {
     if ($null -ne $resilienceReportPath -and (Test-Path -LiteralPath $resilienceReportPath -PathType Leaf)) {
         $resilienceReports = @(Get-Content -LiteralPath $resilienceReportPath -Raw | ConvertFrom-Json)
     }
+    if ($null -ne $performanceReportPath -and (Test-Path -LiteralPath $performanceReportPath -PathType Leaf)) {
+        $performanceEvidence = Get-Content -LiteralPath $performanceReportPath -Raw | ConvertFrom-Json
+    }
+    $performanceConfiguration = $null
+    if ($Group -eq 'performance') {
+        $performanceConcurrencyLevels = @(1, 4, 20)
+        if ($ExtendedContention.IsPresent) {
+            $performanceConcurrencyLevels = @(1, 4, 20, 50, 100)
+        }
+        $performanceConfiguration = [pscustomobject]@{
+            repeats = $PerformanceRepeats
+            samplesPerConcurrencyLevel = $PerformanceSamples
+            extendedContentionRequested = $ExtendedContention.IsPresent
+            concurrencyLevels = $performanceConcurrencyLevels
+        }
+    }
     $evidence = [pscustomobject]@{
         schema = 'wms-postgresql-provider-v1'
         revision = $revision
@@ -237,9 +285,11 @@ try {
         dataGenerationReports = $dataGenerationReports
         journeyReports = $journeyReports
         resilienceReports = $resilienceReports
+        performanceConfiguration = $performanceConfiguration
+        performanceEvidence = $performanceEvidence
         cleanup = 'owned container removed in finally; fixture-owned schema dropped by test fixture'
     }
-    $json = $evidence | ConvertTo-Json -Depth 6
+    $json = $evidence | ConvertTo-Json -Depth 12
     Write-Output $json
     if (-not [string]::IsNullOrWhiteSpace($EvidencePath)) {
         $evidenceDirectory = Split-Path -Parent $EvidencePath
@@ -247,6 +297,9 @@ try {
             New-Item -ItemType Directory -Force -Path $evidenceDirectory | Out-Null
         }
         Set-Content -Path $EvidencePath -Value $json -Encoding utf8
+    }
+    if ($null -ne $verificationFailure) {
+        throw $verificationFailure
     }
 }
 finally {
@@ -283,6 +336,30 @@ finally {
     else {
         Remove-Item Env:WARECOMMAND_POSTGRES_RESILIENCE_EVIDENCE_PATH -ErrorAction SilentlyContinue
     }
+    if ($null -ne $previousPerformanceEvidencePath) {
+        $env:WARECOMMAND_PERFORMANCE_EVIDENCE_PATH = $previousPerformanceEvidencePath
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_PERFORMANCE_EVIDENCE_PATH -ErrorAction SilentlyContinue
+    }
+    if ($null -ne $previousPerformanceRepeats) {
+        $env:WARECOMMAND_PERF_REPEATS = $previousPerformanceRepeats
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_PERF_REPEATS -ErrorAction SilentlyContinue
+    }
+    if ($null -ne $previousPerformanceSamples) {
+        $env:WARECOMMAND_PERF_SAMPLES = $previousPerformanceSamples
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_PERF_SAMPLES -ErrorAction SilentlyContinue
+    }
+    if ($null -ne $previousPerformanceExtendedContention) {
+        $env:WARECOMMAND_PERF_EXTENDED_CONTENTION = $previousPerformanceExtendedContention
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_PERF_EXTENDED_CONTENTION -ErrorAction SilentlyContinue
+    }
     if ($null -ne $previousVerificationRevision) {
         $env:WARECOMMAND_VERIFICATION_REVISION = $previousVerificationRevision
     }
@@ -312,6 +389,15 @@ finally {
         $fullReportPath = [System.IO.Path]::GetFullPath($resilienceReportPath)
         if ($fullReportPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
             [System.IO.Path]::GetFileName($fullReportPath).StartsWith('warecommand-postgresql-resilience-', [System.StringComparison]::Ordinal) -and
+            (Test-Path -LiteralPath $fullReportPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $fullReportPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ($null -ne $performanceReportPath) {
+        $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([char[]]@('\', '/')) + [System.IO.Path]::DirectorySeparatorChar
+        $fullReportPath = [System.IO.Path]::GetFullPath($performanceReportPath)
+        if ($fullReportPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+            [System.IO.Path]::GetFileName($fullReportPath).StartsWith('warecommand-postgresql-performance-', [System.StringComparison]::Ordinal) -and
             (Test-Path -LiteralPath $fullReportPath -PathType Leaf)) {
             Remove-Item -LiteralPath $fullReportPath -Force -ErrorAction SilentlyContinue
         }
