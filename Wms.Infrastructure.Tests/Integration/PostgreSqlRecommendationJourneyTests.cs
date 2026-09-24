@@ -237,8 +237,28 @@ public sealed partial class PostgreSqlJourneyTests
             Status: RecommendationStatus.Executed));
         Assert.True(persistedSearch.IsSuccess, persistedSearch.FirstError?.Message);
         Assert.Contains(persistedSearch.Value.Items, value => value.RecommendationId == proposal.RecommendationId);
+        Assert.Equal(1, await context.UserWarehouseAssignments
+            .Where(value => value.UserId == actor.Id && value.WarehouseId == warehouseId)
+            .ExecuteDeleteAsync());
+        using var outOfScope = restartedProvider.CreateScope();
+        var outOfScopeService = await CreateSignedInGovernanceServiceAsync(
+            outOfScope.ServiceProvider,
+            actor.Id);
+        var hiddenSearch = await outOfScopeService.Service.SearchAsync(new RecommendationQuery(
+            Type: RecommendationType.Replenishment,
+            Status: RecommendationStatus.Executed));
+        Assert.True(hiddenSearch.IsSuccess, hiddenSearch.FirstError?.Message);
+        Assert.DoesNotContain(hiddenSearch.Value.Items, value => value.RecommendationId == proposal.RecommendationId);
+        var deniedRecord = await outOfScopeService.Service.GetAsync(proposal.RecommendationId);
+        Assert.True(deniedRecord.IsFailure);
+        var deniedWarehouseSearch = await outOfScopeService.Service.SearchAsync(new RecommendationQuery(
+            WarehouseId: warehouseId,
+            Type: RecommendationType.Replenishment,
+            Status: RecommendationStatus.Executed));
+        Assert.True(deniedWarehouseSearch.IsFailure);
         outcomes.Add("execution=authorized-normal-work-created-and-response-loss-replay-reused-one-command");
         outcomes.Add("persistence=fresh-service-provider-reloaded-record-history-and-authorized-search");
+        outcomes.Add("authorization=warehouse-unassignment-hides-search-and-denies-record-and-warehouse-query");
         outcomes.Add("review-history=persisted-with-sensitive-comment-values-redacted");
 
         WriteJourneyEvidence(new PostgreSqlJourneyEvidence(

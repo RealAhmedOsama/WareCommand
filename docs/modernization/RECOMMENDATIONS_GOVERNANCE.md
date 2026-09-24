@@ -45,8 +45,10 @@ conflict to the loser, execution creates one authorized replenishment work
 item, response-loss replay reuses that work, and inventory and reservations
 remain unchanged until normal work completion. A fresh service provider reloads
 the executed record, complete history, and warehouse-scoped search result from
-PostgreSQL. Review history redacts sensitive comment values. Deep inventory
-reconciliation runs after each lifecycle transition.
+PostgreSQL. Removing the actor's warehouse assignment hides the proposal from
+unscoped search and denies direct record and explicit warehouse reads. Review
+history redacts sensitive comment values. Deep inventory reconciliation runs
+after each lifecycle transition.
 
 ## Provider and operating controls
 
