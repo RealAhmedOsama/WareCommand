@@ -1,6 +1,9 @@
+using System.Globalization;
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +16,8 @@ using Wms.Application.AnomalyDetection;
 using Wms.Application.DataGeneration;
 using Wms.Application.Forecasting;
 using Wms.Application.Identity;
+using Wms.Application.Inventory;
+using Wms.Application.Recommendations;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
@@ -26,7 +31,14 @@ namespace Wms.ASP.Tests;
 
 public sealed class PostgreSqlDashboardFlowTests
 {
-    private static readonly JsonSerializerOptions AssistantJsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions AssistantJsonOptions = CreateJsonOptions();
+
+    private static JsonSerializerOptions CreateJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new JsonStringEnumConverter());
+        return options;
+    }
 
     [PostgreSqlDashboardFact]
     public async Task DashboardPageAndRefreshUsePersistedPostgreSqlReceiptData()
@@ -366,6 +378,226 @@ public sealed class PostgreSqlDashboardFlowTests
         }
     }
 
+    [PostgreSqlDashboardFact]
+    public async Task AuthorizedRecommendationHttpLifecycleUsesPostgreSqlAndCreatesNormalWork()
+    {
+        var baseConnectionString = Environment.GetEnvironmentVariable(
+            "WARECOMMAND_TEST_POSTGRES_CONNECTION")!;
+        await using var target = new PostgreSqlTestDatabase();
+        await target.InitializeAsync();
+        var fixture = await DeterministicPostgreSqlDataGenerationFixture.WriteWithActorCredentialsAsync(
+            target,
+            new DataGenerationRequest(
+                WmsDataGenerationProfiles.IntegrationTest,
+                "issue-128-recommendation-http",
+                Environment: "Testing",
+                Locale: "en-US"));
+        var factory = new PostgreSqlDashboardApplicationFactory(baseConnectionString)
+        {
+            RecommendationsEnabled = true
+        };
+        try
+        {
+            factory.UseExistingSchema(target.TestConnectionString);
+            using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+            {
+                AllowAutoRedirect = false,
+                HandleCookies = true
+            });
+            using var login = await AuthenticationFlowTests.PostLoginAsync(
+                client,
+                fixture.ActorCredentials.UserName,
+                fixture.ActorCredentials.Password);
+            Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+
+            int warehouseId;
+            int itemId;
+            int destinationLocationId;
+            InventoryReplenishmentPolicyInput policyInput;
+            using (var scope = factory.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                var context = services.GetRequiredService<WmsDbContext>();
+                warehouseId = await context.UserWarehouseAssignments.AsNoTracking()
+                    .Where(value => value.UserId == fixture.ActorCredentials.UserId)
+                    .Select(value => value.WarehouseId)
+                    .OrderBy(value => value)
+                    .FirstAsync();
+                var source = await context.InventoryBalances.AsNoTracking()
+                    .Include(value => value.Item)
+                    .Include(value => value.Location)
+                    .Where(value => value.WarehouseId == warehouseId &&
+                                    value.Location.Type == LocationType.Storage &&
+                                    value.Location.IsActive &&
+                                    value.Location.IsPickable &&
+                                    value.Item.IsActive &&
+                                    !value.Item.RequiresLot &&
+                                    !value.Item.RequiresSerial &&
+                                    value.LotId == null &&
+                                    value.SerialNumberId == null &&
+                                    value.LicensePlateId == null &&
+                                    value.InventoryStatusId == InventoryStatusSystemIds.Available &&
+                                    value.OwnerKind == InventoryOwnerKind.CompanyOwned &&
+                                    value.InventoryOwnerId == null &&
+                                    value.OwnerCodeSnapshot == InventoryOwnershipDimension.CompanyOwnerCode)
+                    .OrderBy(value => value.ItemId)
+                    .ThenBy(value => value.LocationId)
+                    .FirstAsync(value => value.OnHandQuantity - value.ReservedQuantity >= 1m);
+                var destination = await context.Locations.AsNoTracking()
+                    .Where(value => value.WarehouseId == warehouseId &&
+                                    value.Type == LocationType.Storage &&
+                                    value.Id != source.LocationId &&
+                                    value.IsActive &&
+                                    value.IsPickable)
+                    .OrderBy(value => value.Id)
+                    .FirstAsync();
+                var destinationQuantity = await context.InventoryBalances.AsNoTracking()
+                    .Where(value => value.LocationId == destination.Id && value.ItemId == source.ItemId)
+                    .Select(value => (decimal?)value.OnHandQuantity)
+                    .SumAsync() ?? 0m;
+                var targetQuantity = destinationQuantity + 1m;
+                policyInput = new InventoryReplenishmentPolicyInput(
+                    source.ItemId,
+                    warehouseId,
+                    destination.Id,
+                    MinimumQuantity: 0m,
+                    MaximumQuantity: targetQuantity + 100m,
+                    SafetyStockQuantity: 0m,
+                    ReorderPointQuantity: targetQuantity,
+                    TargetQuantity: targetQuantity,
+                    QuantityBasis: InventoryPolicyQuantityBasis.PhysicalAvailable,
+                    EffectiveFromUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+                itemId = source.ItemId;
+                destinationLocationId = destination.Id;
+            }
+
+            using var itemsPage = await client.GetAsync("/Items");
+            var itemsHtml = await itemsPage.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.OK, itemsPage.StatusCode);
+            var tokenMatch = Regex.Match(
+                itemsHtml,
+                "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            Assert.True(tokenMatch.Success, "Could not read the recommendation API antiforgery token.");
+            var antiforgeryToken = WebUtility.HtmlDecode(tokenMatch.Groups[1].Value);
+
+            using var policyResponse = await PostRecommendationAsync(
+                client,
+                "/api/inventory/replenishment-policies",
+                policyInput,
+                antiforgeryToken);
+            var policyBody = await policyResponse.Content.ReadAsStringAsync();
+            Assert.True(policyResponse.StatusCode == HttpStatusCode.OK,
+                $"Replenishment policy creation returned {(int)policyResponse.StatusCode}: {policyBody}");
+            var savedPolicy = JsonSerializer.Deserialize<InventoryReplenishmentPolicyDto>(policyBody, AssistantJsonOptions);
+            Assert.NotNull(savedPolicy);
+            var policyId = savedPolicy.Id;
+
+            using var generate = await PostRecommendationAsync(
+                client,
+                "/api/recommendations/replenishment/generate",
+                new { warehouseId, limit = 10 },
+                antiforgeryToken);
+            var generateBody = await generate.Content.ReadAsStringAsync();
+            Assert.True(generate.StatusCode == HttpStatusCode.OK,
+                $"Recommendation generation returned {(int)generate.StatusCode}: {generateBody}");
+            var generated = JsonSerializer.Deserialize<RecommendationRecord[]>(generateBody, AssistantJsonOptions);
+            var proposal = Assert.Single(generated!);
+            Assert.Equal(RecommendationStatus.Proposed, proposal.Status);
+            Assert.Equal(policyId.ToString(CultureInfo.InvariantCulture), proposal.Action.TargetReference);
+
+            using var list = await client.GetAsync(
+                $"/api/recommendations?warehouseId={warehouseId}&type=Replenishment&status=Proposed");
+            Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+            var listed = await list.Content.ReadFromJsonAsync<RecommendationPage>(AssistantJsonOptions);
+            Assert.NotNull(listed);
+            Assert.Contains(listed.Items, value => value.RecommendationId == proposal.RecommendationId);
+
+            using var review = await PostRecommendationAsync(
+                client,
+                $"/api/recommendations/{proposal.RecommendationId}/review",
+                new
+                {
+                    expectedRevision = proposal.Revision,
+                    idempotencyKey = "issue-128-http-review",
+                    comment = "Reviewed against the current deterministic replenishment policy."
+                },
+                antiforgeryToken);
+            var reviewBody = await review.Content.ReadAsStringAsync();
+            Assert.True(review.StatusCode == HttpStatusCode.OK,
+                $"Recommendation review returned {(int)review.StatusCode}: {reviewBody}");
+            var reviewed = await review.Content.ReadFromJsonAsync<RecommendationRecord>(AssistantJsonOptions);
+            Assert.NotNull(reviewed);
+            Assert.Equal(RecommendationStatus.Reviewed, reviewed.Status);
+
+            using var approve = await PostRecommendationAsync(
+                client,
+                $"/api/recommendations/{proposal.RecommendationId}/approve",
+                new { expectedRevision = reviewed.Revision, idempotencyKey = "issue-128-http-approve" },
+                antiforgeryToken);
+            var approveBody = await approve.Content.ReadAsStringAsync();
+            Assert.True(approve.StatusCode == HttpStatusCode.OK,
+                $"Recommendation approval returned {(int)approve.StatusCode}: {approveBody}");
+            var approved = await approve.Content.ReadFromJsonAsync<RecommendationRecord>(AssistantJsonOptions);
+            Assert.NotNull(approved);
+            Assert.Equal(RecommendationStatus.Approved, approved.Status);
+
+            using var execute = await PostRecommendationAsync(
+                client,
+                $"/api/recommendations/{proposal.RecommendationId}/execute",
+                new { expectedRevision = approved.Revision, idempotencyKey = "issue-128-http-execute" },
+                antiforgeryToken);
+            var executeBody = await execute.Content.ReadAsStringAsync();
+            Assert.True(execute.StatusCode == HttpStatusCode.OK,
+                $"Recommendation execution returned {(int)execute.StatusCode}: {executeBody}");
+            var executed = JsonSerializer.Deserialize<RecommendationRecord>(executeBody, AssistantJsonOptions);
+            Assert.NotNull(executed);
+            Assert.Equal(RecommendationStatus.Executed, executed.Status);
+            Assert.StartsWith("warehouse-work:", executed.ExecutionReference, StringComparison.Ordinal);
+
+            using var historyResponse = await client.GetAsync(
+                $"/api/recommendations/{proposal.RecommendationId}/history");
+            Assert.Equal(HttpStatusCode.OK, historyResponse.StatusCode);
+            var history = await historyResponse.Content.ReadFromJsonAsync<RecommendationHistoryEntry[]>(AssistantJsonOptions);
+            Assert.NotNull(history);
+            Assert.Equal(["created", "reviewed", "approved", "executed"],
+                history.Select(value => value.EventType));
+
+            using (var scope = factory.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<WmsDbContext>();
+                Assert.Single(await context.WarehouseWorks.AsNoTracking()
+                    .Where(value => value.SourceEntityType == "InventoryReplenishmentPolicy" &&
+                                    value.SourceEntityId == policyId.ToString(CultureInfo.InvariantCulture) &&
+                                    value.WarehouseId == warehouseId)
+                    .ToArrayAsync());
+                Assert.Equal(0m, await context.InventoryBalances.AsNoTracking()
+                    .Where(value => value.LocationId == destinationLocationId && value.ItemId == itemId)
+                    .Select(value => (decimal?)value.ReservedQuantity)
+                    .SumAsync() ?? 0m);
+            }
+        }
+        finally
+        {
+            await factory.DisposeDatabaseAsync();
+            factory.Dispose();
+        }
+    }
+
+    private static async Task<HttpResponseMessage> PostRecommendationAsync(
+        HttpClient client,
+        string path,
+        object payload,
+        string antiforgeryToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.TryAddWithoutValidation("RequestVerificationToken", antiforgeryToken);
+        return await client.SendAsync(request);
+    }
+
     private sealed class PostgreSqlDashboardApplicationFactory(string baseConnectionString)
         : WebApplicationFactory<Wms.ASP.Program>
     {
@@ -376,6 +608,7 @@ public sealed class PostgreSqlDashboardFlowTests
             "keys");
         private string? _connectionString;
         private bool _ownsSchema;
+        public bool RecommendationsEnabled { get; set; }
 
         public async Task CreateIsolatedDatabaseAsync()
         {
@@ -526,6 +759,11 @@ public sealed class PostgreSqlDashboardFlowTests
                     ["Authentication:CookieHours"] = "8",
                     ["HttpsRedirection:Enabled"] = "false",
                     ["DataProtection:KeyDirectory"] = _dataProtectionPath,
+                    ["Recommendations:Enabled"] = RecommendationsEnabled.ToString(),
+                    ["Recommendations:KillSwitchEnabled"] = "false",
+                    ["Recommendations:ProviderAvailable"] = "true",
+                    ["Recommendations:ShadowMode"] = "true",
+                    ["Recommendations:ProviderName"] = "deterministic-wms",
                     ["AllowedHosts"] = "*"
                 });
             });

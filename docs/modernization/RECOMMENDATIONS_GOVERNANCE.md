@@ -50,6 +50,12 @@ unscoped search and denies direct record and explicit warehouse reads. Review
 history redacts sensitive comment values. Deep inventory reconciliation runs
 after each lifecycle transition.
 
+`PostgreSqlDashboardFlowTests.AuthorizedRecommendationHttpLifecycleUsesPostgreSqlAndCreatesNormalWork`
+qualifies the same replenishment lifecycle through authenticated,
+antiforgery-protected HTTP routes over PostgreSQL. It creates the policy,
+generates and lists the proposal, reviews and approves it, executes the normal
+work command, and reads the persisted event history.
+
 ## Provider and operating controls
 
 `Recommendations` settings include `Enabled`, `KillSwitchEnabled`,
@@ -76,7 +82,6 @@ No recommendation UI or automatic decision path is included. Other types need
 their own authoritative revalidation and normal-command adapters before they
 can enter the runtime.
 
-Remaining qualification includes broader multi-type adapters, enabled HTTP
-generation/approval/execution integration, calibrated backtest and outcome
-quality monitoring, provider-failure rehearsal, representative load, restore,
-and production kill-switch evidence.
+Remaining qualification includes broader multi-type adapters, calibrated
+backtest and outcome quality monitoring, provider-failure rehearsal,
+representative load, restore, and production kill-switch evidence.
