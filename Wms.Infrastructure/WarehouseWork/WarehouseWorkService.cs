@@ -752,14 +752,17 @@ public sealed class WarehouseWorkService(
                         $"Completion did not return actual quantity for line {line.Id}."));
                 }
 
-                line.RecordActualQuantity(actualQuantity);
+                line.RecordActualQuantity(
+                    actualQuantity,
+                    allowCountVariance: loaded.Value.Type == WarehouseWorkType.Count);
             }
 
             loaded.Value.Complete(
                 userId,
                 clock.UtcNow.UtcDateTime,
                 input.SupervisorOverride,
-                input.OverrideReason);
+                input.OverrideReason,
+                allowCountVariance: loaded.Value.Type == WarehouseWorkType.Count);
             context.WarehouseWorkCommands.Add(new WarehouseWorkCommand(
                 loaded.Value.Id,
                 "complete",

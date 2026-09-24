@@ -385,6 +385,46 @@ public class Movement : Entity
             adjustmentAfterQuantity: adjustmentAfterQuantity);
     }
 
+    public static Movement CreateCycleCount(
+        int itemId,
+        int locationId,
+        Quantity countedQuantity,
+        string userId,
+        int? lotId,
+        string? serialNumber,
+        string taskNumber,
+        string reason,
+        DateTime timestampUtc,
+        int? serialNumberId,
+        int inventoryStatusId,
+        int? licensePlateId,
+        decimal quantityBefore,
+        decimal quantityDelta,
+        InventoryOwnerKind ownerKind,
+        int? inventoryOwnerId,
+        string? ownerCodeSnapshot) =>
+        new(
+            MovementType.CycleCount,
+            itemId,
+            countedQuantity,
+            userId,
+            toLocationId: locationId,
+            lotId: lotId,
+            serialNumber: serialNumber,
+            referenceNumber: taskNumber,
+            notes: reason,
+            timestampUtc: timestampUtc,
+            serialNumberId: serialNumberId,
+            inventoryStatusId: inventoryStatusId,
+            licensePlateId: licensePlateId,
+            toLicensePlateId: licensePlateId,
+            adjustmentBeforeQuantity: quantityBefore,
+            adjustmentDelta: quantityDelta,
+            adjustmentAfterQuantity: countedQuantity.Value,
+            ownerKind: ownerKind,
+            inventoryOwnerId: inventoryOwnerId,
+            ownerCodeSnapshot: ownerCodeSnapshot);
+
     public static Movement CreateTransfer(
         int itemId,
         int fromLocationId,

@@ -72,6 +72,39 @@ public sealed class CycleCountsController(
             currentUser.RequireUserId(),
             cancellationToken));
 
+    [HttpGet("tasks/{taskId:int}")]
+    [ProducesResponseType(typeof(CycleCountTaskDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTask(
+        int taskId,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await cycleCountService.GetTaskAsync(taskId, cancellationToken));
+
+    [HttpPost("tasks/{taskId:int}/start")]
+    [Authorize(Policy = WmsPermissions.CountingExecute)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> StartTask(
+        int taskId,
+        [FromBody] CycleCountTaskStartInput input,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await cycleCountService.StartTaskAsync(
+            taskId,
+            input,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
+    [HttpPost("tasks/{taskId:int}/approve")]
+    [Authorize(Policy = WmsPermissions.InventoryAdjust)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApproveTask(
+        int taskId,
+        [FromBody] CycleCountTaskApprovalInput input,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await cycleCountService.ApproveTaskAsync(
+            taskId,
+            input,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
     private IActionResult ToActionResult<T>(Result<T> result)
     {
         if (result.IsSuccess)

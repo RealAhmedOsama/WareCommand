@@ -208,6 +208,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IWorkforceService, WorkforceService>();
         services.AddScoped<ISlottingService, SlottingService>();
         services.AddScoped<IWarehouseWorkCompletionHandler, PutawayWarehouseWorkCompletionHandler>();
+        services.AddScoped<IWarehouseWorkCompletionHandler, CycleCountWarehouseWorkCompletionHandler>();
         services.AddScoped<IWarehouseWorkCompletionHandler, PickWarehouseWorkCompletionHandler>();
         services.AddScoped<IWarehouseWorkCompletionHandler, ReplenishmentWarehouseWorkCompletionHandler>();
         services.AddScoped<IWarehouseWorkCompletionHandler, SupplierReturnWarehouseWorkCompletionHandler>();

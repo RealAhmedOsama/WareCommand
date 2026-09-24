@@ -901,11 +901,47 @@ public class StockMovementService : IStockMovementService
         }
     }
 
-    public async Task<Movement> AdjustAsync(int itemId, int locationId, Quantity newQuantity, string userId,
+    public Task<Movement> AdjustAsync(int itemId, int locationId, Quantity newQuantity, string userId,
         string reason, int? lotId = null, string? serialNumber = null,
         CancellationToken cancellationToken = default, int? licensePlateId = null,
         InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
-        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null)
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null) =>
+        ApplyQuantityCorrectionAsync(
+            itemId,
+            locationId,
+            newQuantity,
+            userId,
+            reason,
+            lotId,
+            serialNumber,
+            licensePlateId,
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot,
+            movementType: MovementType.Adjustment,
+            ledgerType: InventoryTransactionType.Adjustment,
+            cancellationToken: cancellationToken);
+
+    private async Task<Movement> ApplyQuantityCorrectionAsync(
+        int itemId,
+        int locationId,
+        Quantity newQuantity,
+        string userId,
+        string reason, int? lotId = null, string? serialNumber = null,
+        int? licensePlateId = null,
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null,
+        MovementType movementType = MovementType.Adjustment,
+        InventoryTransactionType? ledgerType = null,
+        string? ledgerReferenceType = null,
+        string? ledgerReferenceId = null,
+        int? ledgerReferenceLine = null,
+        string? ledgerIdempotencyKey = null,
+        string? ledgerTransactionGroupId = null,
+        string? movementReferenceNumber = null,
+        int? targetInventoryStatusId = null,
+        bool saveMovementBeforeLedger = false,
+        CancellationToken cancellationToken = default)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(locationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -917,7 +953,7 @@ public class StockMovementService : IStockMovementService
             userId,
             location?.WarehouseId);
         using var telemetryScope = WmsTelemetry.BeginInventoryOperation(
-            "adjustment",
+            movementType == MovementType.CycleCount ? "count" : "adjustment",
             location?.WarehouseId);
         try
         {
@@ -942,12 +978,12 @@ public class StockMovementService : IStockMovementService
                 lotId,
                 serial?.Number ?? serialNumber,
                 serial?.Id,
-                statusId: null,
+                statusId: targetInventoryStatusId,
                 licensePlateId,
                 cancellationToken,
                 ownerKind,
                 inventoryOwnerId);
-            var adjustmentStatusId = stock?.InventoryStatusId ?? await ResolveInboundStatusIdAsync(
+            var adjustmentStatusId = stock?.InventoryStatusId ?? targetInventoryStatusId ?? await ResolveInboundStatusIdAsync(
                 location,
                 itemId,
                 cancellationToken);
@@ -998,21 +1034,58 @@ public class StockMovementService : IStockMovementService
                 await _unitOfWork.Stock.UpdateAsync(stock, cancellationToken);
             }
 
-            // Create adjustment movement
-            var movement = Movement.CreateAdjustment(itemId, locationId, newQuantity, userId,
-                lotId,
-                serial?.Number ?? serialNumber,
-                notes: reason,
-                timestampUtc: _clock.UtcNow.UtcDateTime,
-                serialNumberId: serial?.Id,
-                inventoryStatusId: adjustmentStatusId,
-                licensePlateId: licensePlateId,
-                adjustmentBeforeQuantity: quantityBefore,
-                adjustmentDelta: adjustmentDelta,
-                adjustmentAfterQuantity: newQuantity.Value);
+            if (movementType is not (MovementType.Adjustment or MovementType.CycleCount) ||
+                (movementType == MovementType.CycleCount &&
+                 ledgerType != InventoryTransactionType.CountVariance) ||
+                (movementType == MovementType.Adjustment &&
+                 ledgerType is not null and not InventoryTransactionType.Adjustment))
+            {
+                throw new ArgumentException("The quantity correction movement and ledger types do not match.", nameof(movementType));
+            }
+
+            // Create the immutable movement before recording its matching ledger leg.
+            var movement = movementType == MovementType.CycleCount
+                ? Movement.CreateCycleCount(
+                    itemId,
+                    locationId,
+                    newQuantity,
+                    userId,
+                    lotId,
+                    serial?.Number ?? serialNumber,
+                    movementReferenceNumber ?? string.Empty,
+                    reason,
+                    _clock.UtcNow.UtcDateTime,
+                    serial?.Id,
+                    adjustmentStatusId,
+                    licensePlateId,
+                    quantityBefore,
+                    adjustmentDelta,
+                    ownerKind,
+                    inventoryOwnerId,
+                    ownerCodeSnapshot)
+                : Movement.CreateAdjustment(
+                    itemId,
+                    locationId,
+                    newQuantity,
+                    userId,
+                    lotId,
+                    serial?.Number ?? serialNumber,
+                    movementReferenceNumber,
+                    reason,
+                    _clock.UtcNow.UtcDateTime,
+                    serial?.Id,
+                    adjustmentStatusId,
+                    licensePlateId,
+                    quantityBefore,
+                    adjustmentDelta,
+                    newQuantity.Value);
             movement.SetOwnership(ownerKind, inventoryOwnerId, ownerCodeSnapshot);
 
             await _unitOfWork.Movements.AddAsync(movement, cancellationToken);
+            if (saveMovementBeforeLedger)
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
 
             if (serial is not null)
             {
@@ -1059,7 +1132,7 @@ public class StockMovementService : IStockMovementService
                     new[]
                     {
                         new InventoryLedgerEntryRequest(
-                            InventoryTransactionType.Adjustment,
+                            ledgerType ?? InventoryTransactionType.Adjustment,
                             new InventoryBalanceKey(
                                 location!.WarehouseId,
                                 locationId,
@@ -1075,13 +1148,14 @@ public class StockMovementService : IStockMovementService
                                 ownerCodeSnapshot),
                             adjustmentDelta,
                             ActorUserId: userId,
-                            ReferenceType: "Movement",
-                            ReferenceId: $"{itemId}:{locationId}",
+                            ReferenceType: ledgerReferenceType ?? "Movement",
+                            ReferenceId: ledgerReferenceId ?? $"{itemId}:{locationId}",
+                            ReferenceLine: ledgerReferenceLine,
                             Reason: reason,
                             OccurredAtUtc: movement.Timestamp,
                             CorrelationId: _requestContext.CorrelationId,
-                            IdempotencyKey: $"{transactionGroupId}:1",
-                            TransactionGroupId: transactionGroupId,
+                            IdempotencyKey: ledgerIdempotencyKey ?? $"{transactionGroupId}:1",
+                            TransactionGroupId: ledgerTransactionGroupId ?? transactionGroupId,
                             MovementId: movement.Id > 0 ? movement.Id : null)
                     },
                     cancellationToken);
@@ -1089,9 +1163,13 @@ public class StockMovementService : IStockMovementService
 
             await _auditWriter.RecordAsync(
                 new AuditRecord(
-                    WmsAuditActions.StockAdjusted,
-                    WmsAuditEntityTypes.Stock,
-                    $"{itemId}:{locationId}",
+                    movementType == MovementType.CycleCount
+                        ? WmsAuditActions.CountApproved
+                        : WmsAuditActions.StockAdjusted,
+                    movementType == MovementType.CycleCount
+                        ? WmsAuditEntityTypes.Count
+                        : WmsAuditEntityTypes.Stock,
+                    ledgerReferenceId ?? $"{itemId}:{locationId}",
                     location?.WarehouseId,
                     Before: new Dictionary<string, object?>
                     {
@@ -1114,7 +1192,9 @@ public class StockMovementService : IStockMovementService
                 locationId);
 
             await EnqueueMovementEventAsync(
-                WmsIntegrationEventTypes.InventoryStockAdjusted,
+                movementType == MovementType.CycleCount
+                    ? WmsIntegrationEventTypes.InventoryMovementRecorded
+                    : WmsIntegrationEventTypes.InventoryStockAdjusted,
                 movement,
                 userId,
                 location?.WarehouseId,
@@ -1137,6 +1217,47 @@ public class StockMovementService : IStockMovementService
             telemetryScope.Fail(exception);
             throw;
         }
+    }
+
+    public Task<Movement> CountVarianceAsync(
+        CycleCountTask task,
+        CycleCountLine line,
+        string userId,
+        string reason,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        ArgumentNullException.ThrowIfNull(line);
+        if (line.TaskId != task.Id || !line.CountedQuantity.HasValue ||
+            line.VarianceQuantity is null or 0m)
+        {
+            throw new ArgumentException("A counted variance line linked to the task is required.", nameof(line));
+        }
+
+        var groupId = $"cycle-count:{task.Id}:line:{line.Id}";
+        return ApplyQuantityCorrectionAsync(
+            line.ItemId,
+            line.LocationId,
+            new Quantity(line.CountedQuantity.Value),
+            userId,
+            reason,
+            lotId: line.LotId,
+            serialNumber: line.SerialNumber,
+            licensePlateId: line.LicensePlateId,
+            ownerKind: line.OwnerKind,
+            inventoryOwnerId: line.InventoryOwnerId,
+            ownerCodeSnapshot: line.OwnerCodeSnapshot,
+            movementType: MovementType.CycleCount,
+            ledgerType: InventoryTransactionType.CountVariance,
+            ledgerReferenceType: "CycleCountLine",
+            ledgerReferenceId: line.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ledgerReferenceLine: line.Sequence,
+            ledgerIdempotencyKey: $"{groupId}:variance",
+            ledgerTransactionGroupId: groupId,
+            movementReferenceNumber: task.TaskNumber,
+            targetInventoryStatusId: line.InventoryStatusId,
+            saveMovementBeforeLedger: true,
+            cancellationToken: cancellationToken);
     }
 
     private async Task<SerialNumber?> ResolveSerialForReceiptAsync(

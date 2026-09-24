@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Wms.Application.Auditing;
@@ -10,13 +11,15 @@ using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
+using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Inventory;
 
 public sealed class CycleCountService(
     WmsDbContext context,
-    IWarehouseWorkService warehouseWorkService,
+    Lazy<IWarehouseWorkService> warehouseWorkService,
+    IStockMovementService stockMovementService,
     IWarehouseAccessService warehouseAccessService,
     IAuditWriter auditWriter,
     IClock clock,
@@ -64,13 +67,14 @@ public sealed class CycleCountService(
                 location = await context.Locations.SingleOrDefaultAsync(
                     value => value.Id == input.LocationId.Value &&
                             value.WarehouseId == input.WarehouseId &&
-                            value.IsActive,
+                            value.IsActive &&
+                            value.IsCountable,
                     cancellationToken);
                 if (location is null)
                 {
                     return Result.Failure<CycleCountPlanDto>(WmsErrors.NotFound(
                         "location.not_found",
-                        "The requested active location was not found in the warehouse."));
+                        "The requested active countable location was not found in the warehouse."));
                 }
             }
 
@@ -314,6 +318,525 @@ public sealed class CycleCountService(
         }
     }
 
+    public async Task<Result<CycleCountTaskDto>> GetTaskAsync(
+        int taskId,
+        CancellationToken cancellationToken = default)
+    {
+        var task = await LoadTaskAsync(taskId, cancellationToken);
+        if (task is null)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.NotFound(
+                "cycle_count.task_not_found",
+                "The requested cycle-count task was not found."));
+        }
+
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.InventoryRead,
+            task.WarehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<CycleCountTaskDto>();
+        }
+
+        var includeExpected = !task.Blind;
+        if (task.Blind && task.Status is CycleCountTaskStatus.AwaitingApproval or
+            CycleCountTaskStatus.Approved or CycleCountTaskStatus.Completed)
+        {
+            var reviewAuthorization = await warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.InventoryAdjust,
+                task.WarehouseId,
+                cancellationToken);
+            includeExpected = reviewAuthorization.IsSuccess;
+        }
+
+        return Result.Success(MapTaskDetails(task, includeExpected));
+    }
+
+    public async Task<Result<CycleCountTaskDto>> StartTaskAsync(
+        int taskId,
+        CycleCountTaskStartInput input,
+        string actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        if (string.IsNullOrWhiteSpace(actorUserId))
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                "cycle_count.actor_required",
+                "An authenticated actor is required to start a count."));
+        }
+
+        var task = await LoadTaskAsync(taskId, cancellationToken);
+        if (task is null)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.NotFound(
+                "cycle_count.task_not_found",
+                "The requested cycle-count task was not found."));
+        }
+
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.CountingExecute,
+            task.WarehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<CycleCountTaskDto>();
+        }
+
+        if (task.StartedByUserId == actorUserId &&
+            task.Status is CycleCountTaskStatus.InProgress or CycleCountTaskStatus.AwaitingApproval or
+                CycleCountTaskStatus.Approved or CycleCountTaskStatus.Completed)
+        {
+            return Result.Success(MapTaskDetails(task, includeExpected: false));
+        }
+
+        if (task.Status != CycleCountTaskStatus.Planned)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Conflict(
+                "cycle_count.task_cannot_start",
+                "Only a planned cycle-count task can start. Generate a new task when a recount is required."));
+        }
+
+        if (task.Revision != input.ExpectedRevision)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Concurrency(
+                "cycle_count.task_revision_conflict",
+                "The cycle-count task changed. Reload it before starting."));
+        }
+
+        if (task.WarehouseWorkId is null)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Dependency(
+                "cycle_count.work_missing",
+                "The cycle-count task has no executable warehouse work item.",
+                isRetryable: false));
+        }
+
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            task.Start(actorUserId, clock.UtcNow.UtcDateTime);
+            await auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.CountTaskStarted,
+                    WmsAuditEntityTypes.Count,
+                    task.TaskNumber,
+                    task.WarehouseId,
+                    Before: new Dictionary<string, object?> { ["status"] = CycleCountTaskStatus.Planned.ToString() },
+                    After: new Dictionary<string, object?>
+                    {
+                        ["status"] = task.Status.ToString(),
+                        ["warehouseWorkId"] = task.WarehouseWorkId,
+                        ["lineCount"] = task.Lines.Count
+                    },
+                    ActorUserId: actorUserId),
+                cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result.Success(MapTaskDetails(task, includeExpected: false));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Concurrency(
+                "cycle_count.task_revision_conflict",
+                "The cycle-count task changed while it was starting. Reload it and retry."));
+        }
+        catch (InvalidOperationException exception)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Conflict(
+                "cycle_count.task_cannot_start",
+                exception.Message));
+        }
+    }
+
+    public async Task<Result<CycleCountTaskDto>> RecordCountsAsync(
+        int taskId,
+        IReadOnlyList<CycleCountLineCountInput> counts,
+        string actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (counts is null || counts.Count == 0)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                "cycle_count.counts_required",
+                "A physical quantity is required for every count line."));
+        }
+
+        if (string.IsNullOrWhiteSpace(actorUserId))
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                "cycle_count.actor_required",
+                "An authenticated actor is required to record a count."));
+        }
+
+        var task = await LoadTaskAsync(taskId, cancellationToken);
+        if (task is null)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.NotFound(
+                "cycle_count.task_not_found",
+                "The requested cycle-count task was not found."));
+        }
+
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.CountingExecute,
+            task.WarehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<CycleCountTaskDto>();
+        }
+
+        if (task.Status != CycleCountTaskStatus.InProgress)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Conflict(
+                "cycle_count.task_not_in_progress",
+                "Counts can only be recorded for a task that is in progress."));
+        }
+
+        if (counts.GroupBy(value => value.LineId).Any(group => group.Count() != 1) ||
+            counts.Count != task.Lines.Count ||
+            task.Lines.Any(line => counts.All(value => value.LineId != line.Id)))
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                "cycle_count.lines_incomplete",
+                "Count submission must contain exactly one physical quantity for every task line."));
+        }
+
+        var unitCodes = task.Lines.Select(line => line.BaseUnitOfMeasure).Distinct().ToArray();
+        var precisions = await context.UnitOfMeasures
+            .Where(unit => unitCodes.Contains(unit.Code) && unit.IsActive)
+            .ToDictionaryAsync(unit => unit.Code, unit => unit.Precision, cancellationToken);
+        var itemIds = task.Lines.Select(line => line.ItemId).Distinct().ToArray();
+        var serialControlledItems = await context.Items
+            .Where(item => itemIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, item => item.RequiresSerial, cancellationToken);
+
+        foreach (var line in task.Lines)
+        {
+            var count = counts.Single(value => value.LineId == line.Id).CountedQuantity;
+            if (count < 0m)
+            {
+                return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                    "cycle_count.quantity_negative",
+                    $"Count line {line.Sequence} cannot have a negative quantity."));
+            }
+
+            var precision = precisions.GetValueOrDefault(line.BaseUnitOfMeasure, 12);
+            if (decimal.Round(count, precision, MidpointRounding.ToZero) != count)
+            {
+                return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                    "cycle_count.quantity_precision",
+                    $"Count line {line.Sequence} exceeds the precision allowed for {line.BaseUnitOfMeasure}."));
+            }
+
+            if (serialControlledItems.TryGetValue(line.ItemId, out var itemRequiresSerial) &&
+                itemRequiresSerial && count is not (0m or 1m))
+            {
+                return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                    "cycle_count.serial_quantity_invalid",
+                    $"Serial-controlled count line {line.Sequence} must be counted as zero or one."));
+            }
+        }
+
+        try
+        {
+            foreach (var line in task.Lines)
+            {
+                var count = counts.Single(value => value.LineId == line.Id).CountedQuantity;
+                line.RecordCount(count, line.EmptyLocationCandidate && count == 0m);
+            }
+
+            task.Submit(clock.UtcNow.UtcDateTime);
+            var zeroVariance = task.Status == CycleCountTaskStatus.Approved;
+            if (zeroVariance)
+            {
+                task.Complete(clock.UtcNow.UtcDateTime);
+                foreach (var line in task.Lines)
+                {
+                    line.MarkCompleted();
+                }
+            }
+
+            await auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.CountSubmitted,
+                    WmsAuditEntityTypes.Count,
+                    task.TaskNumber,
+                    task.WarehouseId,
+                    After: new Dictionary<string, object?>
+                    {
+                        ["status"] = task.Status.ToString(),
+                        ["lineCount"] = task.Lines.Count,
+                        ["varianceLineCount"] = task.Lines.Count(line => line.VarianceQuantity != 0m),
+                        ["countedQuantity"] = task.Lines.Sum(line => line.CountedQuantity ?? 0m)
+                    },
+                    ActorUserId: actorUserId),
+                cancellationToken);
+            return Result.Success(MapTaskDetails(task, includeExpected: false));
+        }
+        catch (ArgumentException exception)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                "cycle_count.count_invalid",
+                exception.Message));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Conflict(
+                "cycle_count.count_submit_conflict",
+                exception.Message));
+        }
+    }
+
+    public async Task<Result<CycleCountTaskDto>> ApproveTaskAsync(
+        int taskId,
+        CycleCountTaskApprovalInput input,
+        string actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        if (string.IsNullOrWhiteSpace(actorUserId))
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                "cycle_count.actor_required",
+                "An authenticated actor is required to approve a count."));
+        }
+
+        if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1_000)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                "cycle_count.approval_reason_required",
+                "A count approval reason of 1 to 1000 characters is required."));
+        }
+
+        var task = await LoadTaskAsync(taskId, cancellationToken);
+        if (task is null)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.NotFound(
+                "cycle_count.task_not_found",
+                "The requested cycle-count task was not found."));
+        }
+
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.InventoryAdjust,
+            task.WarehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<CycleCountTaskDto>();
+        }
+
+        if (task.Status == CycleCountTaskStatus.Completed)
+        {
+            return Result.Success(MapTaskDetails(task, includeExpected: true));
+        }
+
+        if (task.Revision != input.ExpectedRevision)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Concurrency(
+                "cycle_count.task_revision_conflict",
+                "The cycle-count task changed. Reload it before approving."));
+        }
+
+        if (task.Status != CycleCountTaskStatus.AwaitingApproval)
+        {
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Conflict(
+                "cycle_count.approval_not_pending",
+                "Only a submitted count with variance can be approved."));
+        }
+
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+        try
+        {
+            var inventoryStatusIds = task.Lines.Select(line => line.InventoryStatusId).Distinct().ToArray();
+            var countableStatusIds = await context.InventoryStatuses
+                .Where(status => inventoryStatusIds.Contains(status.Id) && status.IsActive && status.IsCountable)
+                .Select(status => status.Id)
+                .ToHashSetAsync(cancellationToken);
+            var locationIds = task.Lines.Select(line => line.LocationId).Distinct().ToArray();
+            var countableLocationIds = await context.Locations
+                .Where(location => locationIds.Contains(location.Id) &&
+                                   location.WarehouseId == task.WarehouseId &&
+                                   location.IsActive && location.IsCountable)
+                .Select(location => location.Id)
+                .ToHashSetAsync(cancellationToken);
+            var itemIds = task.Lines.Select(line => line.ItemId).Distinct().ToArray();
+            var balancesByKey = (await context.InventoryBalances
+                    .Where(balance => balance.WarehouseId == task.WarehouseId &&
+                                      locationIds.Contains(balance.LocationId) &&
+                                      itemIds.Contains(balance.ItemId))
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(balance => balance.GetKey());
+
+            foreach (var line in task.Lines.OrderBy(value => value.Sequence))
+            {
+                balancesByKey.TryGetValue(CreateBalanceKey(line), out var balance);
+                if ((balance?.OnHandQuantity ?? 0m) != line.ExpectedQuantity)
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    return Result.Failure<CycleCountTaskDto>(WmsErrors.Conflict(
+                        "cycle_count.snapshot_stale",
+                        $"Inventory for count line {line.Sequence} changed after the task snapshot. Generate a new count before approving."));
+                }
+
+                if (line.CountedQuantity is null ||
+                    (balance?.ReservedQuantity ?? 0m) > line.CountedQuantity.Value)
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    return Result.Failure<CycleCountTaskDto>(WmsErrors.BusinessRule(
+                        "cycle_count.reserved_quantity_exceeds_count",
+                        $"The counted quantity for line {line.Sequence} is below its reserved quantity."));
+                }
+
+                if (!countableStatusIds.Contains(line.InventoryStatusId) ||
+                    !countableLocationIds.Contains(line.LocationId))
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    return Result.Failure<CycleCountTaskDto>(WmsErrors.Conflict(
+                        "cycle_count.dimension_no_longer_countable",
+                        $"The inventory status or location for count line {line.Sequence} is no longer active and countable."));
+                }
+            }
+
+            foreach (var line in task.Lines.OrderBy(value => value.Sequence))
+            {
+                if (line.VarianceQuantity != 0m)
+                {
+                    await stockMovementService.CountVarianceAsync(
+                        task,
+                        line,
+                        actorUserId,
+                        input.Reason.Trim(),
+                        cancellationToken);
+                    line.Approve();
+                }
+            }
+
+            var nowUtc = clock.UtcNow.UtcDateTime;
+            task.Approve(actorUserId, input.Reason, nowUtc);
+            task.Complete(nowUtc);
+            foreach (var line in task.Lines)
+            {
+                line.MarkCompleted();
+            }
+            await auditWriter.RecordAsync(
+                new AuditRecord(
+                    WmsAuditActions.CountApproved,
+                    WmsAuditEntityTypes.Count,
+                    task.TaskNumber,
+                    task.WarehouseId,
+                    After: new Dictionary<string, object?>
+                    {
+                        ["status"] = task.Status.ToString(),
+                        ["reason"] = task.ApprovalReason,
+                        ["varianceLineCount"] = task.Lines.Count(line => line.VarianceQuantity != 0m),
+                        ["varianceQuantity"] = task.Lines.Sum(line => line.VarianceQuantity ?? 0m)
+                    },
+                    ActorUserId: actorUserId),
+                cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result.Success(MapTaskDetails(task, includeExpected: true));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Concurrency(
+                "cycle_count.approval_concurrency_conflict",
+                "Inventory or the count task changed during approval. Reload and retry."));
+        }
+        catch (ArgumentException exception)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.Validation(
+                "cycle_count.approval_invalid",
+                exception.Message));
+        }
+        catch (InvalidOperationException exception)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            return Result.Failure<CycleCountTaskDto>(WmsErrors.BusinessRule(
+                "cycle_count.approval_failed",
+                exception.Message));
+        }
+    }
+
+    private Task<CycleCountTask?> LoadTaskAsync(int taskId, CancellationToken cancellationToken) =>
+        context.CycleCountTasks
+            .Include(task => task.Lines)
+            .SingleOrDefaultAsync(task => task.Id == taskId, cancellationToken);
+
+    private static InventoryBalanceKey CreateBalanceKey(CycleCountLine line) => new(
+        line.WarehouseId,
+        line.LocationId,
+        line.ItemId,
+        line.LotId,
+        line.SerialNumberId,
+        line.SerialNumber,
+        line.LicensePlateId,
+        line.InventoryStatusId,
+        line.BaseUnitOfMeasure,
+        line.OwnerKind,
+        line.InventoryOwnerId,
+        line.OwnerCodeSnapshot);
+
+    private static CycleCountTaskDto MapTaskDetails(CycleCountTask task, bool includeExpected) =>
+        new(
+            task.Id,
+            task.TaskNumber,
+            task.PlanId,
+            task.WarehouseId,
+            task.LocationId,
+            task.WarehouseWorkId,
+            task.Blind,
+            task.FreezePolicy,
+            task.SnapshotAtUtc,
+            task.Status,
+            task.CreatedByUserId,
+            task.StartedByUserId,
+            task.StartedAtUtc,
+            task.SubmittedAtUtc,
+            task.ApprovedByUserId,
+            task.ApprovedAtUtc,
+            task.ApprovalReason,
+            task.Revision,
+            task.Lines
+                .OrderBy(line => line.Sequence)
+                .Select(line => new CycleCountTaskLineDto(
+                    line.Id,
+                    line.Sequence,
+                    line.ItemId,
+                    line.LocationId,
+                    line.LotId,
+                    line.SerialNumberId,
+                    line.SerialNumber,
+                    line.LicensePlateId,
+                    line.InventoryStatusId,
+                    line.BaseUnitOfMeasure,
+                    line.OwnerKind,
+                    line.InventoryOwnerId,
+                    line.OwnerCodeSnapshot,
+                    line.EmptyLocationCandidate,
+                    includeExpected ? line.ExpectedQuantity : null,
+                    line.CountedQuantity,
+                    includeExpected ? line.VarianceQuantity : null,
+                    line.Status,
+                    line.Revision))
+                .ToArray());
+
     private async Task<PlanGenerationResult> GenerateForPlanAsync(
         CycleCountPlan plan,
         string actorUserId,
@@ -390,7 +913,7 @@ public sealed class CycleCountService(
             }
 
             await context.SaveChangesAsync(cancellationToken);
-            var workResult = await warehouseWorkService.CreateAsync(
+            var workResult = await warehouseWorkService.Value.CreateAsync(
                 new WarehouseWorkInput(
                     $"cycle-count:{task.Id}",
                     WarehouseWorkType.Count,
@@ -464,6 +987,7 @@ public sealed class CycleCountService(
             .Where(balance =>
                 balance.WarehouseId == plan.WarehouseId &&
                 balance.Location.IsActive &&
+                balance.Location.IsCountable &&
                 balance.InventoryStatus.IsCountable &&
                 (!plan.LocationId.HasValue || balance.LocationId == plan.LocationId.Value) &&
                 (!plan.ItemId.HasValue || balance.ItemId == plan.ItemId.Value));

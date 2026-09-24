@@ -104,10 +104,10 @@ public sealed class WarehouseWorkLine : Entity
     public InventoryStatus? InventoryStatus { get; private set; }
     public InventoryOwner? InventoryOwner { get; private set; }
 
-    public void RecordActualQuantity(decimal actualQuantity)
+    public void RecordActualQuantity(decimal actualQuantity, bool allowCountVariance = false)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(actualQuantity);
-        if (actualQuantity > PlannedQuantity)
+        if (!allowCountVariance && actualQuantity > PlannedQuantity)
         {
             throw new InvalidOperationException("Actual work quantity cannot exceed planned quantity.");
         }

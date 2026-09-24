@@ -9,6 +9,8 @@ using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
+using Wms.Domain.Services;
+using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Inventory;
 using Wms.Infrastructure.Repositories;
@@ -22,6 +24,7 @@ public sealed class CycleCountServiceTests : IDisposable
     private readonly WmsDbContext _context;
     private readonly Mock<IWarehouseAccessService> _access = new();
     private readonly Mock<IAuditWriter> _audit = new();
+    private readonly Mock<IStockMovementService> _stockMovement = new();
     private readonly FixedClock _clock = new(
         new DateTimeOffset(2026, 9, 21, 12, 0, 0, TimeSpan.Zero));
     private readonly Warehouse _warehouse;
@@ -100,7 +103,8 @@ public sealed class CycleCountServiceTests : IDisposable
             NullLogger<WarehouseWorkService>.Instance);
         _service = new CycleCountService(
             _context,
-            workService,
+            new Lazy<IWarehouseWorkService>(() => workService),
+            _stockMovement.Object,
             _access.Object,
             _audit.Object,
             _clock,
@@ -174,6 +178,148 @@ public sealed class CycleCountServiceTests : IDisposable
         second.IsFailure.Should().BeTrue();
         second.ErrorCode.Should().Be("cycle_count.plan_key_conflict");
         (await _context.CycleCountPlans.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task VarianceRequiresApprovalAndAppliesOneStableCountMovement()
+    {
+        var task = await GenerateTaskAsync("COUNT-APPROVAL", blind: true);
+
+        var started = await _service.StartTaskAsync(
+            task.Id,
+            new CycleCountTaskStartInput(task.Revision),
+            "counter-1");
+
+        started.IsSuccess.Should().BeTrue(started.Error);
+        started.Value.Status.Should().Be(CycleCountTaskStatus.InProgress);
+        started.Value.Lines.Single().ExpectedQuantity.Should().BeNull();
+
+        var submitted = await _service.RecordCountsAsync(
+            task.Id,
+            [new CycleCountLineCountInput(task.Lines.Single().Id, 5m)],
+            "counter-1");
+
+        submitted.IsSuccess.Should().BeTrue(submitted.Error);
+        submitted.Value.Status.Should().Be(CycleCountTaskStatus.AwaitingApproval);
+        submitted.Value.Lines.Single().ExpectedQuantity.Should().BeNull();
+        submitted.Value.Lines.Single().VarianceQuantity.Should().BeNull();
+        _stockMovement
+            .Verify(service => service.CountVarianceAsync(
+                It.IsAny<CycleCountTask>(),
+                It.IsAny<CycleCountLine>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()), Times.Never);
+
+        _stockMovement
+            .Setup(service => service.CountVarianceAsync(
+                It.IsAny<CycleCountTask>(),
+                It.IsAny<CycleCountLine>(),
+                "supervisor-1",
+                "Verified bin recount",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Movement(
+                MovementType.CycleCount,
+                _item.Id,
+                new Quantity(5m),
+                "supervisor-1"));
+
+        var approval = await _service.ApproveTaskAsync(
+            task.Id,
+            new CycleCountTaskApprovalInput(submitted.Value.Revision, "Verified bin recount"),
+            "supervisor-1");
+
+        approval.IsSuccess.Should().BeTrue(approval.Error);
+        approval.Value.Status.Should().Be(CycleCountTaskStatus.Completed);
+        approval.Value.Lines.Single().ExpectedQuantity.Should().Be(7m);
+        approval.Value.Lines.Single().CountedQuantity.Should().Be(5m);
+        approval.Value.Lines.Single().VarianceQuantity.Should().Be(-2m);
+
+        var replay = await _service.ApproveTaskAsync(
+            task.Id,
+            new CycleCountTaskApprovalInput(1, "duplicate request"),
+            "supervisor-1");
+
+        replay.IsSuccess.Should().BeTrue(replay.Error);
+        replay.Value.Status.Should().Be(CycleCountTaskStatus.Completed);
+        _stockMovement
+            .Verify(service => service.CountVarianceAsync(
+                It.IsAny<CycleCountTask>(),
+                It.IsAny<CycleCountLine>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()), Times.Once);
+        _audit.Verify(writer => writer.RecordAsync(
+            It.Is<AuditRecord>(record => record.Action == WmsAuditActions.CountSubmitted),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _audit.Verify(writer => writer.RecordAsync(
+            It.Is<AuditRecord>(record => record.Action == WmsAuditActions.CountApproved),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task VarianceApprovalRejectsAStaleInventorySnapshot()
+    {
+        var task = await GenerateTaskAsync("COUNT-STALE", blind: false);
+        var started = await _service.StartTaskAsync(
+            task.Id,
+            new CycleCountTaskStartInput(task.Revision),
+            "counter-1");
+        started.IsSuccess.Should().BeTrue(started.Error);
+
+        var submitted = await _service.RecordCountsAsync(
+            task.Id,
+            [new CycleCountLineCountInput(task.Lines.Single().Id, 5m)],
+            "counter-1");
+        submitted.IsSuccess.Should().BeTrue(submitted.Error);
+
+        var balance = await _context.InventoryBalances.SingleAsync();
+        balance.Apply(1m, 0m, allowNegativeStock: false);
+        await _context.SaveChangesAsync();
+
+        var approval = await _service.ApproveTaskAsync(
+            task.Id,
+            new CycleCountTaskApprovalInput(submitted.Value.Revision, "Recount required"),
+            "supervisor-1");
+
+        approval.IsFailure.Should().BeTrue();
+        approval.ErrorCode.Should().Be("cycle_count.snapshot_stale");
+        _stockMovement.Verify(service => service.CountVarianceAsync(
+            It.IsAny<CycleCountTask>(),
+            It.IsAny<CycleCountLine>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        (await _context.CycleCountTasks.SingleAsync()).Status
+            .Should().Be(CycleCountTaskStatus.AwaitingApproval);
+    }
+
+    private async Task<CycleCountTask> GenerateTaskAsync(string planKey, bool blind)
+    {
+        var plan = await _service.SavePlanAsync(
+            null,
+            new CycleCountPlanInput(
+                planKey,
+                _warehouse.Id,
+                _location.Id,
+                _item.Id,
+                null,
+                1,
+                0m,
+                blind,
+                CycleCountFreezePolicy.SnapshotAndReconcile,
+                _clock.UtcNow.UtcDateTime.AddHours(-1)),
+            "planner-1");
+        plan.IsSuccess.Should().BeTrue(plan.Error);
+
+        var generated = await _service.GenerateAsync(
+            new CycleCountGenerationQuery(_warehouse.Id, plan.Value.Id),
+            "planner-1");
+        generated.IsSuccess.Should().BeTrue(generated.Error);
+
+        return await _context.CycleCountTasks
+            .Include(value => value.Lines)
+            .SingleAsync(value => value.PlanId == plan.Value.Id);
     }
 
     public void Dispose()

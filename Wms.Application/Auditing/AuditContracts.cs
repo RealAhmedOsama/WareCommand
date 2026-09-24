@@ -175,6 +175,8 @@ public static class WmsAuditActions
     public const string ReceiptRecorded = "inbound.receipt.recorded";
     public const string PutawayCompleted = "inbound.putaway.completed";
     public const string TransferCompleted = "inventory.transfer.completed";
+    public const string CountTaskStarted = "inventory.count.task_started";
+    public const string CountSubmitted = "inventory.count.submitted";
     public const string CountApproved = "inventory.count.approved";
     public const string AllocationChanged = "outbound.allocation.changed";
     public const string PickCompleted = "outbound.pick.completed";
@@ -410,6 +412,8 @@ public static class WmsAuditActions
         ReceiptRecorded,
         PutawayCompleted,
         TransferCompleted,
+        CountTaskStarted,
+        CountSubmitted,
         CountApproved,
         AllocationChanged,
         PickCompleted,

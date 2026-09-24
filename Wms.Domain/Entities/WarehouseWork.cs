@@ -241,7 +241,8 @@ public sealed class WarehouseWork : Entity
         string userId,
         DateTime completedAtUtc,
         bool supervisorOverride = false,
-        string? overrideReason = null)
+        string? overrideReason = null,
+        bool allowCountVariance = false)
     {
         EnsureTransition(WarehouseWorkStatus.Completed);
         EnsureAssignee(userId);
@@ -251,12 +252,14 @@ public sealed class WarehouseWork : Entity
             throw new InvalidOperationException("Work cannot complete without at least one line.");
         }
 
-        if (_lines.Any(line => line.ActualQuantity < line.PlannedQuantity) && !supervisorOverride)
+        if (!allowCountVariance &&
+            _lines.Any(line => line.ActualQuantity < line.PlannedQuantity) &&
+            !supervisorOverride)
         {
             throw new InvalidOperationException("Short work requires a supervisor override or an exception route.");
         }
 
-        if (_lines.Any(line => line.ActualQuantity > line.PlannedQuantity))
+        if (!allowCountVariance && _lines.Any(line => line.ActualQuantity > line.PlannedQuantity))
         {
             throw new InvalidOperationException("Actual work quantity cannot exceed the planned quantity.");
         }

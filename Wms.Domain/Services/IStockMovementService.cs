@@ -44,5 +44,12 @@ public interface IStockMovementService
         CancellationToken cancellationToken = default, int? licensePlateId = null,
         InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
         int? inventoryOwnerId = null, string? ownerCodeSnapshot = null);
+
+    Task<Movement> CountVarianceAsync(
+        CycleCountTask task,
+        CycleCountLine line,
+        string userId,
+        string reason,
+        CancellationToken cancellationToken = default);
 }
 #pragma warning restore CA1068
