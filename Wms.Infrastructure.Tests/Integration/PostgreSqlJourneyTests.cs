@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,8 +43,10 @@ public sealed partial class PostgreSqlJourneyTests
 
     private static readonly JsonSerializerOptions JourneyEvidenceJsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true
     };
+    private static readonly object JourneyEvidenceGate = new();
 
     [PostgreSqlFact]
     public async Task CrossWarehouseTransferReconcilesEveryTransitionAndReplaysOnce()
@@ -363,8 +366,8 @@ public sealed partial class PostgreSqlJourneyTests
             target.TargetIdentifier);
         var unsupportedOrSkippedScenarios = new[]
         {
-                "cycle-count execution and variance approval",
-                "wave, cluster, cross-dock, kitting, and other disposition journeys",
+            "positive and zero-variance cycle-count approval plus stale revision under provider concurrency",
+            "wave, cluster, cross-dock, kitting, and other disposition journeys",
             "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
             "authenticated HTTP boundary for these service journeys"
         };
@@ -1011,9 +1014,20 @@ public sealed partial class PostgreSqlJourneyTests
             return;
         }
 
-        var json = JsonSerializer.Serialize(
-            new { reports },
-            JourneyEvidenceJsonOptions);
-        File.WriteAllText(path, json);
+        lock (JourneyEvidenceGate)
+        {
+            var existingReports = File.Exists(path)
+                ? JsonSerializer.Deserialize<PostgreSqlJourneyEvidenceEnvelope>(
+                    File.ReadAllText(path),
+                    JourneyEvidenceJsonOptions)?.Reports ?? []
+                : [];
+            var json = JsonSerializer.Serialize(
+                new PostgreSqlJourneyEvidenceEnvelope(existingReports.Concat(reports).ToArray()),
+                JourneyEvidenceJsonOptions);
+            File.WriteAllText(path, json);
+        }
     }
+
+    private sealed record PostgreSqlJourneyEvidenceEnvelope(
+        [property: JsonPropertyName("reports")] IReadOnlyList<PostgreSqlJourneyEvidence> Reports);
 }
