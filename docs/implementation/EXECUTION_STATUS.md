@@ -229,8 +229,10 @@ older revision.
   responsive dashboard controls, visible receiving startup errors, and a
   Chromium journey against Kestrel plus isolated PostgreSQL. The final local
   browser group passed 1/1 in 2m36s; the PostgreSQL group-plan contract,
-  solution formatter (`--severity error`), and diff check passed. Push/current
-  SHA CI is pending. Keep #131 open for successful picking, PO/ASN receiving,
+  solution formatter (`--severity error`), and diff check passed. The commits
+  are pushed; [WareCommand CI #58](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36070939059)
+  passed all jobs on exact SHA `ea010445c5dbbc7dc816a0b6ce6ab44f370e3f29`.
+  Keep #131 open for successful picking, PO/ASN receiving,
   dashboard refresh and remaining route mutations, full-matrix keyboard/axe/
   visual/device checks, broader reconnect cases, and cross-actor API replay
   denial.
