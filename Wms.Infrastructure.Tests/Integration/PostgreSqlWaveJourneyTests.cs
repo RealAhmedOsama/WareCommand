@@ -9,6 +9,7 @@ using Wms.Application.Identity;
 using Wms.Application.Inventory;
 using Wms.Application.Outbound;
 using Wms.Application.SalesOrders;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
 using Wms.Infrastructure.Data;
@@ -178,6 +179,159 @@ public sealed partial class PostgreSqlJourneyTests
             CancellationToken.None);
         outcomes.Add("wave=selected,allocated,released,process-replay-preserved-reservation-and-stock");
 
+        var picking = services.GetRequiredService<IPickingStrategyService>();
+        var clusterPlan = await picking.CreatePlanAsync(
+            new PickingPlanCreateInput(
+                warehouseId,
+                "j130-cluster-wave-1",
+                WaveId: created.Value.Id,
+                Strategy: PickingStrategyKind.Cluster,
+                MaxOrders: 1,
+                MaxContainers: 1),
+            actor.Id);
+        Assert.True(clusterPlan.IsSuccess, clusterPlan.FirstError?.Message);
+        Assert.Equal(PickingStrategyKind.Cluster, clusterPlan.Value.Strategy);
+        Assert.Equal(1, clusterPlan.Value.OrderCount);
+        Assert.NotEmpty(clusterPlan.Value.Lines);
+        var clusterContainer = Assert.Single(clusterPlan.Value.Containers);
+        Assert.True(clusterContainer.TargetScanRequired);
+        await ReconcileAndRecordAsync(
+            "cluster-picking-plan-created",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var wrongContainerScan = await picking.ScanContainerAsync(
+            clusterPlan.Value.Id,
+            clusterContainer.Id,
+            new PickingContainerScanInput("wrong-cluster-tote", "j130-cluster-wrong-scan-1"),
+            actor.Id);
+        Assert.True(wrongContainerScan.IsFailure);
+        Assert.Equal("picking.wrong_target_container", wrongContainerScan.FirstError?.Code);
+        var containerScanned = await picking.ScanContainerAsync(
+            clusterPlan.Value.Id,
+            clusterContainer.Id,
+            new PickingContainerScanInput(clusterContainer.ExpectedScanCode, "j130-cluster-scan-1"),
+            actor.Id);
+        Assert.True(containerScanned.IsSuccess, containerScanned.FirstError?.Message);
+        Assert.Equal(PickingContainerStatus.Scanned, Assert.Single(containerScanned.Value.Containers).Status);
+        await ReconcileAndRecordAsync(
+            "cluster-target-container-scanned",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var workService = services.GetRequiredService<IWarehouseWorkService>();
+        var stagingLocationId = await context.Locations.AsNoTracking()
+            .Where(value => value.WarehouseId == warehouseId &&
+                            value.Type == LocationType.Staging &&
+                            value.IsActive)
+            .OrderBy(value => value.Id)
+            .Select(value => value.Id)
+            .FirstAsync();
+        var pickWorkNumbers = new List<string>();
+        foreach (var workId in clusterPlan.Value.Lines
+                     .Select(value => value.WarehouseWorkId)
+                     .Distinct())
+        {
+            var pickWork = await workService.GetAsync(workId);
+            Assert.True(pickWork.IsSuccess, pickWork.FirstError?.Message);
+            Assert.Equal(WarehouseWorkType.Pick, pickWork.Value.Type);
+            Assert.Equal(WarehouseWorkStatus.Available, pickWork.Value.Status);
+
+            var assigned = await workService.AssignAsync(
+                workId,
+                new WarehouseWorkAssignmentInput(
+                    actor.Id,
+                    null,
+                    $"j130-cluster-assign-{workId}"),
+                actor.Id);
+            Assert.True(assigned.IsSuccess, assigned.FirstError?.Message);
+            await ReconcileAndRecordAsync(
+                $"cluster-pick-work-{workId}-assigned",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+
+            var started = await workService.StartAsync(
+                workId,
+                new WarehouseWorkCommandInput($"j130-cluster-start-{workId}"),
+                actor.Id);
+            Assert.True(started.IsSuccess, started.FirstError?.Message);
+            await ReconcileAndRecordAsync(
+                $"cluster-pick-work-{workId}-started",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+
+            var completionInput = new WarehouseWorkCompletionInput(
+                $"j130-cluster-complete-{workId}",
+                CompletionReference: clusterPlan.Value.PlanNumber,
+                Scans: pickWork.Value.Lines.Select(line => new WarehouseWorkScanInput(
+                    line.Id,
+                    line.ItemId,
+                    line.SourceLocationId!.Value,
+                    stagingLocationId,
+                    line.PlannedQuantity,
+                    line.LicensePlateId,
+                    LotId: line.LotId,
+                    SerialNumberId: line.SerialNumberId,
+                    SerialNumber: line.SerialNumber,
+                    TargetLicensePlateId: line.LicensePlateId)).ToArray());
+            var completedWork = await workService.CompleteAsync(workId, completionInput, actor.Id);
+            Assert.True(completedWork.IsSuccess, completedWork.FirstError?.Message);
+            Assert.Equal(WarehouseWorkStatus.Completed, completedWork.Value.Status);
+            var transactionCountAfterPick = await context.InventoryTransactions.AsNoTracking()
+                .CountAsync(value => value.ReferenceType == "WarehouseWork" &&
+                                     value.ReferenceId == pickWork.Value.WorkNumber);
+            var completionReplay = await workService.CompleteAsync(workId, completionInput, actor.Id);
+            Assert.True(completionReplay.IsSuccess, completionReplay.FirstError?.Message);
+            Assert.Equal(WarehouseWorkStatus.Completed, completionReplay.Value.Status);
+            Assert.Equal(transactionCountAfterPick, await context.InventoryTransactions.AsNoTracking()
+                .CountAsync(value => value.ReferenceType == "WarehouseWork" &&
+                                     value.ReferenceId == pickWork.Value.WorkNumber));
+            pickWorkNumbers.Add(pickWork.Value.WorkNumber);
+            await ReconcileAndRecordAsync(
+                $"cluster-pick-work-{workId}-completed-and-replayed",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+        }
+
+        var refreshedClusterPlan = await picking.RefreshAsync(clusterPlan.Value.Id, actor.Id);
+        Assert.True(refreshedClusterPlan.IsSuccess, refreshedClusterPlan.FirstError?.Message);
+        Assert.Equal(PickingPlanStatus.Completed, refreshedClusterPlan.Value.Status);
+        Assert.Equal(1m, refreshedClusterPlan.Value.PickedQuantity);
+        Assert.All(refreshedClusterPlan.Value.Lines, line =>
+        {
+            Assert.Equal(PickingPlanLineStatus.Picked, line.Status);
+            Assert.Equal(line.PlannedQuantity, line.PickedQuantity);
+        });
+
+        var pickingAudit = await context.AuditEntries.AsNoTracking()
+            .SingleAsync(value => value.Action == WmsAuditActions.PickingPlanCreated &&
+                                  value.EntityType == WmsAuditEntityTypes.PickingPlan &&
+                                  value.EntityId == clusterPlan.Value.Id.ToString(CultureInfo.InvariantCulture));
+        Assert.Equal(actor.Id, pickingAudit.ActorUserId);
+        var containerAudit = await context.AuditEntries.AsNoTracking()
+            .SingleAsync(value => value.Action == WmsAuditActions.PickingContainerScanned &&
+                                  value.EntityType == WmsAuditEntityTypes.PickingPlanContainer &&
+                                  value.EntityId == clusterContainer.Id.ToString(CultureInfo.InvariantCulture));
+        Assert.Equal(actor.Id, containerAudit.ActorUserId);
+        outcomes.Add("cluster=wave-pick-work-planned,target-container-verified,picked-to-staging,plan-refreshed-complete");
+        outcomes.Add("cluster-pick-replay=no-duplicate-warehouse-work-ledger-entries");
+        await ReconcileAndRecordAsync(
+            "cluster-picking-plan-completed",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
         var cancellationOrder = await salesOrders.CreateAsync(
             new SalesOrderInput(
                 warehouseId,
@@ -257,7 +411,7 @@ public sealed partial class PostgreSqlJourneyTests
             target.TargetIdentifier,
             outcomes,
             [
-                "cluster, cross-dock, and kitting wave orchestration",
+                "cross-dock reservation/work materialization and kitting wave orchestration",
                 "partial allocation, shortage recovery, and hold/release interactions",
                 "authenticated MVC/browser wave boundary"
             ],
@@ -277,6 +431,10 @@ public sealed partial class PostgreSqlJourneyTests
                 ["waveSelectedLines"] = created.Value.SelectedLineCount,
                 ["waveReleasedLines"] = processed.Value.Lines.Count(value => value.Status == WaveLineStatus.Released),
                 ["wavePickWorks"] = processedLine.WorkCount,
+                ["clusterPlanId"] = refreshedClusterPlan.Value.Id,
+                ["clusterWorkItemsCompleted"] = pickWorkNumbers.Count,
+                ["clusterWorkItems"] = clusterPlan.Value.Lines.Select(value => value.WarehouseWorkId).Distinct().Count(),
+                ["clusterPickedQuantity"] = (int)refreshedClusterPlan.Value.PickedQuantity,
                 ["reservationAllocationRows"] = reservationAllocationCount,
                 ["cancelledWaves"] = 1,
                 ["checkpoints"] = checkpoints.Count
