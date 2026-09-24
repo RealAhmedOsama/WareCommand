@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Wms.Application.Auditing;
 using Wms.Application.DataGeneration;
 using Wms.Application.Identity;
 using Wms.Application.Inventory;
@@ -277,6 +279,177 @@ public sealed partial class PostgreSqlJourneyTests
                 ["reservationAllocationRows"] = reservationAllocationCount,
                 ["cancelledWaves"] = 1,
                 ["checkpoints"] = checkpoints.Count
+            },
+            ReconciliationClean: checkpoints.All(value => value.IssueCount == 0),
+            UnexpectedReconciliationIssueCount: checkpoints.Sum(value => value.IssueCount),
+            ExpectedReconciliationIssueCount: 0));
+    }
+
+    [PostgreSqlFact]
+    public async Task SalesOrderHoldReleaseAndCancellationReconcileEveryTransition()
+    {
+        await using var target = new PostgreSqlTestDatabase();
+        await target.InitializeAsync();
+        var seeded = await DeterministicPostgreSqlDataGenerationFixture.WriteWithActorCredentialsAsync(
+            target,
+            new DataGenerationRequest(
+                WmsDataGenerationProfiles.IntegrationTest,
+                "issue-130-sales-order-hold-journey",
+                Environment: "Testing",
+                Locale: "en-US"));
+        Assert.True(seeded.Report.ReconciliationClean);
+
+        using var provider = DeterministicPostgreSqlDataGenerationFixture
+            .CreateServiceProviderForExistingTarget(target);
+        using var scope = provider.CreateScope();
+        var services = scope.ServiceProvider;
+        var userManager = services.GetRequiredService<UserManager<WmsUser>>();
+        var actor = await userManager.FindByIdAsync(seeded.ActorCredentials.UserId);
+        Assert.NotNull(actor);
+        services.GetRequiredService<DesktopUserSession>().SignIn(actor);
+
+        var context = services.GetRequiredService<WmsDbContext>();
+        var reconciliation = services.GetRequiredService<IInventoryReconciliationService>();
+        var salesOrders = services.GetRequiredService<ISalesOrderService>();
+        var checkpoints = new List<PostgreSqlJourneyCheckpointEvidence>();
+        var warehouseId = await context.Warehouses.AsNoTracking()
+            .Where(value => value.IsActive)
+            .OrderBy(value => value.Id)
+            .Select(value => value.Id)
+            .FirstAsync();
+        var customerId = await context.Customers.AsNoTracking()
+            .Where(value => value.IsActive)
+            .OrderBy(value => value.Id)
+            .Select(value => value.Id)
+            .FirstAsync();
+        var item = await context.Items.AsNoTracking()
+            .Where(value => value.IsActive &&
+                            value.RequiresLot == false &&
+                            value.RequiresSerial == false)
+            .OrderBy(value => value.Id)
+            .Select(value => new { value.Id, value.Sku, value.UnitOfMeasure })
+            .FirstAsync();
+
+        async Task<(decimal OnHand, decimal Reserved, decimal Available)> ReadInventoryTotalsAsync()
+        {
+            var balances = await context.InventoryBalances.AsNoTracking()
+                .Where(value => value.WarehouseId == warehouseId)
+                .ToArrayAsync();
+            return (
+                balances.Sum(value => value.OnHandQuantity),
+                balances.Sum(value => value.ReservedQuantity),
+                balances.Sum(value => value.AvailableQuantity));
+        }
+
+        var balancesBefore = await ReadInventoryTotalsAsync();
+        var inventoryTransactionCountBefore = await context.InventoryTransactions.AsNoTracking()
+            .CountAsync(value => value.WarehouseId == warehouseId);
+        var checkpointsAdded = new List<string>();
+
+        async Task ReconcileAsync(string name)
+        {
+            await ReconcileAndRecordAsync(
+                name,
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+            checkpointsAdded.Add(name);
+        }
+
+        var created = await salesOrders.CreateAsync(
+            new SalesOrderInput(
+                warehouseId,
+                customerId,
+                OrderDate: new DateOnly(2026, 1, 15),
+                RequestedShipDate: new DateOnly(2026, 1, 16),
+                ExternalReference: "J130-HOLD-ORDER-01",
+                SourceType: "ISSUE-130-HOLD-JOURNEY",
+                AllowPartialShipment: false,
+                Lines: [new SalesOrderLineInput(item.Sku, 1m, item.UnitOfMeasure)]),
+            actor.Id);
+        Assert.True(created.IsSuccess, created.Error);
+        Assert.Equal(SalesOrderStatus.Draft, created.Value.Status);
+        await ReconcileAsync("sales-order-hold-created");
+
+        var confirmed = await salesOrders.ConfirmAsync(created.Value.Id, actor.Id);
+        Assert.True(confirmed.IsSuccess, confirmed.Error);
+        Assert.Equal(SalesOrderStatus.Confirmed, confirmed.Value.Status);
+        await ReconcileAsync("sales-order-hold-confirmed");
+
+        var held = await salesOrders.HoldAsync(
+            confirmed.Value.Id,
+            "Customer requested a temporary hold.",
+            actor.Id);
+        Assert.True(held.IsSuccess, held.Error);
+        Assert.Equal(SalesOrderStatus.Held, held.Value.Status);
+        await ReconcileAsync("sales-order-held");
+
+        var released = await salesOrders.ReleaseHoldAsync(held.Value.Id, actor.Id);
+        Assert.True(released.IsSuccess, released.Error);
+        Assert.Equal(SalesOrderStatus.Confirmed, released.Value.Status);
+        await ReconcileAsync("sales-order-hold-released");
+
+        var cancelled = await salesOrders.CancelAsync(released.Value.Id, actor.Id);
+        Assert.True(cancelled.IsSuccess, cancelled.Error);
+        Assert.Equal(SalesOrderStatus.Cancelled, cancelled.Value.Status);
+        await ReconcileAsync("sales-order-cancelled-after-release");
+
+        var persisted = await context.SalesOrders.AsNoTracking()
+            .SingleAsync(value => value.Id == created.Value.Id);
+        Assert.Equal(SalesOrderStatus.Cancelled, persisted.Status);
+        Assert.True(persisted.Revision >= 4);
+        var balancesAfter = await ReadInventoryTotalsAsync();
+        Assert.Equal(balancesBefore, balancesAfter);
+        Assert.Equal(
+            inventoryTransactionCountBefore,
+            await context.InventoryTransactions.AsNoTracking().CountAsync(value => value.WarehouseId == warehouseId));
+
+        var auditActions = new[]
+        {
+            WmsAuditActions.SalesOrderCreated,
+            WmsAuditActions.SalesOrderConfirmed,
+            WmsAuditActions.SalesOrderHeld,
+            WmsAuditActions.SalesOrderHoldReleased,
+            WmsAuditActions.SalesOrderCancelled
+        };
+        var auditEntries = await context.AuditEntries.AsNoTracking()
+            .Where(value => value.EntityId == created.Value.DocumentNumber &&
+                            auditActions.Contains(value.Action))
+            .OrderBy(value => value.Id)
+            .ToArrayAsync();
+        Assert.Equal(auditActions.Length, auditEntries.Length);
+        Assert.Equal(auditActions, auditEntries.Select(value => value.Action));
+        Assert.All(auditEntries, entry =>
+        {
+            Assert.Equal(actor.Id, entry.ActorUserId);
+            Assert.Equal(warehouseId, entry.WarehouseId);
+            Assert.Equal(WmsAuditEntityTypes.SalesOrder, entry.EntityType);
+            Assert.True(entry.Succeeded);
+            Assert.False(string.IsNullOrWhiteSpace(entry.CorrelationId));
+        });
+        using (var heldAudit = JsonDocument.Parse(auditEntries[2].AfterJson!))
+        {
+            Assert.Equal(SalesOrderStatus.Held.ToString(), heldAudit.RootElement.GetProperty("status").GetString());
+        }
+        using (var cancelledAudit = JsonDocument.Parse(auditEntries[4].AfterJson!))
+        {
+            Assert.Equal(SalesOrderStatus.Cancelled.ToString(), cancelledAudit.RootElement.GetProperty("status").GetString());
+        }
+
+        WriteJourneyEvidence(new PostgreSqlJourneyEvidence(
+            "sales-order-hold-release-and-cancellation",
+            target.TargetIdentifier,
+            ["sales-order=draft,confirmed,held,released-to-confirmed,cancelled"],
+            ["authenticated MVC/browser hold controls", "allocation hold after reservation and picked-work recovery"],
+            checkpoints,
+            new Dictionary<string, decimal>(),
+            new Dictionary<string, int>
+            {
+                ["persistedOrderCount"] = 1,
+                ["auditedTransitions"] = auditEntries.Length,
+                ["inventoryTransactionsAdded"] = 0,
+                ["reconciliationCheckpoints"] = checkpointsAdded.Count
             },
             ReconciliationClean: checkpoints.All(value => value.IssueCount == 0),
             UnexpectedReconciliationIssueCount: checkpoints.Sum(value => value.IssueCount),
