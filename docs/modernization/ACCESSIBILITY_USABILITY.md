@@ -33,10 +33,13 @@ focus/touch/reduced-motion contract. Existing `LocalizationFlowTests`,
 `MvcShellFlowTests`, `PwaFlowTests`, and module flow tests provide additional
 RTL/LTR, scanner-shell, PWA, and responsive markup evidence.
 
-The current repository does not contain a Playwright runner or browser binary.
-Therefore these tests are HTTP/render-contract checks, not a claim of full
-browser accessibility or visual-regression qualification. The CI/browser wave
-must add Playwright plus an accessibility engine and capture baselines at:
+`Wms.ASP.Tests/PostgreSqlBrowserJourneyTests.cs` now runs Chromium against the
+real MVC HTTP origin and an isolated PostgreSQL schema. Its current responsive
+matrix covers 390x844 phone, 768x1024 tablet, and 1366x768 laptop widths in
+English LTR and Arabic RTL, with route semantics, page overflow, receiving
+scanner focus, online/offline behavior, and durable mutation assertions. This
+is focused browser evidence, not full accessibility or visual-regression
+qualification. Axe checks and screenshot baselines remain open for:
 
 | Viewport | English | Arabic |
 | --- | --- | --- |
@@ -55,8 +58,9 @@ affected device, locale, reason, workaround, and owner.
 
 ## Known remaining gates
 
-- Real browser keyboard-only and scanner simulation across the matrix above.
-- Axe/Playwright automated accessibility checks and visual baselines in CI.
+- Keyboard-only traversal and scanner simulation across the full matrix above;
+  the current browser slice exercises keyboard scanning at 390x844 only.
+- Axe-based automated browser checks and visual baselines in CI.
 - Manual screen-reader spot checks, high-DPI/zoom checks, long-translation and
   large-dataset checks, and print-preview validation.
 - Focus restoration after every module validation/dialog/drawer flow and

@@ -232,6 +232,8 @@ jobs:
             echo '## Disposable PostgreSQL integration and migration'
             echo '- PostgreSQL 17 containers are unique per verification and removed by the scripts.'
             echo '- Schema, startup refusal, seed/query behavior, import reconciliation, and rollback are exercised.'
+            echo '- The browser group launches the MVC app on loopback against its isolated schema and runs Chromium scanner/localization journeys.'
+            echo '- Redacted browser screenshots and a bounded route/status timeline are uploaded only when the job fails.'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload integration artifacts on failure
@@ -239,7 +241,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: postgres-integration-failure-${{ github.run_id }}
-          path: artifacts
+          path: |
+            artifacts
+            ${{ runner.temp }}/warecommand-browser-evidence
           if-no-files-found: ignore
 
   docker:

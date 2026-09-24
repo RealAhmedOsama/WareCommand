@@ -2,7 +2,7 @@
 param(
     [int]$Port = 55432,
     [string]$ContainerName = "warecommand-postgres-test-$([Guid]::NewGuid().ToString('N'))",
-    [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience', 'performance')]
+    [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience', 'browser', 'performance')]
     [string]$Group = 'all',
     [string]$TestName,
     [ValidateRange(10, 100)]
@@ -67,13 +67,18 @@ $providerGroups = [ordered]@{
         filter = 'FullyQualifiedName~Wms.ASP.Tests.PostgreSqlRuntimeResilienceTests'
         expectedClass = 'Wms.ASP.Tests.PostgreSqlRuntimeResilienceTests.'
     }
+    browser = [pscustomobject]@{
+        testProject = $dashboardTestProject
+        filter = 'FullyQualifiedName~Wms.ASP.Tests.PostgreSqlBrowserJourneyTests'
+        expectedClass = 'Wms.ASP.Tests.PostgreSqlBrowserJourneyTests.'
+    }
     performance = [pscustomobject]@{
         testProject = $dashboardTestProject
         filter = 'FullyQualifiedName~Wms.ASP.Tests.PostgreSqlPerformanceQualificationTests'
         expectedClass = 'Wms.ASP.Tests.PostgreSqlPerformanceQualificationTests.'
     }
 }
-$selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience') } else { @($Group) }
+$selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience', 'browser') } else { @($Group) }
 if (-not [string]::IsNullOrWhiteSpace($TestName) -and $TestName -notmatch '^[A-Za-z0-9_]+$') {
     throw 'TestName must be a test method identifier.'
 }
@@ -108,6 +113,7 @@ $previousPerformanceEvidencePath = $env:WARECOMMAND_PERFORMANCE_EVIDENCE_PATH
 $previousPerformanceRepeats = $env:WARECOMMAND_PERF_REPEATS
 $previousPerformanceSamples = $env:WARECOMMAND_PERF_SAMPLES
 $previousPerformanceExtendedContention = $env:WARECOMMAND_PERF_EXTENDED_CONTENTION
+$previousBrowserArtifactDirectory = $env:WARECOMMAND_BROWSER_ARTIFACT_DIRECTORY
 $previousVerificationRevision = $env:WARECOMMAND_VERIFICATION_REVISION
 $password = $env:WARECOMMAND_TEST_POSTGRES_PASSWORD
 $locationPushed = $false
@@ -137,6 +143,15 @@ if ($selectedGroupNames -contains 'performance') {
     $env:WARECOMMAND_PERF_REPEATS = $PerformanceRepeats.ToString([System.Globalization.CultureInfo]::InvariantCulture)
     $env:WARECOMMAND_PERF_SAMPLES = $PerformanceSamples.ToString([System.Globalization.CultureInfo]::InvariantCulture)
     $env:WARECOMMAND_PERF_EXTENDED_CONTENTION = $ExtendedContention.IsPresent.ToString().ToLowerInvariant()
+}
+if ($selectedGroupNames -contains 'browser') {
+    $browserArtifactBase = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+        [System.IO.Path]::GetTempPath()
+    }
+    else {
+        $env:RUNNER_TEMP
+    }
+    $env:WARECOMMAND_BROWSER_ARTIFACT_DIRECTORY = Join-Path $browserArtifactBase 'warecommand-browser-evidence'
 }
 if ([string]::IsNullOrWhiteSpace($password)) {
     $password = [Guid]::NewGuid().ToString('N')
@@ -200,6 +215,25 @@ try {
 
     $env:WARECOMMAND_TEST_POSTGRES_CONNECTION =
         "Host=127.0.0.1;Port=$Port;Database=warecommand_test;Username=warecommand_test;Password=$password"
+
+    if ($selectedGroupNames -contains 'browser') {
+        $browserInstallScript = Join-Path $repositoryRoot 'Wms.ASP.Tests/bin/Release/net10.0/playwright.ps1'
+        if (-not (Test-Path -LiteralPath $browserInstallScript -PathType Leaf)) {
+            & dotnet build $dashboardTestProject -c Release --no-restore --nologo -v:minimal
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $browserInstallScript -PathType Leaf)) {
+                throw 'The Playwright browser installer was not produced by the ASP test build.'
+            }
+        }
+
+        $browserInstallArguments = @('-NoProfile', '-File', $browserInstallScript, 'install', 'chromium')
+        if (-not $IsWindows) {
+            $browserInstallArguments = @('-NoProfile', '-File', $browserInstallScript, 'install', '--with-deps', 'chromium')
+        }
+        & pwsh @browserInstallArguments
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Playwright could not install the pinned Chromium browser for PostgreSQL browser qualification.'
+        }
+    }
 
     $results = @()
     foreach ($groupName in $selectedGroupNames) {
@@ -359,6 +393,12 @@ finally {
     }
     else {
         Remove-Item Env:WARECOMMAND_PERF_EXTENDED_CONTENTION -ErrorAction SilentlyContinue
+    }
+    if ($null -ne $previousBrowserArtifactDirectory) {
+        $env:WARECOMMAND_BROWSER_ARTIFACT_DIRECTORY = $previousBrowserArtifactDirectory
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_BROWSER_ARTIFACT_DIRECTORY -ErrorAction SilentlyContinue
     }
     if ($null -ne $previousVerificationRevision) {
         $env:WARECOMMAND_VERIFICATION_REVISION = $previousVerificationRevision

@@ -13,12 +13,14 @@ foreach ($required in @(
         'provider-group=data-generation',
         'provider-group=journeys',
         'provider-group=resilience',
+        'provider-group=browser',
         'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlIntegrationTests',
         'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlIntegrationTests_Harness',
         'filter=FullyQualifiedName~Wms.ASP.Tests.PostgreSqlDashboardFlowTests',
         'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlDataGenerationTests',
         'filter=FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlJourneyTests',
-        'filter=FullyQualifiedName~Wms.ASP.Tests.PostgreSqlRuntimeResilienceTests')) {
+        'filter=FullyQualifiedName~Wms.ASP.Tests.PostgreSqlRuntimeResilienceTests',
+        'filter=FullyQualifiedName~Wms.ASP.Tests.PostgreSqlBrowserJourneyTests')) {
     if ($output -notmatch [regex]::Escape($required)) {
         throw "PostgreSQL group plan is missing '$required'. Output: $output"
     }
