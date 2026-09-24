@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -450,6 +451,257 @@ public sealed partial class PostgreSqlJourneyTests
                 ["auditedTransitions"] = auditEntries.Length,
                 ["inventoryTransactionsAdded"] = 0,
                 ["reconciliationCheckpoints"] = checkpointsAdded.Count
+            },
+            ReconciliationClean: checkpoints.All(value => value.IssueCount == 0),
+            UnexpectedReconciliationIssueCount: checkpoints.Sum(value => value.IssueCount),
+            ExpectedReconciliationIssueCount: 0));
+    }
+
+    [PostgreSqlFact]
+    public async Task SalesOrderPartialAllocationShortageAndReleaseReplayReconcileEveryTransition()
+    {
+        await using var target = new PostgreSqlTestDatabase();
+        await target.InitializeAsync();
+        var seeded = await DeterministicPostgreSqlDataGenerationFixture.WriteWithActorCredentialsAsync(
+            target,
+            new DataGenerationRequest(
+                WmsDataGenerationProfiles.IntegrationTest,
+                "issue-130-partial-allocation-journey",
+                Environment: "Testing",
+                Locale: "en-US"));
+        Assert.True(seeded.Report.ReconciliationClean);
+
+        using var provider = DeterministicPostgreSqlDataGenerationFixture
+            .CreateServiceProviderForExistingTarget(target);
+        using var scope = provider.CreateScope();
+        var services = scope.ServiceProvider;
+        var userManager = services.GetRequiredService<UserManager<WmsUser>>();
+        var actor = await userManager.FindByIdAsync(seeded.ActorCredentials.UserId);
+        Assert.NotNull(actor);
+        services.GetRequiredService<DesktopUserSession>().SignIn(actor);
+
+        var context = services.GetRequiredService<WmsDbContext>();
+        var reconciliation = services.GetRequiredService<IInventoryReconciliationService>();
+        var salesOrders = services.GetRequiredService<ISalesOrderService>();
+        var allocationService = services.GetRequiredService<ISalesOrderAllocationService>();
+        var checkpoints = new List<PostgreSqlJourneyCheckpointEvidence>();
+        var warehouseId = await context.Warehouses.AsNoTracking()
+            .Where(value => value.IsActive)
+            .OrderBy(value => value.Id)
+            .Select(value => value.Id)
+            .FirstAsync();
+        var customerId = await context.Customers.AsNoTracking()
+            .Where(value => value.IsActive)
+            .OrderBy(value => value.Id)
+            .Select(value => value.Id)
+            .FirstAsync();
+        var inventoryRows = await context.Stock.AsNoTracking()
+            .Include(value => value.Item)
+            .Include(value => value.Location)
+            .Where(value => value.Location.WarehouseId == warehouseId &&
+                            value.Location.IsPickable &&
+                            value.Item.IsActive &&
+                            value.Item.RequiresLot == false &&
+                            value.Item.RequiresSerial == false &&
+                            value.Item.RequiresExpiry == false &&
+                            value.LotId == null &&
+                            value.SerialNumberId == null &&
+                            value.LicensePlateId == null &&
+                            value.InventoryStatusId == InventoryStatusSystemIds.Available &&
+                            value.OwnerKind == InventoryOwnerKind.CompanyOwned)
+            .ToArrayAsync();
+        var item = inventoryRows
+            .GroupBy(value => new { value.ItemId, value.Item.Sku, value.Item.UnitOfMeasure })
+            .Select(group => new
+            {
+                group.Key.ItemId,
+                group.Key.Sku,
+                group.Key.UnitOfMeasure,
+                AvailableQuantity = group.Sum(value => value.QuantityAvailable.Value)
+            })
+            .Where(value => value.AvailableQuantity >= 1m)
+            .OrderByDescending(value => value.AvailableQuantity)
+            .ThenBy(value => value.ItemId)
+            .FirstOrDefault();
+        Assert.NotNull(item);
+        var orderedQuantity = item.AvailableQuantity + 1m;
+
+        async Task<(decimal OnHand, decimal Reserved, decimal Available)> ReadBalanceAsync()
+        {
+            var balances = await context.InventoryBalances.AsNoTracking()
+                .Where(value => value.WarehouseId == warehouseId && value.ItemId == item.ItemId)
+                .ToArrayAsync();
+            return (
+                balances.Sum(value => value.OnHandQuantity),
+                balances.Sum(value => value.ReservedQuantity),
+                balances.Sum(value => value.AvailableQuantity));
+        }
+
+        var beforeAllocation = await ReadBalanceAsync();
+        var order = await salesOrders.CreateAsync(
+            new SalesOrderInput(
+                warehouseId,
+                customerId,
+                OrderDate: new DateOnly(2026, 1, 15),
+                RequestedShipDate: new DateOnly(2026, 1, 16),
+                ExternalReference: "J130-PARTIAL-ORDER-01",
+                SourceType: "ISSUE-130-PARTIAL-JOURNEY",
+                AllowPartialShipment: true,
+                Lines: [new SalesOrderLineInput(item.Sku, orderedQuantity, item.UnitOfMeasure)]),
+            actor.Id);
+        Assert.True(order.IsSuccess, order.Error);
+        await ReconcileAndRecordAsync(
+            "partial-order-created",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        order = await salesOrders.ConfirmAsync(order.Value.Id, actor.Id);
+        Assert.True(order.IsSuccess, order.Error);
+        await ReconcileAndRecordAsync(
+            "partial-order-confirmed",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var allocationCommand = new SalesOrderAllocationCommand(
+            [order.Value.Lines.Single().Id],
+            ReleaseToWarehouse: false,
+            IdempotencyKey: "J130-PARTIAL-ALLOCATE-01");
+        var allocated = await allocationService.AllocateAsync(order.Value.Id, allocationCommand, actor.Id);
+        Assert.True(allocated.IsSuccess, allocated.Error);
+        Assert.Equal(SalesOrderStatus.PartiallyAllocated, allocated.Value.OrderStatus);
+        var allocatedLine = Assert.Single(allocated.Value.Lines);
+        Assert.Equal(item.AvailableQuantity, allocatedLine.AllocatedBaseQuantity);
+        Assert.Equal(1m, allocatedLine.BackorderBaseQuantity);
+        Assert.NotNull(allocatedLine.ReservationId);
+        Assert.Empty(allocated.Value.Work);
+        var allocationRows = await context.InventoryReservationAllocations.AsNoTracking()
+            .Include(value => value.Location)
+            .Where(value => value.ReservationId == allocatedLine.ReservationId)
+            .OrderBy(value => value.Id)
+            .ToArrayAsync();
+        var allocationRowCount = allocationRows.Length;
+        Assert.True(allocationRowCount > 0);
+        Assert.Equal(allocatedLine.AllocatedBaseQuantity, allocationRows.Sum(value => value.AllocatedQuantity));
+        Assert.All(allocationRows, value =>
+        {
+            Assert.Equal(warehouseId, value.WarehouseId);
+            Assert.Equal(item.ItemId, value.ItemId);
+            Assert.True(value.Location.IsPickable);
+            Assert.Null(value.LotId);
+            Assert.Null(value.SerialNumberId);
+            Assert.Null(value.SerialNumber);
+            Assert.Null(value.LicensePlateId);
+            Assert.Equal(InventoryStatusSystemIds.Available, value.InventoryStatusId);
+            Assert.Equal(InventoryOwnerKind.CompanyOwned, value.OwnerKind);
+            Assert.Null(value.InventoryOwnerId);
+            Assert.Equal(InventoryOwnershipDimension.CompanyOwnerCode, value.OwnerCodeSnapshot);
+        });
+        var afterAllocation = await ReadBalanceAsync();
+        Assert.Equal(beforeAllocation.OnHand, afterAllocation.OnHand);
+        Assert.Equal(beforeAllocation.Reserved + allocatedLine.AllocatedBaseQuantity, afterAllocation.Reserved);
+        await ReconcileAndRecordAsync(
+            "partial-order-allocated-with-backorder",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var allocationReplay = await allocationService.AllocateAsync(order.Value.Id, allocationCommand, actor.Id);
+        Assert.True(allocationReplay.IsSuccess, allocationReplay.Error);
+        Assert.Equal(allocatedLine.AllocatedBaseQuantity, allocationReplay.Value.Lines.Single().AllocatedBaseQuantity);
+        Assert.Equal(allocatedLine.BackorderBaseQuantity, allocationReplay.Value.Lines.Single().BackorderBaseQuantity);
+        Assert.Equal(
+            allocationRowCount,
+            await context.InventoryReservationAllocations.AsNoTracking()
+                .CountAsync(value => value.ReservationId == allocatedLine.ReservationId));
+        var afterAllocationReplay = await ReadBalanceAsync();
+        Assert.Equal(afterAllocation, afterAllocationReplay);
+        await ReconcileAndRecordAsync(
+            "partial-order-allocation-replayed",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var releaseCommand = new SalesOrderAllocationCommand(IdempotencyKey: "J130-PARTIAL-RELEASE-01");
+        var released = await allocationService.ReleaseAsync(order.Value.Id, releaseCommand, actor.Id);
+        Assert.True(released.IsSuccess, released.Error);
+        Assert.Equal(SalesOrderStatus.Released, released.Value.OrderStatus);
+        Assert.Equal(allocatedLine.AllocatedBaseQuantity, released.Value.Work.Sum(value => value.PlannedQuantity));
+        var workCount = await context.WarehouseWorks.AsNoTracking()
+            .CountAsync(value => value.SourceEntityType == "SalesOrderLine" &&
+                                 value.SourceEntityId == allocatedLine.LineId.ToString(CultureInfo.InvariantCulture));
+        Assert.True(workCount > 0);
+        await ReconcileAndRecordAsync(
+            "partial-order-pick-work-released",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var releaseReplay = await allocationService.ReleaseAsync(order.Value.Id, releaseCommand, actor.Id);
+        Assert.True(releaseReplay.IsSuccess, releaseReplay.Error);
+        Assert.Equal(SalesOrderStatus.Released, releaseReplay.Value.OrderStatus);
+        Assert.Equal(
+            workCount,
+            await context.WarehouseWorks.AsNoTracking()
+                .CountAsync(value => value.SourceEntityType == "SalesOrderLine" &&
+                                     value.SourceEntityId == allocatedLine.LineId.ToString(CultureInfo.InvariantCulture)));
+        Assert.Equal(
+            allocationRowCount,
+            await context.InventoryReservationAllocations.AsNoTracking()
+                .CountAsync(value => value.ReservationId == allocatedLine.ReservationId));
+        var afterReleaseReplay = await ReadBalanceAsync();
+        Assert.Equal(afterAllocation, afterReleaseReplay);
+        await ReconcileAndRecordAsync(
+            "partial-order-release-replayed",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var allocationAudits = await context.AuditEntries.AsNoTracking()
+            .Where(value => value.Action == WmsAuditActions.AllocationChanged &&
+                            value.EntityId == order.Value.DocumentNumber)
+            .ToArrayAsync();
+        Assert.True(allocationAudits.Length >= 2);
+        Assert.All(allocationAudits, entry =>
+        {
+            Assert.Equal(actor.Id, entry.ActorUserId);
+            Assert.Equal(warehouseId, entry.WarehouseId);
+            Assert.Equal(WmsAuditEntityTypes.Allocation, entry.EntityType);
+            Assert.True(entry.Succeeded);
+        });
+
+        WriteJourneyEvidence(new PostgreSqlJourneyEvidence(
+            "sales-order-partial-allocation-shortage-and-release-replay",
+            target.TargetIdentifier,
+            ["allocation=partial-with-one-unit-backorder,allocation-replay-once,pick-work-release-and-replay-once"],
+            ["backorder replenishment and eventual completion", "partial allocation for lot/serial/license-plate dimensions"],
+            checkpoints,
+            new Dictionary<string, decimal>
+            {
+                ["itemOnHandBeforeAllocation"] = beforeAllocation.OnHand,
+                ["itemOnHandAfterAllocation"] = afterAllocation.OnHand,
+                ["itemReservedBeforeAllocation"] = beforeAllocation.Reserved,
+                ["itemReservedAfterAllocation"] = afterAllocation.Reserved,
+                ["itemAvailableBeforeAllocation"] = beforeAllocation.Available,
+                ["itemAvailableAfterAllocation"] = afterAllocation.Available,
+                ["eligiblePickableAvailableBeforeAllocation"] = item.AvailableQuantity,
+                ["orderedQuantity"] = orderedQuantity,
+                ["allocatedQuantity"] = allocatedLine.AllocatedBaseQuantity,
+                ["backorderQuantity"] = allocatedLine.BackorderBaseQuantity
+            },
+            new Dictionary<string, int>
+            {
+                ["reservationAllocationRows"] = allocationRowCount,
+                ["pickWorkItems"] = workCount,
+                ["allocationAuditEvents"] = allocationAudits.Length,
+                ["checkpoints"] = checkpoints.Count
             },
             ReconciliationClean: checkpoints.All(value => value.IssueCount == 0),
             UnexpectedReconciliationIssueCount: checkpoints.Sum(value => value.IssueCount),
