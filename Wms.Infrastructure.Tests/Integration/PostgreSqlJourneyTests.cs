@@ -37,6 +37,8 @@ public sealed record PostgreSqlJourneyEvidence(
 public sealed class PostgreSqlJourneyTests
 {
     private static readonly int[] TransferEntrySequences = [1, 2];
+    private static readonly string[] ReplenishmentWorkPlanDecisions =
+        ["work-created", "partial-source-work-created"];
 
     private static readonly JsonSerializerOptions JourneyEvidenceJsonOptions = new()
     {
@@ -333,6 +335,12 @@ public sealed class PostgreSqlJourneyTests
             reconciliation,
             actor.Id,
             sourceWarehouseId);
+        var replenishmentJourney = await RunReplenishmentJourneyAsync(
+            services,
+            context,
+            reconciliation,
+            actor.Id,
+            sourceWarehouseId);
         Assert.Equal(10, checkpoints.Count);
         var finalItemQuantity = await SumItemQuantityAsync(context, sourceBalance.ItemId);
         var finalSourceLocationQuantity = await SumLocationQuantityAsync(
@@ -350,7 +358,6 @@ public sealed class PostgreSqlJourneyTests
         {
             "ASN and quality inspection lifecycle",
             "cycle-count execution and variance approval",
-            "replenishment execution",
             "wave, cluster, cross-dock, kitting, and disposition journeys",
             "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
             "authenticated HTTP boundary for these service journeys"
@@ -403,7 +410,257 @@ public sealed class PostgreSqlJourneyTests
             ExpectedReconciliationIssueCount: checkpoints
                 .Where(value => !value.ExpectedClean)
                 .Sum(value => value.IssueCount));
-        WriteJourneyEvidence(generatedLifecycle, transferJourney, supplierReturnJourney);
+        WriteJourneyEvidence(
+            generatedLifecycle,
+            transferJourney,
+            supplierReturnJourney,
+            replenishmentJourney);
+    }
+
+    private static async Task<PostgreSqlJourneyEvidence> RunReplenishmentJourneyAsync(
+        IServiceProvider services,
+        WmsDbContext context,
+        IInventoryReconciliationService reconciliation,
+        string actorUserId,
+        int warehouseId)
+    {
+        var checkpoints = new List<PostgreSqlJourneyCheckpointEvidence>();
+        var outcomes = new List<string>();
+
+        async Task ReconcileCheckpointAsync(string checkpoint)
+        {
+            await ReconcileAndRecordAsync(
+                checkpoint,
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+        }
+
+        var sourceBalance = await context.InventoryBalances.AsNoTracking()
+            .Include(value => value.Item)
+            .Include(value => value.Location)
+            .Where(value =>
+                value.WarehouseId == warehouseId &&
+                value.Location.Type == LocationType.Storage &&
+                value.Location.IsActive &&
+                value.Location.IsPickable &&
+                value.Item.IsActive &&
+                !value.Item.RequiresLot &&
+                !value.Item.RequiresSerial &&
+                value.LotId == null &&
+                value.SerialNumberId == null &&
+                value.LicensePlateId == null &&
+                value.InventoryStatusId == InventoryStatusSystemIds.Available &&
+                value.OwnerKind == InventoryOwnerKind.CompanyOwned &&
+                value.InventoryOwnerId == null &&
+                value.OwnerCodeSnapshot == InventoryOwnershipDimension.CompanyOwnerCode &&
+                value.OnHandQuantity - value.ReservedQuantity >= 1m)
+            .OrderBy(value => value.ItemId)
+            .ThenBy(value => value.LocationId)
+            .FirstAsync();
+        var destination = await context.Locations.AsNoTracking()
+            .Where(value => value.WarehouseId == warehouseId &&
+                            value.Type == LocationType.Storage &&
+                            value.Id != sourceBalance.LocationId &&
+                            value.IsActive &&
+                            value.IsPickable)
+            .OrderBy(value => value.Id)
+            .FirstAsync();
+        var destinationQuantityBefore = await SumLocationQuantityAsync(
+            context,
+            destination.Id,
+            sourceBalance.ItemId);
+        var plannedQuantity = 1m;
+        var targetQuantity = destinationQuantityBefore + plannedQuantity;
+        var policyService = services.GetRequiredService<IInventoryReplenishmentPolicyService>();
+        var generationService = services.GetRequiredService<IReplenishmentExecutionService>();
+        var workService = services.GetRequiredService<IWarehouseWorkService>();
+        var policy = await policyService.SaveAsync(
+            null,
+            new InventoryReplenishmentPolicyInput(
+                sourceBalance.ItemId,
+                warehouseId,
+                destination.Id,
+                MinimumQuantity: 0m,
+                MaximumQuantity: targetQuantity + 100m,
+                SafetyStockQuantity: 0m,
+                ReorderPointQuantity: targetQuantity,
+                TargetQuantity: targetQuantity,
+                QuantityBasis: InventoryPolicyQuantityBasis.PhysicalAvailable,
+                EffectiveFromUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)),
+            actorUserId);
+        Assert.True(policy.IsSuccess, policy.FirstError?.Message);
+        await ReconcileCheckpointAsync("replenishment-policy-saved");
+
+        var totalQuantityBefore = await SumItemQuantityAsync(context, sourceBalance.ItemId);
+        var generation = await generationService.GenerateAsync(
+            new ReplenishmentGenerationQuery(warehouseId, policy.Value.Id),
+            actorUserId);
+        Assert.True(generation.IsSuccess, generation.FirstError?.Message);
+        Assert.Equal(1, generation.Value.WorkCreated);
+        Assert.Equal(0, generation.Value.Blocked);
+        var plan = Assert.Single(generation.Value.Plans);
+        Assert.Contains(plan.Decision, ReplenishmentWorkPlanDecisions);
+        Assert.Equal(plannedQuantity, plan.PlannedQuantity);
+        Assert.NotNull(plan.WorkId);
+        Assert.Equal(destination.Id, plan.DestinationLocationId);
+        Assert.NotEmpty(plan.Lines);
+        Assert.All(plan.Lines, line => Assert.Equal(InventoryOwnerKind.CompanyOwned, line.OwnerKind));
+        Assert.Equal(0m, await SumReservedQuantityAsync(context, sourceBalance.ItemId));
+        await ReconcileCheckpointAsync("replenishment-work-created-without-stock-mutation");
+
+        var replayedGeneration = await generationService.GenerateAsync(
+            new ReplenishmentGenerationQuery(warehouseId, policy.Value.Id),
+            actorUserId);
+        Assert.True(replayedGeneration.IsSuccess, replayedGeneration.FirstError?.Message);
+        Assert.Equal(0, replayedGeneration.Value.WorkCreated);
+        Assert.Equal(1, replayedGeneration.Value.WorkReused);
+        Assert.Equal(plan.WorkId, Assert.Single(replayedGeneration.Value.Plans).WorkId);
+        outcomes.Add("policy-signal=generated-deterministic-work,replay-reused-open-work");
+        await ReconcileCheckpointAsync("replenishment-open-work-reused");
+
+        var workId = plan.WorkId!.Value;
+        var work = await workService.GetAsync(workId);
+        Assert.True(work.IsSuccess, work.FirstError?.Message);
+        Assert.Equal(WarehouseWorkType.Replenishment, work.Value.Type);
+        Assert.Equal(plan.Lines.Count, work.Value.Lines.Count);
+        Assert.All(work.Value.Lines, line =>
+        {
+            var plannedLine = plan.Lines.Single(value => value.Sequence == line.Sequence);
+            Assert.Equal(plannedLine.SourceLocationId, line.SourceLocationId);
+            Assert.Equal(plannedLine.DestinationLocationId, line.DestinationLocationId);
+            Assert.Equal(plannedLine.OwnerKind, line.OwnerKind);
+            Assert.Equal(plannedLine.InventoryOwnerId, line.InventoryOwnerId);
+            Assert.Equal(plannedLine.OwnerCodeSnapshot, line.OwnerCodeSnapshot);
+        });
+        var sourceQuantitiesBefore = new Dictionary<int, decimal>();
+        foreach (var sourceLocationId in plan.Lines
+                     .Select(value => value.SourceLocationId)
+                     .Distinct())
+        {
+            sourceQuantitiesBefore[sourceLocationId] = await SumLocationQuantityAsync(
+                context,
+                sourceLocationId,
+                sourceBalance.ItemId);
+        }
+        var assigned = await workService.AssignAsync(
+            workId,
+            new WarehouseWorkAssignmentInput(actorUserId, null, "j130-replenishment-assign"),
+            actorUserId);
+        Assert.True(assigned.IsSuccess, assigned.FirstError?.Message);
+        await ReconcileCheckpointAsync("replenishment-work-assigned");
+        var started = await workService.StartAsync(
+            workId,
+            new WarehouseWorkCommandInput("j130-replenishment-start"),
+            actorUserId);
+        Assert.True(started.IsSuccess, started.FirstError?.Message);
+        await ReconcileCheckpointAsync("replenishment-work-started");
+
+        var completionInput = new WarehouseWorkCompletionInput(
+            "j130-replenishment-complete",
+            CompletionReference: work.Value.WorkNumber,
+            Scans: work.Value.Lines.Select(line => new WarehouseWorkScanInput(
+                line.Id,
+                line.ItemId,
+                line.SourceLocationId!.Value,
+                line.DestinationLocationId!.Value,
+                line.PlannedQuantity,
+                line.LicensePlateId,
+                LotId: line.LotId,
+                SerialNumberId: line.SerialNumberId,
+                SerialNumber: line.SerialNumber)).ToArray());
+        var completed = await workService.CompleteAsync(workId, completionInput, actorUserId);
+        Assert.True(completed.IsSuccess, completed.FirstError?.Message);
+        Assert.Equal(WarehouseWorkStatus.Completed, completed.Value.Status);
+        Assert.Equal(
+            totalQuantityBefore,
+            await SumItemQuantityAsync(context, sourceBalance.ItemId));
+        Assert.Equal(
+            destinationQuantityBefore + plan.PlannedQuantity,
+            await SumLocationQuantityAsync(context, destination.Id, sourceBalance.ItemId));
+        foreach (var line in plan.Lines.GroupBy(value => value.SourceLocationId))
+        {
+            Assert.Equal(
+                sourceQuantitiesBefore[line.Key] - line.Sum(value => value.PlannedQuantity),
+                await SumLocationQuantityAsync(context, line.Key, sourceBalance.ItemId));
+        }
+        Assert.Equal(0m, await SumReservedQuantityAsync(context, sourceBalance.ItemId));
+        outcomes.Add("scanner-completion=source-decrement,destination-increment,company-quantity-preserved");
+        await ReconcileCheckpointAsync("replenishment-work-completed");
+
+        var transactionsAfterCompletion = await context.InventoryTransactions.CountAsync();
+        var completionReplay = await workService.CompleteAsync(workId, completionInput, actorUserId);
+        Assert.True(completionReplay.IsSuccess, completionReplay.FirstError?.Message);
+        Assert.Equal(WarehouseWorkStatus.Completed, completionReplay.Value.Status);
+        Assert.Equal(transactionsAfterCompletion, await context.InventoryTransactions.CountAsync());
+        outcomes.Add("completion-replay=no-duplicate-inventory-transactions");
+        await ReconcileCheckpointAsync("replenishment-completion-replayed-once");
+
+        var ledgerEntries = await context.InventoryTransactions.AsNoTracking()
+            .Where(value => value.ReferenceId == work.Value.WorkNumber)
+            .OrderBy(value => value.TransactionGroupId)
+            .ThenBy(value => value.EntrySequence)
+            .ToArrayAsync();
+        Assert.Equal(plan.Lines.Count * 2, ledgerEntries.Length);
+        Assert.All(ledgerEntries, value =>
+        {
+            Assert.Equal(InventoryTransactionType.Putaway, value.Type);
+            Assert.Equal(actorUserId, value.ActorUserId);
+            Assert.Equal("Movement", value.ReferenceType);
+            Assert.Equal(InventoryOwnerKind.CompanyOwned, value.OwnerKind);
+        });
+        var movements = await context.Movements.AsNoTracking()
+            .Where(value => value.ReferenceNumber == work.Value.WorkNumber)
+            .ToArrayAsync();
+        Assert.Equal(plan.Lines.Count, movements.Length);
+        Assert.All(movements, value =>
+        {
+            Assert.Equal(MovementType.Putaway, value.Type);
+            Assert.Equal(actorUserId, value.UserId);
+            Assert.Equal(InventoryOwnerKind.CompanyOwned, value.OwnerKind);
+        });
+        var workCommands = await context.WarehouseWorkCommands.AsNoTracking()
+            .Where(value => value.WarehouseWorkId == workId)
+            .ToArrayAsync();
+        Assert.All(workCommands, value => Assert.Equal(actorUserId, value.UserId));
+        outcomes.Add("ledger-and-command-audit=actor-source-reference-owner-qualified");
+
+        return new PostgreSqlJourneyEvidence(
+            "replenishment-signal-work-completion",
+            "issue-130-replenishment",
+            outcomes,
+            [
+                "cycle-count execution and variance approval",
+                "wave, cluster, cross-dock, kitting, and disposition journeys",
+                "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
+                "authenticated HTTP boundary for these service journeys"
+            ],
+            checkpoints,
+            new Dictionary<string, decimal>(StringComparer.Ordinal)
+            {
+                ["itemQuantityBefore"] = totalQuantityBefore,
+                ["itemQuantityAfter"] = await SumItemQuantityAsync(context, sourceBalance.ItemId),
+                ["destinationQuantityBefore"] = destinationQuantityBefore,
+                ["destinationQuantityAfter"] = destinationQuantityBefore + plan.PlannedQuantity,
+                ["replenishmentQuantity"] = plan.PlannedQuantity
+            },
+            new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["policyId"] = policy.Value.Id,
+                ["workId"] = workId,
+                ["workLines"] = plan.Lines.Count,
+                ["workCommands"] = workCommands.Length,
+                ["ledgerEntries"] = ledgerEntries.Length,
+                ["movements"] = movements.Length
+            },
+            ReconciliationClean: checkpoints.All(value => value.ExpectedClean == (value.IssueCount == 0)),
+            UnexpectedReconciliationIssueCount: checkpoints
+                .Where(value => value.ExpectedClean)
+                .Sum(value => value.IssueCount),
+            ExpectedReconciliationIssueCount: checkpoints
+                .Where(value => !value.ExpectedClean)
+                .Sum(value => value.IssueCount));
     }
 
     private static async Task<PostgreSqlJourneyEvidence> RunSupplierReturnJourneyAsync(
@@ -664,10 +921,9 @@ public sealed class PostgreSqlJourneyTests
             "issue-130-supplier-return",
             outcomes,
             [
-                "ASN and quality inspection lifecycle",
-                "cycle-count execution and variance approval",
-                "replenishment execution",
-                "wave, cluster, cross-dock, kitting, and disposition journeys",
+            "ASN and quality inspection lifecycle",
+            "cycle-count execution and variance approval",
+            "wave, cluster, cross-dock, kitting, and disposition journeys",
                 "partial quantities, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
             ],
@@ -724,6 +980,11 @@ public sealed class PostgreSqlJourneyTests
             .ToArrayAsync();
         return rows.Sum(value => value.QuantityAvailable.Value);
     }
+
+    private static Task<decimal> SumReservedQuantityAsync(WmsDbContext context, int itemId) =>
+        context.InventoryBalances.AsNoTracking()
+            .Where(value => value.ItemId == itemId)
+            .SumAsync(value => value.ReservedQuantity);
 
     private static async Task<decimal> SumLocationQuantityAsync(
         WmsDbContext context,

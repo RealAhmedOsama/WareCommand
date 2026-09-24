@@ -171,6 +171,92 @@ public sealed class ReplenishmentWarehouseWorkCompletionHandlerTests : IDisposab
     }
 
     [Fact]
+    public async Task CompletionPreservesExternalOwnerFromPlannedWorkLine()
+    {
+        var owner = new InventoryOwner(
+            "REP-EXTERNAL-OWNER",
+            InventoryOwnerKind.ExternalOwner,
+            "Replenishment external owner",
+            externalOwnerReference: "REP-OWNER-001");
+        _context.InventoryOwners.Add(owner);
+        await _context.SaveChangesAsync();
+        _context.Stock.Remove(await _context.Stock.SingleAsync(stock => stock.LocationId == _source.Id));
+        _context.InventoryBalances.Remove(await _context.InventoryBalances.SingleAsync(
+            balance => balance.LocationId == _source.Id));
+        await _context.SaveChangesAsync();
+
+        _context.Stock.Add(new Stock(
+            _item.Id,
+            _source.Id,
+            new Quantity(5m),
+            inventoryStatusId: _availableStatus.Id,
+            ownerKind: owner.Kind,
+            inventoryOwnerId: owner.Id,
+            ownerCodeSnapshot: owner.OwnerCode));
+        var sourceBalance = new InventoryBalance(new InventoryBalanceKey(
+            _warehouse.Id,
+            _source.Id,
+            _item.Id,
+            null,
+            null,
+            null,
+            null,
+            _availableStatus.Id,
+            _item.UnitOfMeasure,
+            owner.Kind,
+            owner.Id,
+            owner.OwnerCode));
+        sourceBalance.Apply(5m, 0m, allowNegativeStock: false);
+        _context.InventoryBalances.Add(sourceBalance);
+        await _context.SaveChangesAsync();
+
+        var (work, line) = await CreateWorkAsync(owner.Kind, owner.Id, owner.OwnerCode);
+        work.Assign("worker-1", "REPLENISHMENT", "manager-1", _clock.UtcNow.UtcDateTime);
+        work.Start("worker-1", _clock.UtcNow.UtcDateTime);
+
+        await _unitOfWork.BeginTransactionAsync();
+        var result = await _handler.ExecuteAsync(
+            work,
+            new WarehouseWorkCompletionInput(
+                "replenishment-external-owner-complete-1",
+                Scans:
+                [
+                    new WarehouseWorkScanInput(
+                        line.Id,
+                        _item.Id,
+                        _source.Id,
+                        _destination.Id,
+                        5m)
+                ]),
+            "worker-1");
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        line.RecordActualQuantity(5m);
+        work.Complete("worker-1", _clock.UtcNow.UtcDateTime);
+        await _context.SaveChangesAsync();
+        await _unitOfWork.CommitTransactionAsync();
+
+        var destinationStock = await _context.Stock.SingleAsync(stock => stock.LocationId == _destination.Id);
+        destinationStock.QuantityAvailable.Value.Should().Be(5m);
+        destinationStock.OwnerKind.Should().Be(owner.Kind);
+        destinationStock.InventoryOwnerId.Should().Be(owner.Id);
+        destinationStock.OwnerCodeSnapshot.Should().Be(owner.OwnerCode);
+        var movement = await _context.Movements.SingleAsync();
+        movement.OwnerKind.Should().Be(owner.Kind);
+        movement.InventoryOwnerId.Should().Be(owner.Id);
+        movement.OwnerCodeSnapshot.Should().Be(owner.OwnerCode);
+        var ledgerEntries = await _context.InventoryTransactions
+            .Where(value => value.ReferenceId == work.WorkNumber)
+            .ToArrayAsync();
+        ledgerEntries.Should().HaveCount(2);
+        ledgerEntries.Should().OnlyContain(value =>
+            value.OwnerKind == owner.Kind &&
+            value.InventoryOwnerId == owner.Id &&
+            value.OwnerCodeSnapshot == owner.OwnerCode &&
+            value.ActorUserId == "worker-1");
+    }
+
+    [Fact]
     public async Task DuplicateLineScansAreRejectedBeforeAnyMovement()
     {
         var (work, line) = await CreateWorkAsync();
@@ -193,7 +279,10 @@ public sealed class ReplenishmentWarehouseWorkCompletionHandlerTests : IDisposab
             .QuantityAvailable.Value.Should().Be(5m);
     }
 
-    private async Task<(WarehouseWorkEntity Work, WarehouseWorkLine Line)> CreateWorkAsync()
+    private async Task<(WarehouseWorkEntity Work, WarehouseWorkLine Line)> CreateWorkAsync(
+        InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
+        int? inventoryOwnerId = null,
+        string? ownerCodeSnapshot = null)
     {
         var work = new WarehouseWorkEntity(
             "WORK-REP-EXEC",
@@ -210,7 +299,10 @@ public sealed class ReplenishmentWarehouseWorkCompletionHandlerTests : IDisposab
             _item.UnitOfMeasure,
             _source.Id,
             _destination.Id,
-            inventoryStatusId: _availableStatus.Id);
+            inventoryStatusId: _availableStatus.Id,
+            ownerKind: ownerKind,
+            inventoryOwnerId: inventoryOwnerId,
+            ownerCodeSnapshot: ownerCodeSnapshot);
         work.AddLine(line);
         work.MakeAvailable(_clock.UtcNow.UtcDateTime);
         _context.WarehouseWorks.Add(work);

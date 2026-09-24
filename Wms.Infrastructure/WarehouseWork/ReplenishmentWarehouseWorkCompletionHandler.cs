@@ -141,7 +141,10 @@ public sealed class ReplenishmentWarehouseWorkCompletionHandler(
                 work.WorkNumber,
                 input.CompletionReference ?? "replenishment work",
                 cancellationToken,
-                line.LicensePlateId);
+                line.LicensePlateId,
+                line.OwnerKind,
+                line.InventoryOwnerId,
+                line.OwnerCodeSnapshot);
             if (movement.Id > 0)
             {
                 movementIds.Add(movement.Id);

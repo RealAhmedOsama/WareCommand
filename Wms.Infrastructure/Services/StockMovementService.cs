@@ -482,7 +482,8 @@ public class StockMovementService : IStockMovementService
                 licensePlateId,
                 cancellationToken,
                 ownerKind,
-                inventoryOwnerId);
+                inventoryOwnerId,
+                ownerCodeSnapshot);
 
             if (sourceStock == null)
             {
@@ -517,7 +518,8 @@ public class StockMovementService : IStockMovementService
                 licensePlateId,
                 cancellationToken,
                 sourceStock.OwnerKind,
-                sourceStock.InventoryOwnerId);
+                sourceStock.InventoryOwnerId,
+                sourceStock.OwnerCodeSnapshot);
             await EnsureInboundCapacityAsync(
                 toLocation,
                 itemId,
