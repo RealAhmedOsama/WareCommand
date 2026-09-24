@@ -13,8 +13,10 @@ public sealed class WmsTelemetryTests
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == WmsTelemetry.ActivitySourceName,
-            Sample = static (ref ActivityCreationOptions<ActivityContext> _) =>
-                ActivitySamplingResult.AllData,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> options) =>
+                options.Name == "wms.inventory.receipt"
+                    ? ActivitySamplingResult.AllData
+                    : ActivitySamplingResult.None,
             ActivityStarted = activity => started = activity
         };
         ActivitySource.AddActivityListener(listener);
