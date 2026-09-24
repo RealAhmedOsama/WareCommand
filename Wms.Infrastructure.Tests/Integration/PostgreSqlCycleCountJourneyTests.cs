@@ -64,6 +64,7 @@ public sealed partial class PostgreSqlJourneyTests
             .Include(value => value.InventoryStatus)
             .Where(value => value.WarehouseId == warehouseId &&
                             value.Item.IsActive &&
+                            !value.Item.RequiresLot &&
                             !value.Item.RequiresSerial &&
                             value.Location.IsActive &&
                             value.Location.IsCountable &&
