@@ -115,7 +115,7 @@ public sealed partial class PostgreSqlJourneyTests
                 0m,
                 Blind: true,
                 CycleCountFreezePolicy.SnapshotAndReconcile,
-                DateTime.UtcNow.AddMinutes(-1)),
+                new DateTime(2026, 1, 15, 11, 0, 0, DateTimeKind.Utc)),
             actor.Id);
         Assert.True(plan.IsSuccess, plan.FirstError?.Message);
         await ReconcileAndRecordAsync(
