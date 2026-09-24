@@ -550,7 +550,8 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
                 "cycle-count execution and variance approval",
-                "cross-dock reservation/work materialization, cluster picking, kitting, and inventory disposition execution",
+                "cross-dock reservation/work materialization and cluster picking",
+                "scrap approval and witnessed destruction execution",
                 "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
             ],

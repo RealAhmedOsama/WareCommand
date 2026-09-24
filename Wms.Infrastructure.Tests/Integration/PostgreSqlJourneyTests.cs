@@ -9,6 +9,7 @@ using Wms.Application.Identity;
 using Wms.Application.Inventory;
 using Wms.Application.SupplierReturns;
 using Wms.Application.Transfers;
+using Wms.Application.ValueAddedServices;
 using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
@@ -371,10 +372,16 @@ public sealed partial class PostgreSqlJourneyTests
             reconciliation,
             actor.Id,
             sourceWarehouseId);
+        var kittingJourney = await RunKittingJourneyAsync(
+            services,
+            context,
+            reconciliation,
+            actor.Id,
+            sourceWarehouseId);
         var unsupportedOrSkippedScenarios = new[]
         {
             "positive and zero-variance cycle-count physical-count journeys",
-            "cross-dock reservation/work materialization, cluster picking, and kitting",
+            "cross-dock reservation/work materialization and cluster picking",
             "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
             "authenticated HTTP boundary for these service journeys"
         };
@@ -431,6 +438,7 @@ public sealed partial class PostgreSqlJourneyTests
             transferJourney,
             inboundQualityPutawayJourney,
             inventoryDispositionJourney,
+            kittingJourney,
             supplierReturnJourney,
             replenishmentJourney);
     }
@@ -650,7 +658,7 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
                 "cycle-count execution and variance approval",
-                "cross-dock reservation/work materialization, cluster picking, and kitting",
+                "cross-dock reservation/work materialization and cluster picking",
                 "scrap approval and witnessed destruction execution",
                 "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
@@ -836,7 +844,7 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
                 "scrap approval and witnessed destruction execution",
-                "cross-dock reservation/work materialization, cluster picking, and kitting",
+                "cross-dock reservation/work materialization and cluster picking",
                 "authenticated HTTP boundary for these service journeys"
             ],
             checkpoints,
@@ -856,6 +864,249 @@ public sealed partial class PostgreSqlJourneyTests
                 ["dispositionId"] = executed.Value.Id,
                 ["ledgerEntries"] = ledgerEntries.Length,
                 ["auditEntries"] = auditEntries.Length
+            },
+            ReconciliationClean: checkpoints.All(value => value.ExpectedClean == (value.IssueCount == 0)),
+            UnexpectedReconciliationIssueCount: checkpoints
+                .Where(value => value.ExpectedClean)
+                .Sum(value => value.IssueCount),
+            ExpectedReconciliationIssueCount: checkpoints
+                .Where(value => !value.ExpectedClean)
+                .Sum(value => value.IssueCount));
+    }
+
+    private static async Task<PostgreSqlJourneyEvidence> RunKittingJourneyAsync(
+        IServiceProvider services,
+        WmsDbContext context,
+        IInventoryReconciliationService reconciliation,
+        string actorUserId,
+        int warehouseId)
+    {
+        var checkpoints = new List<PostgreSqlJourneyCheckpointEvidence>();
+        var outcomes = new List<string>();
+
+        async Task ReconcileCheckpointAsync(string checkpoint)
+        {
+            await ReconcileAndRecordAsync(
+                checkpoint,
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+        }
+
+        var candidates = await context.Stock.AsNoTracking()
+            .Include(value => value.Location)
+            .Include(value => value.Item)
+            .Where(value =>
+                value.Location.WarehouseId == warehouseId &&
+                value.Location.IsActive &&
+                value.Location.Type == LocationType.Storage &&
+                value.Location.IsPickable &&
+                value.Item.IsActive &&
+                !value.Item.RequiresLot &&
+                !value.Item.RequiresSerial &&
+                value.InventoryStatusId == InventoryStatusSystemIds.Available &&
+                value.OwnerKind == InventoryOwnerKind.CompanyOwned &&
+                value.InventoryOwnerId == null &&
+                value.OwnerCodeSnapshot == InventoryOwnershipDimension.CompanyOwnerCode &&
+                value.QuantityAvailable.Value >= 2m)
+            .OrderBy(value => value.ItemId)
+            .ThenBy(value => value.LocationId)
+            .ToArrayAsync();
+        var sourceStock = candidates.FirstOrDefault(value => value.GetAvailableQuantity().Value >= 2m);
+        Assert.NotNull(sourceStock);
+        var destination = await context.Locations.AsNoTracking()
+            .Where(value => value.WarehouseId == warehouseId &&
+                            value.Type == LocationType.Storage &&
+                            value.IsActive &&
+                            value.Id != sourceStock.LocationId)
+            .OrderBy(value => value.Id)
+            .FirstAsync();
+
+        var outputItem = new Wms.Domain.Entities.Item(
+            "j130-kit-finished",
+            "Issue 130 finished kit",
+            "EA");
+        context.Items.Add(outputItem);
+        await context.SaveChangesAsync();
+
+        var service = services.GetRequiredService<IValueAddedService>();
+        var kit = await service.CreateKitDefinitionAsync(
+            new KitDefinitionInput(
+                "j130-kit-assembly",
+                1,
+                outputItem.Id,
+                outputItem.UnitOfMeasure,
+                new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                Lines:
+                [
+                    new KitDefinitionLineInput(
+                        1,
+                        sourceStock.ItemId,
+                        2m,
+                        sourceStock.Item.UnitOfMeasure)
+                ]),
+            actorUserId);
+        Assert.True(kit.IsSuccess, kit.FirstError?.Message);
+        await ReconcileCheckpointAsync("kit-definition-created");
+
+        var orderInput = new ValueAddedServiceOrderInput(
+            "j130-kit-assembly-1",
+            ValueAddedServiceType.Assemble,
+            warehouseId,
+            sourceStock.LocationId,
+            destination.Id,
+            outputItem.Id,
+            1m,
+            kit.Value.Id,
+            InputSelector: new ValueAddedServiceInputSelector(
+                LocationId: sourceStock.LocationId,
+                InventoryStatusId: InventoryStatusSystemIds.Available));
+        var itemQuantityBefore = await SumItemQuantityAsync(context, sourceStock.ItemId);
+        var reservedQuantityBefore = await SumReservedQuantityAsync(context, sourceStock.ItemId);
+        var sourceLocationQuantityBefore = await SumLocationQuantityAsync(
+            context,
+            sourceStock.LocationId,
+            sourceStock.ItemId);
+        var created = await service.CreateOrderAsync(orderInput, actorUserId);
+        Assert.True(created.IsSuccess, created.FirstError?.Message);
+        Assert.Equal(ValueAddedServiceOrderStatus.Draft, created.Value.Status);
+        var createReplay = await service.CreateOrderAsync(orderInput, actorUserId);
+        Assert.True(createReplay.IsSuccess, createReplay.FirstError?.Message);
+        Assert.Equal(created.Value.Id, createReplay.Value.Id);
+        Assert.Equal(1, await context.ValueAddedServiceOrders.AsNoTracking()
+            .CountAsync(value => value.IdempotencyKey == orderInput.IdempotencyKey));
+        await ReconcileCheckpointAsync("kit-assembly-order-created-and-replayed");
+
+        var released = await service.ReleaseAsync(created.Value.Id, actorUserId);
+        Assert.True(released.IsSuccess, released.FirstError?.Message);
+        Assert.Equal(ValueAddedServiceOrderStatus.Released, released.Value.Status);
+        Assert.NotNull(released.Value.WarehouseWorkId);
+        var inputLine = Assert.Single(
+            released.Value.Lines,
+            value => value.Kind == ValueAddedServiceLineKind.Input);
+        var outputLine = Assert.Single(
+            released.Value.Lines,
+            value => value.Kind == ValueAddedServiceLineKind.Output);
+        Assert.Equal(2m, inputLine.PlannedQuantity);
+        Assert.NotNull(inputLine.ReservationId);
+        Assert.NotNull(inputLine.ReservationAllocationId);
+        Assert.Equal(reservedQuantityBefore + 2m, await SumReservedQuantityAsync(context, sourceStock.ItemId));
+
+        var workService = services.GetRequiredService<IWarehouseWorkService>();
+        var work = await workService.GetAsync(released.Value.WarehouseWorkId.Value);
+        Assert.True(work.IsSuccess, work.FirstError?.Message);
+        Assert.Equal(WarehouseWorkType.ValueAddedService, work.Value.Type);
+        Assert.Equal(2, work.Value.Lines.Count);
+        Assert.Equal(itemQuantityBefore, await SumItemQuantityAsync(context, sourceStock.ItemId));
+        outcomes.Add("kit-release=component-reserved-and-warehouse-work-created");
+        await ReconcileCheckpointAsync("kit-assembly-order-released");
+
+        var completionInput = new ValueAddedServiceCompletionInput(
+            "j130-kit-complete-1",
+            1m,
+            [new ValueAddedServiceOutputInput(outputLine.Id, 1m)],
+            CompletionReference: released.Value.OrderNumber);
+        var completed = await service.CompleteAsync(created.Value.Id, completionInput, actorUserId);
+        Assert.True(completed.IsSuccess, completed.FirstError?.Message);
+        Assert.Equal(ValueAddedServiceOrderStatus.Completed, completed.Value.Status);
+        Assert.Equal(1m, completed.Value.CompletedOutputQuantity);
+        Assert.Equal(itemQuantityBefore - 2m, await SumItemQuantityAsync(context, sourceStock.ItemId));
+        Assert.Equal(
+            sourceLocationQuantityBefore - 2m,
+            await SumLocationQuantityAsync(context, sourceStock.LocationId, sourceStock.ItemId));
+        Assert.Equal(1m, await SumItemQuantityAsync(context, outputItem.Id));
+        Assert.Equal(reservedQuantityBefore, await SumReservedQuantityAsync(context, sourceStock.ItemId));
+
+        var ledgerEntries = await context.InventoryTransactions.AsNoTracking()
+            .Where(value => value.ActorUserId == actorUserId &&
+                            (value.ItemId == sourceStock.ItemId || value.ItemId == outputItem.Id) &&
+                            (value.Type == InventoryTransactionType.ValueAddedConsumption ||
+                             value.Type == InventoryTransactionType.ValueAddedProduction))
+            .OrderBy(value => value.Type)
+            .ToArrayAsync();
+        Assert.Equal(2, ledgerEntries.Length);
+        Assert.Contains(ledgerEntries, value =>
+            value.Type == InventoryTransactionType.ValueAddedConsumption &&
+            value.ItemId == sourceStock.ItemId &&
+            value.QuantityDelta == -2m);
+        Assert.Contains(ledgerEntries, value =>
+            value.Type == InventoryTransactionType.ValueAddedProduction &&
+            value.ItemId == outputItem.Id &&
+            value.QuantityDelta == 1m);
+        var traceLink = await context.ValueAddedServiceTraceLinks.AsNoTracking()
+            .SingleAsync(value => value.OrderId == completed.Value.Id);
+        Assert.Equal(ValueAddedServiceTraceKind.MaterialToOutput, traceLink.Kind);
+        Assert.Equal(inputLine.Id, traceLink.InputLineId);
+        Assert.Equal(outputLine.Id, traceLink.OutputLineId);
+        Assert.Equal(2m, traceLink.Quantity);
+        var completedWork = await context.WarehouseWorks.AsNoTracking()
+            .SingleAsync(value => value.Id == released.Value.WarehouseWorkId);
+        Assert.Equal(WarehouseWorkStatus.Completed, completedWork.Status);
+
+        var auditEntries = await context.AuditEntries.AsNoTracking()
+            .Where(value => value.EntityType == WmsAuditEntityTypes.ValueAddedServiceOrder &&
+                            value.EntityId == completed.Value.OrderNumber)
+            .OrderBy(value => value.Id)
+            .ToArrayAsync();
+        Assert.Collection(
+            auditEntries,
+            createdAudit =>
+            {
+                Assert.Equal(WmsAuditActions.ValueAddedServiceOrderCreated, createdAudit.Action);
+                Assert.Equal(actorUserId, createdAudit.ActorUserId);
+            },
+            releasedAudit =>
+            {
+                Assert.Equal(WmsAuditActions.ValueAddedServiceOrderReleased, releasedAudit.Action);
+                Assert.Equal(actorUserId, releasedAudit.ActorUserId);
+            },
+            completedAudit =>
+            {
+                Assert.Equal(WmsAuditActions.ValueAddedServiceCompleted, completedAudit.Action);
+                Assert.Equal(actorUserId, completedAudit.ActorUserId);
+            });
+        outcomes.Add("kit-completion=two-components-consumed,one-output-produced,genealogy-traceable");
+        await ReconcileCheckpointAsync("kit-assembly-completed");
+
+        var transactionCountAfterCompletion = await context.InventoryTransactions.CountAsync();
+        var replay = await service.CompleteAsync(created.Value.Id, completionInput, actorUserId);
+        Assert.True(replay.IsSuccess, replay.FirstError?.Message);
+        Assert.Equal(ValueAddedServiceOrderStatus.Completed, replay.Value.Status);
+        Assert.Equal(transactionCountAfterCompletion, await context.InventoryTransactions.CountAsync());
+        outcomes.Add("kit-completion-replay=no-duplicate-inventory-transactions");
+        await ReconcileCheckpointAsync("kit-assembly-completion-replayed-once");
+
+        return new PostgreSqlJourneyEvidence(
+            "kit-assembly-reservation-work-completion",
+            "issue-130-kitting",
+            outcomes,
+            [
+                "cross-dock reservation/work materialization",
+                "cluster picking",
+                "scrap approval and witnessed destruction execution",
+                "authenticated HTTP boundary for these service journeys"
+            ],
+            checkpoints,
+            new Dictionary<string, decimal>(StringComparer.Ordinal)
+            {
+                ["componentQuantityBefore"] = itemQuantityBefore,
+                ["componentQuantityAfter"] = await SumItemQuantityAsync(context, sourceStock.ItemId),
+                ["componentSourceBefore"] = sourceLocationQuantityBefore,
+                ["componentSourceAfter"] = await SumLocationQuantityAsync(
+                    context,
+                    sourceStock.LocationId,
+                    sourceStock.ItemId),
+                ["finishedQuantity"] = await SumItemQuantityAsync(context, outputItem.Id),
+                ["componentQuantityConsumed"] = 2m
+            },
+            new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["kitDefinitionId"] = kit.Value.Id,
+                ["orderId"] = completed.Value.Id,
+                ["warehouseWorkId"] = work.Value.Id,
+                ["ledgerEntries"] = ledgerEntries.Length,
+                ["traceLinks"] = 1
             },
             ReconciliationClean: checkpoints.All(value => value.ExpectedClean == (value.IssueCount == 0)),
             UnexpectedReconciliationIssueCount: checkpoints
@@ -1125,7 +1376,7 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
                 "cycle-count execution and variance approval",
-                "cross-dock reservation/work materialization, cluster picking, and kitting",
+                "cross-dock reservation/work materialization and cluster picking",
                 "scrap approval and witnessed destruction execution",
                 "partial quantities, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
