@@ -89,11 +89,16 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
         PostgreSqlTestDatabase target,
         DataGenerationRequest request,
         CancellationToken cancellationToken = default) =>
-        (await WriteWithActorCredentialsAsync(target, request, cancellationToken)).Report;
+        (await WriteWithActorCredentialsAsync(
+            target,
+            request,
+            checkpointAsync: null,
+            cancellationToken: cancellationToken)).Report;
 
     public static async Task<DataGenerationFixtureResult> WriteWithActorCredentialsAsync(
         PostgreSqlTestDatabase target,
         DataGenerationRequest request,
+        Func<string, WmsDbContext, IInventoryReconciliationService, CancellationToken, Task>? checkpointAsync = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -113,7 +118,19 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
         using var scope = serviceProvider.CreateScope();
         var services = scope.ServiceProvider;
         var context = services.GetRequiredService<WmsDbContext>();
+        var reconciliationService = services.GetRequiredService<IInventoryReconciliationService>();
         await EnsureFreshTargetAsync(context, cancellationToken);
+
+        async Task VerifyMutationAsync(string name)
+        {
+            if (checkpointAsync is null)
+            {
+                return;
+            }
+
+            context.ChangeTracker.Clear();
+            await checkpointAsync(name, context, reconciliationService, cancellationToken);
+        }
 
         var stopwatch = Stopwatch.StartNew();
         var outcomes = new List<string>();
@@ -139,10 +156,12 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                     "EA")]),
             scenario.Actor.Id,
             cancellationToken), "purchase-order:create");
+        await VerifyMutationAsync("purchase-order-created");
         purchaseOrder = Require(await purchaseOrderService.ConfirmAsync(
             purchaseOrder.Id,
             scenario.Actor.Id,
             cancellationToken), "purchase-order:confirm");
+        await VerifyMutationAsync("purchase-order-confirmed");
         outcomes.Add("purchase-order=created,confirmed");
 
         var inboundPlate = Require(await services.GetRequiredService<ILicensePlateService>().CreateAsync(
@@ -155,6 +174,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 SourceReference: purchaseOrder.DocumentNumber),
             scenario.Actor.Id,
             cancellationToken), "license-plate:inbound-create");
+        await VerifyMutationAsync("inbound-license-plate-created");
         var receiptResult = Require(await services.GetRequiredService<IReceiveItemUseCase>().ExecuteAsync(
             new ReceiveItemDto(
                 scenario.Items[0].Sku,
@@ -170,6 +190,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
             scenario.Actor.Id,
             StableCode("IDEM", request.Seed, "purchase-receipt"),
             cancellationToken), "receipt:receive");
+        await VerifyMutationAsync("purchase-receipt-received");
         Require(await services.GetRequiredService<IPutawayUseCase>().ExecuteAsync(
             new PutawayDto(
                 scenario.Items[0].Sku,
@@ -181,6 +202,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 LicensePlateId: inboundPlate.Id),
             scenario.Actor.Id,
             cancellationToken), "receipt:putaway");
+        await VerifyMutationAsync("purchase-receipt-putaway");
         var receipt = Require(await services.GetRequiredService<Wms.Application.Receiving.IReceiptService>().GetAsync(
             receiptResult.ReceiptId!.Value,
             cancellationToken), "receipt:read");
@@ -200,6 +222,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
             scenario,
             request.Seed,
             outcomes,
+            VerifyMutationAsync,
             cancellationToken);
 
         var salesOrderService = services.GetRequiredService<ISalesOrderService>();
@@ -217,15 +240,18 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 Lines: [new SalesOrderLineInput(scenario.Items[0].Sku, 3m, "EA")]),
             scenario.Actor.Id,
             cancellationToken), "sales-order:create");
+        await VerifyMutationAsync("sales-order-created");
         salesOrder = Require(await salesOrderService.ConfirmAsync(
             salesOrder.Id,
             scenario.Actor.Id,
             cancellationToken), "sales-order:confirm");
+        await VerifyMutationAsync("sales-order-confirmed");
         var allocation = Require(await services.GetRequiredService<ISalesOrderAllocationService>().AllocateAsync(
             salesOrder.Id,
             new SalesOrderAllocationCommand(IdempotencyKey: StableCode("ALLOC", request.Seed, "allocation")),
             scenario.Actor.Id,
             cancellationToken), "sales-order:allocate-and-release");
+        await VerifyMutationAsync("sales-order-allocated-and-released");
         if (allocation.Work.Count != 1)
         {
             throw new InvalidOperationException("The seeded sales order did not produce one deterministic pick task.");
@@ -239,11 +265,13 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
             new WarehouseWorkAssignmentInput(scenario.Actor.Id, null, StableCode("WORK", request.Seed, "pick-assign")),
             scenario.Actor.Id,
             cancellationToken), "pick-work:assign");
+        await VerifyMutationAsync("pick-work-assigned");
         Require(await workService.StartAsync(
             pickWork.Id,
             new WarehouseWorkCommandInput(StableCode("WORK", request.Seed, "pick-start")),
             scenario.Actor.Id,
             cancellationToken), "pick-work:start");
+        await VerifyMutationAsync("pick-work-started");
         Require(await workService.CompleteAsync(
             pickWork.Id,
             new WarehouseWorkCompletionInput(
@@ -264,6 +292,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 ]),
             scenario.Actor.Id,
             cancellationToken), "pick-work:complete");
+        await VerifyMutationAsync("pick-work-completed");
         outcomes.Add("sales-order=confirmed,allocated,picked");
 
         var targetPlate = Require(await services.GetRequiredService<ILicensePlateService>().CreateAsync(
@@ -276,6 +305,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 SourceReference: salesOrder.DocumentNumber),
             scenario.Actor.Id,
             cancellationToken), "license-plate:outbound-create");
+        await VerifyMutationAsync("outbound-license-plate-created");
         var packingService = services.GetRequiredService<IPackingService>();
         var station = Require(await packingService.CreateStationAsync(
             new PackingStationInput(
@@ -285,6 +315,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 scenario.PackingLocation.Id),
             scenario.Actor.Id,
             cancellationToken), "packing:station-create");
+        await VerifyMutationAsync("packing-station-created");
         var session = Require(await packingService.StartSessionAsync(
             new PackingSessionStartInput(
                 StableCode("SESSION", request.Seed, "packing-session"),
@@ -296,6 +327,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 IdempotencyKey: StableCode("PACK", request.Seed, "session")),
             scenario.Actor.Id,
             cancellationToken), "packing:session-start");
+        await VerifyMutationAsync("packing-session-started");
         var package = Require(await packingService.CreatePackageAsync(
             new PackingPackageCreateInput(
                 session.Id,
@@ -306,6 +338,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 IdempotencyKey: StableCode("PACK", request.Seed, "package-create")),
             scenario.Actor.Id,
             cancellationToken), "packing:package-create");
+        await VerifyMutationAsync("packing-package-created");
         Require(await packingService.PackAsync(
             new PackingScanInput(
                 package.Id,
@@ -319,15 +352,18 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 IdempotencyKey: StableCode("PACK", request.Seed, "pack-scan")),
             scenario.Actor.Id,
             cancellationToken), "packing:scan");
+        await VerifyMutationAsync("packing-scan-completed");
         package = Require(await packingService.ClosePackageAsync(
             new PackingPackageMeasureInput(package.Id, StableCode("PACK", request.Seed, "package-close")),
             scenario.Actor.Id,
             cancellationToken), "packing:package-close");
+        await VerifyMutationAsync("packing-package-closed");
         Require(await packingService.CompleteSessionAsync(
             session.Id,
             StableCode("PACK", request.Seed, "session-complete"),
             scenario.Actor.Id,
             cancellationToken), "packing:session-complete");
+        await VerifyMutationAsync("packing-session-completed");
 
         var shipmentService = services.GetRequiredService<IShipmentService>();
         var carrier = Require(await shipmentService.CreateCarrierAsync(
@@ -348,11 +384,13 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 IdempotencyKey: StableCode("SHIP", request.Seed, "shipment-create")),
             scenario.Actor.Id,
             cancellationToken), "shipping:shipment-create");
+        await VerifyMutationAsync("shipment-created");
         var shipmentLoad = Require(await shipmentService.OpenLoadAsync(
             new ShipmentLoadInput(shipment.Id, scenario.DockLocation.Id, "SEED-TRAILER", "SEED-ROUTE",
                 StableCode("SHIP", request.Seed, "shipment-load")),
             scenario.Actor.Id,
             cancellationToken), "shipping:load-open");
+        await VerifyMutationAsync("shipment-load-opened");
         Require(await shipmentService.LoadPackageAsync(
             new ShipmentPackageScanInput(
                 shipment.Id,
@@ -361,10 +399,23 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 StableCode("SHIP", request.Seed, "shipment-load-package")),
             scenario.Actor.Id,
             cancellationToken), "shipping:load-package");
+        await VerifyMutationAsync("shipment-package-loaded");
         shipment = Require(await shipmentService.ConfirmShipmentAsync(
             new ShipmentCommandInput(shipment.Id, StableCode("SHIP", request.Seed, "shipment-confirm")),
             scenario.Actor.Id,
             cancellationToken), "shipping:confirm");
+        await VerifyMutationAsync("shipment-confirmed");
+        var transactionsAfterShipment = await context.InventoryTransactions.CountAsync(cancellationToken);
+        shipment = Require(await shipmentService.ConfirmShipmentAsync(
+            new ShipmentCommandInput(shipment.Id, StableCode("SHIP", request.Seed, "shipment-confirm")),
+            scenario.Actor.Id,
+            cancellationToken), "shipping:confirm-replay");
+        if (await context.InventoryTransactions.CountAsync(cancellationToken) != transactionsAfterShipment)
+        {
+            throw new InvalidOperationException("Replaying shipment confirmation created duplicate inventory transactions.");
+        }
+        await VerifyMutationAsync("shipment-confirmation-replayed-once");
+        outcomes.Add("shipment-confirmation-replay=no-duplicate-transactions");
         outcomes.Add("shipment=packed,loaded,shipped");
 
         var shipmentLine = shipment.Lines.Single();
@@ -388,10 +439,12 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 IdempotencyKey: StableCode("RMA", request.Seed, "return-create")),
             scenario.Actor.Id,
             cancellationToken), "return:create");
+        await VerifyMutationAsync("customer-return-created");
         authorization = Require(await returnService.AuthorizeAsync(
             new ReturnCommandInput(authorization.Id, StableCode("RMA", request.Seed, "return-authorize")),
             scenario.Actor.Id,
             cancellationToken), "return:authorize");
+        await VerifyMutationAsync("customer-return-authorized");
         var returnLine = authorization.Lines.Single();
         var receivedReturn = Require(await returnService.ReceiveAsync(
             new ReturnReceiptInput(
@@ -403,10 +456,12 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 IdempotencyKey: StableCode("RMA", request.Seed, "return-receive")),
             scenario.Actor.Id,
             cancellationToken), "return:receive");
+        await VerifyMutationAsync("customer-return-received");
         receivedReturn = Require(await returnService.InspectAsync(
             new ReturnCommandInput(authorization.Id, StableCode("RMA", request.Seed, "return-inspect")),
             scenario.Actor.Id,
             cancellationToken), "return:inspect");
+        await VerifyMutationAsync("customer-return-inspected");
         var returnReceipt = receivedReturn.Receipts.Single();
         receivedReturn = Require(await returnService.DisposeAsync(
             new ReturnDispositionInput(
@@ -420,10 +475,12 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 StableCode("RMA", request.Seed, "return-dispose")),
             scenario.Actor.Id,
             cancellationToken), "return:restock");
+        await VerifyMutationAsync("customer-return-disposed");
         Require(await returnService.CloseAsync(
             new ReturnCommandInput(authorization.Id, StableCode("RMA", request.Seed, "return-close")),
             scenario.Actor.Id,
             cancellationToken), "return:close");
+        await VerifyMutationAsync("customer-return-closed");
         outcomes.Add("return=authorized,received,inspected,restocked,closed");
 
         var countService = services.GetRequiredService<ICycleCountService>();
@@ -442,10 +499,12 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 SeededAt.UtcDateTime.AddDays(-1)),
             scenario.Actor.Id,
             cancellationToken), "cycle-count:plan-create");
+        await VerifyMutationAsync("cycle-count-plan-created");
         var countRun = Require(await countService.GenerateAsync(
             new CycleCountGenerationQuery(scenario.PrimaryWarehouse.Id, countPlan.Id),
             scenario.Actor.Id,
             cancellationToken), "cycle-count:generate");
+        await VerifyMutationAsync("cycle-count-task-generated");
         if (countRun.TasksCreated != 1 ||
             countRun.LinesCreated < 1 ||
             countRun.Tasks.Count != 1 ||
@@ -738,6 +797,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
         SeedScenario scenario,
         string seed,
         List<string> outcomes,
+        Func<string, Task> verifyMutationAsync,
         CancellationToken cancellationToken)
     {
         var profile = WmsDataGenerationProfiles.All.Single(value => value.Name == plan.Profile);
@@ -757,6 +817,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
             scenario.Actor.Id,
             StableCode("IDEM", seed, "serial-receipt"),
             cancellationToken), "edge:serial-receipt");
+        await verifyMutationAsync("serial-receipt-created");
 
         var owner = new InventoryOwner(
             StableCode("OWN", seed, "external-owner", 80),
@@ -778,6 +839,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
             scenario.Actor.Id,
             StableCode("IDEM", seed, "owner-receipt"),
             cancellationToken), "edge:owned-receipt");
+        await verifyMutationAsync("external-owner-receipt-created");
         outcomes.Add("edge-dimensions=serial-and-external-owner-created-by-receipt-commands");
 
         var serial = await context.SerialNumbers.AsNoTracking()

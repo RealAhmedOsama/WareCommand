@@ -59,7 +59,12 @@ strings are never written to evidence. When the data-generation group runs,
 dataset fingerprints, target schema identifiers, elapsed time, and
 reconciliation results from both isolated writer runs. The `journeyReports`
 field records the tested scenario, actual quantity deltas, operation outcomes,
-and each deep-reconciliation checkpoint for the PostgreSQL journey group.
+actual entity counts, intentionally skipped scenarios, and each
+deep-reconciliation checkpoint for the PostgreSQL journey group. The
+journey smoke includes generated PO/receipt/putaway, sales-order
+allocation/pick/pack/ship, customer-return, cycle-count setup, and
+inter-warehouse transfer paths; its evidence lists the workflow gaps it does
+not yet cover.
 
 The harness intentionally does not replace fast unit tests. Remaining
 provider work belongs to the functional issues as their schemas and workflows
