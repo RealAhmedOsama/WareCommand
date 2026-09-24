@@ -725,7 +725,7 @@ public sealed partial class PostgreSqlJourneyTests
             .OrderBy(value => value.ItemId)
             .ThenBy(value => value.LocationId)
             .ToArrayAsync();
-        var sourceStock = candidates.FirstOrDefault(value => value.GetAvailableQuantity().Value >= 1m);
+        var sourceStock = candidates.FirstOrDefault(value => value.GetAvailableQuantity().Value >= 3m);
         Assert.NotNull(sourceStock);
 
         var service = services.GetRequiredService<IInventoryDispositionService>();
@@ -837,14 +837,147 @@ public sealed partial class PostgreSqlJourneyTests
         outcomes.Add("execute-replay=no-duplicate-ledger-or-audit-entries");
         await ReconcileCheckpointAsync("inventory-disposition-execution-replayed-once");
 
+        var missingWitness = await service.CreateAsync(
+            new InventoryDispositionCreateInput(
+                "j130-disposition-destruction-without-witness",
+                sourceStock.Id,
+                InventoryDispositionKind.Destruction,
+                1m,
+                "Issue 130 destruction witness rejection"),
+            actorUserId);
+        Assert.True(missingWitness.IsFailure);
+        Assert.Equal("inventory.disposition.witness_required", missingWitness.FirstError?.Code);
+        await ReconcileCheckpointAsync("inventory-destruction-without-witness-rejected");
+
+        var witnessUser = new WmsUser
+        {
+            UserName = $"j130-witness-{Guid.NewGuid():N}",
+            Email = $"j130-witness-{Guid.NewGuid():N}@example.test",
+            EmailConfirmed = true,
+            DisplayName = "Issue 130 destruction witness",
+            EmployeeCode = $"J130W-{Guid.NewGuid():N}"[..24],
+            Locale = "en-US",
+            TimeZone = "UTC",
+            IsActive = true,
+            LockoutEnabled = true
+        };
+        var userManager = services.GetRequiredService<UserManager<WmsUser>>();
+        var witnessCreated = await userManager.CreateAsync(
+            witnessUser,
+            $"A1!{Guid.NewGuid():N}z");
+        Assert.True(witnessCreated.Succeeded, string.Join("; ", witnessCreated.Errors.Select(value => value.Description)));
+        var witnessRoleAssigned = await userManager.AddToRoleAsync(witnessUser, WmsRoleNames.WarehouseManager);
+        Assert.True(witnessRoleAssigned.Succeeded, string.Join("; ", witnessRoleAssigned.Errors.Select(value => value.Description)));
+        context.UserWarehouseAssignments.Add(new WmsUserWarehouseAssignment
+        {
+            UserId = witnessUser.Id,
+            WarehouseId = warehouseId,
+            IsDefault = false,
+            AssignedAtUtc = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var scrapInput = new InventoryDispositionCreateInput(
+            "j130-disposition-scrap-1",
+            sourceStock.Id,
+            InventoryDispositionKind.Scrap,
+            1m,
+            "Issue 130 approved scrap journey");
+        var scrapCreated = await service.CreateAsync(scrapInput, actorUserId);
+        Assert.True(scrapCreated.IsSuccess, scrapCreated.FirstError?.Message);
+        Assert.Equal(InventoryDispositionStatus.PendingApproval, scrapCreated.Value.Status);
+        var scrapCreateReplay = await service.CreateAsync(scrapInput, actorUserId);
+        Assert.True(scrapCreateReplay.IsSuccess, scrapCreateReplay.FirstError?.Message);
+        Assert.Equal(scrapCreated.Value.Id, scrapCreateReplay.Value.Id);
+        await ReconcileCheckpointAsync("inventory-scrap-requested-and-replayed");
+
+        var scrapApproved = await service.ApproveAsync(
+            scrapCreated.Value.Id,
+            actorUserId,
+            new InventoryDispositionApprovalInput("Issue 130 scrap approval"));
+        Assert.True(scrapApproved.IsSuccess, scrapApproved.FirstError?.Message);
+        Assert.Equal(InventoryDispositionStatus.Approved, scrapApproved.Value.Status);
+        await ReconcileCheckpointAsync("inventory-scrap-approved");
+        var scrapExecuted = await service.ExecuteAsync(scrapCreated.Value.Id, actorUserId);
+        Assert.True(scrapExecuted.IsSuccess, scrapExecuted.FirstError?.Message);
+        Assert.Equal(InventoryDispositionStatus.Completed, scrapExecuted.Value.Status);
+        Assert.Equal(actorUserId, scrapExecuted.Value.ApprovedByUserId);
+        Assert.Equal(InventoryStatusSystemIds.ScrapPending, scrapExecuted.Value.TargetInventoryStatusId);
+        await ReconcileCheckpointAsync("inventory-scrap-executed-to-pending-status");
+
+        var destructionInput = new InventoryDispositionCreateInput(
+            "j130-disposition-destruction-1",
+            sourceStock.Id,
+            InventoryDispositionKind.Destruction,
+            1m,
+            "Issue 130 witnessed destruction disposition",
+            WitnessUserId: witnessUser.Id);
+        var destructionCreated = await service.CreateAsync(destructionInput, actorUserId);
+        Assert.True(destructionCreated.IsSuccess, destructionCreated.FirstError?.Message);
+        Assert.Equal(InventoryDispositionStatus.PendingApproval, destructionCreated.Value.Status);
+        Assert.Equal(witnessUser.Id, destructionCreated.Value.WitnessUserId);
+        Assert.NotEqual(actorUserId, destructionCreated.Value.WitnessUserId);
+        await ReconcileCheckpointAsync("inventory-destruction-requested-with-distinct-witness");
+        var destructionApproved = await service.ApproveAsync(
+            destructionCreated.Value.Id,
+            actorUserId,
+            new InventoryDispositionApprovalInput("Issue 130 destruction approval"));
+        Assert.True(destructionApproved.IsSuccess, destructionApproved.FirstError?.Message);
+        await ReconcileCheckpointAsync("inventory-destruction-approved");
+        var destructionExecuted = await service.ExecuteAsync(destructionCreated.Value.Id, actorUserId);
+        Assert.True(destructionExecuted.IsSuccess, destructionExecuted.FirstError?.Message);
+        Assert.Equal(InventoryDispositionStatus.Completed, destructionExecuted.Value.Status);
+        Assert.Equal(witnessUser.Id, destructionExecuted.Value.WitnessUserId);
+        Assert.Equal(InventoryStatusSystemIds.ScrapPending, destructionExecuted.Value.TargetInventoryStatusId);
+        await ReconcileCheckpointAsync("inventory-destruction-moved-to-scrap-pending");
+
+        var finalSourceStock = await context.Stock.AsNoTracking()
+            .SingleAsync(value => value.Id == sourceStock.Id);
+        Assert.Equal(sourceStock.QuantityAvailable.Value - 3m, finalSourceStock.QuantityAvailable.Value);
+        Assert.Equal(sourceStock.QuantityReserved.Value, finalSourceStock.QuantityReserved.Value);
+        Assert.Equal(itemQuantityBefore, await SumItemQuantityAsync(context, sourceStock.ItemId));
+        Assert.Equal(
+            locationQuantityBefore,
+            await SumLocationQuantityAsync(context, sourceStock.LocationId, sourceStock.ItemId));
+
+        var scrapPendingStock = await context.Stock.AsNoTracking()
+            .Where(value => value.ItemId == sourceStock.ItemId &&
+                            value.LocationId == sourceStock.LocationId &&
+                            value.LotId == sourceStock.LotId &&
+                            value.SerialNumberId == sourceStock.SerialNumberId &&
+                            value.LicensePlateId == sourceStock.LicensePlateId &&
+                            value.OwnerKind == sourceStock.OwnerKind &&
+                            value.InventoryOwnerId == sourceStock.InventoryOwnerId &&
+                            value.OwnerCodeSnapshot == sourceStock.OwnerCodeSnapshot &&
+                            value.InventoryStatusId == InventoryStatusSystemIds.ScrapPending)
+            .SingleAsync();
+        Assert.Equal(2m, scrapPendingStock.QuantityAvailable.Value);
+        foreach (var disposition in new[] { scrapExecuted.Value, destructionExecuted.Value })
+        {
+            Assert.Equal(actorUserId, disposition.ApprovedByUserId);
+            Assert.Equal(actorUserId, disposition.CompletedByUserId);
+            Assert.Equal(2, await context.InventoryTransactions.AsNoTracking()
+                .CountAsync(value => value.ReferenceType == "Movement" &&
+                                     value.ReferenceId == disposition.DispositionNumber));
+            var dispositionAudit = await context.AuditEntries.AsNoTracking()
+                .Where(value => value.EntityType == WmsAuditEntityTypes.InventoryDisposition &&
+                                value.EntityId == disposition.DispositionNumber)
+                .ToArrayAsync();
+            Assert.Equal(3, dispositionAudit.Length);
+            Assert.All(dispositionAudit, value => Assert.Equal(actorUserId, value.ActorUserId));
+        }
+        outcomes.Add("scrap=approved,executed-to-scrap-pending,create-replay-idempotent");
+        outcomes.Add("destruction=missing-witness-rejected,distinct-witness-recorded,approval-required,executed-to-scrap-pending");
+        await ReconcileCheckpointAsync("inventory-scrap-and-destruction-journeys-complete");
+
         return new PostgreSqlJourneyEvidence(
-            "inventory-damage-disposition-execution",
+            "inventory-damage-scrap-and-witnessed-destruction-disposition",
             "issue-130-inventory-disposition",
             outcomes,
             [
-                "scrap approval and witnessed destruction execution",
                 "cross-dock reservation/work materialization and cluster picking",
-                "authenticated HTTP boundary for these service journeys"
+                "physical destruction after inventory is moved to Scrap Pending",
+                "authenticated HTTP boundary for inventory disposition service journeys"
             ],
             checkpoints,
             new Dictionary<string, decimal>(StringComparer.Ordinal)
