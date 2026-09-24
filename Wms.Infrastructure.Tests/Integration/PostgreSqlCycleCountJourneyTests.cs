@@ -579,9 +579,7 @@ public sealed partial class PostgreSqlJourneyTests
             "cycle-count-variance-approval",
             target.TargetIdentifier,
             outcomes,
-            [
-                "concurrent approval provider journey"
-            ],
+            [],
             checkpoints,
             new Dictionary<string, decimal>(StringComparer.Ordinal)
             {

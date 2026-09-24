@@ -367,7 +367,6 @@ public sealed partial class PostgreSqlJourneyTests
         var unsupportedOrSkippedScenarios = new[]
         {
             "positive and zero-variance cycle-count physical-count journeys",
-            "concurrent cycle-count approval",
             "wave, cluster, cross-dock, kitting, and other disposition journeys",
             "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
             "authenticated HTTP boundary for these service journeys"
