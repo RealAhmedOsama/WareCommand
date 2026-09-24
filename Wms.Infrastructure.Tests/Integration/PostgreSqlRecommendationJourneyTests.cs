@@ -155,7 +155,8 @@ public sealed partial class PostgreSqlJourneyTests
                 proposal.RecommendationId,
                 new RecommendationLifecycleCommand(reviewed.Value.Revision, "issue-128-approve-b")));
         var winningApproval = Assert.Single(approvalResults, value => value.IsSuccess);
-        Assert.Single(approvalResults, value => value.IsFailure);
+        var losingApproval = Assert.Single(approvalResults, value => value.IsFailure);
+        Assert.Equal("recommendation.revision_conflict", losingApproval.ErrorCode);
         var approval = winningApproval.Value;
         Assert.Equal(RecommendationStatus.Approved, approval.Status);
         Assert.Equal(1, await context.GovernedRecommendationEvents.AsNoTracking()
@@ -209,7 +210,35 @@ public sealed partial class PostgreSqlJourneyTests
         Assert.DoesNotContain(history.Value.Select(value => value.Comment),
             comment => comment?.Contains("secret-value", StringComparison.Ordinal) == true ||
                        comment?.Contains("reviewer@example.test", StringComparison.Ordinal) == true);
+        using var restartedProvider = DeterministicPostgreSqlDataGenerationFixture.CreateServiceProviderForExistingTarget(
+            target,
+            services => services.Configure<RecommendationGovernanceOptions>(options =>
+            {
+                options.Enabled = true;
+                options.KillSwitchEnabled = false;
+                options.ProviderAvailable = true;
+                options.ShadowMode = true;
+            }));
+        using var restartedScope = restartedProvider.CreateScope();
+        var restartedService = await CreateSignedInGovernanceServiceAsync(
+            restartedScope.ServiceProvider,
+            actor.Id);
+        var persistedRecord = await restartedService.Service.GetAsync(proposal.RecommendationId);
+        Assert.True(persistedRecord.IsSuccess, persistedRecord.FirstError?.Message);
+        Assert.Equal(RecommendationStatus.Executed, persistedRecord.Value.Status);
+        Assert.Equal(executionReference, persistedRecord.Value.ExecutionReference);
+        var persistedHistory = await restartedService.Service.GetHistoryAsync(proposal.RecommendationId);
+        Assert.True(persistedHistory.IsSuccess, persistedHistory.FirstError?.Message);
+        Assert.Equal(["created", "reviewed", "approved", "executed"],
+            persistedHistory.Value.Select(value => value.EventType));
+        var persistedSearch = await restartedService.Service.SearchAsync(new RecommendationQuery(
+            WarehouseId: warehouseId,
+            Type: RecommendationType.Replenishment,
+            Status: RecommendationStatus.Executed));
+        Assert.True(persistedSearch.IsSuccess, persistedSearch.FirstError?.Message);
+        Assert.Contains(persistedSearch.Value.Items, value => value.RecommendationId == proposal.RecommendationId);
         outcomes.Add("execution=authorized-normal-work-created-and-response-loss-replay-reused-one-command");
+        outcomes.Add("persistence=fresh-service-provider-reloaded-record-history-and-authorized-search");
         outcomes.Add("review-history=persisted-with-sensitive-comment-values-redacted");
 
         WriteJourneyEvidence(new PostgreSqlJourneyEvidence(

@@ -40,11 +40,13 @@ failed commands are recorded as retryable and require a new idempotency key.
 
 `PostgreSqlJourneyTests.GovernedReplenishmentRecommendationPersistsApprovalAndCreatesOneNormalWorkCommand`
 qualifies the persisted service path with a deterministic integration fixture.
-It verifies that concurrent approval writes one decision, execution creates
-one authorized replenishment work item, response-loss replay reuses that work,
-inventory and reservations remain unchanged until normal work completion, and
-review history redacts sensitive comment values. Deep inventory reconciliation
-runs after each lifecycle transition.
+It verifies that concurrent approval writes one decision and returns a revision
+conflict to the loser, execution creates one authorized replenishment work
+item, response-loss replay reuses that work, and inventory and reservations
+remain unchanged until normal work completion. A fresh service provider reloads
+the executed record, complete history, and warehouse-scoped search result from
+PostgreSQL. Review history redacts sensitive comment values. Deep inventory
+reconciliation runs after each lifecycle transition.
 
 ## Provider and operating controls
 
