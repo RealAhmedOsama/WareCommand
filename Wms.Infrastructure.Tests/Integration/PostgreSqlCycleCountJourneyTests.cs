@@ -357,6 +357,177 @@ public sealed partial class PostgreSqlJourneyTests
             checkpoints,
             CancellationToken.None);
 
+        async Task<(CycleCountTaskDto Task, decimal ExpectedQuantity)> RunAdditionalPhysicalCountAsync(
+            string planKey,
+            decimal physicalQuantity)
+        {
+            var expectedBalance = await context.InventoryBalances.AsNoTracking()
+                .SingleAsync(value => value.Id == snapshot.Id);
+            var additionalPlan = await cycleCounts.SavePlanAsync(
+                null,
+                new CycleCountPlanInput(
+                    planKey,
+                    warehouseId,
+                    expectedBalance.LocationId,
+                    expectedBalance.ItemId,
+                    null,
+                    1,
+                    0m,
+                    Blind: true,
+                    CycleCountFreezePolicy.SnapshotAndReconcile,
+                    new DateTime(2026, 1, 15, 11, 0, 0, DateTimeKind.Utc)),
+                actor.Id);
+            Assert.True(additionalPlan.IsSuccess, additionalPlan.FirstError?.Message);
+            await ReconcileAndRecordAsync(
+                $"{planKey}-plan-created",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+
+            var additionalGeneration = await cycleCounts.GenerateAsync(
+                new CycleCountGenerationQuery(warehouseId, additionalPlan.Value.Id),
+                actor.Id);
+            Assert.True(additionalGeneration.IsSuccess, additionalGeneration.FirstError?.Message);
+            var additionalSummary = Assert.Single(additionalGeneration.Value.Tasks);
+            var additionalTask = await cycleCounts.GetTaskAsync(additionalSummary.TaskId);
+            Assert.True(additionalTask.IsSuccess, additionalTask.FirstError?.Message);
+            var additionalCountLine = Assert.Single(additionalTask.Value.Lines);
+            var additionalWorkId = Assert.IsType<int>(additionalTask.Value.WarehouseWorkId);
+            var additionalWork = await workService.GetAsync(additionalWorkId);
+            Assert.True(additionalWork.IsSuccess, additionalWork.FirstError?.Message);
+            var additionalWorkLine = Assert.Single(additionalWork.Value.Lines);
+            Assert.Equal(expectedBalance.ItemId, additionalWorkLine.ItemId);
+            Assert.Equal(expectedBalance.LocationId, additionalWorkLine.SourceLocationId);
+            Assert.Equal(expectedBalance.LocationId, additionalWorkLine.DestinationLocationId);
+            await ReconcileAndRecordAsync(
+                $"{planKey}-task-and-work-generated",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+
+            var additionalStart = await cycleCounts.StartTaskAsync(
+                additionalSummary.TaskId,
+                new CycleCountTaskStartInput(additionalTask.Value.Revision),
+                actor.Id);
+            Assert.True(additionalStart.IsSuccess, additionalStart.FirstError?.Message);
+            await ReconcileAndRecordAsync(
+                $"{planKey}-task-started",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+            var additionalAssigned = await workService.AssignAsync(
+                additionalWorkId,
+                new WarehouseWorkAssignmentInput(actor.Id, null, $"{planKey}-assign"),
+                actor.Id);
+            Assert.True(additionalAssigned.IsSuccess, additionalAssigned.FirstError?.Message);
+            await ReconcileAndRecordAsync(
+                $"{planKey}-work-assigned",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+            var additionalWorkStarted = await workService.StartAsync(
+                additionalWorkId,
+                new WarehouseWorkCommandInput($"{planKey}-start"),
+                actor.Id);
+            Assert.True(additionalWorkStarted.IsSuccess, additionalWorkStarted.FirstError?.Message);
+            await ReconcileAndRecordAsync(
+                $"{planKey}-work-started",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+
+            var additionalWorkCompleted = await workService.CompleteAsync(
+                additionalWorkId,
+                new WarehouseWorkCompletionInput(
+                    $"{planKey}-complete",
+                    CompletionReference: $"{planKey} physical count",
+                    Scans:
+                    [
+                        new WarehouseWorkScanInput(
+                            additionalWorkLine.Id,
+                            additionalWorkLine.ItemId,
+                            additionalWorkLine.SourceLocationId!.Value,
+                            additionalWorkLine.DestinationLocationId!.Value,
+                            physicalQuantity,
+                            additionalWorkLine.LicensePlateId,
+                            LotId: additionalWorkLine.LotId,
+                            SerialNumberId: additionalWorkLine.SerialNumberId,
+                            SerialNumber: additionalWorkLine.SerialNumber)
+                    ]),
+                actor.Id);
+            Assert.True(additionalWorkCompleted.IsSuccess, additionalWorkCompleted.FirstError?.Message);
+            Assert.Equal(WarehouseWorkStatus.Completed, additionalWorkCompleted.Value.Status);
+            var physicalCount = await cycleCounts.GetTaskAsync(additionalSummary.TaskId);
+            Assert.True(physicalCount.IsSuccess, physicalCount.FirstError?.Message);
+            Assert.Equal(physicalQuantity, physicalCount.Value.Lines.Single().CountedQuantity);
+            await ReconcileAndRecordAsync(
+                $"{planKey}-physical-count-submitted",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+
+            var expectedVariance = physicalQuantity - expectedBalance.OnHandQuantity;
+            if (expectedVariance == 0m)
+            {
+                Assert.Equal(CycleCountTaskStatus.Completed, physicalCount.Value.Status);
+                Assert.Equal(expectedBalance.OnHandQuantity, physicalCount.Value.Lines.Single().ExpectedQuantity);
+                Assert.Equal(0m, physicalCount.Value.Lines.Single().VarianceQuantity);
+                Assert.Empty(await context.Movements.AsNoTracking()
+                    .Where(value => value.ReferenceNumber == physicalCount.Value.TaskNumber &&
+                                    value.Type == MovementType.CycleCount)
+                    .ToArrayAsync());
+                Assert.Empty(await context.InventoryTransactions.AsNoTracking()
+                    .Where(value => value.ReferenceType == "CycleCountLine" &&
+                                    value.ReferenceId == additionalCountLine.Id.ToString(CultureInfo.InvariantCulture) &&
+                                    value.Type == InventoryTransactionType.CountVariance)
+                    .ToArrayAsync());
+                outcomes.Add("zero-variance-count=completed-without-adjustment-ledger");
+                return (physicalCount.Value, expectedBalance.OnHandQuantity);
+            }
+
+            Assert.True(expectedVariance > 0m);
+            Assert.Equal(CycleCountTaskStatus.AwaitingApproval, physicalCount.Value.Status);
+            var positiveApproval = await cycleCounts.ApproveTaskAsync(
+                additionalSummary.TaskId,
+                new CycleCountTaskApprovalInput(physicalCount.Value.Revision, "Issue 130 positive variance count"),
+                actor.Id);
+            Assert.True(positiveApproval.IsSuccess, positiveApproval.FirstError?.Message);
+            Assert.Equal(CycleCountTaskStatus.Completed, positiveApproval.Value.Status);
+            Assert.Equal(expectedBalance.OnHandQuantity, positiveApproval.Value.Lines.Single().ExpectedQuantity);
+            Assert.Equal(physicalQuantity, positiveApproval.Value.Lines.Single().CountedQuantity);
+            Assert.Equal(expectedVariance, positiveApproval.Value.Lines.Single().VarianceQuantity);
+            var positiveLedger = await context.InventoryTransactions.AsNoTracking()
+                .SingleAsync(value => value.ReferenceType == "CycleCountLine" &&
+                                      value.ReferenceId == additionalCountLine.Id.ToString(CultureInfo.InvariantCulture) &&
+                                      value.Type == InventoryTransactionType.CountVariance);
+            Assert.Equal(expectedVariance, positiveLedger.QuantityDelta);
+            Assert.Equal(expectedBalance.OnHandQuantity, positiveLedger.QuantityBefore);
+            Assert.Equal(physicalQuantity, positiveLedger.QuantityAfter);
+            Assert.Equal(actor.Id, positiveLedger.ActorUserId);
+            var positiveMovement = await context.Movements.AsNoTracking()
+                .SingleAsync(value => value.ReferenceNumber == positiveApproval.Value.TaskNumber &&
+                                      value.Type == MovementType.CycleCount);
+            Assert.Equal(expectedVariance, positiveMovement.AdjustmentDelta);
+            Assert.Equal(positiveLedger.MovementId, positiveMovement.Id);
+            outcomes.Add("positive-variance-count=approved-with-linked-movement-and-ledger");
+            await ReconcileAndRecordAsync(
+                $"{planKey}-positive-variance-approved",
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+            return (positiveApproval.Value, expectedBalance.OnHandQuantity);
+        }
+
+        var positiveCount = await RunAdditionalPhysicalCountAsync("J130-POSITIVE-COUNT", countedQuantity + 1m);
+        var zeroVarianceCount = await RunAdditionalPhysicalCountAsync("J130-ZERO-COUNT", countedQuantity + 1m);
+
         var finalBalance = await context.InventoryBalances.AsNoTracking()
             .SingleAsync(value => value.Id == snapshot.Id);
         var varianceMovementCount = await context.Movements.AsNoTracking()
@@ -366,17 +537,19 @@ public sealed partial class PostgreSqlJourneyTests
             .CountAsync(value => value.ReferenceType == "CycleCountLine" &&
                                  value.ReferenceId == countLine.Id.ToString(CultureInfo.InvariantCulture) &&
                                  value.Type == InventoryTransactionType.CountVariance);
-        Assert.Equal(43, checkpoints.Count);
+        Assert.Equal(56, checkpoints.Count);
         Assert.All(checkpoints, checkpoint => Assert.Equal(0, checkpoint.IssueCount));
         Assert.Equal(1, varianceMovementCount);
         Assert.Equal(1, varianceLedgerCount);
+        Assert.Equal(1m, positiveCount.Task.Lines.Single().VarianceQuantity);
+        Assert.Equal(CycleCountTaskStatus.Completed, zeroVarianceCount.Task.Status);
+        Assert.Equal(0m, zeroVarianceCount.Task.Lines.Single().VarianceQuantity);
         outcomes.Add("approval-replay=no-duplicate-movement-or-ledger-entry");
         WriteJourneyEvidence(new PostgreSqlJourneyEvidence(
             "cycle-count-variance-approval",
             target.TargetIdentifier,
             outcomes,
             [
-                "positive and zero-variance physical-count provider journeys",
                 "concurrent approval provider journey"
             ],
             checkpoints,
@@ -388,15 +561,20 @@ public sealed partial class PostgreSqlJourneyTests
                 ["countedQuantity"] = countedQuantity,
                 ["varianceQuantity"] = approvedVariance
                     ?? throw new InvalidOperationException("The approved cycle-count line did not retain its variance."),
-                ["onHandAfterApproval"] = finalBalance.OnHandQuantity,
+                ["onHandAfterNegativeApproval"] = snapshot.OnHandQuantity,
+                ["onHandAfterPositiveVariance"] = positiveCount.Task.Lines.Single().CountedQuantity
+                    ?? throw new InvalidOperationException("The positive cycle-count line did not retain its count."),
+                ["onHandAfterZeroVariance"] = finalBalance.OnHandQuantity,
                 ["reservedAfterApproval"] = finalBalance.ReservedQuantity,
                 ["availableAfterApproval"] = finalBalance.AvailableQuantity
             },
             new Dictionary<string, int>(StringComparer.Ordinal)
             {
                 ["cycleCountTasks"] = await context.CycleCountTasks.CountAsync(),
-                ["varianceMovements"] = varianceMovementCount,
-                ["varianceLedgerEntries"] = varianceLedgerCount
+                ["varianceMovements"] = await context.Movements.AsNoTracking()
+                    .CountAsync(value => value.Type == MovementType.CycleCount),
+                ["varianceLedgerEntries"] = await context.InventoryTransactions.AsNoTracking()
+                    .CountAsync(value => value.Type == InventoryTransactionType.CountVariance)
             },
             ReconciliationClean: checkpoints.All(value => value.ExpectedClean == (value.IssueCount == 0)),
             UnexpectedReconciliationIssueCount: checkpoints
