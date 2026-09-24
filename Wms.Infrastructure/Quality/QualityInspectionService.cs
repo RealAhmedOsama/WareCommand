@@ -8,6 +8,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.InventoryStatuses;
 using Wms.Application.Quality;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Infrastructure.Data;
@@ -18,6 +19,7 @@ public sealed class QualityInspectionService(
     WmsDbContext context,
     IWarehouseAccessService warehouseAccessService,
     IInventoryStatusService inventoryStatusService,
+    Lazy<IWarehouseWorkService> warehouseWorkService,
     IAuditWriter auditWriter,
     IClock clock,
     ILogger<QualityInspectionService> logger) : IQualityInspectionService
@@ -600,17 +602,83 @@ public sealed class QualityInspectionService(
             }
 
             var targetStatusId = TargetStatusFor(input.Type);
+            var statusMovementReference = string.IsNullOrWhiteSpace(input.ReferenceNumber)
+                ? $"QI-DISP-{inspection.Id.ToString(CultureInfo.InvariantCulture)}-{inspection.Revision.ToString(CultureInfo.InvariantCulture)}"
+                : input.ReferenceNumber.Trim();
+            if (targetStatusId == InventoryStatusSystemIds.Available)
+            {
+                var workAuthorization = await warehouseAccessService.AuthorizeAsync(
+                    WmsPermissions.WorkExecute,
+                    inspection.WarehouseId,
+                    cancellationToken);
+                if (workAuthorization.IsFailure)
+                {
+                    return workAuthorization.ToFailure<QualityInspectionDto>();
+                }
+            }
+
             var statusChange = await MoveStockToDispositionStatusAsync(
                 inspection,
                 input.Quantity,
                 targetStatusId,
                 input.Reason,
-                input.ReferenceNumber,
+                statusMovementReference,
                 userId,
                 cancellationToken);
             if (statusChange.IsFailure)
             {
                 return statusChange.ToFailure<QualityInspectionDto>();
+            }
+
+            if (targetStatusId == InventoryStatusSystemIds.Available)
+            {
+                var sourceMovement = statusChange.Value.HasValue
+                    ? await context.Movements.AsNoTracking()
+                        .SingleOrDefaultAsync(
+                            movement => movement.Id == statusChange.Value.Value,
+                            cancellationToken)
+                    : await context.Movements.AsNoTracking()
+                        .Where(movement => movement.ReceiptLineId == inspection.ReceiptLineId &&
+                                           movement.ReceiptMovementKind == ReceiptMovementKind.Receipt)
+                        .OrderBy(movement => movement.Id)
+                        .FirstOrDefaultAsync(cancellationToken);
+                if (sourceMovement is null)
+                {
+                    return Result.Failure<QualityInspectionDto>(WmsErrors.Dependency(
+                        "quality.putaway_source_missing",
+                        "The accepted inspection stock has no source receipt movement for putaway.",
+                        isRetryable: false));
+                }
+
+                var movementKey = statusChange.Value.HasValue
+                    ? $"id:{statusChange.Value.Value.ToString(CultureInfo.InvariantCulture)}"
+                    : $"id:{sourceMovement.Id.ToString(CultureInfo.InvariantCulture)}:quality-disposition:{inspection.Revision.ToString(CultureInfo.InvariantCulture)}";
+                var putawayResult = await warehouseWorkService.Value.EnsurePutawayForReceiptAsync(
+                    new PutawayWorkGenerationInput(
+                        inspection.ReceiptId,
+                        inspection.ReceiptLineId,
+                        inspection.WarehouseId,
+                        inspection.ItemId,
+                        input.Quantity,
+                        inspection.ReceiptLine.BaseUnitOfMeasure,
+                        inspection.ReceiptLine.ReceivingLocationId!.Value,
+                        sourceMovement.ToLicensePlateId ?? sourceMovement.LicensePlateId,
+                        sourceMovement.LotId,
+                        sourceMovement.SerialNumberId,
+                        sourceMovement.SerialNumber,
+                        targetStatusId,
+                        sourceMovement.ReferenceNumber ?? inspection.InspectionNumber,
+                        movementKey,
+                        QualityInspectionPending: false,
+                        OwnerKind: sourceMovement.OwnerKind,
+                        InventoryOwnerId: sourceMovement.InventoryOwnerId,
+                        OwnerCodeSnapshot: sourceMovement.OwnerCodeSnapshot),
+                    userId,
+                    cancellationToken);
+                if (putawayResult.IsFailure)
+                {
+                    return putawayResult.ToFailure<QualityInspectionDto>();
+                }
             }
 
             var now = clock.UtcNow.UtcDateTime;
@@ -841,31 +909,67 @@ public sealed class QualityInspectionService(
                 isRetryable: false));
         }
 
+        var existingInboundMovements = await context.Movements.AsNoTracking()
+            .Where(movement => movement.Type == MovementType.StatusChange &&
+                               movement.StatusChangeLeg == InventoryStatusMovementLeg.Inbound &&
+                               movement.ItemId == inspection.ItemId &&
+                               movement.ToLocationId == locationId.Value &&
+                               movement.ToInventoryStatusId == targetStatusId &&
+                               movement.ReferenceNumber == referenceNumber &&
+                               movement.LotId == inspection.LotId &&
+                               movement.LicensePlateId == inspection.LicensePlateId &&
+                               movement.OwnerKind == inspection.ReceiptLine.OwnerKind &&
+                               movement.InventoryOwnerId == inspection.ReceiptLine.InventoryOwnerId &&
+                               movement.OwnerCodeSnapshot == inspection.ReceiptLine.OwnerCodeSnapshot &&
+                               (inspection.SerialNumberSnapshot == null
+                                   ? movement.SerialNumber == null
+                                   : movement.SerialNumber == inspection.SerialNumberSnapshot))
+            .ToArrayAsync(cancellationToken);
+        var existingInboundMovementId = existingInboundMovements
+            .Where(movement => movement.Quantity.Value == quantity)
+            .Select(movement => (int?)movement.Id)
+            .SingleOrDefault();
+        if (existingInboundMovementId.HasValue)
+        {
+            return Result.Success(existingInboundMovementId);
+        }
+
         var candidates = context.Stock.Local
             .Where(stock => stock.ItemId == inspection.ItemId &&
                             stock.LocationId == locationId.Value &&
                             stock.LotId == inspection.LotId &&
                             stock.InventoryStatusId == inspection.InventoryStatusId &&
                             stock.LicensePlateId == inspection.LicensePlateId &&
+                            stock.OwnerKind == inspection.ReceiptLine.OwnerKind &&
+                            stock.InventoryOwnerId == inspection.ReceiptLine.InventoryOwnerId &&
+                            stock.OwnerCodeSnapshot == inspection.ReceiptLine.OwnerCodeSnapshot &&
                             (inspection.SerialNumberSnapshot == null
                                 ? stock.SerialNumber == null
                                 : stock.SerialNumber == inspection.SerialNumberSnapshot))
             .ToArray();
         var stock = candidates.FirstOrDefault(value => value.GetAvailableQuantity().Value >= quantity);
-        stock ??= await context.Stock
-            .Include(value => value.Location)
-            .Include(value => value.InventoryStatus)
-            .Include(value => value.Item)
-            .Where(value => value.ItemId == inspection.ItemId &&
-                            value.LocationId == locationId.Value &&
-                            value.LotId == inspection.LotId &&
-                            value.InventoryStatusId == inspection.InventoryStatusId &&
-                            value.LicensePlateId == inspection.LicensePlateId &&
-                            (inspection.SerialNumberSnapshot == null
-                                ? value.SerialNumber == null
-                                : value.SerialNumber == inspection.SerialNumberSnapshot))
-            .OrderByDescending(value => value.QuantityAvailable.Value - value.QuantityReserved.Value)
-            .FirstOrDefaultAsync(cancellationToken);
+        if (stock is null)
+        {
+            var persistedCandidates = await context.Stock
+                .Include(value => value.Location)
+                .Include(value => value.InventoryStatus)
+                .Include(value => value.Item)
+                .Where(value => value.ItemId == inspection.ItemId &&
+                                value.LocationId == locationId.Value &&
+                                value.LotId == inspection.LotId &&
+                                value.InventoryStatusId == inspection.InventoryStatusId &&
+                                value.LicensePlateId == inspection.LicensePlateId &&
+                                value.OwnerKind == inspection.ReceiptLine.OwnerKind &&
+                                value.InventoryOwnerId == inspection.ReceiptLine.InventoryOwnerId &&
+                                value.OwnerCodeSnapshot == inspection.ReceiptLine.OwnerCodeSnapshot &&
+                                (inspection.SerialNumberSnapshot == null
+                                    ? value.SerialNumber == null
+                                    : value.SerialNumber == inspection.SerialNumberSnapshot))
+                .ToArrayAsync(cancellationToken);
+            stock = persistedCandidates
+                .OrderByDescending(value => value.GetAvailableQuantity().Value)
+                .FirstOrDefault();
+        }
         if (stock is null)
         {
             return Result.Failure<int?>(WmsErrors.NotFound(

@@ -34,7 +34,7 @@ public sealed record PostgreSqlJourneyEvidence(
     int UnexpectedReconciliationIssueCount,
     int ExpectedReconciliationIssueCount);
 
-public sealed class PostgreSqlJourneyTests
+public sealed partial class PostgreSqlJourneyTests
 {
     private static readonly int[] TransferEntrySequences = [1, 2];
     private static readonly string[] ReplenishmentWorkPlanDecisions =
@@ -354,11 +354,17 @@ public sealed class PostgreSqlJourneyTests
             sourceBalance.ItemId);
         Assert.Equal(originalItemQuantity, finalItemQuantity);
         Assert.True(checkpoints.All(value => value.ExpectedClean == (value.IssueCount == 0)));
+        var inboundQualityPutawayJourney = await RunInboundQualityPutawayJourneyAsync(
+            services,
+            context,
+            reconciliation,
+            actor.Id,
+            sourceWarehouseId,
+            target.TargetIdentifier);
         var unsupportedOrSkippedScenarios = new[]
         {
-            "ASN and quality inspection lifecycle",
-            "cycle-count execution and variance approval",
-            "wave, cluster, cross-dock, kitting, and disposition journeys",
+                "cycle-count execution and variance approval",
+                "wave, cluster, cross-dock, kitting, and other disposition journeys",
             "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
             "authenticated HTTP boundary for these service journeys"
         };
@@ -413,6 +419,7 @@ public sealed class PostgreSqlJourneyTests
         WriteJourneyEvidence(
             generatedLifecycle,
             transferJourney,
+            inboundQualityPutawayJourney,
             supplierReturnJourney,
             replenishmentJourney);
     }
@@ -632,7 +639,7 @@ public sealed class PostgreSqlJourneyTests
             outcomes,
             [
                 "cycle-count execution and variance approval",
-                "wave, cluster, cross-dock, kitting, and disposition journeys",
+                "wave, cluster, cross-dock, kitting, and other disposition journeys",
                 "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
             ],
@@ -921,9 +928,8 @@ public sealed class PostgreSqlJourneyTests
             "issue-130-supplier-return",
             outcomes,
             [
-            "ASN and quality inspection lifecycle",
             "cycle-count execution and variance approval",
-            "wave, cluster, cross-dock, kitting, and disposition journeys",
+            "wave, cluster, cross-dock, kitting, and other disposition journeys",
                 "partial quantities, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
             ],

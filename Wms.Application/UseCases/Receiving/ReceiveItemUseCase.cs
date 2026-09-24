@@ -451,6 +451,9 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 return finalizeResult.ToFailure<ReceiptResultDto>();
             }
 
+            // The receiving-session ledger and idempotency snapshot both need the
+            // database-generated movement ID while this transaction is still open.
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
             var result = new ReceiptResultDto(
                 movement.Id,
                 request.ItemSku,
@@ -469,9 +472,9 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                         InventoryCommandJson.Serialize(result),
                         movement.Id.ToString(CultureInfo.InvariantCulture)),
                     cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
             if (lotTransactionStarted)
             {
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);

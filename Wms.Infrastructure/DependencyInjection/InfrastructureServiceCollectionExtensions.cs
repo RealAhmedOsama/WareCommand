@@ -200,6 +200,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IPickingStrategyService, PickingStrategyService>();
         services.AddScoped<ITransferService, TransferService>();
         services.AddScoped<IReceiptService, ReceiptService>();
+        services.AddScoped<Lazy<IWarehouseWorkService>>(provider =>
+            new Lazy<IWarehouseWorkService>(provider.GetRequiredService<IWarehouseWorkService>));
         services.AddScoped<IQualityInspectionService, QualityInspectionService>();
         services.AddScoped<IWarehouseWorkService, WarehouseWorkService>();
         services.AddScoped<IWarehouseWorkAssignmentEligibilityService, WarehouseWorkAssignmentEligibilityService>();

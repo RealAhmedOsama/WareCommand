@@ -8,6 +8,7 @@ using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.InventoryStatuses;
 using Wms.Application.Quality;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
@@ -22,6 +23,7 @@ public sealed class QualityInspectionServiceTests : IDisposable
     private readonly WmsDbContext _context;
     private readonly Mock<IWarehouseAccessService> _access = new();
     private readonly Mock<IInventoryStatusService> _inventoryStatuses = new();
+    private readonly Mock<IWarehouseWorkService> _warehouseWork = new();
     private readonly Mock<IAuditWriter> _audit = new();
     private readonly QualityInspectionService _service;
     private readonly Warehouse _warehouse;
@@ -59,6 +61,7 @@ public sealed class QualityInspectionServiceTests : IDisposable
             _context,
             _access.Object,
             _inventoryStatuses.Object,
+            new Lazy<IWarehouseWorkService>(() => _warehouseWork.Object),
             _audit.Object,
             new FixedClock(new DateTimeOffset(2026, 9, 21, 12, 0, 0, TimeSpan.Zero)),
             NullLogger<QualityInspectionService>.Instance);

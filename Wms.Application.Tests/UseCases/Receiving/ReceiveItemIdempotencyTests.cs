@@ -171,7 +171,7 @@ public sealed class ReceiveItemIdempotencyTests
             Times.Once);
         unitOfWork.Verify(
             value => value.SaveChangesAsync(It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Exactly(2));
     }
 
     private sealed class TestRequestContext : IRequestContext
