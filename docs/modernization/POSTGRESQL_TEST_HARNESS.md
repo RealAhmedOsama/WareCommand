@@ -25,6 +25,9 @@ The harness currently proves:
 - deterministic data generation in a fresh schema, linked receiving-to-shipping
   journeys, deep inventory reconciliation, repeatable logical fingerprints,
   and fail-closed target/environment checks.
+- durable integration-retry jobs against PostgreSQL with a loopback HTTP
+  receiver that persists delivery attempts and provider-side commits in the
+  isolated schema, covering response loss, retry backoff, and dead-lettering.
 
 Run it with:
 
@@ -32,7 +35,7 @@ Run it with:
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Port 55432
 ```
 
-The runner is bounded into five exact test-class groups so a large provider
+The runner is bounded into six exact test-class groups so a large provider
 qualification run does not require one unbounded test host invocation. Inspect
 the planned groups without starting Docker:
 
@@ -49,12 +52,14 @@ pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group harness -Port 55433
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group dashboard -Port 55434
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group data-generation -Port 55435
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group journeys -Port 55436
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group resilience -Port 55437
 pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group all -Port 55437 -EvidencePath artifacts/postgresql-provider.json
 ```
 
-The JSON result records only the repository revision, provider image, selected
-groups, filters, durations, and cleanup policy; credentials and connection
-strings are never written to evidence. When the data-generation group runs,
+The JSON result records the repository revision, provider image and exact
+container name/ID, selected groups, filters, durations, and cleanup policy;
+credentials and connection strings are never written to evidence. When the
+data-generation group runs,
 `dataGenerationReports` includes actual entity counts, outcomes, seed and
 dataset fingerprints, target schema identifiers, elapsed time, and
 reconciliation results from both isolated writer runs. The `journeyReports`
@@ -65,6 +70,12 @@ journey smoke includes generated PO/receipt/putaway, sales-order
 allocation/pick/pack/ship, customer-return, cycle-count setup, and
 inter-warehouse transfer paths; its evidence lists the workflow gaps it does
 not yet cover.
+The `resilienceReports` field records loopback provider request/commit counts,
+job and delivery states, attempts, correlation IDs, timestamps, and the exact
+isolated schema for the PostgreSQL resilience group. It explicitly lists
+remaining process-crash lease recovery, authorized replay, dependency outage,
+and backup/restore gates; this group does not claim a restore rehearsal or
+production recovery certification.
 
 The harness intentionally does not replace fast unit tests. Remaining
 provider work belongs to the functional issues as their schemas and workflows

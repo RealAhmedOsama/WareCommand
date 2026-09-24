@@ -2,7 +2,7 @@
 param(
     [int]$Port = 55432,
     [string]$ContainerName = "warecommand-postgres-test-$([Guid]::NewGuid().ToString('N'))",
-    [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation', 'journeys')]
+    [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience')]
     [string]$Group = 'all',
     [switch]$PlanOnly,
     [string]$EvidencePath
@@ -56,8 +56,13 @@ $providerGroups = [ordered]@{
         filter = 'FullyQualifiedName~Wms.Infrastructure.Tests.Integration.PostgreSqlJourneyTests'
         expectedClass = 'Wms.Infrastructure.Tests.Integration.PostgreSqlJourneyTests.'
     }
+    resilience = [pscustomobject]@{
+        testProject = $dashboardTestProject
+        filter = 'FullyQualifiedName~Wms.ASP.Tests.PostgreSqlRuntimeResilienceTests'
+        expectedClass = 'Wms.ASP.Tests.PostgreSqlRuntimeResilienceTests.'
+    }
 }
-$selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 'data-generation', 'journeys') } else { @($Group) }
+$selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience') } else { @($Group) }
 
 if ($PlanOnly) {
     foreach ($groupName in $selectedGroupNames) {
@@ -71,11 +76,15 @@ if ($PlanOnly) {
 $previousConnectionString = $env:WARECOMMAND_TEST_POSTGRES_CONNECTION
 $previousDataGenerationEvidencePath = $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH
 $previousJourneyEvidencePath = $env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH
+$previousResilienceEvidencePath = $env:WARECOMMAND_POSTGRES_RESILIENCE_EVIDENCE_PATH
+$previousVerificationRevision = $env:WARECOMMAND_VERIFICATION_REVISION
 $password = $env:WARECOMMAND_TEST_POSTGRES_PASSWORD
 $locationPushed = $false
 $containerStarted = $false
+$containerId = $null
 $dataGenReportPath = $null
 $journeyReportPath = $null
+$resilienceReportPath = $null
 if ($selectedGroupNames -contains 'data-generation') {
     $dataGenReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-data-generation-$([Guid]::NewGuid().ToString('N')).json"
     $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH = $dataGenReportPath
@@ -83,6 +92,10 @@ if ($selectedGroupNames -contains 'data-generation') {
 if ($selectedGroupNames -contains 'journeys') {
     $journeyReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-postgresql-journeys-$([Guid]::NewGuid().ToString('N')).json"
     $env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH = $journeyReportPath
+}
+if ($selectedGroupNames -contains 'resilience') {
+    $resilienceReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-postgresql-resilience-$([Guid]::NewGuid().ToString('N')).json"
+    $env:WARECOMMAND_POSTGRES_RESILIENCE_EVIDENCE_PATH = $resilienceReportPath
 }
 if ([string]::IsNullOrWhiteSpace($password)) {
     $password = [Guid]::NewGuid().ToString('N')
@@ -104,6 +117,7 @@ try {
 
     Push-Location $repositoryRoot
     $locationPushed = $true
+    $env:WARECOMMAND_VERIFICATION_REVISION = (& git rev-parse HEAD 2>$null | Out-String).Trim()
 
     $existingContainers = @(& docker ps --all --format '{{.Names}}')
     if ($LASTEXITCODE -ne 0) {
@@ -123,6 +137,10 @@ try {
         'postgres:17'
     ) | Out-Null
     $containerStarted = $true
+    $containerId = (& docker inspect --format '{{.Id}}' $ContainerName 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($containerId)) {
+        throw "Unable to read the identity of the owned PostgreSQL container '$ContainerName'."
+    }
 
     $ready = $false
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
@@ -182,14 +200,23 @@ try {
         $journeyEvidence = Get-Content -LiteralPath $journeyReportPath -Raw | ConvertFrom-Json
         $journeyReports = @($journeyEvidence.reports)
     }
+    $resilienceReports = @()
+    if ($null -ne $resilienceReportPath -and (Test-Path -LiteralPath $resilienceReportPath -PathType Leaf)) {
+        $resilienceReports = @(Get-Content -LiteralPath $resilienceReportPath -Raw | ConvertFrom-Json)
+    }
     $evidence = [pscustomobject]@{
         schema = 'wms-postgresql-provider-v1'
         revision = $revision
         postgresImage = 'postgres:17'
+        testResources = [pscustomobject]@{
+            postgresContainerName = $ContainerName
+            postgresContainerId = $containerId
+        }
         group = $Group
         groups = $results
         dataGenerationReports = $dataGenerationReports
         journeyReports = $journeyReports
+        resilienceReports = $resilienceReports
         cleanup = 'owned container removed in finally; fixture-owned schema dropped by test fixture'
     }
     $json = $evidence | ConvertTo-Json -Depth 6
@@ -224,6 +251,18 @@ finally {
     else {
         Remove-Item Env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH -ErrorAction SilentlyContinue
     }
+    if ($null -ne $previousResilienceEvidencePath) {
+        $env:WARECOMMAND_POSTGRES_RESILIENCE_EVIDENCE_PATH = $previousResilienceEvidencePath
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_POSTGRES_RESILIENCE_EVIDENCE_PATH -ErrorAction SilentlyContinue
+    }
+    if ($null -ne $previousVerificationRevision) {
+        $env:WARECOMMAND_VERIFICATION_REVISION = $previousVerificationRevision
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_VERIFICATION_REVISION -ErrorAction SilentlyContinue
+    }
     if ($null -ne $dataGenReportPath) {
         $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([char[]]@('\', '/')) + [System.IO.Path]::DirectorySeparatorChar
         $fullReportPath = [System.IO.Path]::GetFullPath($dataGenReportPath)
@@ -238,6 +277,15 @@ finally {
         $fullReportPath = [System.IO.Path]::GetFullPath($journeyReportPath)
         if ($fullReportPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
             [System.IO.Path]::GetFileName($fullReportPath).StartsWith('warecommand-postgresql-journeys-', [System.StringComparison]::Ordinal) -and
+            (Test-Path -LiteralPath $fullReportPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $fullReportPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ($null -ne $resilienceReportPath) {
+        $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd([char[]]@('\', '/')) + [System.IO.Path]::DirectorySeparatorChar
+        $fullReportPath = [System.IO.Path]::GetFullPath($resilienceReportPath)
+        if ($fullReportPath.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+            [System.IO.Path]::GetFileName($fullReportPath).StartsWith('warecommand-postgresql-resilience-', [System.StringComparison]::Ordinal) -and
             (Test-Path -LiteralPath $fullReportPath -PathType Leaf)) {
             Remove-Item -LiteralPath $fullReportPath -Force -ErrorAction SilentlyContinue
         }
