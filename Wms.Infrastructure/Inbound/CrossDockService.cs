@@ -141,7 +141,6 @@ public sealed class CrossDockService(
                 context.CrossDockPolicies.Add(policy);
             }
 
-            await context.SaveChangesAsync(cancellationToken);
             await auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.CrossDockPolicyChanged,
@@ -150,7 +149,6 @@ public sealed class CrossDockService(
                     policy.WarehouseId,
                     After: new Dictionary<string, object?>
                     {
-                        ["policyId"] = policy.Id,
                         ["priority"] = policy.Priority,
                         ["itemId"] = policy.ItemId,
                         ["itemCategory"] = policy.ItemCategory,
@@ -163,6 +161,7 @@ public sealed class CrossDockService(
                     },
                     ActorUserId: userId),
                 cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
             return Result.Success(Map(policy));
         }
         catch (OperationCanceledException)
@@ -361,7 +360,6 @@ public sealed class CrossDockService(
         }
 
         context.CrossDockPlans.Add(plan);
-        await context.SaveChangesAsync(cancellationToken);
         await auditWriter.RecordAsync(
             new AuditRecord(
                 WmsAuditActions.CrossDockPlanCreated,
@@ -370,7 +368,6 @@ public sealed class CrossDockService(
                 plan.WarehouseId,
                 After: new Dictionary<string, object?>
                 {
-                    ["planId"] = plan.Id,
                     ["receiptId"] = plan.ReceiptId,
                     ["receiptLineId"] = plan.ReceiptLineId,
                     ["policyId"] = plan.PolicyId,
@@ -381,6 +378,7 @@ public sealed class CrossDockService(
                 },
                 ActorUserId: userId),
             cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
         var mapped = await LoadPlanAsync(plan.Id, cancellationToken);
         return mapped is null
@@ -440,7 +438,6 @@ public sealed class CrossDockService(
         try
         {
             plan.Cancel(userId, reason, clock.UtcNow.UtcDateTime);
-            await context.SaveChangesAsync(cancellationToken);
             await auditWriter.RecordAsync(
                 new AuditRecord(
                     WmsAuditActions.CrossDockPlanCancelled,
@@ -449,11 +446,11 @@ public sealed class CrossDockService(
                     plan.WarehouseId,
                     After: new Dictionary<string, object?>
                     {
-                        ["planId"] = plan.Id,
                         ["reason"] = reason
                     },
                     ActorUserId: userId),
                 cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
             return Result.Success(Map(plan));
         }
         catch (ArgumentException exception)
