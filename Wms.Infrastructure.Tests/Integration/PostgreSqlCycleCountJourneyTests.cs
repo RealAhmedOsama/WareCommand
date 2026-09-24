@@ -498,10 +498,32 @@ public sealed partial class PostgreSqlJourneyTests
 
             Assert.True(expectedVariance > 0m);
             Assert.Equal(CycleCountTaskStatus.AwaitingApproval, physicalCount.Value.Status);
-            var positiveApproval = await cycleCounts.ApproveTaskAsync(
-                additionalSummary.TaskId,
-                new CycleCountTaskApprovalInput(physicalCount.Value.Revision, "Issue 130 positive variance count"),
-                actor.Id);
+            using var competingApprovalScope = provider.CreateScope();
+            var competingCycleCounts = competingApprovalScope.ServiceProvider
+                .GetRequiredService<ICycleCountService>();
+            var approvalResults = await Task.WhenAll(
+                cycleCounts.ApproveTaskAsync(
+                    additionalSummary.TaskId,
+                    new CycleCountTaskApprovalInput(
+                        physicalCount.Value.Revision,
+                        "Issue 130 positive variance count"),
+                    actor.Id),
+                competingCycleCounts.ApproveTaskAsync(
+                    additionalSummary.TaskId,
+                    new CycleCountTaskApprovalInput(
+                        physicalCount.Value.Revision,
+                        "Issue 130 concurrent positive variance approval"),
+                    actor.Id));
+            var successfulApprovals = approvalResults.Where(value => value.IsSuccess).ToArray();
+            Assert.NotEmpty(successfulApprovals);
+            Assert.All(approvalResults, result =>
+                Assert.True(
+                    result.IsSuccess || result.FirstError?.Code is
+                        "cycle_count.task_revision_conflict" or
+                        "cycle_count.snapshot_stale" or
+                        "cycle_count.approval_concurrency_conflict",
+                    result.FirstError?.Message));
+            var positiveApproval = successfulApprovals[0];
             Assert.True(positiveApproval.IsSuccess, positiveApproval.FirstError?.Message);
             Assert.Equal(CycleCountTaskStatus.Completed, positiveApproval.Value.Status);
             Assert.Equal(expectedBalance.OnHandQuantity, positiveApproval.Value.Lines.Single().ExpectedQuantity);
@@ -520,7 +542,10 @@ public sealed partial class PostgreSqlJourneyTests
                                       value.Type == MovementType.CycleCount);
             Assert.Equal(expectedVariance, positiveMovement.AdjustmentDelta);
             Assert.Equal(positiveLedger.MovementId, positiveMovement.Id);
-            outcomes.Add("positive-variance-count=approved-with-linked-movement-and-ledger");
+            Assert.Equal(1, await context.AuditEntries.AsNoTracking()
+                .CountAsync(value => value.Action == WmsAuditActions.CountApproved &&
+                                     value.EntityId == positiveApproval.Value.TaskNumber));
+            outcomes.Add("positive-variance-count=concurrent-approval-applied-once-with-linked-movement-and-ledger");
             await ReconcileAndRecordAsync(
                 $"{planKey}-positive-variance-approved",
                 context,
