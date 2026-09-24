@@ -666,7 +666,7 @@ public sealed class InventoryReconciliationService(
             .Select(group => new
             {
                 ReservationId = group.Key,
-                AllocatedQuantity = group.Sum(allocation => allocation.AllocatedQuantity),
+                ConsumedQuantity = group.Sum(allocation => allocation.ConsumedQuantity),
                 RemainingQuantity = group.Sum(allocation =>
                     allocation.AllocatedQuantity - allocation.ConsumedQuantity - allocation.ReleasedQuantity)
             });
@@ -693,22 +693,22 @@ public sealed class InventoryReconciliationService(
             foreach (var reservation in batch)
             {
                 totals.TryGetValue(reservation.Id, out var total);
-                var allocated = total?.AllocatedQuantity ?? 0m;
                 var remaining = total?.RemainingQuantity ?? 0m;
-                if (allocated > reservation.RequestedQuantity)
+                var consumedAndReserved = (total?.ConsumedQuantity ?? 0m) + remaining;
+                if (consumedAndReserved > reservation.RequestedQuantity)
                 {
                     issues.Add(
                         InventoryReconciliationSeverity.Critical,
                         InventoryReconciliationCheck.ReservationAllocation,
                         "inventory_reservation_overallocated",
-                        $"Reservation {reservation.Id} allocates more than its requested quantity.",
-                        "Review allocation selection and immutable reservation events before any repair.",
+                        $"Reservation {reservation.Id} has consumed or active allocation quantities beyond its requested quantity.",
+                        "Review allocation selection, consumption, and immutable reservation events before any repair.",
                         "InventoryReservation",
                         reservation.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         reservation.WarehouseId,
                         reservation.ItemId,
                         expectedQuantity: reservation.RequestedQuantity,
-                        actualQuantity: allocated);
+                        actualQuantity: consumedAndReserved);
                 }
 
                 if (remaining > 0m && !reservation.IsOpen)

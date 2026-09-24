@@ -569,7 +569,7 @@ public sealed partial class PostgreSqlJourneyTests
         var allocationCommand = new SalesOrderAllocationCommand(
             [order.Value.Lines.Single().Id],
             ReleaseToWarehouse: false,
-            IdempotencyKey: "J130-PARTIAL-ALLOCATE-01");
+            IdempotencyKey: "partial-allocate-1");
         var allocated = await allocationService.AllocateAsync(order.Value.Id, allocationCommand, actor.Id);
         Assert.True(allocated.IsSuccess, allocated.Error);
         Assert.Equal(SalesOrderStatus.PartiallyAllocated, allocated.Value.OrderStatus);
@@ -702,6 +702,238 @@ public sealed partial class PostgreSqlJourneyTests
                 ["pickWorkItems"] = workCount,
                 ["allocationAuditEvents"] = allocationAudits.Length,
                 ["checkpoints"] = checkpoints.Count
+            },
+            ReconciliationClean: checkpoints.All(value => value.IssueCount == 0),
+            UnexpectedReconciliationIssueCount: checkpoints.Sum(value => value.IssueCount),
+            ExpectedReconciliationIssueCount: 0));
+    }
+
+    [PostgreSqlFact]
+    public async Task SalesOrderUnreleaseRestoresStockAndReplanCreatesFreshWork()
+    {
+        await using var target = new PostgreSqlTestDatabase();
+        await target.InitializeAsync();
+        var seeded = await DeterministicPostgreSqlDataGenerationFixture.WriteWithActorCredentialsAsync(
+            target,
+            new DataGenerationRequest(
+                WmsDataGenerationProfiles.IntegrationTest,
+                "issue-130-unrelease-replan-journey",
+                Environment: "Testing",
+                Locale: "en-US"));
+        Assert.True(seeded.Report.ReconciliationClean);
+
+        using var provider = DeterministicPostgreSqlDataGenerationFixture
+            .CreateServiceProviderForExistingTarget(target);
+        using var scope = provider.CreateScope();
+        var services = scope.ServiceProvider;
+        var userManager = services.GetRequiredService<UserManager<WmsUser>>();
+        var actor = await userManager.FindByIdAsync(seeded.ActorCredentials.UserId);
+        Assert.NotNull(actor);
+        services.GetRequiredService<DesktopUserSession>().SignIn(actor);
+
+        var context = services.GetRequiredService<WmsDbContext>();
+        var reconciliation = services.GetRequiredService<IInventoryReconciliationService>();
+        var salesOrders = services.GetRequiredService<ISalesOrderService>();
+        var allocationService = services.GetRequiredService<ISalesOrderAllocationService>();
+        var checkpoints = new List<PostgreSqlJourneyCheckpointEvidence>();
+        var warehouseId = await context.Warehouses.AsNoTracking()
+            .Where(value => value.IsActive)
+            .OrderBy(value => value.Id)
+            .Select(value => value.Id)
+            .FirstAsync();
+        var customerId = await context.Customers.AsNoTracking()
+            .Where(value => value.IsActive)
+            .OrderBy(value => value.Id)
+            .Select(value => value.Id)
+            .FirstAsync();
+        var candidate = await context.Stock.AsNoTracking()
+            .Include(value => value.Item)
+            .Include(value => value.Location)
+            .Where(value => value.Location.WarehouseId == warehouseId &&
+                            value.Location.IsPickable &&
+                            value.Item.IsActive &&
+                            value.Item.RequiresLot == false &&
+                            value.Item.RequiresSerial == false &&
+                            value.Item.RequiresExpiry == false &&
+                            value.LotId == null &&
+                            value.SerialNumberId == null &&
+                            value.LicensePlateId == null &&
+                            value.InventoryStatusId == InventoryStatusSystemIds.Available &&
+                            value.OwnerKind == InventoryOwnerKind.CompanyOwned)
+            .ToArrayAsync();
+        var stock = candidate
+            .Where(value => value.QuantityAvailable.Value >= 1m)
+            .OrderByDescending(value => value.QuantityAvailable.Value)
+            .ThenBy(value => value.ItemId)
+            .ThenBy(value => value.LocationId)
+            .FirstOrDefault();
+        Assert.NotNull(stock);
+
+        async Task<(decimal OnHand, decimal Reserved, decimal Available)> ReadBalanceAsync()
+        {
+            var balances = await context.InventoryBalances.AsNoTracking()
+                .Where(value => value.WarehouseId == warehouseId && value.ItemId == stock.ItemId)
+                .ToArrayAsync();
+            return (
+                balances.Sum(value => value.OnHandQuantity),
+                balances.Sum(value => value.ReservedQuantity),
+                balances.Sum(value => value.AvailableQuantity));
+        }
+
+        async Task<int[]> ReadWorkStatusesAsync(int lineId) =>
+            await context.WarehouseWorks.AsNoTracking()
+                .Where(value => value.SourceEntityType == "SalesOrderLine" &&
+                                value.SourceEntityId == lineId.ToString(CultureInfo.InvariantCulture))
+                .OrderBy(value => value.Id)
+                .Select(value => (int)value.Status)
+                .ToArrayAsync();
+
+        var beforeAllocation = await ReadBalanceAsync();
+        var order = await salesOrders.CreateAsync(
+            new SalesOrderInput(
+                warehouseId,
+                customerId,
+                OrderDate: new DateOnly(2026, 1, 15),
+                RequestedShipDate: new DateOnly(2026, 1, 16),
+                ExternalReference: "J130-REPLAN-ORDER-01",
+                SourceType: "ISSUE-130-REPLAN-JOURNEY",
+                AllowPartialShipment: false,
+                Lines: [new SalesOrderLineInput(stock.Item.Sku, 1m, stock.Item.UnitOfMeasure)]),
+            actor.Id);
+        Assert.True(order.IsSuccess, order.Error);
+        await ReconcileAndRecordAsync(
+            "unrelease-order-created",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+        order = await salesOrders.ConfirmAsync(order.Value.Id, actor.Id);
+        Assert.True(order.IsSuccess, order.Error);
+        await ReconcileAndRecordAsync(
+            "unrelease-order-confirmed",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var firstAllocation = await allocationService.AllocateAsync(
+            order.Value.Id,
+            new SalesOrderAllocationCommand(IdempotencyKey: "replan-allocate-1"),
+            actor.Id);
+        Assert.True(firstAllocation.IsSuccess, firstAllocation.Error);
+        Assert.Equal(SalesOrderStatus.Released, firstAllocation.Value.OrderStatus);
+        var firstLine = Assert.Single(firstAllocation.Value.Lines);
+        Assert.Equal(1m, firstLine.AllocatedBaseQuantity);
+        Assert.Equal(0m, firstLine.BackorderBaseQuantity);
+        Assert.Single(firstAllocation.Value.Work);
+        Assert.Equal(1m, firstAllocation.Value.Work.Single().PlannedQuantity);
+        Assert.NotNull(firstLine.ReservationId);
+        var afterFirstAllocation = await ReadBalanceAsync();
+        Assert.Equal(beforeAllocation.OnHand, afterFirstAllocation.OnHand);
+        Assert.Equal(beforeAllocation.Reserved + 1m, afterFirstAllocation.Reserved);
+        Assert.Contains((int)WarehouseWorkStatus.Available, await ReadWorkStatusesAsync(firstLine.LineId));
+        await ReconcileAndRecordAsync(
+            "allocation-released-to-pick-work",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var unreleaseCommand = new SalesOrderAllocationCommand(IdempotencyKey: "replan-unrelease-1");
+        var unreleased = await allocationService.UnreleaseAsync(order.Value.Id, unreleaseCommand, actor.Id);
+        Assert.True(unreleased.IsSuccess, unreleased.Error);
+        Assert.Equal(SalesOrderStatus.Confirmed, unreleased.Value.OrderStatus);
+        Assert.Equal(0m, unreleased.Value.Lines.Single().AllocatedBaseQuantity);
+        var afterUnrelease = await ReadBalanceAsync();
+        Assert.Equal(beforeAllocation, afterUnrelease);
+        var workStatusesAfterUnrelease = await ReadWorkStatusesAsync(firstLine.LineId);
+        Assert.Contains((int)WarehouseWorkStatus.Cancelled, workStatusesAfterUnrelease);
+        Assert.DoesNotContain((int)WarehouseWorkStatus.Available, workStatusesAfterUnrelease);
+        var transactionsAfterUnrelease = await context.InventoryTransactions.AsNoTracking()
+            .CountAsync(value => value.WarehouseId == warehouseId);
+        await ReconcileAndRecordAsync(
+            "reservation-unreleased-and-pick-work-cancelled",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var unreleaseReplay = await allocationService.UnreleaseAsync(order.Value.Id, unreleaseCommand, actor.Id);
+        Assert.True(unreleaseReplay.IsSuccess, unreleaseReplay.Error);
+        Assert.Equal(SalesOrderStatus.Confirmed, unreleaseReplay.Value.OrderStatus);
+        Assert.Equal(beforeAllocation, await ReadBalanceAsync());
+        Assert.Equal(
+            transactionsAfterUnrelease,
+            await context.InventoryTransactions.AsNoTracking().CountAsync(value => value.WarehouseId == warehouseId));
+        Assert.Equal(workStatusesAfterUnrelease, await ReadWorkStatusesAsync(firstLine.LineId));
+        await ReconcileAndRecordAsync(
+            "allocation-unrelease-replayed",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var replanned = await allocationService.ReallocateAsync(
+            order.Value.Id,
+            new SalesOrderAllocationCommand(
+                ReleaseToWarehouse: true,
+                IdempotencyKey: "replan-allocate-2"),
+            actor.Id);
+        Assert.True(replanned.IsSuccess, replanned.Error);
+        Assert.Equal(SalesOrderStatus.Released, replanned.Value.OrderStatus);
+        Assert.Equal(1m, replanned.Value.Lines.Single().AllocatedBaseQuantity);
+        Assert.Contains(replanned.Value.Work, value => value.Status == WarehouseWorkStatus.Available.ToString());
+        var finalBalance = await ReadBalanceAsync();
+        Assert.Equal(beforeAllocation.OnHand, finalBalance.OnHand);
+        Assert.Equal(beforeAllocation.Reserved + 1m, finalBalance.Reserved);
+        var finalWorkStatuses = await ReadWorkStatusesAsync(firstLine.LineId);
+        Assert.Equal(2, finalWorkStatuses.Length);
+        Assert.Contains((int)WarehouseWorkStatus.Cancelled, finalWorkStatuses);
+        Assert.Contains((int)WarehouseWorkStatus.Available, finalWorkStatuses);
+        await ReconcileAndRecordAsync(
+            "reallocation-created-fresh-pick-work",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
+        var allocationAudits = await context.AuditEntries.AsNoTracking()
+            .Where(value => value.Action == WmsAuditActions.AllocationChanged &&
+                            value.EntityId == order.Value.DocumentNumber)
+            .ToArrayAsync();
+        Assert.True(allocationAudits.Length >= 3);
+        Assert.All(allocationAudits, entry =>
+        {
+            Assert.Equal(actor.Id, entry.ActorUserId);
+            Assert.Equal(warehouseId, entry.WarehouseId);
+            Assert.Equal(WmsAuditEntityTypes.Allocation, entry.EntityType);
+            Assert.True(entry.Succeeded);
+        });
+
+        WriteJourneyEvidence(new PostgreSqlJourneyEvidence(
+            "sales-order-unrelease-stock-restoration-and-replan",
+            target.TargetIdentifier,
+            ["allocation=reserved-and-released,unrelease=stock-restored-and-work-cancelled,replay=no-duplicate-transaction,replan=fresh-pick-work"],
+            ["unrelease after picking has consumed inventory", "recovery from in-progress or exceptional pick work"],
+            checkpoints,
+            new Dictionary<string, decimal>
+            {
+                ["itemOnHandBeforeAllocation"] = beforeAllocation.OnHand,
+                ["itemOnHandAfterReplan"] = finalBalance.OnHand,
+                ["itemReservedBeforeAllocation"] = beforeAllocation.Reserved,
+                ["itemReservedAfterAllocation"] = afterFirstAllocation.Reserved,
+                ["itemReservedAfterUnrelease"] = afterUnrelease.Reserved,
+                ["itemReservedAfterReplan"] = finalBalance.Reserved,
+                ["itemAvailableBeforeAllocation"] = beforeAllocation.Available,
+                ["itemAvailableAfterAllocation"] = afterFirstAllocation.Available,
+                ["itemAvailableAfterUnrelease"] = afterUnrelease.Available,
+                ["itemAvailableAfterReplan"] = finalBalance.Available
+            },
+            new Dictionary<string, int>
+            {
+                ["pickWorkCountAfterReplan"] = finalWorkStatuses.Length,
+                ["allocationAuditEvents"] = allocationAudits.Length,
+                ["reconciliationCheckpoints"] = checkpoints.Count
             },
             ReconciliationClean: checkpoints.All(value => value.IssueCount == 0),
             UnexpectedReconciliationIssueCount: checkpoints.Sum(value => value.IssueCount),
