@@ -168,14 +168,50 @@ public sealed class RecommendationGovernanceServiceTests : IDisposable
             new RecommendationGenerationRequest(WarehouseId, 10));
         disabled.ErrorCode.Should().Be("recommendation.disabled");
 
+        _service = CreateService(enabled: true, killSwitchEnabled: true);
+        var killSwitch = await _service.GenerateReplenishmentAsync(
+            new RecommendationGenerationRequest(WarehouseId, 10));
+        killSwitch.ErrorCode.Should().Be("recommendation.kill_switch_active");
+
         _service = CreateService(enabled: true, providerAvailable: false);
         var unavailable = await _service.GenerateReplenishmentAsync(
             new RecommendationGenerationRequest(WarehouseId, 10));
         unavailable.ErrorCode.Should().Be("recommendation.provider_unavailable");
+
+        var overBudget = await _service.GenerateReplenishmentAsync(
+            new RecommendationGenerationRequest(WarehouseId, 51));
+        overBudget.ErrorCode.Should().Be("recommendation.generation_limit_invalid");
+
         _replenishment.Verify(service => service.GenerateAsync(
             It.IsAny<ReplenishmentGenerationQuery>(),
             It.IsAny<string>(),
             It.IsAny<CancellationToken>()), Times.Never);
+        (await _context.GovernedRecommendations.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Provider_timeout_is_reported_as_retryable_without_persisting_proposals()
+    {
+        _replenishment
+            .Setup(service => service.GenerateAsync(
+                It.Is<ReplenishmentGenerationQuery>(query => query.DryRun),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(async (
+                ReplenishmentGenerationQuery _,
+                string _,
+                CancellationToken cancellationToken) =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                return Result.Success(new ReplenishmentGenerationResultDto(0, 0, 0, 0, 0, []));
+            });
+        _service = CreateService(enabled: true, providerTimeoutSeconds: 1);
+
+        var timedOut = await _service.GenerateReplenishmentAsync(
+            new RecommendationGenerationRequest(WarehouseId, 10));
+
+        timedOut.ErrorCode.Should().Be("recommendation.provider_timeout");
+        timedOut.FirstError?.IsRetryable.Should().BeTrue();
         (await _context.GovernedRecommendations.CountAsync()).Should().Be(0);
     }
 
@@ -245,7 +281,9 @@ public sealed class RecommendationGovernanceServiceTests : IDisposable
 
     private RecommendationGovernanceService CreateService(
         bool enabled,
-        bool providerAvailable = true)
+        bool providerAvailable = true,
+        bool killSwitchEnabled = false,
+        int providerTimeoutSeconds = 10)
     {
         var adapter = new ReplenishmentRecommendationCommandAdapter(_replenishment.Object);
         return new RecommendationGovernanceService(
@@ -259,12 +297,12 @@ public sealed class RecommendationGovernanceServiceTests : IDisposable
             Options.Create(new RecommendationGovernanceOptions
             {
                 Enabled = enabled,
-                KillSwitchEnabled = false,
+                KillSwitchEnabled = killSwitchEnabled,
                 ProviderAvailable = providerAvailable,
                 ShadowMode = true,
                 ProviderName = DeterministicReplenishmentDraftProvider.ProviderName,
                 MaximumProposalsPerRequest = 50,
-                ProviderTimeoutSeconds = 10
+                ProviderTimeoutSeconds = providerTimeoutSeconds
             }),
             NullLogger<RecommendationGovernanceService>.Instance);
     }
