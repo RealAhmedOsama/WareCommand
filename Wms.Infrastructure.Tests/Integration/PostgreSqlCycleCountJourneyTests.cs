@@ -165,6 +165,20 @@ public sealed partial class PostgreSqlJourneyTests
             checkpoints,
             CancellationToken.None);
 
+        var staleTaskStart = await cycleCounts.StartTaskAsync(
+            summary.TaskId,
+            new CycleCountTaskStartInput(initialTask.Value.Revision + 1),
+            actor.Id);
+        Assert.True(staleTaskStart.IsFailure);
+        Assert.Equal("cycle_count.task_revision_conflict", staleTaskStart.FirstError?.Code);
+        outcomes.Add("cycle-count-task=stale-revision-rejected");
+        await ReconcileAndRecordAsync(
+            "cycle-count-stale-task-revision-rejected",
+            context,
+            reconciliation,
+            checkpoints,
+            CancellationToken.None);
+
         var taskStarted = await cycleCounts.StartTaskAsync(
             summary.TaskId,
             new CycleCountTaskStartInput(initialTask.Value.Revision),
@@ -352,7 +366,7 @@ public sealed partial class PostgreSqlJourneyTests
             .CountAsync(value => value.ReferenceType == "CycleCountLine" &&
                                  value.ReferenceId == countLine.Id.ToString(CultureInfo.InvariantCulture) &&
                                  value.Type == InventoryTransactionType.CountVariance);
-        Assert.Equal(42, checkpoints.Count);
+        Assert.Equal(43, checkpoints.Count);
         Assert.All(checkpoints, checkpoint => Assert.Equal(0, checkpoint.IssueCount));
         Assert.Equal(1, varianceMovementCount);
         Assert.Equal(1, varianceLedgerCount);
@@ -362,8 +376,8 @@ public sealed partial class PostgreSqlJourneyTests
             target.TargetIdentifier,
             outcomes,
             [
-                "positive and zero-variance approval provider journeys",
-                "stale revision and concurrent approval provider journey"
+                "positive and zero-variance physical-count provider journeys",
+                "concurrent approval provider journey"
             ],
             checkpoints,
             new Dictionary<string, decimal>(StringComparer.Ordinal)
