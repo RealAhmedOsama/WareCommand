@@ -367,7 +367,7 @@ public sealed partial class PostgreSqlJourneyTests
         var unsupportedOrSkippedScenarios = new[]
         {
             "positive and zero-variance cycle-count physical-count journeys",
-            "wave, cluster, cross-dock, kitting, and other disposition journeys",
+            "cross-dock reservation/work materialization, cluster picking, kitting, and inventory disposition execution",
             "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
             "authenticated HTTP boundary for these service journeys"
         };
@@ -642,7 +642,7 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
                 "cycle-count execution and variance approval",
-                "wave, cluster, cross-dock, kitting, and other disposition journeys",
+                "cross-dock reservation/work materialization, cluster picking, kitting, and inventory disposition execution",
                 "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
             ],
@@ -932,7 +932,7 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
             "cycle-count execution and variance approval",
-            "wave, cluster, cross-dock, kitting, and other disposition journeys",
+            "cross-dock reservation/work materialization, cluster picking, kitting, and inventory disposition execution",
                 "partial quantities, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
             ],
