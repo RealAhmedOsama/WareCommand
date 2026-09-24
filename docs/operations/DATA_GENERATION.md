@@ -55,13 +55,17 @@ planned bounds.
 The returned report contains generator/profile and seed fingerprints, target
 schema identifier, elapsed time, actual entity counts, operation outcomes,
 logical dataset fingerprint, and deep reconciliation status and transaction
-count. The PostgreSQL runner includes both separate-schema reports in its
-`dataGenerationReports` JSON field; the reports contain no credentials. The
-test runs the same seed into two
-separate schemas, compares logical fingerprints and counts, checks document
-and inventory links, queries persisted data through application services, and
-proves that a populated target, production environment, and reset request are
-refused.
+count. The PostgreSQL runner includes all successful profile and repeatability
+reports in its `dataGenerationReports` JSON field; the reports contain no
+credentials. Tests run the same workflow seed into two separate schemas, compare logical
+fingerprints and counts, and also write the English and Arabic demo profiles
+plus the Arabic edge-case profile. They check actual row counts, localized
+persisted warehouse names, document and inventory links, and clean
+reconciliation. A second write to the populated schema is rejected before it
+can duplicate the seed. The plan contract fixes `large-performance` at scale 1
+(10 warehouses, 5,000 locations, 10,000 items, 50,000 documents, and 100,000
+inventory rows); routine CI does not materialize that explicit capacity-sized
+dataset.
 
 This group qualifies deterministic provider-backed fixture generation. It is
 not a production seed path or a production/staging qualification result. Use

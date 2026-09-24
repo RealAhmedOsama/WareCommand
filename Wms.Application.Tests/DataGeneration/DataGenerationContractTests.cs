@@ -60,7 +60,7 @@ public sealed class DataGenerationContractTests
     [Fact]
     public void LargePerformanceScaleCannotExceedItsExplicitResourceBudget()
     {
-        var plan = () => DataGenerationPlan.Create(new DataGenerationRequest(
+        var plan = DataGenerationPlan.Create(new DataGenerationRequest(
             WmsDataGenerationProfiles.LargePerformance,
             "perf-seed"));
         var unbounded = () => DataGenerationPlan.Create(new DataGenerationRequest(
@@ -68,7 +68,13 @@ public sealed class DataGenerationContractTests
             "perf-seed",
             Scale: 2));
 
-        plan.Should().NotThrow();
+        plan.EstimatedCounts.Should().Contain(new KeyValuePair<string, int>("warehouses", 10));
+        plan.EstimatedCounts.Should().Contain(new KeyValuePair<string, int>("locations", 5_000));
+        plan.EstimatedCounts.Should().Contain(new KeyValuePair<string, int>("items", 10_000));
+        plan.EstimatedCounts.Should().Contain(new KeyValuePair<string, int>("documents", 50_000));
+        plan.EstimatedCounts.Should().Contain(new KeyValuePair<string, int>("inventoryRows", 100_000));
+        WmsDataGenerationProfiles.All.Single(profile => profile.Name == WmsDataGenerationProfiles.LargePerformance)
+            .MaximumScale.Should().Be(1);
         unbounded.Should().Throw<ArgumentOutOfRangeException>();
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Wms.Application.DataGeneration;
 
@@ -7,6 +8,7 @@ namespace Wms.Infrastructure.Tests.Integration;
 public sealed class PostgreSqlDataGenerationTests
 {
     private static readonly JsonSerializerOptions EvidenceSerializerOptions = new() { WriteIndented = true };
+    private static readonly object EvidenceGate = new();
 
     [PostgreSqlFact]
     public async Task SameSeedProducesEquivalentServiceBackedDatasetsInSeparateSchemas()
@@ -81,6 +83,68 @@ public sealed class PostgreSqlDataGenerationTests
         var rerun = await Assert.ThrowsAsync<InvalidOperationException>(
             () => DeterministicPostgreSqlDataGenerationFixture.WriteAsync(firstTarget, request));
         Assert.Contains("never reset or reused", rerun.Message, StringComparison.OrdinalIgnoreCase);
+        using var afterRejectedRerun = firstTarget.CreateContext();
+        Assert.Equal(first.ActualCounts["warehouses"], await afterRejectedRerun.Warehouses.CountAsync());
+        Assert.Equal(first.ActualCounts["inventoryRows"], await afterRejectedRerun.Stock.CountAsync());
+    }
+
+    [PostgreSqlFact]
+    public async Task DemoAndEdgeCaseProfilesPopulateEnglishAndArabicJourneys()
+    {
+        var reports = new List<DataGenerationRunReport>();
+        var cases = new[]
+        {
+            (Profile: WmsDataGenerationProfiles.FullDemo, Seed: "issue-129-demo-en", Locale: "en-US", Warehouses: 2, Locations: 80, Items: 250, InventoryRows: 400),
+            (Profile: WmsDataGenerationProfiles.FullDemo, Seed: "issue-129-demo-ar", Locale: "ar-EG", Warehouses: 2, Locations: 80, Items: 250, InventoryRows: 400),
+            (Profile: WmsDataGenerationProfiles.EdgeCases, Seed: "issue-129-edge-ar", Locale: "ar-EG", Warehouses: 1, Locations: 12, Items: 40, InventoryRows: 80)
+        };
+
+        foreach (var profileCase in cases)
+        {
+            await using var target = new PostgreSqlTestDatabase();
+            await target.InitializeAsync();
+            var report = await DeterministicPostgreSqlDataGenerationFixture.WriteAsync(
+                target,
+                new DataGenerationRequest(
+                    profileCase.Profile,
+                    profileCase.Seed,
+                    Environment: "Testing",
+                    Locale: profileCase.Locale));
+            reports.Add(report);
+
+            Assert.Equal(profileCase.Profile, report.Profile);
+            Assert.Equal(profileCase.Warehouses, report.ActualCounts["warehouses"]);
+            Assert.Equal(profileCase.Locations, report.ActualCounts["locations"]);
+            Assert.Equal(profileCase.Items, report.ActualCounts["items"]);
+            Assert.Equal(profileCase.InventoryRows, report.ActualCounts["inventoryRows"]);
+            Assert.True(report.ReconciliationClean, $"Profile {profileCase.Profile} reported {report.ReconciliationIssueCount} reconciliation issues.");
+            Assert.Equal(0, report.ReconciliationIssueCount);
+            Assert.Contains(report.OperationOutcomes, value => value.StartsWith("purchase-order=", StringComparison.Ordinal));
+            Assert.Contains(report.OperationOutcomes, value => value.StartsWith("sales-order=", StringComparison.Ordinal));
+
+            using var context = target.CreateContext();
+            var warehouse = await context.Warehouses.AsNoTracking().OrderBy(value => value.Code).FirstAsync();
+            if (profileCase.Locale.StartsWith("ar", StringComparison.OrdinalIgnoreCase))
+            {
+                Assert.StartsWith("مخزن", warehouse.Name, StringComparison.Ordinal);
+            }
+            else
+            {
+                Assert.StartsWith("Warehouse", warehouse.Name, StringComparison.Ordinal);
+            }
+
+            if (profileCase.Profile == WmsDataGenerationProfiles.EdgeCases ||
+                profileCase.Profile == WmsDataGenerationProfiles.FullDemo)
+            {
+                Assert.Contains(
+                    report.OperationOutcomes,
+                    value => value.Contains("serial-and-external-owner", StringComparison.Ordinal));
+                Assert.True(report.ActualCounts["serials"] > 0);
+                Assert.True(report.ActualCounts["owners"] > 0);
+            }
+        }
+
+        WriteDataGenerationEvidence(reports.ToArray());
     }
 
     [PostgreSqlFact]
@@ -141,7 +205,20 @@ public sealed class PostgreSqlDataGenerationTests
             return;
         }
 
-        var json = JsonSerializer.Serialize(new { reports }, EvidenceSerializerOptions);
-        File.WriteAllText(path, json);
+        lock (EvidenceGate)
+        {
+            var existingReports = File.Exists(path)
+                ? JsonSerializer.Deserialize<DataGenerationEvidenceEnvelope>(
+                    File.ReadAllText(path),
+                    EvidenceSerializerOptions)?.Reports ?? []
+                : [];
+            var json = JsonSerializer.Serialize(
+                new DataGenerationEvidenceEnvelope(existingReports.Concat(reports).ToArray()),
+                EvidenceSerializerOptions);
+            File.WriteAllText(path, json);
+        }
     }
+
+    private sealed record DataGenerationEvidenceEnvelope(
+        [property: JsonPropertyName("reports")] IReadOnlyList<DataGenerationRunReport> Reports);
 }
