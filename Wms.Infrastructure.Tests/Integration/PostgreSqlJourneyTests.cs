@@ -5,7 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Wms.Application.DataGeneration;
 using Wms.Application.Identity;
 using Wms.Application.Inventory;
+using Wms.Application.SupplierReturns;
 using Wms.Application.Transfers;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Inventory;
@@ -325,6 +327,12 @@ public sealed class PostgreSqlJourneyTests
         }
 
         await ReconcileCheckpointAsync("transfer-corruption-rolled-back");
+        var supplierReturnJourney = await RunSupplierReturnJourneyAsync(
+            services,
+            context,
+            reconciliation,
+            actor.Id,
+            sourceWarehouseId);
         Assert.Equal(10, checkpoints.Count);
         var finalItemQuantity = await SumItemQuantityAsync(context, sourceBalance.ItemId);
         var finalSourceLocationQuantity = await SumLocationQuantityAsync(
@@ -341,7 +349,6 @@ public sealed class PostgreSqlJourneyTests
         var unsupportedOrSkippedScenarios = new[]
         {
             "ASN and quality inspection lifecycle",
-            "supplier return lifecycle",
             "cycle-count execution and variance approval",
             "replenishment execution",
             "wave, cluster, cross-dock, kitting, and disposition journeys",
@@ -396,7 +403,296 @@ public sealed class PostgreSqlJourneyTests
             ExpectedReconciliationIssueCount: checkpoints
                 .Where(value => !value.ExpectedClean)
                 .Sum(value => value.IssueCount));
-        WriteJourneyEvidence(generatedLifecycle, transferJourney);
+        WriteJourneyEvidence(generatedLifecycle, transferJourney, supplierReturnJourney);
+    }
+
+    private static async Task<PostgreSqlJourneyEvidence> RunSupplierReturnJourneyAsync(
+        IServiceProvider services,
+        WmsDbContext context,
+        IInventoryReconciliationService reconciliation,
+        string actorUserId,
+        int warehouseId)
+    {
+        var checkpoints = new List<PostgreSqlJourneyCheckpointEvidence>();
+        var outcomes = new List<string>();
+
+        async Task ReconcileCheckpointAsync(string checkpoint)
+        {
+            await ReconcileAndRecordAsync(
+                checkpoint,
+                context,
+                reconciliation,
+                checkpoints,
+                CancellationToken.None);
+        }
+
+        var purchaseOrder = await context.PurchaseOrders.AsNoTracking()
+            .Include(value => value.Lines)
+            .SingleAsync(value => value.WarehouseId == warehouseId &&
+                                  value.SourceType == "DATA-GENERATION");
+        var receipt = await context.Receipts.AsNoTracking()
+            .Include(value => value.Lines)
+            .SingleAsync(value => value.PurchaseOrderId == purchaseOrder.Id);
+        var receiptLine = receipt.Lines.Single();
+        Assert.NotNull(receiptLine.PurchaseOrderLineId);
+        var receiptMovement = await context.ReceiptLineMovements.AsNoTracking()
+            .Where(value => value.ReceiptLineId == receiptLine.Id &&
+                            value.Kind == ReceiptMovementKind.Receipt)
+            .Select(value => value.Movement)
+            .SingleAsync();
+        var sourceStocks = await context.Stock.AsNoTracking()
+            .Include(value => value.Location)
+            .Where(value => value.ItemId == receiptLine.ItemId &&
+                            value.Location.WarehouseId == warehouseId &&
+                            value.Location.Type == LocationType.Storage &&
+                            value.LotId == receiptMovement.LotId &&
+                            value.SerialNumberId == receiptMovement.SerialNumberId &&
+                            value.SerialNumber == receiptMovement.SerialNumber &&
+                            value.LicensePlateId == receiptMovement.ToLicensePlateId &&
+                            value.InventoryStatusId == InventoryStatusSystemIds.Available &&
+                            value.OwnerKind == receiptLine.OwnerKind &&
+                            value.InventoryOwnerId == receiptLine.InventoryOwnerId &&
+                            value.OwnerCodeSnapshot == receiptLine.OwnerCodeSnapshot)
+            .OrderBy(value => value.LocationId)
+            .ToArrayAsync();
+        var sourceStock = sourceStocks.First(value => value.QuantityAvailable.Value > 0m);
+        var stagingLocationId = await context.Locations.AsNoTracking()
+            .Where(value => value.WarehouseId == warehouseId &&
+                            value.Type == LocationType.Staging &&
+                            value.IsActive)
+            .OrderBy(value => value.Id)
+            .Select(value => value.Id)
+            .FirstAsync();
+        var supplierReturnService = services.GetRequiredService<ISupplierReturnService>();
+        var workService = services.GetRequiredService<IWarehouseWorkService>();
+        var sourceQuantity = sourceStock.QuantityAvailable.Value;
+        var originalItemQuantity = await SumItemQuantityAsync(context, receiptLine.ItemId);
+        var originalSourceQuantity = await SumLocationQuantityAsync(
+            context,
+            sourceStock.LocationId,
+            receiptLine.ItemId);
+        var originalStagingQuantity = await SumLocationQuantityAsync(
+            context,
+            stagingLocationId,
+            receiptLine.ItemId);
+
+        SupplierReturnCreateInput CreateInput(string returnNumber, decimal requestedQuantity) =>
+            new(
+                returnNumber,
+                warehouseId,
+                purchaseOrder.SupplierId,
+                stagingLocationId,
+                [new SupplierReturnLineInput(
+                    receiptLine.ItemId,
+                    requestedQuantity,
+                    receiptLine.BaseUnitOfMeasure,
+                    sourceStock.LocationId,
+                    InventoryStatusSystemIds.Available,
+                    "Supplier return from the received purchase-order lot",
+                    receiptMovement.LotId,
+                    receiptMovement.SerialNumberId,
+                    receiptMovement.SerialNumber,
+                    receiptMovement.ToLicensePlateId,
+                    receiptLine.PurchaseOrderLineId,
+                    ReceiptLineId: receiptLine.Id,
+                    SourceReference: receipt.DocumentNumber)],
+                "ISSUE-130-JOURNEY",
+                "Supplier return journey qualification",
+                purchaseOrder.Id,
+                ReceiptId: receipt.Id);
+
+        var overRequested = CreateInput("J130-SUPPLIER-SHORT", sourceQuantity + 1m);
+        var rejected = await supplierReturnService.CreateAsync(overRequested, actorUserId);
+        Assert.True(rejected.IsSuccess, rejected.FirstError?.Message);
+        await ReconcileCheckpointAsync("supplier-return-shortage-document-created");
+        var shortage = await supplierReturnService.ApproveAsync(
+            new SupplierReturnCommandInput(rejected.Value.Id, "j130-supplier-shortage-approve"),
+            actorUserId);
+        Assert.True(shortage.IsFailure, "Approval must reject a return quantity above unreserved source stock.");
+        Assert.Equal(0m, await context.Stock.AsNoTracking()
+            .Where(value => value.Id == sourceStock.Id)
+            .Select(value => value.QuantityReserved.Value)
+            .SingleAsync());
+        outcomes.Add("source-shortage=over-request-rejected-without-reservation");
+        await ReconcileCheckpointAsync("supplier-return-shortage-rejected");
+
+        var created = await supplierReturnService.CreateAsync(
+            CreateInput("J130-SUPPLIER-001", sourceQuantity),
+            actorUserId);
+        Assert.True(created.IsSuccess, created.FirstError?.Message);
+        await ReconcileCheckpointAsync("supplier-return-created");
+        var approved = await supplierReturnService.ApproveAsync(
+            new SupplierReturnCommandInput(created.Value.Id, "j130-supplier-approve"),
+            actorUserId);
+        Assert.True(approved.IsSuccess, approved.FirstError?.Message);
+        Assert.Equal(SupplierReturnStatus.Approved, approved.Value.Status);
+        await ReconcileCheckpointAsync("supplier-return-approved-and-reserved");
+
+        var released = await supplierReturnService.ReleaseAsync(
+            new SupplierReturnCommandInput(created.Value.Id, "j130-supplier-release"),
+            actorUserId);
+        Assert.True(released.IsSuccess, released.FirstError?.Message);
+        Assert.Equal(SupplierReturnStatus.Picking, released.Value.Status);
+        Assert.NotNull(released.Value.WarehouseWorkId);
+        await ReconcileCheckpointAsync("supplier-return-released-to-work");
+
+        var workId = released.Value.WarehouseWorkId!.Value;
+        var work = await workService.GetAsync(workId);
+        Assert.True(work.IsSuccess, work.FirstError?.Message);
+        Assert.Single(work.Value.Lines);
+        var assigned = await workService.AssignAsync(
+            workId,
+            new WarehouseWorkAssignmentInput(actorUserId, null, "j130-supplier-work-assign"),
+            actorUserId);
+        Assert.True(assigned.IsSuccess, assigned.FirstError?.Message);
+        await ReconcileCheckpointAsync("supplier-return-work-assigned");
+        var started = await workService.StartAsync(
+            workId,
+            new WarehouseWorkCommandInput("j130-supplier-work-start"),
+            actorUserId);
+        Assert.True(started.IsSuccess, started.FirstError?.Message);
+        await ReconcileCheckpointAsync("supplier-return-work-started");
+
+        var workLine = work.Value.Lines.Single();
+        var completed = await workService.CompleteAsync(
+            workId,
+            new WarehouseWorkCompletionInput(
+                "j130-supplier-work-complete",
+                CompletionReference: created.Value.ReturnNumber,
+                Scans:
+                [
+                    new WarehouseWorkScanInput(
+                        workLine.Id,
+                        workLine.ItemId,
+                        workLine.SourceLocationId!.Value,
+                        workLine.DestinationLocationId!.Value,
+                        sourceQuantity,
+                        workLine.LicensePlateId,
+                        LotId: workLine.LotId,
+                        SerialNumberId: workLine.SerialNumberId,
+                        SerialNumber: workLine.SerialNumber)
+                ]),
+            actorUserId);
+        Assert.True(completed.IsSuccess, completed.FirstError?.Message);
+        Assert.Equal(WarehouseWorkStatus.Completed, completed.Value.Status);
+        Assert.Equal(sourceQuantity, completed.Value.Lines.Single().ActualQuantity);
+        Assert.Equal(
+            originalSourceQuantity - sourceQuantity,
+            await SumLocationQuantityAsync(context, sourceStock.LocationId, receiptLine.ItemId));
+        Assert.Equal(
+            originalStagingQuantity + sourceQuantity,
+            await SumLocationQuantityAsync(context, stagingLocationId, receiptLine.ItemId));
+        outcomes.Add("picked-to-staging=exact-lot-lpn-owner-status-dimensions");
+        await ReconcileCheckpointAsync("supplier-return-pick-completed");
+
+        var packed = await supplierReturnService.PackAsync(
+            new SupplierReturnCommandInput(created.Value.Id, "j130-supplier-pack"),
+            actorUserId);
+        Assert.True(packed.IsSuccess, packed.FirstError?.Message);
+        Assert.Equal(SupplierReturnStatus.Packed, packed.Value.Status);
+        await ReconcileCheckpointAsync("supplier-return-packed");
+
+        var shipInput = new SupplierReturnShipInput(
+            created.Value.Id,
+            "J130-CARRIER",
+            "J130-TRACKING-001",
+            "J130-BOL-001",
+            "j130-supplier-ship");
+        var shipped = await supplierReturnService.ShipAsync(shipInput, actorUserId);
+        Assert.True(shipped.IsSuccess, shipped.FirstError?.Message);
+        Assert.Equal(SupplierReturnStatus.Shipped, shipped.Value.Status);
+        Assert.Equal(sourceQuantity, shipped.Value.ShippedQuantity);
+        await ReconcileCheckpointAsync("supplier-return-shipped");
+        var transactionsAfterShip = await context.InventoryTransactions.CountAsync();
+        var replay = await supplierReturnService.ShipAsync(shipInput, actorUserId);
+        Assert.True(replay.IsSuccess, replay.FirstError?.Message);
+        Assert.Equal(sourceQuantity, replay.Value.ShippedQuantity);
+        Assert.Equal(transactionsAfterShip, await context.InventoryTransactions.CountAsync());
+        outcomes.Add("ship-replay=no-duplicate-inventory-transactions");
+        await ReconcileCheckpointAsync("supplier-return-ship-replayed-once");
+
+        var acknowledged = await supplierReturnService.AcknowledgeAsync(
+            new SupplierReturnCommandInput(created.Value.Id, "j130-supplier-acknowledge"),
+            actorUserId);
+        Assert.True(acknowledged.IsSuccess, acknowledged.FirstError?.Message);
+        Assert.Equal(SupplierReturnStatus.Acknowledged, acknowledged.Value.Status);
+        await ReconcileCheckpointAsync("supplier-return-acknowledged");
+        var closed = await supplierReturnService.CloseAsync(
+            new SupplierReturnCommandInput(created.Value.Id, "j130-supplier-close"),
+            actorUserId);
+        Assert.True(closed.IsSuccess, closed.FirstError?.Message);
+        Assert.Equal(SupplierReturnStatus.Closed, closed.Value.Status);
+        await ReconcileCheckpointAsync("supplier-return-closed");
+
+        var finalItemQuantity = await SumItemQuantityAsync(context, receiptLine.ItemId);
+        Assert.Equal(originalItemQuantity - sourceQuantity, finalItemQuantity);
+        Assert.Equal(
+            originalStagingQuantity,
+            await SumLocationQuantityAsync(context, stagingLocationId, receiptLine.ItemId));
+        var supplierReturnLedger = await context.InventoryTransactions.AsNoTracking()
+            .Where(value => value.ReferenceId == created.Value.ReturnNumber)
+            .OrderBy(value => value.TransactionGroupId)
+            .ThenBy(value => value.EntrySequence)
+            .ToArrayAsync();
+        Assert.NotEmpty(supplierReturnLedger);
+        Assert.Contains(supplierReturnLedger, value =>
+            value.Type == InventoryTransactionType.Reservation &&
+            value.ReservedQuantityDelta == sourceQuantity &&
+            value.LocationId == sourceStock.LocationId);
+        Assert.Contains(supplierReturnLedger, value =>
+            value.Type == InventoryTransactionType.Pick &&
+            value.QuantityDelta == -sourceQuantity &&
+            value.LocationId == sourceStock.LocationId);
+        Assert.Contains(supplierReturnLedger, value =>
+            value.Type == InventoryTransactionType.Ship &&
+            value.QuantityDelta == -sourceQuantity &&
+            value.LocationId == stagingLocationId &&
+            value.InventoryStatusId == InventoryStatusSystemIds.ReturnPending);
+        Assert.All(supplierReturnLedger, value => Assert.Equal(actorUserId, value.ActorUserId));
+        var returnCommands = await context.SupplierReturnCommands.AsNoTracking()
+            .Where(value => value.SupplierReturnId == created.Value.Id)
+            .ToArrayAsync();
+        Assert.All(returnCommands, value => Assert.Equal(actorUserId, value.UserId));
+        var workCommands = await context.WarehouseWorkCommands.AsNoTracking()
+            .Where(value => value.WarehouseWorkId == workId)
+            .ToArrayAsync();
+        Assert.All(workCommands, value => Assert.Equal(actorUserId, value.UserId));
+        outcomes.Add("ledger-and-command-audit=actor-source-document-quantity-qualified");
+
+        return new PostgreSqlJourneyEvidence(
+            "supplier-return-shortage-pick-pack-ship-acknowledge",
+            "issue-130-supplier-return",
+            outcomes,
+            [
+                "ASN and quality inspection lifecycle",
+                "cycle-count execution and variance approval",
+                "replenishment execution",
+                "wave, cluster, cross-dock, kitting, and disposition journeys",
+                "partial quantities, cancellation, hold/release, and stale concurrency tokens",
+                "authenticated HTTP boundary for these service journeys"
+            ],
+            checkpoints,
+            new Dictionary<string, decimal>(StringComparer.Ordinal)
+            {
+                ["sourceQuantityBefore"] = sourceQuantity,
+                ["itemQuantityBefore"] = originalItemQuantity,
+                ["itemQuantityAfterSupplierShipment"] = finalItemQuantity,
+                ["sourceQuantityAfterPick"] = originalSourceQuantity - sourceQuantity,
+                ["stagingQuantityAfterShipment"] = originalStagingQuantity
+            },
+            new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["supplierReturnCommands"] = returnCommands.Length,
+                ["warehouseWorkCommands"] = workCommands.Length,
+                ["supplierReturnLedgerEntries"] = supplierReturnLedger.Length
+            },
+            ReconciliationClean: checkpoints.All(value => value.ExpectedClean == (value.IssueCount == 0)),
+            UnexpectedReconciliationIssueCount: checkpoints
+                .Where(value => value.ExpectedClean)
+                .Sum(value => value.IssueCount),
+            ExpectedReconciliationIssueCount: checkpoints
+                .Where(value => !value.ExpectedClean)
+                .Sum(value => value.IssueCount));
     }
 
     private static async Task ReconcileAndRecordAsync(

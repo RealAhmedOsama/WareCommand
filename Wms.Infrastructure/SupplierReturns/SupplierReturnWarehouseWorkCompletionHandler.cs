@@ -115,15 +115,50 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
                 return Result.Failure<WarehouseWorkHandlerResult>(validation);
             }
 
+            var approvedQuantity = returnLine.ApprovedBaseQuantity;
+            var reservation = await context.InventoryReservations
+                .Include(value => value.Allocations)
+                .SingleOrDefaultAsync(value =>
+                    value.DemandType == WmsAuditEntityTypes.SupplierReturn &&
+                    value.DemandId == supplierReturn.ReturnNumber &&
+                    value.DemandLine == returnLine.LineNumber,
+                    cancellationToken);
+            var reservationAllocation = reservation?.Allocations.SingleOrDefault(value =>
+                value.IsOpen &&
+                value.WarehouseId == work.WarehouseId &&
+                value.LocationId == returnLine.SourceLocationId &&
+                value.ItemId == returnLine.ItemId &&
+                value.LotId == returnLine.LotId &&
+                value.SerialNumberId == returnLine.SerialNumberId &&
+                value.SerialNumber == returnLine.SerialNumber &&
+                value.LicensePlateId == returnLine.LicensePlateId &&
+                value.InventoryStatusId == returnLine.InventoryStatusId &&
+                value.OwnerKind == workLine.OwnerKind &&
+                value.InventoryOwnerId == workLine.InventoryOwnerId &&
+                value.OwnerCodeSnapshot == workLine.OwnerCodeSnapshot);
+            if (reservation is null ||
+                reservation.Status != InventoryReservationStatus.Reserved ||
+                reservationAllocation is null ||
+                reservationAllocation.RemainingQuantity != approvedQuantity ||
+                workLine.PlannedQuantity != approvedQuantity)
+            {
+                return Result.Failure<WarehouseWorkHandlerResult>(WmsErrors.BusinessRule(
+                    "supplier_return.reservation_missing",
+                    $"The active reservation for supplier-return line {returnLine.LineNumber} is missing or out of sync."));
+            }
+
             var source = await FindStockAsync(
                 returnLine.ItemId,
                 returnLine.SourceLocationId,
                 returnLine,
                 returnLine.InventoryStatusId,
+                workLine.OwnerKind,
+                workLine.InventoryOwnerId,
+                workLine.OwnerCodeSnapshot,
                 cancellationToken);
             if (source is null ||
                 source.QuantityAvailable.Value < scan.ActualQuantity ||
-                source.QuantityReserved.Value < returnLine.ApprovedBaseQuantity)
+                source.QuantityReserved.Value < approvedQuantity)
             {
                 return Result.Failure<WarehouseWorkHandlerResult>(WmsErrors.BusinessRule(
                     "supplier_return.source_unavailable",
@@ -137,10 +172,13 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
                 destination.Id,
                 returnLine,
                 InventoryStatusSystemIds.ReturnPending,
+                workLine.OwnerKind,
+                workLine.InventoryOwnerId,
+                workLine.OwnerCodeSnapshot,
                 cancellationToken);
 
             source.RemoveQuantity(new Quantity(scan.ActualQuantity));
-            source.ReleaseReservation(new Quantity(returnLine.ApprovedBaseQuantity));
+            source.ReleaseReservation(new Quantity(approvedQuantity));
             await unitOfWork.Stock.UpdateAsync(source, cancellationToken);
 
             if (destinationStock is null)
@@ -153,7 +191,10 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
                     returnLine.SerialNumber,
                     returnLine.SerialNumberId,
                     InventoryStatusSystemIds.ReturnPending,
-                    returnLine.LicensePlateId);
+                    returnLine.LicensePlateId,
+                    workLine.OwnerKind,
+                    workLine.InventoryOwnerId,
+                    workLine.OwnerCodeSnapshot);
                 await unitOfWork.Stock.AddAsync(destinationStock, cancellationToken);
             }
             else
@@ -175,6 +216,10 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
                 returnLine.SerialNumberId,
                 returnLine.InventoryStatusId,
                 returnLine.LicensePlateId);
+            movement.SetOwnership(
+                workLine.OwnerKind,
+                workLine.InventoryOwnerId,
+                workLine.OwnerCodeSnapshot);
             movement.LinkPickDestination(destination.Id);
             context.Movements.Add(movement);
 
@@ -199,8 +244,46 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
                     returnLine.LicensePlateId);
             }
 
+            reservationAllocation.Consume(
+                scan.ActualQuantity,
+                input.CompletionReference ?? "supplier return to staging");
+            context.InventoryReservationEvents.Add(new InventoryReservationEvent(
+                reservation.Id,
+                InventoryReservationEventType.Consumed,
+                scan.ActualQuantity,
+                userId,
+                clock.UtcNow.UtcDateTime,
+                reservation.CorrelationId,
+                reservationAllocation.Id,
+                input.CompletionReference ?? "supplier return to staging"));
+            var shortQuantity = approvedQuantity - scan.ActualQuantity;
+            if (shortQuantity > 0m)
+            {
+                reservationAllocation.Release(
+                    shortQuantity,
+                    input.OverrideReason ?? "supervisor-approved short supplier-return pick");
+                context.InventoryReservationEvents.Add(new InventoryReservationEvent(
+                    reservation.Id,
+                    InventoryReservationEventType.Released,
+                    shortQuantity,
+                    userId,
+                    clock.UtcNow.UtcDateTime,
+                    reservation.CorrelationId,
+                    reservationAllocation.Id,
+                    input.OverrideReason ?? "supervisor-approved short supplier-return pick"));
+                reservation.SetStatus(
+                    InventoryReservationStatus.PartiallyConsumed,
+                    input.OverrideReason ?? "supervisor-approved short supplier-return pick");
+            }
+            else
+            {
+                reservation.SetStatus(
+                    InventoryReservationStatus.Consumed,
+                    input.CompletionReference ?? "supplier return to staging");
+            }
+
             returnLine.RecordStaged(scan.ActualQuantity);
-            if (scan.ActualQuantity < returnLine.ApprovedBaseQuantity)
+            if (scan.ActualQuantity < approvedQuantity)
             {
                 returnLine.AcceptShortPick();
             }
@@ -217,9 +300,12 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
                     returnLine.SerialNumber,
                     returnLine.LicensePlateId,
                     returnLine.InventoryStatusId,
-                    returnLine.BaseUnitOfMeasure),
+                    returnLine.BaseUnitOfMeasure,
+                    workLine.OwnerKind,
+                    workLine.InventoryOwnerId,
+                    workLine.OwnerCodeSnapshot),
                 -scan.ActualQuantity,
-                -returnLine.ApprovedBaseQuantity,
+                -approvedQuantity,
                 ReferenceType: WmsAuditEntityTypes.SupplierReturn,
                 ReferenceId: supplierReturn.ReturnNumber,
                 ReferenceLine: returnLine.LineNumber,
@@ -241,7 +327,10 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
                     returnLine.SerialNumber,
                     returnLine.LicensePlateId,
                     InventoryStatusSystemIds.ReturnPending,
-                    returnLine.BaseUnitOfMeasure),
+                    returnLine.BaseUnitOfMeasure,
+                    workLine.OwnerKind,
+                    workLine.InventoryOwnerId,
+                    workLine.OwnerCodeSnapshot),
                 scan.ActualQuantity,
                 ReferenceType: WmsAuditEntityTypes.SupplierReturn,
                 ReferenceId: supplierReturn.ReturnNumber,
@@ -326,6 +415,9 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
         int locationId,
         SupplierReturnLine line,
         int inventoryStatusId,
+        InventoryOwnerKind ownerKind,
+        int? inventoryOwnerId,
+        string ownerCodeSnapshot,
         CancellationToken cancellationToken) =>
         context.Stock.SingleOrDefaultAsync(
             stock => stock.ItemId == itemId &&
@@ -334,6 +426,9 @@ public sealed class SupplierReturnWarehouseWorkCompletionHandler(
                      stock.SerialNumberId == line.SerialNumberId &&
                      stock.SerialNumber == line.SerialNumber &&
                      stock.InventoryStatusId == inventoryStatusId &&
-                     stock.LicensePlateId == line.LicensePlateId,
+                     stock.LicensePlateId == line.LicensePlateId &&
+                     stock.OwnerKind == ownerKind &&
+                     stock.InventoryOwnerId == inventoryOwnerId &&
+                     stock.OwnerCodeSnapshot == ownerCodeSnapshot,
             cancellationToken);
 }

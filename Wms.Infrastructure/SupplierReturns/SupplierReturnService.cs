@@ -425,6 +425,12 @@ public sealed class SupplierReturnService(
                 stock.ReserveQuantity(new Quantity(line.RequestedBaseQuantity));
                 await unitOfWork.Stock.UpdateAsync(stock, cancellationToken);
                 line.ApproveAndReserve();
+                await CreateReservationAllocationAsync(
+                    loaded,
+                    line,
+                    stock,
+                    userId,
+                    cancellationToken);
                 ledgerEntries.Add(new InventoryLedgerEntryRequest(
                     InventoryTransactionType.Reservation,
                     new InventoryBalanceKey(
@@ -436,7 +442,10 @@ public sealed class SupplierReturnService(
                         line.SerialNumber,
                         line.LicensePlateId,
                         line.InventoryStatusId,
-                        line.BaseUnitOfMeasure),
+                        line.BaseUnitOfMeasure,
+                        stock.OwnerKind,
+                        stock.InventoryOwnerId,
+                        stock.OwnerCodeSnapshot),
                     0m,
                     line.RequestedBaseQuantity,
                     ReferenceType: WmsAuditEntityTypes.SupplierReturn,
@@ -547,6 +556,39 @@ public sealed class SupplierReturnService(
         {
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
+            var workLines = new List<WarehouseWorkLineInput>(loaded.Lines.Count);
+            foreach (var line in loaded.Lines.OrderBy(value => value.LineNumber))
+            {
+                var allocation = await GetSupplierReturnAllocationAsync(
+                    loaded,
+                    line,
+                    cancellationToken);
+                if (allocation is null || allocation.RemainingQuantity != line.ReservedBaseQuantity)
+                {
+                    throw new InvalidOperationException(
+                        $"The active inventory reservation for supplier-return line {line.LineNumber} is missing or out of sync.");
+                }
+
+                workLines.Add(new WarehouseWorkLineInput(
+                    line.LineNumber,
+                    loaded.WarehouseId,
+                    line.ItemId,
+                    line.ApprovedBaseQuantity,
+                    line.BaseUnitOfMeasure,
+                    line.SourceLocationId,
+                    loaded.StagingLocationId,
+                    line.LotId,
+                    line.SerialNumberId,
+                    line.SerialNumber,
+                    line.LicensePlateId,
+                    line.InventoryStatusId,
+                    line.Id.ToString(CultureInfo.InvariantCulture),
+                    $"supplierReturnId={loaded.Id};supplierReturnLineId={line.Id}",
+                    OwnerKind: allocation.OwnerKind,
+                    InventoryOwnerId: allocation.InventoryOwnerId,
+                    OwnerCodeSnapshot: allocation.OwnerCodeSnapshot));
+            }
+
             var workResult = await warehouseWorkService.CreateAsync(
                 new WarehouseWorkInput(
                     $"supplier-return:{loaded.Id}",
@@ -558,23 +600,7 @@ public sealed class SupplierReturnService(
                     QueueCode: "RTV",
                     Notes: loaded.Reason,
                     MakeAvailable: true,
-                    Lines: loaded.Lines.OrderBy(value => value.LineNumber)
-                        .Select(line => new WarehouseWorkLineInput(
-                            line.LineNumber,
-                            loaded.WarehouseId,
-                            line.ItemId,
-                            line.ApprovedBaseQuantity,
-                            line.BaseUnitOfMeasure,
-                            line.SourceLocationId,
-                            loaded.StagingLocationId,
-                            line.LotId,
-                            line.SerialNumberId,
-                            line.SerialNumber,
-                            line.LicensePlateId,
-                            line.InventoryStatusId,
-                            line.Id.ToString(CultureInfo.InvariantCulture),
-                            $"supplierReturnId={loaded.Id};supplierReturnLineId={line.Id}"))
-                        .ToArray()),
+                    Lines: workLines),
                 userId,
                 cancellationToken);
             if (workResult.IsFailure)
@@ -682,7 +708,14 @@ public sealed class SupplierReturnService(
                     continue;
                 }
 
-                var stock = await FindStagingStockAsync(loaded, line, cancellationToken)
+                var allocation = await GetSupplierReturnAllocationAsync(
+                    loaded,
+                    line,
+                    cancellationToken,
+                    includeClosed: true)
+                    ?? throw new InvalidOperationException(
+                        $"The supplier-return reservation for line {line.LineNumber} was not found.");
+                var stock = await FindStagingStockAsync(loaded, line, allocation, cancellationToken)
                     ?? throw new InvalidOperationException(
                         $"Staged stock for supplier-return line {line.LineNumber} was not found.");
                 if (stock.GetAvailableQuantity().Value < quantity)
@@ -706,6 +739,10 @@ public sealed class SupplierReturnService(
                     line.SerialNumberId,
                     InventoryStatusSystemIds.ReturnPending,
                     line.LicensePlateId);
+                movement.SetOwnership(
+                    allocation.OwnerKind,
+                    allocation.InventoryOwnerId,
+                    allocation.OwnerCodeSnapshot);
                 context.Movements.Add(movement);
                 var serial = line.SerialNumberId.HasValue
                     ? await context.SerialNumbers.SingleOrDefaultAsync(
@@ -725,7 +762,10 @@ public sealed class SupplierReturnService(
                         line.SerialNumber,
                         line.LicensePlateId,
                         InventoryStatusSystemIds.ReturnPending,
-                        line.BaseUnitOfMeasure),
+                        line.BaseUnitOfMeasure,
+                        allocation.OwnerKind,
+                        allocation.InventoryOwnerId,
+                        allocation.OwnerCodeSnapshot),
                     -quantity,
                     ReferenceType: WmsAuditEntityTypes.SupplierReturn,
                     ReferenceId: loaded.ReturnNumber,
@@ -964,11 +1004,34 @@ public sealed class SupplierReturnService(
                 var entries = new List<InventoryLedgerEntryRequest>();
                 foreach (var line in loaded.Lines.Where(value => value.ReservedBaseQuantity > 0m))
                 {
-                    var stock = await FindSourceStockAsync(line, cancellationToken)
+                    var allocation = await GetSupplierReturnAllocationAsync(
+                        loaded,
+                        line,
+                        cancellationToken);
+                    if (allocation is null || allocation.RemainingQuantity != line.ReservedBaseQuantity)
+                    {
+                        throw new InvalidOperationException(
+                            $"The active inventory reservation for supplier-return line {line.LineNumber} is missing or out of sync.");
+                    }
+
+                    var stock = await FindSourceStockAsync(line, allocation, cancellationToken)
                         ?? throw new InvalidOperationException(
                             $"Reserved source stock for supplier-return line {line.LineNumber} was not found.");
                     stock.ReleaseReservation(new Quantity(line.ReservedBaseQuantity));
                     await unitOfWork.Stock.UpdateAsync(stock, cancellationToken);
+                    allocation.Release(line.ReservedBaseQuantity, input.Reason ?? "supplier return cancelled");
+                    allocation.Reservation.SetStatus(
+                        InventoryReservationStatus.Released,
+                        input.Reason ?? "supplier return cancelled");
+                    context.InventoryReservationEvents.Add(new InventoryReservationEvent(
+                        allocation.ReservationId,
+                        InventoryReservationEventType.Released,
+                        line.ReservedBaseQuantity,
+                        userId,
+                        clock.UtcNow.UtcDateTime,
+                        allocation.Reservation.CorrelationId,
+                        allocation.Id,
+                        input.Reason ?? "supplier return cancelled"));
                     entries.Add(new InventoryLedgerEntryRequest(
                         InventoryTransactionType.Release,
                         new InventoryBalanceKey(
@@ -980,7 +1043,10 @@ public sealed class SupplierReturnService(
                             line.SerialNumber,
                             line.LicensePlateId,
                             line.InventoryStatusId,
-                            line.BaseUnitOfMeasure),
+                            line.BaseUnitOfMeasure,
+                            allocation.OwnerKind,
+                            allocation.InventoryOwnerId,
+                            allocation.OwnerCodeSnapshot),
                         0m,
                         -line.ReservedBaseQuantity,
                         ReferenceType: WmsAuditEntityTypes.SupplierReturn,
@@ -1324,9 +1390,27 @@ public sealed class SupplierReturnService(
                      stock.LicensePlateId == line.LicensePlateId,
             cancellationToken);
 
+    private Task<Stock?> FindSourceStockAsync(
+        SupplierReturnLine line,
+        InventoryReservationAllocation allocation,
+        CancellationToken cancellationToken) =>
+        context.Stock.SingleOrDefaultAsync(
+            stock => stock.ItemId == line.ItemId &&
+                     stock.LocationId == line.SourceLocationId &&
+                     stock.LotId == line.LotId &&
+                     stock.SerialNumberId == line.SerialNumberId &&
+                     stock.SerialNumber == line.SerialNumber &&
+                     stock.InventoryStatusId == line.InventoryStatusId &&
+                     stock.LicensePlateId == line.LicensePlateId &&
+                     stock.OwnerKind == allocation.OwnerKind &&
+                     stock.InventoryOwnerId == allocation.InventoryOwnerId &&
+                     stock.OwnerCodeSnapshot == allocation.OwnerCodeSnapshot,
+            cancellationToken);
+
     private Task<Stock?> FindStagingStockAsync(
         SupplierReturn root,
         SupplierReturnLine line,
+        InventoryReservationAllocation allocation,
         CancellationToken cancellationToken) =>
         context.Stock.SingleOrDefaultAsync(
             stock => stock.ItemId == line.ItemId &&
@@ -1335,8 +1419,111 @@ public sealed class SupplierReturnService(
                      stock.SerialNumberId == line.SerialNumberId &&
                      stock.SerialNumber == line.SerialNumber &&
                      stock.InventoryStatusId == InventoryStatusSystemIds.ReturnPending &&
-                     stock.LicensePlateId == line.LicensePlateId,
+                     stock.LicensePlateId == line.LicensePlateId &&
+                     stock.OwnerKind == allocation.OwnerKind &&
+                     stock.InventoryOwnerId == allocation.InventoryOwnerId &&
+                     stock.OwnerCodeSnapshot == allocation.OwnerCodeSnapshot,
             cancellationToken);
+
+    private async Task CreateReservationAllocationAsync(
+        SupplierReturn root,
+        SupplierReturnLine line,
+        Stock stock,
+        string actorUserId,
+        CancellationToken cancellationToken)
+    {
+        var now = clock.UtcNow.UtcDateTime;
+        var correlationId = WmsExecutionIdentifiers.NewCorrelationId();
+        var reservation = new InventoryReservation(
+            WmsAuditEntityTypes.SupplierReturn,
+            root.ReturnNumber,
+            line.LineNumber,
+            root.WarehouseId,
+            line.ItemId,
+            line.RequestedBaseQuantity,
+            InventoryReservationMode.Hard,
+            priority: 70,
+            expiresAtUtc: null,
+            actorUserId,
+            correlationId,
+            line.Reason,
+            new InventoryReservationSelector(
+                line.SourceLocationId,
+                line.LotId,
+                line.SerialNumberId,
+                line.SerialNumber,
+                line.LicensePlateId,
+                line.InventoryStatusId,
+                line.BaseUnitOfMeasure,
+                stock.OwnerKind,
+                stock.InventoryOwnerId,
+                stock.OwnerCodeSnapshot));
+        context.InventoryReservations.Add(reservation);
+        await context.SaveChangesAsync(cancellationToken);
+
+        var allocation = new InventoryReservationAllocation(
+            reservation.Id,
+            root.WarehouseId,
+            line.SourceLocationId,
+            line.ItemId,
+            line.LotId,
+            line.SerialNumberId,
+            line.SerialNumber,
+            line.LicensePlateId,
+            line.InventoryStatusId,
+            line.BaseUnitOfMeasure,
+            line.RequestedBaseQuantity,
+            line.Reason,
+            stock.OwnerKind,
+            stock.InventoryOwnerId,
+            stock.OwnerCodeSnapshot);
+        allocation = context.InventoryReservationAllocations.Add(allocation).Entity;
+        await context.SaveChangesAsync(cancellationToken);
+        reservation.SetStatus(InventoryReservationStatus.Reserved, line.Reason);
+        context.InventoryReservationEvents.AddRange(
+            new InventoryReservationEvent(
+                reservation.Id,
+                InventoryReservationEventType.Created,
+                0m,
+                actorUserId,
+                now,
+                correlationId,
+                reason: line.Reason),
+            new InventoryReservationEvent(
+                reservation.Id,
+                InventoryReservationEventType.AllocationAdded,
+                line.RequestedBaseQuantity,
+                actorUserId,
+                now,
+                correlationId,
+                allocation.Id,
+                line.Reason));
+    }
+
+    private async Task<InventoryReservationAllocation?> GetSupplierReturnAllocationAsync(
+        SupplierReturn root,
+        SupplierReturnLine line,
+        CancellationToken cancellationToken,
+        bool includeClosed = false)
+    {
+        var allocation = await context.InventoryReservationAllocations
+            .Include(value => value.Reservation)
+            .Where(value => value.Reservation.DemandType == WmsAuditEntityTypes.SupplierReturn &&
+                            value.Reservation.DemandId == root.ReturnNumber &&
+                            value.Reservation.DemandLine == line.LineNumber &&
+                            value.WarehouseId == root.WarehouseId &&
+                            value.ItemId == line.ItemId &&
+                            value.LocationId == line.SourceLocationId &&
+                            value.LotId == line.LotId &&
+                            value.SerialNumberId == line.SerialNumberId &&
+                            value.SerialNumber == line.SerialNumber &&
+                            value.LicensePlateId == line.LicensePlateId &&
+                            value.InventoryStatusId == line.InventoryStatusId)
+            .SingleOrDefaultAsync(cancellationToken);
+        return allocation is not null && (includeClosed || allocation.IsOpen)
+            ? allocation
+            : null;
+    }
 
     private async Task<SupplierReturn?> LoadAsync(
         int supplierReturnId,

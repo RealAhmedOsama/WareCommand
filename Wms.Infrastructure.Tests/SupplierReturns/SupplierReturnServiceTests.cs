@@ -131,6 +131,16 @@ public sealed class SupplierReturnServiceTests : IDisposable
 
         var reserved = await _context.Stock.SingleAsync(value => value.LocationId == _sourceLocation.Id);
         reserved.QuantityReserved.Value.Should().Be(4m);
+        var reservation = await _context.InventoryReservations
+            .Include(value => value.Allocations)
+            .SingleAsync();
+        reservation.DemandType.Should().Be(Wms.Application.Auditing.WmsAuditEntityTypes.SupplierReturn);
+        reservation.DemandId.Should().Be("RTV-1");
+        reservation.Status.Should().Be(InventoryReservationStatus.Reserved);
+        reservation.Allocations.Should().ContainSingle(allocation =>
+            allocation.LocationId == _sourceLocation.Id &&
+            allocation.AllocatedQuantity == 4m &&
+            allocation.RemainingQuantity == 4m);
         (await _context.InventoryTransactions
                 .Where(value => value.ReferenceId == "RTV-1")
                 .SumAsync(value => value.ReservedQuantityDelta))
@@ -172,6 +182,12 @@ public sealed class SupplierReturnServiceTests : IDisposable
             "picker-1");
         completed.IsSuccess.Should().BeTrue(completed.Error);
         completed.Value.Status.Should().Be(WarehouseWorkStatus.Completed);
+        reservation = await _context.InventoryReservations
+            .Include(value => value.Allocations)
+            .SingleAsync();
+        reservation.Status.Should().Be(InventoryReservationStatus.Consumed);
+        reservation.Allocations.Single().ConsumedQuantity.Should().Be(4m);
+        reservation.Allocations.Single().ReleasedQuantity.Should().Be(0m);
 
         var packed = await _service.PackAsync(
             new SupplierReturnCommandInput(created.Value.Id, "pack-1"),
@@ -270,6 +286,14 @@ public sealed class SupplierReturnServiceTests : IDisposable
             "picker-short");
         completed.IsSuccess.Should().BeTrue(completed.Error);
 
+        var reservation = await _context.InventoryReservations
+            .Include(value => value.Allocations)
+            .SingleAsync();
+        reservation.Status.Should().Be(InventoryReservationStatus.PartiallyConsumed);
+        reservation.Allocations.Single().ConsumedQuantity.Should().Be(3m);
+        reservation.Allocations.Single().ReleasedQuantity.Should().Be(1m);
+        reservation.Allocations.Single().RemainingQuantity.Should().Be(0m);
+
         var packed = await _service.PackAsync(
             new SupplierReturnCommandInput(created.Value.Id, "pack-short"),
             "packer-1");
@@ -329,6 +353,12 @@ public sealed class SupplierReturnServiceTests : IDisposable
             "approver-1");
         cancelled.IsSuccess.Should().BeTrue(cancelled.Error);
         cancelled.Value.Status.Should().Be(SupplierReturnStatus.Cancelled);
+        var reservation = await _context.InventoryReservations
+            .Include(value => value.Allocations)
+            .SingleAsync();
+        reservation.Status.Should().Be(InventoryReservationStatus.Released);
+        reservation.Allocations.Single().ReleasedQuantity.Should().Be(3m);
+        reservation.Allocations.Single().RemainingQuantity.Should().Be(0m);
         (await _context.Stock.SingleAsync(value => value.LocationId == _sourceLocation.Id))
             .QuantityReserved.Value.Should().Be(0m);
         (await _context.InventoryTransactions
