@@ -566,7 +566,9 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 scenario.ActorPassword));
     }
 
-    private static ServiceProvider BuildServiceProvider(string connectionString)
+    private static ServiceProvider BuildServiceProvider(
+        string connectionString,
+        Action<IServiceCollection>? configureServices = null)
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder
@@ -577,15 +579,17 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
         services.AddWmsInfrastructure(connectionString, WmsDatabaseProvider.PostgreSql);
         services.AddWmsDesktopIdentity();
         services.AddWmsApplication();
+        configureServices?.Invoke(services);
         return services.BuildServiceProvider();
     }
 
     internal static ServiceProvider CreateServiceProviderForExistingTarget(
-        PostgreSqlTestDatabase target)
+        PostgreSqlTestDatabase target,
+        Action<IServiceCollection>? configureServices = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         ValidateIsolatedTarget(target);
-        return BuildServiceProvider(target.ScopedConnectionString!);
+        return BuildServiceProvider(target.ScopedConnectionString!, configureServices);
     }
 
     private static void ValidateIsolatedTarget(PostgreSqlTestDatabase target)

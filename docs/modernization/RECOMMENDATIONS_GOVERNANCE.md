@@ -38,6 +38,14 @@ then calls the existing replenishment execution service. Its normal
 atomically. Work creation keys and event keys make response-loss replay safe;
 failed commands are recorded as retryable and require a new idempotency key.
 
+`PostgreSqlJourneyTests.GovernedReplenishmentRecommendationPersistsApprovalAndCreatesOneNormalWorkCommand`
+qualifies the persisted service path with a deterministic integration fixture.
+It verifies that concurrent approval writes one decision, execution creates
+one authorized replenishment work item, response-loss replay reuses that work,
+inventory and reservations remain unchanged until normal work completion, and
+review history redacts sensitive comment values. Deep inventory reconciliation
+runs after each lifecycle transition.
+
 ## Provider and operating controls
 
 `Recommendations` settings include `Enabled`, `KillSwitchEnabled`,
@@ -64,7 +72,7 @@ No recommendation UI or automatic decision path is included. Other types need
 their own authoritative revalidation and normal-command adapters before they
 can enter the runtime.
 
-Remaining qualification includes PostgreSQL approval/concurrency and
-normal-command integration, broader multi-type adapters, backtest and outcome
-quality monitoring, provider-failure rehearsal, browser/handheld localization,
-representative load, restore, and production kill-switch evidence.
+Remaining qualification includes broader multi-type adapters, enabled HTTP
+generation/approval/execution integration, calibrated backtest and outcome
+quality monitoring, provider-failure rehearsal, representative load, restore,
+and production kill-switch evidence.

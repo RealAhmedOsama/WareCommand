@@ -12,6 +12,7 @@ using Wms.Application.Identity;
 using Wms.Application.Inventory;
 using Wms.Application.Recommendations;
 using Wms.Domain.Entities;
+using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Recommendations;
@@ -654,7 +655,7 @@ public sealed class RecommendationGovernanceService(
             await transaction.CommitAsync(cancellationToken);
             return Result.Success(Map(entity));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception exception) when (exception is DbUpdateConcurrencyException or ConcurrencyConflictException)
         {
             await transaction.RollbackAsync(cancellationToken);
             context.ChangeTracker.Clear();
@@ -924,7 +925,7 @@ public sealed class RecommendationGovernanceService(
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success(Map(entity));
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception exception) when (exception is DbUpdateConcurrencyException or ConcurrencyConflictException)
         {
             context.ChangeTracker.Clear();
             return Result.Failure<RecommendationRecord>(RevisionConflict());
@@ -981,9 +982,18 @@ public sealed class RecommendationGovernanceService(
             entity.LastDispositionComment,
             entity.SourceStateFingerprint,
             outcomeCode: errorCode));
-        await context.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return Result.Success(Map(entity));
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Result.Success(Map(entity));
+        }
+        catch (Exception exception) when (exception is DbUpdateConcurrencyException or ConcurrencyConflictException)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            context.ChangeTracker.Clear();
+            return Result.Failure<RecommendationRecord>(RevisionConflict());
+        }
     }
 
     private async Task<Result> AuthorizeReadAsync(
@@ -1075,7 +1085,7 @@ public sealed class RecommendationGovernanceService(
         {
             await context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (Exception exception) when (exception is DbUpdateConcurrencyException or ConcurrencyConflictException)
         {
             context.ChangeTracker.Clear();
         }
@@ -1124,7 +1134,7 @@ public sealed class RecommendationGovernanceService(
             {
                 await context.SaveChangesAsync(cancellationToken);
             }
-            catch (DbUpdateConcurrencyException exception)
+            catch (Exception exception) when (exception is DbUpdateConcurrencyException or ConcurrencyConflictException)
             {
                 context.ChangeTracker.Clear();
                 logger.LogDebug(exception, "A concurrent recommendation expiry sweep won the state transition.");
