@@ -74,6 +74,7 @@
                 </button>
             </div>
         </div>
+        <div class="alert d-none mt-3 mb-0" id="receiving-session-start-message" role="status" aria-live="polite"></div>
 
         <div id="receiving-session-active" class="d-none">
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
@@ -270,7 +271,14 @@
             const panel = document.getElementById('receiving-session-panel');
             if (!panel) return;
 
-            const activeKey = 'warecommand.receiving.active';
+            const actorStorageKey = encodeURIComponent(document.body.dataset.wmsActorKey || 'anonymous');
+            const activeKey = `warecommand.receiving.active.${actorStorageKey}`;
+            for (const legacyKey of Object.keys(localStorage)) {
+                if (legacyKey === 'warecommand.receiving.active' ||
+                    /^warecommand\.receiving\.queue\.\d+$/.test(legacyKey)) {
+                    localStorage.removeItem(legacyKey);
+                }
+            }
             const csrfToken = panel.querySelector('input[name="__RequestVerificationToken"]')?.value;
             const warehouse = document.getElementById('receiving-session-warehouse');
             const location = document.getElementById('receiving-session-location');
@@ -288,6 +296,7 @@
             const scan = document.getElementById('receiving-session-scan');
             const quantity = document.getElementById('receiving-session-quantity');
             const message = document.getElementById('receiving-session-message');
+            const startMessage = document.getElementById('receiving-session-start-message');
             const queueStatus = document.getElementById('receiving-session-queue-status');
             const retry = document.getElementById('receiving-session-retry');
             let session = null;
@@ -295,17 +304,24 @@
             let busy = false;
 
             const operationId = () => (window.crypto?.randomUUID?.() || `op-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-            const getQueueKey = () => session ? `warecommand.receiving.queue.${session.id}` : null;
+            const getQueueKey = () => session
+                ? `warecommand.receiving.queue.${actorStorageKey}.${session.id}`
+                : null;
             const saveQueue = () => {
                 const key = getQueueKey();
                 if (key) localStorage.setItem(key, JSON.stringify(queue));
                 queueStatus.textContent = queue.length ? `${@Html.Raw(Json.Serialize(T["Receiving.PendingScans"].Value))}: ${queue.length}` : '';
                 retry.classList.toggle('d-none', queue.length === 0);
+                retry.disabled = busy;
                 retry.textContent = @Html.Raw(Json.Serialize(T["Receiving.PendingScans"].Value));
             };
             const showMessage = (text, kind = 'info') => {
                 message.textContent = text || '';
                 message.className = text ? `alert alert-${kind} mt-3 mb-0` : 'alert d-none mt-3 mb-0';
+            };
+            const showStartMessage = (text, kind = 'info') => {
+                startMessage.textContent = text || '';
+                startMessage.className = text ? `alert alert-${kind} mt-3 mb-0` : 'alert d-none mt-3 mb-0';
             };
             const api = async (url, options = {}) => {
                 const headers = { 'Accept': 'application/json', ...(options.headers || {}) };
@@ -334,6 +350,7 @@
                 startFields.classList.add('d-none');
                 active.classList.remove('d-none');
                 status.textContent = String(session.status || '').replace(/([a-z])([A-Z])/g, '$1 $2');
+                showStartMessage('');
                 referenceValue.textContent = session.sessionReference || '';
                 const paused = String(session.status).toLowerCase() === 'paused';
                 document.getElementById('receiving-session-pause').classList.toggle('d-none', !session.canScan);
@@ -361,12 +378,13 @@
                     await flushQueue();
                 } catch (error) {
                     localStorage.removeItem(activeKey);
-                    showMessage(error.message, 'danger');
+                    showStartMessage(error.message, 'danger');
                 }
             };
             const flushQueue = async () => {
                 if (!session || busy || !queue.length) return;
                 busy = true;
+                retry.disabled = true;
                 try {
                     while (queue.length) {
                         const pending = queue[0];
@@ -379,6 +397,7 @@
                     showMessage(error.message, error.retryable ? 'warning' : 'danger');
                 } finally {
                     busy = false;
+                    retry.disabled = false;
                     saveQueue();
                 }
             };
@@ -386,9 +405,10 @@
                 const warehouseId = Number(warehouse.value);
                 const receivingLocationId = Number(location.value);
                 if (!warehouseId || !receivingLocationId) {
-                    showMessage(@Html.Raw(Json.Serialize(T["Receiving.LocationId"].Value)), 'danger');
+                    showStartMessage(@Html.Raw(Json.Serialize(T["Receiving.LocationId"].Value)), 'danger');
                     return;
                 }
+                showStartMessage('');
                 const sourceType = Number(source.value);
                 const payload = {
                     warehouseId,
@@ -406,7 +426,7 @@
                     render(await api('/api/receiving/sessions', { method: 'POST', body: JSON.stringify(payload) }));
                     showMessage(panel.dataset.sessionLoaded.replace('{0}', session.sessionReference), 'success');
                 } catch (error) {
-                    showMessage(error.message, 'danger');
+                    showStartMessage(error.message, 'danger');
                 }
             };
             const submitScan = async () => {

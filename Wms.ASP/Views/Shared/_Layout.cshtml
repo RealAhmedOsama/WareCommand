@@ -59,6 +59,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
 <body class="wms-shell" data-wms-direction="@(isRtl ? "rtl" : "ltr")" data-wms-persistent-scan="@(scannerRoute ? "true" : "false")"
+      data-wms-actor-key="@(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? string.Empty)"
       data-wms-offline-message="@T["Pwa.Offline"]"
       data-wms-reconnecting-message="@T["Pwa.Reconnecting"]"
       data-wms-offline-mutation-message="@T["Pwa.OfflineMutationBlocked"]"
@@ -286,7 +287,7 @@
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="returnUrl" value="@layoutReturnUrl" />
                         <label class="visually-hidden" for="layout-warehouse">@T["Warehouse.Select"]</label>
-                        <select id="layout-warehouse" name="id" class="form-select form-select-sm" aria-label="@T["Warehouse.Select"]" onchange="this.form.submit()">
+                        <select id="layout-warehouse" name="id" class="form-select form-select-sm" aria-label="@T["Warehouse.Select"]" data-wms-auto-submit>
                             @foreach (var warehouse in accessibleWarehouses)
                             {
                                 <option value="@warehouse.Id" selected="@(WarehouseContext.WarehouseId == warehouse.Id ? "selected" : null)">@warehouse.Code — @warehouse.Name</option>
@@ -298,7 +299,7 @@
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="ReturnUrl" value="@languageReturnUrl" />
                     <label class="visually-hidden" for="layout-locale">@T["Language.Label"]</label>
-                    <select id="layout-locale" name="Locale" class="form-select form-select-sm" aria-label="@T["Language.Switch"]" onchange="this.form.submit()">
+                    <select id="layout-locale" name="Locale" class="form-select form-select-sm" aria-label="@T["Language.Switch"]" data-wms-auto-submit>
                         @foreach (var locale in WmsLocaleCatalog.SupportedLocaleNames)
                         {
                             var languageKey = locale == WmsLocaleCatalog.Arabic ? "Language.Arabic" : "Language.English";

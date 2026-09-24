@@ -3,15 +3,15 @@
     ViewData["Title"] = T["Dashboard.Title"];
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-stretch align-items-lg-center gap-3 mb-4">
     <h2 class="mb-0">
         <i class="bi bi-speedometer2 me-2 text-primary"></i>
         @T["Dashboard.Title"]
     </h2>
-    <div>
+    <div class="dashboard-toolbar">
         @if (Model.Snapshot.AvailableWarehouses.Count > 1)
         {
-            <select class="form-select form-select-sm d-inline-block w-auto me-2"
+            <select class="form-select form-select-sm d-inline-block w-auto"
                     id="dashboardWarehouseSelector"
                     aria-label="@T["Dashboard.WarehouseScope"]">
                 <option value="" selected="@(Model.Snapshot.WarehouseId is null)">

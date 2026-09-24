@@ -4,6 +4,15 @@
 // Write your JavaScript code.
 
 document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-wms-auto-submit]').forEach(function (select) {
+    select.addEventListener('change', function () {
+      const form = select.closest('form');
+      if (form instanceof HTMLFormElement) {
+        form.requestSubmit();
+      }
+    });
+  });
+
   const language = (document.documentElement.lang || '').toLowerCase();
   if (language.startsWith('ar') && window.jQuery?.validator) {
     const $ = window.jQuery;
@@ -181,7 +190,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }, true);
 
   if (quickScanInput instanceof HTMLInputElement) {
-    const sessionStorageKey = 'wms.quick-scan.v1';
+    const actorStorageKey = encodeURIComponent(document.body.dataset.wmsActorKey || 'anonymous');
+    const sessionStorageKey = `wms.quick-scan.v1:${actorStorageKey}`;
     try {
       const savedValue = window.sessionStorage.getItem(sessionStorageKey);
       if (!quickScanInput.value && savedValue) {

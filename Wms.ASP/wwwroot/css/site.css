@@ -519,6 +519,24 @@ html[dir="rtl"] .table {
 }
 
 /* Dashboard KPI Cards */
+.dashboard-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 991.98px) {
+  .dashboard-toolbar #dashboardWarehouseSelector {
+    width: 100% !important;
+  }
+
+  .dashboard-toolbar #dashboardLastSuccessLabel,
+  .dashboard-toolbar #dashboardTimeZone {
+    margin-left: 0 !important;
+  }
+}
+
 .kpi-card {
   background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
   color: #fff;
