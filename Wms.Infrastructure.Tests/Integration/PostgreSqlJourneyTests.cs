@@ -721,8 +721,7 @@ public sealed partial class PostgreSqlJourneyTests
                 !value.Item.RequiresSerial &&
                 value.OwnerKind == InventoryOwnerKind.CompanyOwned &&
                 value.InventoryOwnerId == null &&
-                value.OwnerCodeSnapshot == InventoryOwnershipDimension.CompanyOwnerCode &&
-                value.QuantityAvailable.Value >= 1m)
+                value.OwnerCodeSnapshot == InventoryOwnershipDimension.CompanyOwnerCode)
             .OrderBy(value => value.ItemId)
             .ThenBy(value => value.LocationId)
             .ToArrayAsync();
@@ -908,8 +907,7 @@ public sealed partial class PostgreSqlJourneyTests
                 value.InventoryStatusId == InventoryStatusSystemIds.Available &&
                 value.OwnerKind == InventoryOwnerKind.CompanyOwned &&
                 value.InventoryOwnerId == null &&
-                value.OwnerCodeSnapshot == InventoryOwnershipDimension.CompanyOwnerCode &&
-                value.QuantityAvailable.Value >= 2m)
+                value.OwnerCodeSnapshot == InventoryOwnershipDimension.CompanyOwnerCode)
             .OrderBy(value => value.ItemId)
             .ThenBy(value => value.LocationId)
             .ToArrayAsync();
