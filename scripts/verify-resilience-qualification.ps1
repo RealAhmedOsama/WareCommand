@@ -1,22 +1,26 @@
 [CmdletBinding()]
 param(
     [string]$Environment = 'LocalQualification',
-    [string]$DatasetFingerprint = 'resilience-contract-v1',
+    [string]$DatasetFingerprint = 'resilience-runtime-v2',
+    [int]$Port = 55432,
     [string]$EvidencePath,
     [switch]$PlanOnly
 )
 
 $ErrorActionPreference = 'Stop'
 $scenarios = @(
-    [pscustomobject]@{ id = 'timeout-after-commit'; recovery = 'IdempotentReplay'; classification = 'Ambiguous'; maxRetries = 1 }
-    [pscustomobject]@{ id = 'worker-restart-durable-job'; recovery = 'ResumeDurableWork'; classification = 'Retryable'; maxRetries = 3 }
-    [pscustomobject]@{ id = 'provider-permanent-failure-dead-letter'; recovery = 'DeadLetter'; classification = 'Permanent'; maxRetries = 0 }
-    [pscustomobject]@{ id = 'backup-restore-reconcile'; recovery = 'RestoreAndReconcile'; classification = 'DependencyUnavailable'; maxRetries = 0 }
+    [pscustomobject]@{ id = 'work-command-response-loss-after-commit'; recovery = 'IdempotentReplay'; classification = 'Ambiguous'; maxRetries = 1 }
+    [pscustomobject]@{ id = 'provider-response-loss-after-commit'; recovery = 'IdempotentReplay'; classification = 'Ambiguous'; maxRetries = 1 }
+    [pscustomobject]@{ id = 'worker-restart-durable-outbox'; recovery = 'ResumeDurableWork'; classification = 'Retryable'; maxRetries = 3 }
+    [pscustomobject]@{ id = 'transient-postgresql-failure'; recovery = 'ReclaimAndResume'; classification = 'Retryable'; maxRetries = 2 }
+    [pscustomobject]@{ id = 'provider-dead-letter-authorized-replay'; recovery = 'AuditAndReplay'; classification = 'Permanent'; maxRetries = 2 }
+    [pscustomobject]@{ id = 'populated-backup-restore-reconcile'; recovery = 'RestoreAndReconcile'; classification = 'DependencyUnavailable'; maxRetries = 0 }
 )
 
 if ($PlanOnly) {
-    Write-Output 'resilience-profile=local-contract-v1'
+    Write-Output 'resilience-profile=local-runtime-v2'
     Write-Output "environment=$Environment"
+    Write-Output "postgres-port=$Port"
     foreach ($scenario in $scenarios) {
         Write-Output "scenario=$($scenario.id)"
     }
@@ -29,6 +33,7 @@ if ($Environment -match '^(production|staging)$') {
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $testProject = Join-Path $repositoryRoot 'Wms.Application.Tests/Wms.Application.Tests.csproj'
+$runtimeRunner = Join-Path $PSScriptRoot 'verify-postgresql.ps1'
 $testOutput = & dotnet test $testProject -c Release --no-restore --logger 'console;verbosity=minimal' --filter 'FullyQualifiedName~ResiliencePolicyTests' 2>&1 | Out-String
 $testExitCode = $LASTEXITCODE
 if ($testExitCode -ne 0) {
@@ -40,6 +45,32 @@ if (-not $summaryMatch.Success -or [int]$summaryMatch.Groups['failed'].Value -ne
     throw 'Resilience policy test output did not contain a zero-failure summary.'
 }
 
+$runtimeOutput = & $runtimeRunner -Group resilience -Port $Port 2>&1 | Out-String
+$runtimeExitCode = $LASTEXITCODE
+if ($runtimeExitCode -ne 0) {
+    throw "Disposable PostgreSQL runtime resilience qualification failed with exit code $runtimeExitCode.`n$runtimeOutput"
+}
+
+$runtimeSchemaMarker = '"schema": "wms-postgresql-provider-v1"'
+$runtimeSchemaIndex = $runtimeOutput.LastIndexOf($runtimeSchemaMarker, [StringComparison]::Ordinal)
+if ($runtimeSchemaIndex -lt 0) {
+    throw 'PostgreSQL runtime qualification output did not include provider evidence.'
+}
+$runtimeJsonStart = $runtimeOutput.LastIndexOf('{', $runtimeSchemaIndex)
+if ($runtimeJsonStart -lt 0) {
+    throw 'PostgreSQL runtime qualification evidence was malformed.'
+}
+try {
+    $runtimeProviderEvidence = $runtimeOutput.Substring($runtimeJsonStart).Trim() | ConvertFrom-Json
+}
+catch {
+    throw 'PostgreSQL runtime qualification evidence could not be parsed.'
+}
+if ($runtimeProviderEvidence.group -ne 'resilience' -or
+    @($runtimeProviderEvidence.resilienceReports).Count -ne 3) {
+    throw 'PostgreSQL runtime evidence did not contain all three resilience rehearsals.'
+}
+
 $revision = (& git -C $repositoryRoot rev-parse HEAD 2>$null | Out-String).Trim()
 $evidence = [pscustomobject]@{
     schema = 'wms-resilience-local-v1'
@@ -47,7 +78,7 @@ $evidence = [pscustomobject]@{
         environment = $Environment
         datasetFingerprint = $DatasetFingerprint
         applicationRevision = $revision
-        faultInjectionMode = 'contract-only'
+        faultInjectionMode = 'disposable PostgreSQL plus test-only loopback HTTP provider'
         productionFaultInjectionEnabled = $false
     }
     scenarios = $scenarios
@@ -57,12 +88,12 @@ $evidence = [pscustomobject]@{
         skipped = [int]$summaryMatch.Groups['skipped'].Value
         total = [int]$summaryMatch.Groups['total'].Value
     }
-    cleanup = 'no runtime database, provider, queue, or external artifact was created'
-    externalGates = @(
-        'disposable PostgreSQL timeout/conflict and restart hooks',
-        'provider/webhook/storage/printer fault injection',
-        'backup restore rehearsal and operator reconciliation'
+    runtimeProviderEvidence = $runtimeProviderEvidence
+    boundaries = @(
+        'production RTO/RPO and real-data recovery were not measured',
+        'production credentials, key storage, offsite copies, and provider infrastructure were not used'
     )
+    cleanup = $runtimeProviderEvidence.cleanup
 }
 
 $json = $evidence | ConvertTo-Json -Depth 8
@@ -71,6 +102,7 @@ if ([Text.Encoding]::UTF8.GetByteCount($json) -gt 1000000) {
 }
 
 Write-Output $testOutput.Trim()
+Write-Output $runtimeOutput.Trim()
 Write-Output $json
 if (-not [string]::IsNullOrWhiteSpace($EvidencePath)) {
     $evidenceDirectory = Split-Path -Parent $EvidencePath

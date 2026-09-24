@@ -4,6 +4,7 @@ param(
     [string]$ContainerName = "warecommand-postgres-test-$([Guid]::NewGuid().ToString('N'))",
     [ValidateSet('all', 'core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience')]
     [string]$Group = 'all',
+    [string]$TestName,
     [switch]$PlanOnly,
     [string]$EvidencePath
 )
@@ -63,17 +64,28 @@ $providerGroups = [ordered]@{
     }
 }
 $selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 'data-generation', 'journeys', 'resilience') } else { @($Group) }
+if (-not [string]::IsNullOrWhiteSpace($TestName) -and $TestName -notmatch '^[A-Za-z0-9_]+$') {
+    throw 'TestName must be a test method identifier.'
+}
+if (-not [string]::IsNullOrWhiteSpace($TestName) -and $Group -ne 'resilience') {
+    throw 'TestName can only be used with the resilience provider group.'
+}
 
 if ($PlanOnly) {
     foreach ($groupName in $selectedGroupNames) {
         Write-Output "provider-group=$groupName"
         Write-Output "test-project=$($providerGroups[$groupName].testProject)"
-        Write-Output "filter=$($providerGroups[$groupName].filter)"
+        $plannedFilter = $providerGroups[$groupName].filter
+        if (-not [string]::IsNullOrWhiteSpace($TestName)) {
+            $plannedFilter += "&FullyQualifiedName~$TestName"
+        }
+        Write-Output "filter=$plannedFilter"
     }
     exit 0
 }
 
 $previousConnectionString = $env:WARECOMMAND_TEST_POSTGRES_CONNECTION
+$previousTestContainerName = $env:WARECOMMAND_TEST_POSTGRES_CONTAINER
 $previousDataGenerationEvidencePath = $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH
 $previousJourneyEvidencePath = $env:WARECOMMAND_POSTGRES_JOURNEY_EVIDENCE_PATH
 $previousResilienceEvidencePath = $env:WARECOMMAND_POSTGRES_RESILIENCE_EVIDENCE_PATH
@@ -137,6 +149,7 @@ try {
         'postgres:17'
     ) | Out-Null
     $containerStarted = $true
+    $env:WARECOMMAND_TEST_POSTGRES_CONTAINER = $ContainerName
     $containerId = (& docker inspect --format '{{.Id}}' $ContainerName 2>$null | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($containerId)) {
         throw "Unable to read the identity of the owned PostgreSQL container '$ContainerName'."
@@ -165,12 +178,19 @@ try {
         $groupSpec = $providerGroups[$groupName]
         $groupTestProject = $groupSpec.testProject
         $filter = $groupSpec.filter
+        if (-not [string]::IsNullOrWhiteSpace($TestName)) {
+            $filter += "&FullyQualifiedName~$TestName"
+        }
         $listedTests = (& dotnet test $groupTestProject -c Release --no-restore --list-tests --logger 'console;verbosity=minimal' --filter $filter 2>&1 | Out-String)
         if ($LASTEXITCODE -ne 0) {
             throw "PostgreSQL integration group '$groupName' could not enumerate tests."
         }
         if ($listedTests -notmatch [regex]::Escape($groupSpec.expectedClass)) {
             throw "PostgreSQL integration group '$groupName' selected no tests for '$filter'."
+        }
+        if (-not [string]::IsNullOrWhiteSpace($TestName) -and
+            $listedTests -notmatch [regex]::Escape($TestName)) {
+            throw "PostgreSQL integration group '$groupName' selected no test named '$TestName'."
         }
 
         & dotnet test $groupTestProject -c Release --no-restore --logger 'console;verbosity=minimal' --filter $filter
@@ -238,6 +258,12 @@ finally {
     }
     else {
         Remove-Item Env:WARECOMMAND_TEST_POSTGRES_CONNECTION -ErrorAction SilentlyContinue
+    }
+    if ($null -ne $previousTestContainerName) {
+        $env:WARECOMMAND_TEST_POSTGRES_CONTAINER = $previousTestContainerName
+    }
+    else {
+        Remove-Item Env:WARECOMMAND_TEST_POSTGRES_CONTAINER -ErrorAction SilentlyContinue
     }
     if ($null -ne $previousDataGenerationEvidencePath) {
         $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH = $previousDataGenerationEvidencePath

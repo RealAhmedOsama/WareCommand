@@ -14,7 +14,8 @@ public sealed class WmsPostgreSqlBackupService(
     WmsBackupOptions options,
     string connectionString,
     WmsBackupHealthState healthState,
-    ILogger<WmsPostgreSqlBackupService> logger) : IWmsBackupService
+    ILogger<WmsPostgreSqlBackupService> logger,
+    IWmsBackupToolProcessRunner? processRunner = null) : IWmsBackupService
 {
     private const string ArtifactExtension = ".wcbak";
     private const string StatusFileName = "backup-status.json";
@@ -398,7 +399,7 @@ public sealed class WmsPostgreSqlBackupService(
         return destination;
     }
 
-    private static async Task RunToolAsync(
+    private async Task RunToolAsync(
         string executable,
         string toolConnectionString,
         IReadOnlyList<string> arguments,
@@ -447,34 +448,8 @@ public sealed class WmsPostgreSqlBackupService(
                 startInfo.Environment["PGPASSFILE"] = passFile;
             }
 
-            using var process = Process.Start(startInfo) ??
-                throw new InvalidOperationException($"Could not start the configured PostgreSQL tool '{executable}'.");
-            var standardOutput = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var standardError = process.StandardError.ReadToEndAsync(cancellationToken);
-            try
-            {
-                await process.WaitForExitAsync(cancellationToken);
-            }
-            catch
-            {
-                try
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-                catch (InvalidOperationException)
-                {
-                    // The process already exited while cancellation was being observed.
-                }
-
-                throw;
-            }
-
-            await Task.WhenAll(standardOutput, standardError);
-            if (process.ExitCode != 0)
-            {
-                throw new InvalidOperationException(
-                    $"The configured PostgreSQL tool '{executable}' exited with code {process.ExitCode}.");
-            }
+            await (processRunner ?? SystemWmsBackupToolProcessRunner.Instance)
+                .RunAsync(startInfo, cancellationToken);
         }
         finally
         {

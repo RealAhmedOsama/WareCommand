@@ -148,6 +148,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IIntegrationEventWriter, IntegrationEventWriter>();
         services.AddScoped<IIntegrationInboxService, IntegrationInboxService>();
         services.AddScoped<IIntegrationOutboxDispatcher, IntegrationOutboxDispatcher>();
+        services.AddScoped<IIntegrationDeadLetterReplayService, IntegrationDeadLetterReplayService>();
         services.AddScoped<IWebhookSubscriptionService, WebhookSubscriptionService>();
         services.AddScoped<IWebhookSecretProtector, DataProtectionWebhookSecretProtector>();
         services.AddScoped<IConnectorService, ConnectorService>();

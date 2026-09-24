@@ -194,6 +194,7 @@ public static class WmsAuditActions
     public const string SupplierReturnException = "inbound.supplier_return.exception";
     public const string SettingsChanged = "settings.changed";
     public const string IntegrationAction = "integration.action";
+    public const string IntegrationDeadLetterReplayed = "integration.dead_letter.replayed";
     public const string LabelTemplateVersionCreated = "labels.template.version_created";
     public const string LabelTemplateActivated = "labels.template.activated";
     public const string LabelTemplateRolledBack = "labels.template.rolled_back";
@@ -431,6 +432,7 @@ public static class WmsAuditActions
         SupplierReturnException,
         SettingsChanged,
         IntegrationAction,
+        IntegrationDeadLetterReplayed,
         IdentifierResolved,
         LotUpdated,
         LotStatusChanged,

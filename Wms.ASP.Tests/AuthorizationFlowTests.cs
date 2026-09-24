@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Wms.Application.Identity;
 using Xunit;
@@ -89,6 +90,32 @@ public sealed class AuthorizationFlowTests(WareCommandWebApplicationFactory fact
         using var export = await allowedClient.GetAsync("/Audit/Export");
         Assert.Equal(HttpStatusCode.OK, export.StatusCode);
         Assert.Equal("text/csv", export.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task IntegrationDeadLetterReplayRequiresSettingsManagementPermission()
+    {
+        var user = await factory.CreateUserAsync(assignDefaultRole: false);
+        using var client = CreateClient();
+        using var login = await AuthenticationFlowTests.PostLoginAsync(
+            client,
+            user.UserName!,
+            "ValidPassword123!");
+        Assert.Equal(HttpStatusCode.Redirect, login.StatusCode);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/integrations/outbox/1/replay",
+            new { reason = "Operator-authorized recovery test" });
+
+        Assert.True(
+            response.StatusCode is HttpStatusCode.Unauthorized or
+                HttpStatusCode.Forbidden or
+                HttpStatusCode.Redirect,
+            $"Expected an authorization denial, received {(int)response.StatusCode} {response.StatusCode}.");
+        if (response.StatusCode == HttpStatusCode.Redirect)
+        {
+            Assert.Equal("/Account/AccessDenied", response.Headers.Location?.AbsolutePath);
+        }
     }
 
     private HttpClient CreateClient() => factory.CreateClient(new WebApplicationFactoryClientOptions

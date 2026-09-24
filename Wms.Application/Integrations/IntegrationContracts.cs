@@ -81,6 +81,13 @@ public sealed record IntegrationDispatchResult(
     int DeliveriesFailed,
     int EventsDeadLettered);
 
+public sealed record IntegrationDeadLetterReplayResult(
+    long OutboxMessageId,
+    Guid EventId,
+    string CorrelationId,
+    int DeliveriesQueued,
+    DateTimeOffset QueuedAtUtc);
+
 public sealed record IntegrationInboxRequest(
     string SourceSystem,
     string ExternalMessageId,
@@ -180,6 +187,16 @@ public interface IIntegrationOutboxDispatcher
 {
     Task<IntegrationDispatchResult> DispatchAsync(
         int maximumCount = 100,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IIntegrationDeadLetterReplayService
+{
+    Task<Wms.Application.Common.Result<IntegrationDeadLetterReplayResult>> ReplayAsync(
+        long outboxMessageId,
+        string reason,
+        string actorUserId,
+        string? actorUserName,
         CancellationToken cancellationToken = default);
 }
 
