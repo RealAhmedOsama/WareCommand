@@ -356,8 +356,13 @@ public sealed partial class PostgreSqlJourneyTests
             reconciliation,
             checkpoints,
             CancellationToken.None);
+        var onHandAfterNegativeApproval = await context.InventoryBalances.AsNoTracking()
+            .Where(value => value.Id == snapshot.Id)
+            .Select(value => value.OnHandQuantity)
+            .SingleAsync();
+        Assert.Equal(countedQuantity, onHandAfterNegativeApproval);
 
-        async Task<(CycleCountTaskDto Task, decimal ExpectedQuantity)> RunAdditionalPhysicalCountAsync(
+        async Task<CycleCountTaskDto> RunAdditionalPhysicalCountAsync(
             string planKey,
             decimal physicalQuantity)
         {
@@ -488,7 +493,7 @@ public sealed partial class PostgreSqlJourneyTests
                                     value.Type == InventoryTransactionType.CountVariance)
                     .ToArrayAsync());
                 outcomes.Add("zero-variance-count=completed-without-adjustment-ledger");
-                return (physicalCount.Value, expectedBalance.OnHandQuantity);
+                return physicalCount.Value;
             }
 
             Assert.True(expectedVariance > 0m);
@@ -522,7 +527,7 @@ public sealed partial class PostgreSqlJourneyTests
                 reconciliation,
                 checkpoints,
                 CancellationToken.None);
-            return (positiveApproval.Value, expectedBalance.OnHandQuantity);
+            return positiveApproval.Value;
         }
 
         var positiveCount = await RunAdditionalPhysicalCountAsync("J130-POSITIVE-COUNT", countedQuantity + 1m);
@@ -541,9 +546,9 @@ public sealed partial class PostgreSqlJourneyTests
         Assert.All(checkpoints, checkpoint => Assert.Equal(0, checkpoint.IssueCount));
         Assert.Equal(1, varianceMovementCount);
         Assert.Equal(1, varianceLedgerCount);
-        Assert.Equal(1m, positiveCount.Task.Lines.Single().VarianceQuantity);
-        Assert.Equal(CycleCountTaskStatus.Completed, zeroVarianceCount.Task.Status);
-        Assert.Equal(0m, zeroVarianceCount.Task.Lines.Single().VarianceQuantity);
+        Assert.Equal(1m, positiveCount.Lines.Single().VarianceQuantity);
+        Assert.Equal(CycleCountTaskStatus.Completed, zeroVarianceCount.Status);
+        Assert.Equal(0m, zeroVarianceCount.Lines.Single().VarianceQuantity);
         outcomes.Add("approval-replay=no-duplicate-movement-or-ledger-entry");
         WriteJourneyEvidence(new PostgreSqlJourneyEvidence(
             "cycle-count-variance-approval",
@@ -561,8 +566,8 @@ public sealed partial class PostgreSqlJourneyTests
                 ["countedQuantity"] = countedQuantity,
                 ["varianceQuantity"] = approvedVariance
                     ?? throw new InvalidOperationException("The approved cycle-count line did not retain its variance."),
-                ["onHandAfterNegativeApproval"] = snapshot.OnHandQuantity,
-                ["onHandAfterPositiveVariance"] = positiveCount.Task.Lines.Single().CountedQuantity
+                ["onHandAfterNegativeApproval"] = onHandAfterNegativeApproval,
+                ["onHandAfterPositiveVariance"] = positiveCount.Lines.Single().CountedQuantity
                     ?? throw new InvalidOperationException("The positive cycle-count line did not retain its count."),
                 ["onHandAfterZeroVariance"] = finalBalance.OnHandQuantity,
                 ["reservedAfterApproval"] = finalBalance.ReservedQuantity,
