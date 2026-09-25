@@ -81,6 +81,18 @@ public sealed class CrossDockController(
         CancellationToken cancellationToken = default) =>
         ToActionResult(await crossDockService.GetAsync(planId, cancellationToken));
 
+    [HttpPost("plans/{planId:int}/execute")]
+    [Authorize(Policy = WmsPermissions.AllocationManage)]
+    [Authorize(Policy = WmsPermissions.WorkManage)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ExecutePlan(
+        int planId,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await crossDockService.ExecutePlanAsync(
+            planId,
+            currentUser.RequireUserId(),
+            cancellationToken));
+
     [HttpPost("plans/{planId:int}/cancel")]
     [Authorize(Policy = WmsPermissions.AllocationManage)]
     [ValidateAntiForgeryToken]

@@ -37,7 +37,8 @@ public interface IStockMovementService
         string? notes = null, CancellationToken cancellationToken = default,
         int? licensePlateId = null, int? inventoryStatusId = null, bool recordLedger = true,
         InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
-        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null);
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null,
+        bool allowCrossDockReceiving = false);
 
     Task<Movement> AdjustAsync(int itemId, int locationId, Quantity newQuantity, string userId,
         string reason, int? lotId = null, string? serialNumber = null,

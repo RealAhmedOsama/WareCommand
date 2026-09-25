@@ -381,7 +381,7 @@ public sealed partial class PostgreSqlJourneyTests
         var unsupportedOrSkippedScenarios = new[]
         {
             "positive and zero-variance cycle-count physical-count journeys",
-            "cross-dock reservation/work materialization and cluster picking",
+            "cluster picking",
             "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
             "authenticated HTTP boundary for these service journeys"
         };
@@ -658,7 +658,7 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
                 "cycle-count execution and variance approval",
-                "cross-dock reservation/work materialization and cluster picking",
+                "cluster picking",
                 "scrap approval and witnessed destruction execution",
                 "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"
@@ -975,7 +975,7 @@ public sealed partial class PostgreSqlJourneyTests
             "issue-130-inventory-disposition",
             outcomes,
             [
-                "cross-dock reservation/work materialization and cluster picking",
+                "cluster picking",
                 "physical destruction after inventory is moved to Scrap Pending",
                 "authenticated HTTP boundary for inventory disposition service journeys"
             ],
@@ -1213,7 +1213,6 @@ public sealed partial class PostgreSqlJourneyTests
             "issue-130-kitting",
             outcomes,
             [
-                "cross-dock reservation/work materialization",
                 "cluster picking",
                 "scrap approval and witnessed destruction execution",
                 "authenticated HTTP boundary for these service journeys"
@@ -1507,7 +1506,7 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
                 "cycle-count execution and variance approval",
-                "cross-dock reservation/work materialization and cluster picking",
+                "cluster picking",
                 "scrap approval and witnessed destruction execution",
                 "partial quantities, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"

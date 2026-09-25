@@ -365,7 +365,7 @@ public sealed partial class PostgreSqlJourneyTests
                 CrossDockMode.Planned,
                 crossDockPolicy.Value.Id,
                 crossDockCreationKey,
-                Notes: "Persist deterministic demand match without materializing stock."),
+                Notes: "Persist deterministic demand match for explicit reservation and pick-work execution."),
             actorUserId);
         Assert.True(crossDockPlan.IsSuccess, crossDockPlan.FirstError?.Message);
         Assert.Equal(CrossDockPlanStatus.Matched, crossDockPlan.Value.Status);
@@ -397,30 +397,187 @@ public sealed partial class PostgreSqlJourneyTests
             .CountAsync(value => value.CreationKey == crossDockCreationKey));
         await ReconcileCheckpointAsync("cross-dock-plan-replay");
 
+        var executedCrossDockPlan = await crossDockService.ExecutePlanAsync(
+            crossDockPlan.Value.Id,
+            actorUserId);
+        Assert.True(executedCrossDockPlan.IsSuccess, executedCrossDockPlan.FirstError?.Message);
+        Assert.Equal(CrossDockPlanStatus.WorkPending, executedCrossDockPlan.Value.Status);
+        Assert.Equal(CrossDockPlanLineStatus.WorkPending, Assert.Single(executedCrossDockPlan.Value.Lines).Status);
+
+        var crossDockReservation = await context.InventoryReservations.AsNoTracking()
+            .Include(value => value.Allocations)
+            .SingleAsync(value => value.DemandType == "CrossDockPlanLine" &&
+                                  value.DemandId == crossDockPlan.Value.Id.ToString(CultureInfo.InvariantCulture) &&
+                                  value.DemandLine == 1);
+        Assert.Equal(crossDockItem.Id, crossDockReservation.ItemId);
+        Assert.Equal(3m, crossDockReservation.RequestedQuantity);
+        Assert.Equal(3m, crossDockReservation.Allocations.Sum(value => value.RemainingQuantity));
+        Assert.All(crossDockReservation.Allocations, value =>
+        {
+            Assert.Equal(receivingLocationId, value.LocationId);
+            Assert.Equal(InventoryStatusSystemIds.Available, value.InventoryStatusId);
+        });
+        var crossDockPickWork = await context.WarehouseWorks.AsNoTracking()
+            .Include(value => value.Lines)
+            .SingleAsync(value => value.CreationKey.StartsWith(
+                $"crossdock:{crossDockPlan.Value.Id.ToString(CultureInfo.InvariantCulture)}:"));
+        Assert.Equal(WarehouseWorkType.Pick, crossDockPickWork.Type);
+        Assert.Equal(WarehouseWorkStatus.Available, crossDockPickWork.Status);
+        Assert.Equal("SalesOrderLine", crossDockPickWork.SourceEntityType);
+        Assert.StartsWith("CROSSDOCK:", crossDockPickWork.SourceLineReference);
+        var crossDockPickLine = Assert.Single(crossDockPickWork.Lines);
+        Assert.Equal(crossDockReservation.Id, crossDockPickLine.ReservationId);
+        Assert.Equal(3m, crossDockPickLine.PlannedQuantity);
+        Assert.Equal(crossDockDestinationLocationId, crossDockPickLine.DestinationLocationId);
+        var crossDockPutawayWorks = await context.WarehouseWorks.AsNoTracking()
+            .Include(value => value.Lines)
+            .Where(value => value.SourceEntityType == "ReceiptLine" &&
+                            value.SourceEntityId == crossDockReceiptLine.Id.ToString(CultureInfo.InvariantCulture))
+            .OrderBy(value => value.Id)
+            .ToArrayAsync();
+        Assert.Equal(2, crossDockPutawayWorks.Length);
+        Assert.Equal(WarehouseWorkStatus.Cancelled, crossDockPutawayWorks[0].Status);
+        var fallbackPutaway = crossDockPutawayWorks[1];
+        Assert.Equal(WarehouseWorkType.Putaway, fallbackPutaway.Type);
+        Assert.Equal(WarehouseWorkStatus.Available, fallbackPutaway.Status);
+        var fallbackPutawayLine = Assert.Single(fallbackPutaway.Lines);
+        Assert.Equal(1m, fallbackPutawayLine.PlannedQuantity);
+        Assert.Equal(receivingLocationId, fallbackPutawayLine.SourceLocationId);
+        await ReconcileCheckpointAsync("cross-dock-reservation-and-work-materialized");
+
+        var salesOrderAllocationService = services.GetRequiredService<ISalesOrderAllocationService>();
+        var replayedOrderAllocation = await salesOrderAllocationService.AllocateAsync(
+            crossDockOrder.Value.Id,
+            new SalesOrderAllocationCommand(
+                ReleaseToWarehouse: false,
+                IdempotencyKey: "j130-crossdock-no-duplicate-allocation"),
+            actorUserId);
+        Assert.True(replayedOrderAllocation.IsSuccess, replayedOrderAllocation.FirstError?.Message);
+        Assert.Equal(3m, Assert.Single(replayedOrderAllocation.Value.Lines).AllocatedBaseQuantity);
+        Assert.False(await context.InventoryReservations.AsNoTracking()
+            .AnyAsync(value => value.DemandType == "SalesOrderLine" &&
+                               value.DemandId == crossDockOrder.Value.Id.ToString(CultureInfo.InvariantCulture) &&
+                               value.DemandLine == crossDockOrder.Value.Lines.Single().Id));
+        await ReconcileCheckpointAsync("cross-dock-normal-allocation-does-not-duplicate-demand");
+
+        var replayedExecution = await crossDockService.ExecutePlanAsync(
+            crossDockPlan.Value.Id,
+            actorUserId);
+        Assert.True(replayedExecution.IsSuccess, replayedExecution.FirstError?.Message);
+        Assert.Equal(executedCrossDockPlan.Value.Id, replayedExecution.Value.Id);
+        Assert.Equal(1, await context.InventoryReservations.AsNoTracking()
+            .CountAsync(value => value.DemandType == "CrossDockPlanLine" &&
+                                 value.DemandId == crossDockPlan.Value.Id.ToString(CultureInfo.InvariantCulture)));
+        Assert.Equal(1, await context.WarehouseWorks.AsNoTracking()
+            .CountAsync(value => value.CreationKey.StartsWith(
+                $"crossdock:{crossDockPlan.Value.Id.ToString(CultureInfo.InvariantCulture)}:")));
+        await ReconcileCheckpointAsync("cross-dock-execution-replay");
+
         var cancelledCrossDockPlan = await crossDockService.CancelAsync(
             crossDockPlan.Value.Id,
-            "Issue 130 journey completed the planning-only cross-dock scenario.",
+            "Materialized cross-dock work must be managed through the reservation and warehouse-work lifecycle.",
             actorUserId);
-        Assert.True(cancelledCrossDockPlan.IsSuccess, cancelledCrossDockPlan.FirstError?.Message);
-        Assert.Equal(CrossDockPlanStatus.Cancelled, cancelledCrossDockPlan.Value.Status);
-        Assert.Equal(actorUserId, cancelledCrossDockPlan.Value.CancelledByUserId);
-        await ReconcileCheckpointAsync("cross-dock-plan-cancelled");
+        Assert.True(cancelledCrossDockPlan.IsFailure);
+        Assert.Equal("crossdock.cancel_invalid", cancelledCrossDockPlan.ErrorCode);
 
         Assert.Equal(itemQuantityBeforeCrossDock, await SumItemQuantityAsync(context, crossDockItem.Id));
-        Assert.Equal(reservedQuantityBeforeCrossDock, await SumReservedQuantityAsync(context, crossDockItem.Id));
-        Assert.Equal(inventoryTransactionsBeforeCrossDock, await context.InventoryTransactions.AsNoTracking()
+        Assert.Equal(reservedQuantityBeforeCrossDock + 3m, await SumReservedQuantityAsync(context, crossDockItem.Id));
+        Assert.True(inventoryTransactionsBeforeCrossDock < await context.InventoryTransactions.AsNoTracking()
             .CountAsync(value => value.ItemId == crossDockItem.Id));
         Assert.Equal(movementsBeforeCrossDock, await context.Movements.AsNoTracking()
             .CountAsync(value => value.ItemId == crossDockItem.Id));
         var crossDockWorkAfterCancellation = await context.WarehouseWorks.AsNoTracking()
             .Where(value => value.SourceEntityType == "ReceiptLine" &&
                             value.SourceEntityId == crossDockReceiptLine.Id.ToString(CultureInfo.InvariantCulture))
+            .OrderBy(value => value.Id)
             .Select(value => new { value.Id, value.Type, value.Status })
             .ToArrayAsync();
-        Assert.Equal(crossDockWorkBeforePlan, crossDockWorkAfterCancellation);
-        Assert.Equal(workCountBeforeCrossDock, await context.WarehouseWorks.AsNoTracking()
+        Assert.Equal(2, crossDockWorkAfterCancellation.Length);
+        Assert.Equal(WarehouseWorkStatus.Cancelled, crossDockWorkAfterCancellation[0].Status);
+        Assert.Equal(WarehouseWorkStatus.Available, crossDockWorkAfterCancellation[1].Status);
+        Assert.Equal(workCountBeforeCrossDock + 2, await context.WarehouseWorks.AsNoTracking()
             .Where(value => value.WarehouseId == warehouseId)
             .CountAsync());
+
+        var sourceQuantityBeforeCrossDockPick = await SumLocationQuantityAsync(
+            context,
+            receivingLocationId,
+            crossDockItem.Id);
+        var destinationQuantityBeforeCrossDockPick = await SumLocationQuantityAsync(
+            context,
+            crossDockDestinationLocationId,
+            crossDockItem.Id);
+        var crossDockPickAssigned = await workService.AssignAsync(
+            crossDockPickWork.Id,
+            new WarehouseWorkAssignmentInput(actorUserId, null, "j130-crossdock-pick-assign"),
+            actorUserId);
+        Assert.True(crossDockPickAssigned.IsSuccess, crossDockPickAssigned.FirstError?.Message);
+        var crossDockPickStarted = await workService.StartAsync(
+            crossDockPickWork.Id,
+            new WarehouseWorkCommandInput("j130-crossdock-pick-start"),
+            actorUserId);
+        Assert.True(crossDockPickStarted.IsSuccess, crossDockPickStarted.FirstError?.Message);
+        var crossDockPickCompleted = await workService.CompleteAsync(
+            crossDockPickWork.Id,
+            new WarehouseWorkCompletionInput(
+                "j130-crossdock-pick-complete",
+                CompletionReference: crossDockPickWork.WorkNumber,
+                Scans:
+                [
+                    new WarehouseWorkScanInput(
+                        crossDockPickLine.Id,
+                        crossDockItem.Id,
+                        receivingLocationId,
+                        crossDockDestinationLocationId,
+                        3m)
+                ]),
+            actorUserId);
+        Assert.True(crossDockPickCompleted.IsSuccess, crossDockPickCompleted.FirstError?.Message);
+        Assert.Equal(WarehouseWorkStatus.Completed, crossDockPickCompleted.Value.Status);
+        var completedCrossDockPlan = await crossDockService.GetAsync(crossDockPlan.Value.Id);
+        Assert.True(completedCrossDockPlan.IsSuccess, completedCrossDockPlan.FirstError?.Message);
+        Assert.Equal(CrossDockPlanStatus.PartiallyCompleted, completedCrossDockPlan.Value.Status);
+        Assert.Equal(CrossDockPlanLineStatus.Completed, Assert.Single(completedCrossDockPlan.Value.Lines).Status);
+        var consumedCrossDockReservation = await context.InventoryReservations.AsNoTracking()
+            .Include(value => value.Allocations)
+            .SingleAsync(value => value.Id == crossDockReservation.Id);
+        Assert.Equal(InventoryReservationStatus.Consumed, consumedCrossDockReservation.Status);
+        Assert.Equal(0m, consumedCrossDockReservation.Allocations.Sum(value => value.RemainingQuantity));
+        Assert.Equal(3m, consumedCrossDockReservation.Allocations.Sum(value => value.ConsumedQuantity));
+        Assert.All(consumedCrossDockReservation.Allocations, value =>
+        {
+            Assert.Equal(0m, value.RemainingQuantity);
+            Assert.Equal(3m, value.ConsumedQuantity);
+        });
+        var pickedCrossDockOrderLine = await context.SalesOrderLines.AsNoTracking()
+            .SingleAsync(value => value.Id == crossDockOrder.Value.Lines.Single().Id);
+        Assert.Equal(3m, pickedCrossDockOrderLine.PickedBaseQuantity);
+        Assert.Equal(sourceQuantityBeforeCrossDockPick - 3m, await SumLocationQuantityAsync(
+            context,
+            receivingLocationId,
+            crossDockItem.Id));
+        Assert.Equal(destinationQuantityBeforeCrossDockPick + 3m, await SumLocationQuantityAsync(
+            context,
+            crossDockDestinationLocationId,
+            crossDockItem.Id));
+        Assert.Equal(itemQuantityBeforeCrossDock, await SumItemQuantityAsync(context, crossDockItem.Id));
+        Assert.Equal(reservedQuantityBeforeCrossDock, await SumReservedQuantityAsync(context, crossDockItem.Id));
+        Assert.Equal(movementsBeforeCrossDock + 1, await context.Movements.AsNoTracking()
+            .CountAsync(value => value.ItemId == crossDockItem.Id));
+        await ReconcileCheckpointAsync("cross-dock-pick-completed-and-plan-partial");
+
+        var replayedCompletedExecution = await crossDockService.ExecutePlanAsync(
+            crossDockPlan.Value.Id,
+            actorUserId);
+        Assert.True(replayedCompletedExecution.IsSuccess, replayedCompletedExecution.FirstError?.Message);
+        Assert.Equal(CrossDockPlanStatus.PartiallyCompleted, replayedCompletedExecution.Value.Status);
+        Assert.Equal(1, await context.InventoryReservations.AsNoTracking()
+            .CountAsync(value => value.DemandType == "CrossDockPlanLine" &&
+                                 value.DemandId == crossDockPlan.Value.Id.ToString(CultureInfo.InvariantCulture)));
+        Assert.Equal(1, await context.WarehouseWorks.AsNoTracking()
+            .CountAsync(value => value.CreationKey.StartsWith(
+                $"crossdock:{crossDockPlan.Value.Id.ToString(CultureInfo.InvariantCulture)}:")));
+        await ReconcileCheckpointAsync("cross-dock-completed-execution-replay");
 
         var policyAudit = await context.AuditEntries.AsNoTracking()
             .SingleAsync(value => value.EntityType == WmsAuditEntityTypes.CrossDockPolicy &&
@@ -441,14 +598,8 @@ public sealed partial class PostgreSqlJourneyTests
                 Assert.Equal(WmsAuditActions.CrossDockPlanCreated, created.Action);
                 Assert.Equal(actorUserId, created.ActorUserId);
                 Assert.Equal(warehouseId, created.WarehouseId);
-            },
-            cancelled =>
-            {
-                Assert.Equal(WmsAuditActions.CrossDockPlanCancelled, cancelled.Action);
-                Assert.Equal(actorUserId, cancelled.ActorUserId);
-                Assert.Equal(warehouseId, cancelled.WarehouseId);
             });
-        outcomes.Add("cross-dock=3-of-4-accepted-units-matched,1-fallback,plan-replayed-once,cancelled,planning-only-without-stock-or-work-effects");
+        outcomes.Add("cross-dock=3-of-4-accepted-units-matched,3-unit-pick-completed,1-unit-fallback-putaway-preserved,reservation-and-pick-work-replay-idempotent,plan-partially-completed,cancellation-blocked");
 
         var closedInspection = await qualityService.CloseAsync(inspection.Id, actorUserId);
         Assert.True(closedInspection.IsSuccess, closedInspection.FirstError?.Message);
@@ -550,7 +701,7 @@ public sealed partial class PostgreSqlJourneyTests
             outcomes,
             [
                 "cycle-count execution and variance approval",
-                "cross-dock reservation/work materialization and cluster picking",
+                "cluster picking",
                 "scrap approval and witnessed destruction execution",
                 "partial quantities, shortages, cancellation, hold/release, and stale concurrency tokens",
                 "authenticated HTTP boundary for these service journeys"

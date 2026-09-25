@@ -393,9 +393,18 @@ public sealed class SalesOrderAllocationService(
             var existingReservations = await LoadReservationEntitiesAsync(
                 order,
                 cancellationToken);
+            var crossDockCommittedByLine = await LoadCrossDockCommittedQuantitiesAsync(
+                order,
+                cancellationToken);
             foreach (var line in lines.Value)
             {
-                var quantity = GetDemandQuantity(line);
+                var quantity = existingReservations.TryGetValue(line.Id, out var existingReservation)
+                    ? existingReservation.RequestedQuantity
+                    : Math.Min(
+                        line.BackorderBaseQuantity,
+                        Math.Max(
+                            0m,
+                            GetDemandQuantity(line) - crossDockCommittedByLine.GetValueOrDefault(line.Id)));
                 if (quantity <= 0m)
                 {
                     continue;
@@ -409,7 +418,7 @@ public sealed class SalesOrderAllocationService(
                     userId);
                 try
                 {
-                    if (command.Replan && existingReservations.TryGetValue(line.Id, out var existingReservation))
+                    if (command.Replan && existingReservations.TryGetValue(line.Id, out existingReservation))
                     {
                         await reservationService.ReallocateAsync(
                             new InventoryReservationMutationRequest(
@@ -445,7 +454,10 @@ public sealed class SalesOrderAllocationService(
             {
                 if (allReservations.TryGetValue(line.Id, out var reservation))
                 {
-                    ReconcileLineAllocation(line, reservation);
+                    ReconcileLineAllocation(
+                        line,
+                        reservation,
+                        crossDockCommittedByLine.GetValueOrDefault(line.Id));
                 }
             }
 
@@ -747,6 +759,9 @@ public sealed class SalesOrderAllocationService(
         {
             var order = loaded.Value;
             var reservations = await LoadReservationResultsAsync(order, cancellationToken);
+            var crossDockCommittedByLine = await LoadCrossDockCommittedQuantitiesAsync(
+                order,
+                cancellationToken);
             var selectedLineIds = NormalizeLineIds(command.LineIds, order);
             var selectedReservations = reservations
                 .Where(pair => selectedLineIds is null || selectedLineIds.Contains(pair.Key))
@@ -781,6 +796,15 @@ public sealed class SalesOrderAllocationService(
                 return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.Conflict(
                     "allocation.work_execution_started",
                     "Pick work must be stopped before allocation can be unreleased or cancelled."));
+            }
+
+            if (work.Any(value => value.SourceLineReference?.StartsWith(
+                    "CROSSDOCK:",
+                    StringComparison.OrdinalIgnoreCase) == true))
+            {
+                return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.Conflict(
+                    "allocation.crossdock_work_managed_separately",
+                    "Cross-dock pick work must be managed through its cross-dock plan."));
             }
 
             foreach (var workItem in work.Where(value => !value.IsTerminal))
@@ -824,7 +848,10 @@ public sealed class SalesOrderAllocationService(
             {
                 if (refreshed.TryGetValue(line.Id, out var reservation))
                 {
-                    ReconcileLineAllocation(line, reservation);
+                    ReconcileLineAllocation(
+                        line,
+                        reservation,
+                        crossDockCommittedByLine.GetValueOrDefault(line.Id));
                 }
             }
 
@@ -972,6 +999,85 @@ public sealed class SalesOrderAllocationService(
         }
 
         return results;
+    }
+
+    private async Task<Dictionary<int, decimal>> LoadCrossDockCommittedQuantitiesAsync(
+        SalesOrder order,
+        CancellationToken cancellationToken)
+    {
+        var orderLineIds = order.Lines.Select(line => line.Id).ToArray();
+        if (orderLineIds.Length == 0)
+        {
+            return [];
+        }
+
+        var planLines = await context.CrossDockPlanLines
+            .AsNoTracking()
+            .Where(line => orderLineIds.Contains(line.SalesOrderLineId))
+            .Select(line => new
+            {
+                line.CrossDockPlanId,
+                line.Sequence,
+                line.SalesOrderLineId
+            })
+            .ToArrayAsync(cancellationToken);
+        if (planLines.Length == 0)
+        {
+            return [];
+        }
+
+        var planIds = planLines
+            .Select(line => line.CrossDockPlanId.ToString(CultureInfo.InvariantCulture))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var reservations = await context.InventoryReservations
+            .AsNoTracking()
+            .Where(reservation => reservation.DemandType == "CrossDockPlanLine" &&
+                                  planIds.Contains(reservation.DemandId) &&
+                                  reservation.DemandLine.HasValue)
+            .Select(reservation => new
+            {
+                reservation.Id,
+                reservation.DemandId,
+                DemandLine = reservation.DemandLine!.Value
+            })
+            .ToArrayAsync(cancellationToken);
+        if (reservations.Length == 0)
+        {
+            return [];
+        }
+
+        var reservationIds = reservations.Select(reservation => reservation.Id).ToArray();
+        var committedByReservation = await context.InventoryReservationAllocations
+            .AsNoTracking()
+            .Where(allocation => reservationIds.Contains(allocation.ReservationId))
+            .GroupBy(allocation => allocation.ReservationId)
+            .Select(group => new
+            {
+                ReservationId = group.Key,
+                Quantity = group.Sum(allocation => allocation.AllocatedQuantity - allocation.ReleasedQuantity)
+            })
+            .ToDictionaryAsync(value => value.ReservationId, value => value.Quantity, cancellationToken);
+        var salesOrderLineByDemand = planLines.ToDictionary(
+            line => (
+                DemandId: line.CrossDockPlanId.ToString(CultureInfo.InvariantCulture),
+                DemandLine: line.Sequence),
+            line => line.SalesOrderLineId);
+        var result = new Dictionary<int, decimal>();
+        foreach (var reservation in reservations)
+        {
+            if (!salesOrderLineByDemand.TryGetValue(
+                    (reservation.DemandId, reservation.DemandLine),
+                    out var lineId))
+            {
+                continue;
+            }
+
+            result[lineId] = result.GetValueOrDefault(lineId) +
+                             committedByReservation.GetValueOrDefault(reservation.Id);
+        }
+
+        return result;
     }
 
     private async Task<IReadOnlyList<WarehouseWorkEntity>> LoadOrderWorkAsync(
@@ -1173,9 +1279,10 @@ public sealed class SalesOrderAllocationService(
 
     private static void ReconcileLineAllocation(
         SalesOrderLine line,
-        InventoryReservationResult reservation)
+        InventoryReservationResult reservation,
+        decimal crossDockCommittedQuantity = 0m)
     {
-        var target = reservation.ActiveQuantity + reservation.ConsumedQuantity;
+        var target = crossDockCommittedQuantity + reservation.ActiveQuantity + reservation.ConsumedQuantity;
         if (target > line.AllocatedBaseQuantity)
         {
             line.RecordAllocation(target - line.AllocatedBaseQuantity);

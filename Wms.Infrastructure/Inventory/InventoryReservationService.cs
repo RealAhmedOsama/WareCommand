@@ -981,7 +981,15 @@ public sealed class InventoryReservationService(
                 strategyResolution.SelectionReasons);
         }
         var eligible = resolution.OrderedCandidates
-            .Where(balance => IsEligible(balance, item, request.WarehouseId, businessDate))
+            .Where(balance => IsEligible(
+                balance,
+                item,
+                request.WarehouseId,
+                businessDate,
+                allowReceivingSource: string.Equals(
+                    request.DemandType,
+                    "CrossDockPlanLine",
+                    StringComparison.OrdinalIgnoreCase)))
             .ToArray();
 
         return new CandidateSelection(
@@ -1220,17 +1228,20 @@ public sealed class InventoryReservationService(
         InventoryBalance balance,
         Item item,
         int warehouseId,
-        DateOnly businessDate) => GetEligibilityReason(
+        DateOnly businessDate,
+        bool allowReceivingSource = false) => GetEligibilityReason(
             balance,
             item,
             warehouseId,
-            businessDate) is null;
+            businessDate,
+            allowReceivingSource) is null;
 
     private static string? GetEligibilityReason(
         InventoryBalance balance,
         Item item,
         int warehouseId,
-        DateOnly businessDate)
+        DateOnly businessDate,
+        bool allowReceivingSource = false)
     {
         if (balance.AvailableQuantity <= 0m)
         {
@@ -1245,7 +1256,8 @@ public sealed class InventoryReservationService(
         if (balance.Location is null ||
             balance.Location.WarehouseId != warehouseId ||
             !balance.Location.IsActive ||
-            !balance.Location.IsPickable)
+            (!balance.Location.IsPickable &&
+             !(allowReceivingSource && balance.Location.Type == LocationType.Receiving)))
         {
             return "The location is inactive, belongs to another warehouse, or is not pickable.";
         }

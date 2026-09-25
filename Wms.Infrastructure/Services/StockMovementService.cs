@@ -723,7 +723,8 @@ public class StockMovementService : IStockMovementService
         string? notes = null, CancellationToken cancellationToken = default,
         int? licensePlateId = null, int? inventoryStatusId = null, bool recordLedger = true,
         InventoryOwnerKind ownerKind = InventoryOwnerKind.CompanyOwned,
-        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null)
+        int? inventoryOwnerId = null, string? ownerCodeSnapshot = null,
+        bool allowCrossDockReceiving = false)
     {
         var location = await _unitOfWork.Locations.GetByIdAsync(fromLocationId, cancellationToken);
         using var operationScope = WmsLogging.BeginOperation(
@@ -740,7 +741,7 @@ public class StockMovementService : IStockMovementService
         try
         {
             await EnsureActiveItemAsync(itemId, cancellationToken);
-            EnsurePickingLocation(location);
+            EnsurePickingLocation(location, allowCrossDockReceiving);
             await ValidateLicensePlateAsync(
                 licensePlateId,
                 location!.WarehouseId,
@@ -1485,7 +1486,9 @@ public class StockMovementService : IStockMovementService
         }
     }
 
-    private static void EnsurePickingLocation(Location? location)
+    private static void EnsurePickingLocation(
+        Location? location,
+        bool allowCrossDockReceiving = false)
     {
         if (location is null)
         {
@@ -1497,7 +1500,11 @@ public class StockMovementService : IStockMovementService
             throw new InvalidOperationException($"Location '{location.Code}' is inactive.");
         }
 
-        if (!location.IsPickable || !location.SupportsPicking)
+        var directCrossDockReceiving = allowCrossDockReceiving &&
+                                       location.Type == LocationType.Receiving &&
+                                       location.IsReceivable &&
+                                       location.SupportsReceiving;
+        if ((!location.IsPickable || !location.SupportsPicking) && !directCrossDockReceiving)
         {
             throw new InvalidOperationException($"Location '{location.Code}' is not pickable.");
         }

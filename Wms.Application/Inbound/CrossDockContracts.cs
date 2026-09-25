@@ -169,6 +169,11 @@ public interface ICrossDockService
         int planId,
         CancellationToken cancellationToken = default);
 
+    Task<Result<CrossDockPlanDto>> ExecutePlanAsync(
+        int planId,
+        string userId,
+        CancellationToken cancellationToken = default);
+
     Task<Result<CrossDockPlanDto>> CancelAsync(
         int planId,
         string reason,

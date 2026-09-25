@@ -92,7 +92,10 @@ public sealed class PickWarehouseWorkCompletionHandler(
                 recordLedger: false,
                 ownerKind: line.OwnerKind,
                 inventoryOwnerId: line.InventoryOwnerId,
-                ownerCodeSnapshot: line.OwnerCodeSnapshot);
+                ownerCodeSnapshot: line.OwnerCodeSnapshot,
+                allowCrossDockReceiving: work.SourceLineReference?.StartsWith(
+                    "CROSSDOCK:",
+                    StringComparison.OrdinalIgnoreCase) == true);
             movement.LinkPickDestination(destination.Id);
 
             var destinationStock = await context.Stock

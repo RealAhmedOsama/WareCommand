@@ -411,7 +411,7 @@ public sealed partial class PostgreSqlJourneyTests
             target.TargetIdentifier,
             outcomes,
             [
-                "cross-dock reservation/work materialization and kitting wave orchestration",
+                "kitting wave orchestration",
                 "partial allocation, shortage recovery, and hold/release interactions",
                 "authenticated MVC/browser wave boundary"
             ],

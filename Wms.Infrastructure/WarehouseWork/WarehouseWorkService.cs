@@ -776,6 +776,7 @@ public sealed class WarehouseWorkService(
                 input.SupervisorOverride,
                 input.OverrideReason,
                 allowCountVariance: loaded.Value.Type == WarehouseWorkType.Count);
+            await UpdateCrossDockPlanStatusAsync(loaded.Value, cancellationToken);
             context.WarehouseWorkCommands.Add(new WarehouseWorkCommand(
                 loaded.Value.Id,
                 "complete",
@@ -989,6 +990,80 @@ public sealed class WarehouseWorkService(
         await context.WarehouseWorks
             .Include(work => work.Lines)
             .SingleOrDefaultAsync(work => work.Id == workId, cancellationToken);
+
+    private async Task UpdateCrossDockPlanStatusAsync(
+        WarehouseWorkEntity completedWork,
+        CancellationToken cancellationToken)
+    {
+        var crossDockReferences = completedWork.Lines
+            .Select(line => line.SourceReference)
+            .Where(reference => TryParseCrossDockLineReference(reference, out _, out _))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        foreach (var sourceReference in crossDockReferences)
+        {
+            if (!TryParseCrossDockLineReference(sourceReference, out var planId, out var sequence))
+            {
+                continue;
+            }
+
+            var linkedWork = await context.WarehouseWorks
+                .Include(work => work.Lines)
+                .Where(work => work.WarehouseId == completedWork.WarehouseId &&
+                               work.Lines.Any(line => line.SourceReference == sourceReference))
+                .ToArrayAsync(cancellationToken);
+            if (linkedWork.Length == 0 || linkedWork.Any(work => !work.IsTerminal))
+            {
+                continue;
+            }
+
+            var plan = await context.CrossDockPlans
+                .Include(value => value.Lines)
+                .SingleOrDefaultAsync(value => value.Id == planId, cancellationToken);
+            var planLine = plan?.Lines.SingleOrDefault(line => line.Sequence == sequence);
+            if (plan is null || planLine is null)
+            {
+                continue;
+            }
+
+            var linkedLines = linkedWork
+                .SelectMany(work => work.Lines)
+                .Where(line => line.SourceReference == sourceReference)
+                .ToArray();
+            var shortPick = linkedWork.Any(work => work.Status == WarehouseWorkStatus.Cancelled) ||
+                            linkedLines.Any(line => line.ActualQuantity < line.PlannedQuantity);
+            planLine.MarkCompleted(shortPick);
+            if (plan.Lines.All(line => line.Status is CrossDockPlanLineStatus.Completed or
+                CrossDockPlanLineStatus.ShortPick))
+            {
+                plan.MarkExecutionCompleted(
+                    plan.FallbackBaseQuantity > 0m ||
+                    plan.Lines.Any(line => line.Status == CrossDockPlanLineStatus.ShortPick));
+            }
+        }
+    }
+
+    private static bool TryParseCrossDockLineReference(
+        string? sourceReference,
+        out int planId,
+        out int sequence)
+    {
+        planId = 0;
+        sequence = 0;
+        if (string.IsNullOrWhiteSpace(sourceReference))
+        {
+            return false;
+        }
+
+        var parts = sourceReference.Split(':');
+        return parts.Length == 4 &&
+               string.Equals(parts[0], "crossdock-plan", StringComparison.Ordinal) &&
+               string.Equals(parts[2], "line", StringComparison.Ordinal) &&
+               int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out planId) &&
+               planId > 0 &&
+               int.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out sequence) &&
+               sequence > 0;
+    }
 
     private async Task<Result<WarehouseWorkDto>?> TryReplayAsync(
         WarehouseWorkEntity work,

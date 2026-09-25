@@ -4,8 +4,8 @@ using Wms.Domain.Enums;
 namespace Wms.Domain.Entities;
 
 /// <summary>
-/// Explainable inbound-to-outbound match snapshot. This aggregate is planning
-/// state only until a later execution boundary creates a reservation and work.
+/// Explainable inbound-to-outbound match snapshot and explicit reservation/work
+/// execution lifecycle.
 /// </summary>
 public sealed class CrossDockPlan : Entity
 {
@@ -120,8 +120,58 @@ public sealed class CrossDockPlan : Entity
     public IReadOnlyList<CrossDockPlanLine> Lines => _lines.AsReadOnly();
 
     public bool CanCancel => Status is CrossDockPlanStatus.Proposed or
-        CrossDockPlanStatus.Matched or CrossDockPlanStatus.Fallback or
-        CrossDockPlanStatus.ReservationPending or CrossDockPlanStatus.WorkPending;
+        CrossDockPlanStatus.Matched or CrossDockPlanStatus.Fallback;
+
+    public void MarkReservationPending()
+    {
+        if (Status is CrossDockPlanStatus.Cancelled or CrossDockPlanStatus.Completed or
+            CrossDockPlanStatus.Released or CrossDockPlanStatus.Exception)
+        {
+            throw new InvalidOperationException($"A cross-dock plan in {Status} cannot be executed.");
+        }
+
+        if (Status != CrossDockPlanStatus.ReservationPending)
+        {
+            Status = CrossDockPlanStatus.ReservationPending;
+            Revision++;
+            SetUpdatedAt();
+        }
+    }
+
+    public void MarkWorkPending()
+    {
+        if (Status is CrossDockPlanStatus.Cancelled or CrossDockPlanStatus.Completed or
+            CrossDockPlanStatus.Released or CrossDockPlanStatus.Exception)
+        {
+            throw new InvalidOperationException($"A cross-dock plan in {Status} cannot release work.");
+        }
+
+        if (Status != CrossDockPlanStatus.WorkPending)
+        {
+            Status = CrossDockPlanStatus.WorkPending;
+            Revision++;
+            SetUpdatedAt();
+        }
+    }
+
+    public void MarkExecutionCompleted(bool isPartial)
+    {
+        if (Status is not (CrossDockPlanStatus.WorkPending or
+            CrossDockPlanStatus.PartiallyCompleted or CrossDockPlanStatus.Completed))
+        {
+            throw new InvalidOperationException($"A cross-dock plan in {Status} cannot complete execution.");
+        }
+
+        var completedStatus = isPartial
+            ? CrossDockPlanStatus.PartiallyCompleted
+            : CrossDockPlanStatus.Completed;
+        if (Status != completedStatus)
+        {
+            Status = completedStatus;
+            Revision++;
+            SetUpdatedAt();
+        }
+    }
 
     public void AddLine(CrossDockPlanLine line)
     {

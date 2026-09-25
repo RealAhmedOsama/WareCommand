@@ -69,6 +69,58 @@ public sealed class CrossDockPlanLine : Entity
     public Item Item { get; private set; } = null!;
     public Customer Customer { get; private set; } = null!;
 
+    public void MarkReservationPending()
+    {
+        if (Status == CrossDockPlanLineStatus.Matched)
+        {
+            Status = CrossDockPlanLineStatus.ReservationPending;
+            Revision++;
+            SetUpdatedAt();
+            return;
+        }
+
+        if (Status is not (CrossDockPlanLineStatus.ReservationPending or CrossDockPlanLineStatus.WorkPending))
+        {
+            throw new InvalidOperationException($"A cross-dock plan line in {Status} cannot be reserved.");
+        }
+    }
+
+    public void MarkWorkPending()
+    {
+        if (Status == CrossDockPlanLineStatus.ReservationPending)
+        {
+            Status = CrossDockPlanLineStatus.WorkPending;
+            Revision++;
+            SetUpdatedAt();
+            return;
+        }
+
+        if (Status != CrossDockPlanLineStatus.WorkPending)
+        {
+            throw new InvalidOperationException($"A cross-dock plan line in {Status} cannot release work.");
+        }
+    }
+
+    public void MarkCompleted(bool shortPick)
+    {
+        if (Status == CrossDockPlanLineStatus.Completed ||
+            Status == CrossDockPlanLineStatus.ShortPick)
+        {
+            return;
+        }
+
+        if (Status != CrossDockPlanLineStatus.WorkPending)
+        {
+            throw new InvalidOperationException($"A cross-dock plan line in {Status} cannot complete work.");
+        }
+
+        Status = shortPick
+            ? CrossDockPlanLineStatus.ShortPick
+            : CrossDockPlanLineStatus.Completed;
+        Revision++;
+        SetUpdatedAt();
+    }
+
     private static string Required(string value, int maximumLength, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value))

@@ -6,8 +6,10 @@ using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Inbound;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Inbound;
 
@@ -19,6 +21,8 @@ public sealed class CrossDockServiceTests : IDisposable
     private readonly WmsDbContext _context;
     private readonly Mock<IWarehouseAccessService> _access = new();
     private readonly Mock<IAuditWriter> _audit = new();
+    private readonly Mock<IInventoryReservationService> _reservation = new();
+    private readonly Mock<IWarehouseWorkService> _warehouseWork = new();
     private readonly Warehouse _warehouse;
     private readonly Item _item;
     private readonly Supplier _supplier;
@@ -93,7 +97,9 @@ public sealed class CrossDockServiceTests : IDisposable
             _context,
             _access.Object,
             _audit.Object,
-            new FixedClock(_now));
+            new FixedClock(_now),
+            _reservation.Object,
+            _warehouseWork.Object);
     }
 
     [Fact]

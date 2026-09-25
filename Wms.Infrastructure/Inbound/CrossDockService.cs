@@ -5,23 +5,26 @@ using Wms.Application.Common;
 using Wms.Application.Context;
 using Wms.Application.Identity;
 using Wms.Application.Inbound;
+using Wms.Application.WarehouseWork;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Inventory;
+using Wms.Domain.Services;
 using Wms.Infrastructure.Data;
 
 namespace Wms.Infrastructure.Inbound;
 
 /// <summary>
-/// Cross-dock policy and deterministic matching boundary. This slice records
-/// explainable receipt-to-demand plans only. Reservation, stock movement, and
-/// executable cross-dock work remain an explicit follow-up boundary so a plan
-/// can never be mistaken for a materialized inventory allocation.
+/// Cross-dock policy, deterministic matching, reservation, and explicit
+/// reservation-backed pick-work creation.
 /// </summary>
 public sealed class CrossDockService(
     WmsDbContext context,
     IWarehouseAccessService warehouseAccessService,
     IAuditWriter auditWriter,
-    IClock clock) : ICrossDockService
+    IClock clock,
+    IInventoryReservationService reservationService,
+    IWarehouseWorkService warehouseWorkService) : ICrossDockService
 {
     private static readonly CrossDockPlanLineStatus[] ActivePlanStatuses =
     [
@@ -304,6 +307,18 @@ public sealed class CrossDockService(
             return Result.Success(Map(existing));
         }
 
+        var receiptAlreadyPlanned = await context.CrossDockPlans.AnyAsync(
+            candidate => candidate.ReceiptLineId == receiptLine.Id &&
+                         candidate.MatchedBaseQuantity > 0m &&
+                         candidate.Status != CrossDockPlanStatus.Cancelled,
+            cancellationToken);
+        if (receiptAlreadyPlanned)
+        {
+            return Result.Failure<CrossDockPlanDto>(WmsErrors.Conflict(
+                "crossdock.receipt_line_already_planned",
+                "This receipt line already has an active cross-dock plan. Replay that plan or cancel it before creating another."));
+        }
+
         var resolution = await ResolveAsync(
             receiptLine,
             input.Mode,
@@ -374,7 +389,7 @@ public sealed class CrossDockService(
                     ["mode"] = plan.Mode.ToString(),
                     ["matchedBaseQuantity"] = plan.MatchedBaseQuantity,
                     ["fallbackBaseQuantity"] = plan.FallbackBaseQuantity,
-                    ["executionBoundary"] = "planning-only"
+                    ["executionBoundary"] = "explicit-reservation-and-work-execution"
                 },
                 ActorUserId: userId),
             cancellationToken);
@@ -410,6 +425,269 @@ public sealed class CrossDockService(
         }
 
         return Result.Success(Map(plan));
+    }
+
+    public async Task<Result<CrossDockPlanDto>> ExecutePlanAsync(
+        int planId,
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        var plan = await LoadPlanAsync(planId, cancellationToken);
+        if (plan is null)
+        {
+            return Result.Failure<CrossDockPlanDto>(WmsErrors.NotFound(
+                "crossdock.plan_not_found",
+                "The cross-dock plan was not found."));
+        }
+
+        var authorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.AllocationManage,
+            plan.WarehouseId,
+            cancellationToken);
+        if (authorization.IsFailure)
+        {
+            return authorization.ToFailure<CrossDockPlanDto>();
+        }
+
+        if (plan.Status is CrossDockPlanStatus.Completed or
+            CrossDockPlanStatus.PartiallyCompleted or
+            CrossDockPlanStatus.Released)
+        {
+            return Result.Success(Map(plan));
+        }
+
+        if (plan.Lines.Count == 0 || plan.MatchedBaseQuantity <= 0m)
+        {
+            return Result.Failure<CrossDockPlanDto>(WmsErrors.BusinessRule(
+                "crossdock.plan_has_no_matches",
+                "A cross-dock plan without matched demand cannot be executed."));
+        }
+
+        var workManageAuthorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.WorkManage,
+            plan.WarehouseId,
+            cancellationToken);
+        if (workManageAuthorization.IsFailure)
+        {
+            return workManageAuthorization.ToFailure<CrossDockPlanDto>();
+        }
+
+        if (plan.FallbackBaseQuantity > 0m)
+        {
+            var workExecuteAuthorization = await warehouseAccessService.AuthorizeAsync(
+                WmsPermissions.WorkExecute,
+                plan.WarehouseId,
+                cancellationToken);
+            if (workExecuteAuthorization.IsFailure)
+            {
+                return workExecuteAuthorization.ToFailure<CrossDockPlanDto>();
+            }
+        }
+
+        try
+        {
+            foreach (var line in plan.Lines.OrderBy(value => value.Sequence))
+            {
+                if (line.Status == CrossDockPlanLineStatus.Matched)
+                {
+                    line.MarkReservationPending();
+                    plan.MarkReservationPending();
+                    await context.SaveChangesAsync(cancellationToken);
+                }
+
+                if (line.Status is not (CrossDockPlanLineStatus.ReservationPending or
+                    CrossDockPlanLineStatus.WorkPending))
+                {
+                    return Result.Failure<CrossDockPlanDto>(WmsErrors.Conflict(
+                        "crossdock.line_not_executable",
+                        $"Cross-dock plan line {line.Sequence} is in {line.Status} and cannot be executed."));
+                }
+
+                var orderLine = line.SalesOrderLine;
+                var order = orderLine.SalesOrder;
+                if (order is null || !EligibleOrderStatuses.Contains(order.Status))
+                {
+                    return Result.Failure<CrossDockPlanDto>(WmsErrors.Conflict(
+                        "crossdock.demand_not_eligible",
+                        $"Sales-order demand for cross-dock line {line.Sequence} is no longer eligible."));
+                }
+
+                if (line.Status == CrossDockPlanLineStatus.ReservationPending)
+                {
+                    var remainingDemand = Math.Max(
+                        0m,
+                        orderLine.OrderedBaseQuantity - orderLine.AllocatedBaseQuantity -
+                        orderLine.CancelledBaseQuantity);
+                    if (line.MatchedBaseQuantity > remainingDemand)
+                    {
+                        return Result.Failure<CrossDockPlanDto>(WmsErrors.Conflict(
+                            "crossdock.demand_already_allocated",
+                            "The sales-order demand changed after this cross-dock plan was created."));
+                    }
+
+                    var existingOrderReservation = await reservationService.GetByDemandAsync(
+                        "SalesOrderLine",
+                        order.Id.ToString(CultureInfo.InvariantCulture),
+                        orderLine.Id,
+                        plan.WarehouseId,
+                        cancellationToken);
+                    if (existingOrderReservation is not null)
+                    {
+                        return Result.Failure<CrossDockPlanDto>(WmsErrors.Conflict(
+                            "crossdock.demand_already_reserved",
+                            "Sales-order demand already has reservation history. Finish or cancel that allocation before cross-dock execution."));
+                    }
+                }
+
+                var reservation = await reservationService.GetByDemandAsync(
+                    "CrossDockPlanLine",
+                    plan.Id.ToString(CultureInfo.InvariantCulture),
+                    line.Sequence,
+                    plan.WarehouseId,
+                    cancellationToken);
+                if (reservation is null)
+                {
+                    var selector = await CreateReservationSelectorAsync(plan, cancellationToken);
+                    reservation = await reservationService.ReserveAsync(
+                        new InventoryReservationRequest(
+                            "CrossDockPlanLine",
+                            plan.Id.ToString(CultureInfo.InvariantCulture),
+                            line.Sequence,
+                            plan.WarehouseId,
+                            line.ItemId,
+                            line.MatchedBaseQuantity,
+                            InventoryReservationMode.Hard,
+                            order.Priority,
+                            Selector: selector,
+                            ActorUserId: userId,
+                            CorrelationId: $"crossdock:{plan.Id}:{line.Sequence}",
+                            Reason: $"Cross-dock plan {plan.PlanNumber} matched demand {order.DocumentNumber}:{orderLine.LineNumber}"),
+                        cancellationToken);
+                }
+                else if (reservation.ActiveQuantity + reservation.ConsumedQuantity < line.MatchedBaseQuantity &&
+                         reservation.ConsumedQuantity == 0m)
+                {
+                    reservation = await reservationService.ReallocateAsync(
+                        new InventoryReservationMutationRequest(
+                            reservation.ReservationId,
+                            null,
+                            userId,
+                            CorrelationId: $"crossdock:{plan.Id}:{line.Sequence}:retry",
+                            Reason: $"Retry cross-dock reservation for {plan.PlanNumber}"),
+                        cancellationToken);
+                }
+
+                if (reservation.ActiveQuantity + reservation.ConsumedQuantity != line.MatchedBaseQuantity)
+                {
+                    return Result.Failure<CrossDockPlanDto>(WmsErrors.Conflict(
+                        "crossdock.reservation_incomplete",
+                        $"Only {(reservation.ActiveQuantity + reservation.ConsumedQuantity).ToString(CultureInfo.InvariantCulture)} of {line.MatchedBaseQuantity.ToString(CultureInfo.InvariantCulture)} matched units are reserved; no pick work was released."));
+                }
+
+                if (line.Status == CrossDockPlanLineStatus.ReservationPending)
+                {
+                    orderLine.RecordAllocation(line.MatchedBaseQuantity);
+                    order.SetAllocationStatus(order.Lines.All(value => value.BackorderBaseQuantity == 0m)
+                        ? SalesOrderStatus.Released
+                        : SalesOrderStatus.PartiallyAllocated);
+                    line.MarkWorkPending();
+                    plan.MarkWorkPending();
+                    await context.SaveChangesAsync(cancellationToken);
+                }
+
+                foreach (var allocation in reservation.Allocations
+                             .Where(value => value.RemainingQuantity > 0m)
+                             .OrderBy(value => value.AllocationId))
+                {
+                    var workResult = await warehouseWorkService.CreateForAllocationAsync(
+                        new WarehouseWorkInput(
+                            CreationKey: $"crossdock:{plan.Id}:line:{line.Sequence}:reservation:{reservation.ReservationId}:allocation:{allocation.AllocationId}",
+                            Type: WarehouseWorkType.Pick,
+                            WarehouseId: plan.WarehouseId,
+                            SourceEntityType: "SalesOrderLine",
+                            SourceEntityId: orderLine.Id.ToString(CultureInfo.InvariantCulture),
+                            Priority: order.Priority,
+                            SourceLineReference: $"CROSSDOCK:{plan.PlanNumber}:{line.Sequence.ToString(CultureInfo.InvariantCulture)}:{order.DocumentNumber}:{orderLine.LineNumber.ToString(CultureInfo.InvariantCulture)}",
+                            QueueCode: "PICK",
+                            DueAtUtc: order.RequestedShipDate.HasValue
+                                ? DateTime.SpecifyKind(
+                                    order.RequestedShipDate.Value.ToDateTime(TimeOnly.MaxValue),
+                                    DateTimeKind.Utc)
+                                : null,
+                            Notes: $"Cross-dock plan {plan.PlanNumber}",
+                            MakeAvailable: true,
+                            Lines:
+                            [
+                                new WarehouseWorkLineInput(
+                                    Sequence: 1,
+                                    WarehouseId: plan.WarehouseId,
+                                    ItemId: line.ItemId,
+                                    PlannedQuantity: allocation.RemainingQuantity,
+                                    BaseUnitOfMeasure: allocation.BaseUnitOfMeasure,
+                                    SourceLocationId: allocation.LocationId,
+                                    DestinationLocationId: plan.DestinationLocationId,
+                                    LotId: allocation.LotId,
+                                    SerialNumberId: allocation.SerialNumberId,
+                                    SerialNumber: allocation.SerialNumber,
+                                    LicensePlateId: allocation.LicensePlateId,
+                                    InventoryStatusId: allocation.InventoryStatusId,
+                                    SourceReference: $"crossdock-plan:{plan.Id}:line:{line.Sequence}",
+                                    ReservationId: reservation.ReservationId,
+                                    ReservationAllocationId: allocation.AllocationId,
+                                    OwnerKind: allocation.OwnerKind,
+                                    InventoryOwnerId: allocation.InventoryOwnerId,
+                                    OwnerCodeSnapshot: allocation.OwnerCodeSnapshot)
+                            ]),
+                        userId,
+                        cancellationToken);
+                    if (workResult.IsFailure)
+                    {
+                        return workResult.ToFailure<CrossDockPlanDto>();
+                    }
+                }
+            }
+
+            var putawayResult = await EnsureFallbackPutawayAsync(
+                plan,
+                userId,
+                cancellationToken);
+            if (putawayResult.IsFailure)
+            {
+                return putawayResult.ToFailure<CrossDockPlanDto>();
+            }
+
+            plan.MarkWorkPending();
+            await context.SaveChangesAsync(cancellationToken);
+            return Result.Success(Map(plan));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result.Failure<CrossDockPlanDto>(WmsErrors.Concurrency(
+                "crossdock.execution_concurrency_conflict",
+                "Cross-dock execution changed concurrently. Reload the plan and retry."));
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Result.Failure<CrossDockPlanDto>(WmsErrors.Forbidden(
+                "crossdock.execution_forbidden",
+                exception.Message));
+        }
+        catch (ArgumentException exception)
+        {
+            return Result.Failure<CrossDockPlanDto>(WmsErrors.Validation(
+                "crossdock.execution_invalid",
+                exception.Message));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Result.Failure<CrossDockPlanDto>(WmsErrors.BusinessRule(
+                "crossdock.execution_invalid",
+                exception.Message));
+        }
     }
 
     public async Task<Result<CrossDockPlanDto>> CancelAsync(
@@ -480,10 +758,142 @@ public sealed class CrossDockService(
         CancellationToken cancellationToken) =>
         await context.CrossDockPlans
             .Include(plan => plan.Receipt)
+            .Include(plan => plan.ReceiptLine)
             .Include(plan => plan.Item)
             .Include(plan => plan.Policy)
             .Include(plan => plan.Lines)
+                .ThenInclude(line => line.SalesOrderLine)
+                    .ThenInclude(line => line.SalesOrder)
             .SingleOrDefaultAsync(plan => plan.Id == planId, cancellationToken);
+
+    private async Task<InventoryReservationSelector> CreateReservationSelectorAsync(
+        CrossDockPlan plan,
+        CancellationToken cancellationToken)
+    {
+        int? lotId = null;
+        if (!string.IsNullOrWhiteSpace(plan.LotNumber))
+        {
+            lotId = await context.Lots
+                .Where(lot => lot.ItemId == plan.ItemId && lot.Number == plan.LotNumber)
+                .Select(lot => (int?)lot.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (!lotId.HasValue)
+            {
+                throw new InvalidOperationException(
+                    $"Receipt lot '{plan.LotNumber}' could not be resolved for cross-dock reservation.");
+            }
+        }
+
+        int? serialNumberId = null;
+        if (!string.IsNullOrWhiteSpace(plan.SerialNumber))
+        {
+            serialNumberId = await context.SerialNumbers
+                .Where(serial => serial.ItemId == plan.ItemId && serial.Number == plan.SerialNumber)
+                .Select(serial => (int?)serial.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (!serialNumberId.HasValue)
+            {
+                throw new InvalidOperationException(
+                    $"Receipt serial '{plan.SerialNumber}' could not be resolved for cross-dock reservation.");
+            }
+        }
+
+        return new InventoryReservationSelector(
+            LocationId: plan.SourceLocationId,
+            LotId: lotId,
+            SerialNumberId: serialNumberId,
+            SerialNumber: plan.SerialNumber,
+            LicensePlateId: plan.LicensePlateId,
+            InventoryStatusId: plan.InventoryStatusId,
+            BaseUnitOfMeasure: plan.BaseUnitOfMeasure,
+            OwnerKind: plan.ReceiptLine.OwnerKind,
+            InventoryOwnerId: plan.ReceiptLine.InventoryOwnerId,
+            OwnerCodeSnapshot: plan.ReceiptLine.OwnerCodeSnapshot);
+    }
+
+    private async Task<Result> EnsureFallbackPutawayAsync(
+        CrossDockPlan plan,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        var movementKey = $"crossdock:{plan.Id.ToString(CultureInfo.InvariantCulture)}:fallback";
+        var expectedCreationKey = $"receipt:{plan.ReceiptId.ToString(CultureInfo.InvariantCulture)}" +
+                                  $":line:{plan.ReceiptLineId.ToString(CultureInfo.InvariantCulture)}" +
+                                  $":movement:{movementKey}";
+        var existingFallback = await context.WarehouseWorks
+            .Include(work => work.Lines)
+            .SingleOrDefaultAsync(
+                work => work.WarehouseId == plan.WarehouseId &&
+                        work.CreationKey == expectedCreationKey,
+                cancellationToken);
+        if (existingFallback is not null &&
+            existingFallback.Lines.Sum(line => line.PlannedQuantity) != plan.FallbackBaseQuantity)
+        {
+            return Result.Failure(WmsErrors.Conflict(
+                "crossdock.fallback_putaway_quantity_conflict",
+                "The existing fallback putaway quantity differs from this cross-dock plan."));
+        }
+
+        var receiptLineId = plan.ReceiptLineId.ToString(CultureInfo.InvariantCulture);
+        var activePutaway = await context.WarehouseWorks
+            .Include(work => work.Lines)
+            .Where(work => work.WarehouseId == plan.WarehouseId &&
+                           work.Type == WarehouseWorkType.Putaway &&
+                           work.SourceEntityType == "ReceiptLine" &&
+                           work.SourceEntityId == receiptLineId &&
+                           work.Status != WarehouseWorkStatus.Completed &&
+                           work.Status != WarehouseWorkStatus.Cancelled &&
+                           work.CreationKey != expectedCreationKey)
+            .OrderBy(work => work.Id)
+            .ToArrayAsync(cancellationToken);
+        foreach (var putaway in activePutaway)
+        {
+            var cancelled = await warehouseWorkService.CancelAsync(
+                putaway.Id,
+                new WarehouseWorkCommandInput(
+                    $"crossdock:{plan.Id.ToString(CultureInfo.InvariantCulture)}:cancel-putaway:{putaway.Id.ToString(CultureInfo.InvariantCulture)}",
+                    $"Receipt quantity was split by cross-dock plan {plan.PlanNumber}."),
+                userId,
+                cancellationToken);
+            if (cancelled.IsFailure)
+            {
+                return Result.Failure(cancelled.Errors);
+            }
+        }
+
+        if (plan.FallbackBaseQuantity <= 0m || existingFallback is not null)
+        {
+            return Result.Success();
+        }
+
+        var selector = await CreateReservationSelectorAsync(plan, cancellationToken);
+        var putawayResult = await warehouseWorkService.EnsurePutawayForReceiptAsync(
+            new PutawayWorkGenerationInput(
+                plan.ReceiptId,
+                plan.ReceiptLineId,
+                plan.WarehouseId,
+                plan.ItemId,
+                plan.FallbackBaseQuantity,
+                plan.BaseUnitOfMeasure,
+                plan.SourceLocationId,
+                plan.LicensePlateId,
+                selector.LotId,
+                selector.SerialNumberId,
+                plan.SerialNumber,
+                plan.InventoryStatusId,
+                plan.PlanNumber,
+                movementKey,
+                QualityInspectionPending: false,
+                Notes: $"Fallback quantity from cross-dock plan {plan.PlanNumber}",
+                OwnerKind: plan.ReceiptLine.OwnerKind,
+                InventoryOwnerId: plan.ReceiptLine.InventoryOwnerId,
+                OwnerCodeSnapshot: plan.ReceiptLine.OwnerCodeSnapshot),
+            userId,
+            cancellationToken);
+        return putawayResult.IsFailure
+            ? Result.Failure(putawayResult.Errors)
+            : Result.Success();
+    }
 
     private async Task ValidateReferencesAsync(
         CrossDockPolicyInput input,
