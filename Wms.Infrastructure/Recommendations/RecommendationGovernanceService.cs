@@ -1097,66 +1097,66 @@ public sealed class RecommendationGovernanceService(
         switch (type)
         {
             case RecommendationType.Replenishment:
-            {
-                var inventory = await warehouseAccessService.AuthorizeAsync(
-                    WmsPermissions.InventoryRead,
-                    warehouseId,
-                    cancellationToken);
-                return inventory.IsFailure
-                    ? inventory
-                    : await warehouseAccessService.AuthorizeAsync(
-                        WmsPermissions.WorkManage,
-                        warehouseId,
-                        cancellationToken);
-            }
-            case RecommendationType.Slotting:
-            {
-                var inventoryAdjust = await warehouseAccessService.AuthorizeAsync(
-                    WmsPermissions.InventoryAdjust,
-                    warehouseId,
-                    cancellationToken);
-                return inventoryAdjust.IsFailure
-                    ? inventoryAdjust
-                    : await warehouseAccessService.AuthorizeAsync(
+                {
+                    var inventory = await warehouseAccessService.AuthorizeAsync(
                         WmsPermissions.InventoryRead,
                         warehouseId,
                         cancellationToken);
-            }
+                    return inventory.IsFailure
+                        ? inventory
+                        : await warehouseAccessService.AuthorizeAsync(
+                            WmsPermissions.WorkManage,
+                            warehouseId,
+                            cancellationToken);
+                }
+            case RecommendationType.Slotting:
+                {
+                    var inventoryAdjust = await warehouseAccessService.AuthorizeAsync(
+                        WmsPermissions.InventoryAdjust,
+                        warehouseId,
+                        cancellationToken);
+                    return inventoryAdjust.IsFailure
+                        ? inventoryAdjust
+                        : await warehouseAccessService.AuthorizeAsync(
+                            WmsPermissions.InventoryRead,
+                            warehouseId,
+                            cancellationToken);
+                }
             case RecommendationType.WorkloadPriority:
                 return await warehouseAccessService.AuthorizeAsync(
                     WmsPermissions.WorkExecute,
                     warehouseId,
                     cancellationToken);
             case RecommendationType.ExceptionResolution:
-            {
-                var inbound = await warehouseAccessService.AuthorizeAsync(
-                    WmsPermissions.AdvanceShippingNoticesManage,
-                    warehouseId,
-                    cancellationToken);
-                if (inbound.IsSuccess)
                 {
-                    return inbound;
-                }
-
-                var outbound = await warehouseAccessService.AuthorizeAsync(
-                    WmsPermissions.SalesOrdersManage,
-                    warehouseId,
-                    cancellationToken);
-                return outbound.IsSuccess ? outbound : inbound;
-            }
-            case RecommendationType.RiskSummary:
-            {
-                var inventory = await warehouseAccessService.AuthorizeAsync(
-                    WmsPermissions.InventoryRead,
-                    warehouseId,
-                    cancellationToken);
-                return inventory.IsFailure
-                    ? inventory
-                    : await warehouseAccessService.AuthorizeAsync(
-                        WmsPermissions.ForecastingRecalculate,
+                    var inbound = await warehouseAccessService.AuthorizeAsync(
+                        WmsPermissions.AdvanceShippingNoticesManage,
                         warehouseId,
                         cancellationToken);
-            }
+                    if (inbound.IsSuccess)
+                    {
+                        return inbound;
+                    }
+
+                    var outbound = await warehouseAccessService.AuthorizeAsync(
+                        WmsPermissions.SalesOrdersManage,
+                        warehouseId,
+                        cancellationToken);
+                    return outbound.IsSuccess ? outbound : inbound;
+                }
+            case RecommendationType.RiskSummary:
+                {
+                    var inventory = await warehouseAccessService.AuthorizeAsync(
+                        WmsPermissions.InventoryRead,
+                        warehouseId,
+                        cancellationToken);
+                    return inventory.IsFailure
+                        ? inventory
+                        : await warehouseAccessService.AuthorizeAsync(
+                            WmsPermissions.ForecastingRecalculate,
+                            warehouseId,
+                            cancellationToken);
+                }
             default:
                 return Result.Failure(WmsErrors.Validation(
                     "recommendation.type_invalid",
