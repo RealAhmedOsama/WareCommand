@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
 using Npgsql;
+using Wms.Application.DataGeneration;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.ValueObjects;
@@ -33,6 +34,27 @@ public sealed class PostgreSqlBrowserJourneyTests
             "WARECOMMAND_TEST_POSTGRES_CONNECTION")!;
         await using var database = new PostgreSqlTestDatabase();
         await database.InitializeAsync();
+        var generatedDataset = await DeterministicPostgreSqlDataGenerationFixture.WriteWithActorCredentialsAsync(
+            database,
+            new DataGenerationRequest(
+                WmsDataGenerationProfiles.FullDemo,
+                "issue-129-browser-full-demo-en",
+                Environment: "Testing",
+                Locale: "en-US"));
+        Assert.Equal(WmsDataGenerationProfiles.FullDemo, generatedDataset.Report.Profile);
+        Assert.True(generatedDataset.Report.ReconciliationClean);
+        string generatedItemSku;
+        using (var context = database.CreateContext())
+        {
+            var stockRows = await context.Stock.AsNoTracking()
+                .Include(stock => stock.Item)
+                .ToArrayAsync();
+            generatedItemSku = stockRows
+                .Where(stock => stock.QuantityAvailable.Value > 0m)
+                .OrderBy(stock => stock.Item.Sku, StringComparer.Ordinal)
+                .Select(stock => stock.Item.Sku)
+                .First();
+        }
 
         var browserConnectionBuilder = new NpgsqlConnectionStringBuilder(database.TestConnectionString)
         {
@@ -50,6 +72,7 @@ public sealed class PostgreSqlBrowserJourneyTests
         BrowserTestHost? host = null;
         IPlaywright? playwright = null;
         IBrowser? browser = null;
+        IBrowserContext? generatedDatasetContext = null;
         IPage? page = null;
         var events = new ConcurrentQueue<BrowserEvidenceEvent>();
         var expectedNetworkConsoleErrors = new ConcurrentQueue<string>();
@@ -124,6 +147,31 @@ public sealed class PostgreSqlBrowserJourneyTests
             {
                 Headless = true
             });
+            generatedDatasetContext = await browser.NewContextAsync(new BrowserNewContextOptions
+            {
+                ViewportSize = new ViewportSize { Width = 1366, Height = 768 },
+                Locale = "en-US",
+                ServiceWorkers = ServiceWorkerPolicy.Allow
+            });
+            var generatedDatasetPage = await generatedDatasetContext.NewPageAsync();
+            generatedDatasetPage.SetDefaultTimeout(20_000);
+            activeCase = "deterministic-generated-dataset-browser-inventory";
+            await LoginAsync(
+                generatedDatasetPage,
+                host.Origin,
+                generatedDataset.ActorCredentials.UserName,
+                generatedDataset.ActorCredentials.Password);
+            var generatedInventoryResponse = await generatedDatasetPage.GotoAsync(
+                LocalizedUrl(
+                    host.Origin,
+                    "/Inventory?searchTerm=" + Uri.EscapeDataString(generatedItemSku),
+                    "en-US"));
+            Assert.NotNull(generatedInventoryResponse);
+            Assert.Equal(HttpStatusCode.OK, (HttpStatusCode)generatedInventoryResponse!.Status);
+            Assert.Contains(generatedItemSku, await generatedDatasetPage.Locator("body").InnerTextAsync(), StringComparison.Ordinal);
+            await generatedDatasetContext.CloseAsync();
+            generatedDatasetContext = null;
+
             var contextOptions = await browser.NewContextAsync(new BrowserNewContextOptions
             {
                 ViewportSize = new ViewportSize { Width = 1366, Height = 768 },
@@ -393,7 +441,7 @@ public sealed class PostgreSqlBrowserJourneyTests
             var scanInput = page.Locator("#receiving-session-scan");
             Assert.True(await scanInput.IsEnabledAsync());
             await scanInput.FocusAsync();
-            await page.Keyboard.TypeAsync(firstScenario.ItemSku);
+            await scanInput.PressSequentiallyAsync(firstScenario.ItemSku);
             Assert.True(
                 string.Equals(
                     await scanInput.InputValueAsync(),
@@ -690,6 +738,11 @@ public sealed class PostgreSqlBrowserJourneyTests
 
             if (browser is not null)
             {
+                if (generatedDatasetContext is not null)
+                {
+                    await generatedDatasetContext.CloseAsync();
+                }
+
                 await browser.CloseAsync();
             }
 
@@ -699,11 +752,11 @@ public sealed class PostgreSqlBrowserJourneyTests
         }
     }
 
-    private static async Task LoginAsync(IPage page, string origin, string userName)
+    private static async Task LoginAsync(IPage page, string origin, string userName, string? password = null)
     {
         await page.GotoAsync(LocalizedUrl(origin, "/Account/Login", "en-US"));
         await page.Locator("#UserName").FillAsync(userName);
-        await page.Locator("#Password").FillAsync(TestPassword);
+        await page.Locator("#Password").FillAsync(password ?? TestPassword);
         await page.Locator("form button[type='submit']").ClickAsync();
         await page.WaitForURLAsync(url =>
             !url.Contains("/Account/Login", StringComparison.Ordinal));

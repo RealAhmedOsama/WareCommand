@@ -62,13 +62,17 @@ fingerprints and counts, and also write the English and Arabic demo profiles
 plus the Arabic edge-case profile. They check actual row counts, localized
 persisted warehouse names, document and inventory links, and clean
 reconciliation. A second write to the populated schema is rejected before it
-can duplicate the seed. The plan contract fixes `large-performance` at scale 1
+can duplicate the seed. The shared writer appends each successful report when
+`WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH` is set, so PostgreSQL browser,
+dashboard, journey, and resilience groups include the same actual counts and
+reconciliation results in their runner output. The plan contract fixes
+`large-performance` at scale 1
 (10 warehouses, 5,000 locations, 10,000 items, 50,000 documents, and 100,000
 inventory rows); routine CI does not materialize that explicit capacity-sized
 dataset.
 
 This group qualifies deterministic provider-backed fixture generation. It is
 not a production seed path or a production/staging qualification result. Use
-the separate browser and load qualification gates for those workflows; they
-must consume a generated dataset before their evidence can be considered
-complete.
+the separate browser and load qualification gates for those workflows. Both
+consume this writer rather than maintaining duplicate seed logic, and the
+browser journey queries a generated inventory item through authenticated HTTP.

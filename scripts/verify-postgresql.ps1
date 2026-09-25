@@ -125,7 +125,11 @@ $resilienceReportPath = $null
 $performanceReportPath = $null
 $performanceEvidence = $null
 $verificationFailure = $null
-if ($selectedGroupNames -contains 'data-generation') {
+if ($selectedGroupNames -contains 'data-generation' -or
+    $selectedGroupNames -contains 'dashboard' -or
+    $selectedGroupNames -contains 'browser' -or
+    $selectedGroupNames -contains 'journeys' -or
+    $selectedGroupNames -contains 'resilience') {
     $dataGenReportPath = Join-Path ([System.IO.Path]::GetTempPath()) "warecommand-data-generation-$([Guid]::NewGuid().ToString('N')).json"
     $env:WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH = $dataGenReportPath
 }
@@ -295,15 +299,15 @@ try {
     }
     $performanceConfiguration = $null
     if ($Group -eq 'performance') {
-        $performanceConcurrencyLevels = @(1, 4, 20)
+        $performanceRequestedConcurrencyLevels = @(1, 4, 20)
         if ($ExtendedContention.IsPresent) {
-            $performanceConcurrencyLevels = @(1, 4, 20, 50, 100)
+            $performanceRequestedConcurrencyLevels = @(1, 4, 20, 50, 100)
         }
         $performanceConfiguration = [pscustomobject]@{
             repeats = $PerformanceRepeats
             samplesPerConcurrencyLevel = $PerformanceSamples
             extendedContentionRequested = $ExtendedContention.IsPresent
-            concurrencyLevels = $performanceConcurrencyLevels
+            requestedConcurrencyLevels = $performanceRequestedConcurrencyLevels
         }
     }
     $evidence = [pscustomobject]@{

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Wms.Application.DataGeneration;
 
@@ -7,9 +6,6 @@ namespace Wms.Infrastructure.Tests.Integration;
 
 public sealed class PostgreSqlDataGenerationTests
 {
-    private static readonly JsonSerializerOptions EvidenceSerializerOptions = new() { WriteIndented = true };
-    private static readonly object EvidenceGate = new();
-
     [PostgreSqlFact]
     public async Task SameSeedProducesEquivalentServiceBackedDatasetsInSeparateSchemas()
     {
@@ -25,7 +21,6 @@ public sealed class PostgreSqlDataGenerationTests
             Locale: "ar-EG");
         var first = await DeterministicPostgreSqlDataGenerationFixture.WriteAsync(firstTarget, request);
         var second = await DeterministicPostgreSqlDataGenerationFixture.WriteAsync(secondTarget, request);
-        WriteDataGenerationEvidence(first, second);
 
         Assert.Equal(first.SeedFingerprint, second.SeedFingerprint);
         Assert.Equal(first.GeneratorVersion, second.GeneratorVersion);
@@ -91,7 +86,6 @@ public sealed class PostgreSqlDataGenerationTests
     [PostgreSqlFact]
     public async Task DemoAndEdgeCaseProfilesPopulateEnglishAndArabicJourneys()
     {
-        var reports = new List<DataGenerationRunReport>();
         var cases = new[]
         {
             (Profile: WmsDataGenerationProfiles.FullDemo, Seed: "issue-129-demo-en", Locale: "en-US", Warehouses: 2, Locations: 80, Items: 250, InventoryRows: 400),
@@ -110,8 +104,6 @@ public sealed class PostgreSqlDataGenerationTests
                     profileCase.Seed,
                     Environment: "Testing",
                     Locale: profileCase.Locale));
-            reports.Add(report);
-
             Assert.Equal(profileCase.Profile, report.Profile);
             Assert.Equal(profileCase.Warehouses, report.ActualCounts["warehouses"]);
             Assert.Equal(profileCase.Locations, report.ActualCounts["locations"]);
@@ -143,8 +135,6 @@ public sealed class PostgreSqlDataGenerationTests
                 Assert.True(report.ActualCounts["owners"] > 0);
             }
         }
-
-        WriteDataGenerationEvidence(reports.ToArray());
     }
 
     [PostgreSqlFact]
@@ -197,28 +187,4 @@ public sealed class PostgreSqlDataGenerationTests
         Assert.Empty(await context.Users.ToArrayAsync());
     }
 
-    private static void WriteDataGenerationEvidence(params DataGenerationRunReport[] reports)
-    {
-        var path = Environment.GetEnvironmentVariable("WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH");
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
-
-        lock (EvidenceGate)
-        {
-            var existingReports = File.Exists(path)
-                ? JsonSerializer.Deserialize<DataGenerationEvidenceEnvelope>(
-                    File.ReadAllText(path),
-                    EvidenceSerializerOptions)?.Reports ?? []
-                : [];
-            var json = JsonSerializer.Serialize(
-                new DataGenerationEvidenceEnvelope(existingReports.Concat(reports).ToArray()),
-                EvidenceSerializerOptions);
-            File.WriteAllText(path, json);
-        }
-    }
-
-    private sealed record DataGenerationEvidenceEnvelope(
-        [property: JsonPropertyName("reports")] IReadOnlyList<DataGenerationRunReport> Reports);
 }

@@ -82,6 +82,8 @@ public sealed class DataGenerationActorCredentials(
 /// </summary>
 public sealed class DeterministicPostgreSqlDataGenerationFixture
 {
+    private static readonly JsonSerializerOptions EvidenceSerializerOptions = new() { WriteIndented = true };
+    private static readonly object EvidenceGate = new();
     private static readonly DateTimeOffset SeededAt =
         new(2026, 1, 15, 12, 0, 0, TimeSpan.Zero);
 
@@ -558,6 +560,7 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
             reconciliation.IsClean,
             reconciliation.IssueCount,
             reconciliation.TransactionsScanned);
+        AppendEvidence(report);
         return new DataGenerationFixtureResult(
             report,
             new DataGenerationActorCredentials(
@@ -565,6 +568,31 @@ public sealed class DeterministicPostgreSqlDataGenerationFixture
                 scenario.Actor.UserName!,
                 scenario.ActorPassword));
     }
+
+    private static void AppendEvidence(DataGenerationRunReport report)
+    {
+        var path = Environment.GetEnvironmentVariable("WARECOMMAND_DATA_GENERATION_EVIDENCE_PATH");
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        lock (EvidenceGate)
+        {
+            var existingReports = File.Exists(path)
+                ? JsonSerializer.Deserialize<DataGenerationEvidenceEnvelope>(
+                    File.ReadAllText(path),
+                    EvidenceSerializerOptions)?.Reports ?? []
+                : [];
+            var json = JsonSerializer.Serialize(
+                new DataGenerationEvidenceEnvelope(existingReports.Append(report).ToArray()),
+                EvidenceSerializerOptions);
+            File.WriteAllText(path, json);
+        }
+    }
+
+    private sealed record DataGenerationEvidenceEnvelope(
+        [property: JsonPropertyName("reports")] IReadOnlyList<DataGenerationRunReport> Reports);
 
     private static ServiceProvider BuildServiceProvider(
         string connectionString,
