@@ -10,8 +10,8 @@ using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Receiving;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
-using Wms.Domain.Repositories;
 using Wms.Domain.Receiving;
+using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 
