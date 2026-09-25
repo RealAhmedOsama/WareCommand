@@ -128,6 +128,60 @@ public sealed class InventoryLedgerServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RecordAsyncResolvesWarehouseScopeOnceForAllLedgerReads()
+    {
+        await _service.RecordAsync(
+        [
+            new InventoryLedgerEntryRequest(
+                InventoryTransactionType.Receipt,
+                CreateKey(_sourceLocation, InventoryStatusSystemIds.Available),
+                3m,
+                ActorUserId: "user-1",
+                IdempotencyKey: "scope-once-1",
+                TransactionGroupId: "scope-once-group-1"),
+            new InventoryLedgerEntryRequest(
+                InventoryTransactionType.Receipt,
+                CreateKey(_destinationLocation, InventoryStatusSystemIds.Available),
+                4m,
+                ActorUserId: "user-1",
+                IdempotencyKey: "scope-once-2",
+                TransactionGroupId: "scope-once-group-2")
+        ]);
+
+        _warehouseAccess.Verify(
+            service => service.GetScopeAsync(It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task RecordAsyncRejectsWarehouseOutsideResolvedScope()
+    {
+        _warehouseAccess
+            .Setup(service => service.GetScopeAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WarehouseAccessScope(
+                false,
+                new HashSet<int> { _warehouse.Id + 1 }));
+
+        var act = () => _service.RecordAsync(
+        [
+            new InventoryLedgerEntryRequest(
+                InventoryTransactionType.Receipt,
+                CreateKey(_sourceLocation, InventoryStatusSystemIds.Available),
+                3m,
+                ActorUserId: "user-1",
+                IdempotencyKey: "outside-scope-1",
+                TransactionGroupId: "outside-scope-group-1")
+        ]);
+
+        await act.Should().ThrowAsync<UnauthorizedAccessException>();
+        (await _context.InventoryBalances.CountAsync()).Should().Be(0);
+        (await _context.InventoryTransactions.CountAsync()).Should().Be(0);
+        _warehouseAccess.Verify(
+            service => service.GetScopeAsync(It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task RecordAsyncKeepsCompanyAndExternalOwnerBalancesSeparate()
     {
         var externalOwner = new InventoryOwner(

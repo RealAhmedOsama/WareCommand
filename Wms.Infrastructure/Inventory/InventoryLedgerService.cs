@@ -77,7 +77,9 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
         foreach (var request in orderedEntries)
         {
             EnsureWarehouseScope(scope, request.Key.WarehouseId);
-            await EnsureDimensionExistsAsync(request.Key, cancellationToken);
+            var warehouseAllowsNegative = await EnsureDimensionExistsAsync(
+                request.Key,
+                cancellationToken);
 
             var transactionGroupId = NormalizeOrDefault(
                 request.TransactionGroupId,
@@ -93,9 +95,19 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
                     $"Duplicate inventory ledger entry '{idempotencyKey}'/{request.EntrySequence} was supplied.");
             }
 
-            var existing = await _unitOfWork.InventoryTransactions.GetByIdempotencyAsync(
-                idempotencyKey,
-                request.EntrySequence,
+            // The operation scope was resolved once above and this exact
+            // warehouse was checked before the scoped lookup. Avoid resolving
+            // the same user/warehouse snapshot again in each repository read.
+            var existingQuery = _context.InventoryTransactions.AsQueryable();
+            if (!scope.HasGlobalAccess)
+            {
+                existingQuery = existingQuery.Where(transaction =>
+                    scope.WarehouseIds.Contains(transaction.WarehouseId));
+            }
+
+            var existing = await existingQuery.SingleOrDefaultAsync(
+                transaction => transaction.IdempotencyKey == idempotencyKey &&
+                               transaction.EntrySequence == request.EntrySequence,
                 cancellationToken);
             if (existing is not null)
             {
@@ -103,27 +115,40 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
                 continue;
             }
 
-            var balance = await _unitOfWork.InventoryBalances.GetByDimensionAsync(
-                request.Key,
+            // EnsureWarehouseScope above is the same boundary used by the
+            // repository. Keep the full inventory dimension in this query so
+            // the unit-of-work lookup does not need to resolve scope again.
+            var balance = await _context.InventoryBalances.SingleOrDefaultAsync(
+                candidate => candidate.WarehouseId == request.Key.WarehouseId &&
+                             candidate.LocationId == request.Key.LocationId &&
+                             candidate.ItemId == request.Key.ItemId &&
+                             candidate.LotId == request.Key.LotId &&
+                             candidate.SerialNumberId == request.Key.SerialNumberId &&
+                             candidate.SerialNumber == request.Key.SerialNumber &&
+                             candidate.LicensePlateId == request.Key.LicensePlateId &&
+                             candidate.InventoryStatusId == request.Key.InventoryStatusId &&
+                             candidate.OwnerKind == request.Key.OwnerKind &&
+                             candidate.InventoryOwnerId == request.Key.InventoryOwnerId &&
+                             candidate.BaseUnitOfMeasure == request.Key.BaseUnitOfMeasure,
                 cancellationToken);
             if (balance is null)
             {
                 balance = await CreateBalanceFromLegacyStockAsync(
                     request.Key,
+                    warehouseAllowsNegative
+                        ?? throw new InvalidOperationException(
+                            $"Warehouse {request.Key.WarehouseId} was not found."),
                     cancellationToken);
             }
-
-            var warehouseAllowsNegative = await _context.Warehouses
-                .Where(warehouse => warehouse.Id == request.Key.WarehouseId)
-                .Select(warehouse => warehouse.AllowNegativeStock)
-                .SingleAsync(cancellationToken);
 
             var quantityBefore = balance.OnHandQuantity;
             var reservedQuantityBefore = balance.ReservedQuantity;
             balance.Apply(
                 request.QuantityDelta,
                 request.ReservedQuantityDelta,
-                warehouseAllowsNegative);
+                warehouseAllowsNegative
+                    ?? throw new InvalidOperationException(
+                        $"Warehouse {request.Key.WarehouseId} was not found."));
 
             var transaction = new InventoryTransaction(
                 request.Type,
@@ -255,11 +280,29 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
 
     private async Task<InventoryBalance> CreateBalanceFromLegacyStockAsync(
         InventoryBalanceKey key,
+        bool warehouseAllowsNegative,
         CancellationToken cancellationToken)
     {
-        var existingLegacyStock = await _unitOfWork.InventoryBalances.GetLegacyStockByDimensionAsync(
-            key,
-            cancellationToken);
+        // RecordAsync has already resolved and enforced this operation's
+        // warehouse scope. Keep the legacy lookup in that same boundary
+        // instead of resolving an identical scope snapshot through the
+        // repository for every new balance.
+        var existingLegacyStock = await _context.Stock
+            .SingleOrDefaultAsync(stock =>
+                    stock.Location.WarehouseId == key.WarehouseId &&
+                    stock.ItemId == key.ItemId &&
+                    stock.LocationId == key.LocationId &&
+                    stock.LotId == key.LotId &&
+                    stock.InventoryStatusId == key.InventoryStatusId &&
+                    stock.OwnerKind == key.OwnerKind &&
+                    stock.InventoryOwnerId == key.InventoryOwnerId &&
+                    stock.LicensePlateId == key.LicensePlateId &&
+                    stock.Item.UnitOfMeasure == key.BaseUnitOfMeasure &&
+                    (key.SerialNumberId.HasValue
+                        ? stock.SerialNumberId == key.SerialNumberId ||
+                          (stock.SerialNumberId == null && stock.SerialNumber == key.SerialNumber)
+                        : stock.SerialNumberId == null && stock.SerialNumber == key.SerialNumber),
+                cancellationToken);
         var balance = new InventoryBalance(key);
         await _unitOfWork.InventoryBalances.AddAsync(balance, cancellationToken);
 
@@ -294,10 +337,6 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
             return balance;
         }
 
-        var warehouseAllowsNegative = await _context.Warehouses
-            .Where(warehouse => warehouse.Id == key.WarehouseId)
-            .Select(warehouse => warehouse.AllowNegativeStock)
-            .SingleAsync(cancellationToken);
         balance.Apply(
             legacyOpeningQuantity,
             legacyOpeningReserved,
@@ -334,29 +373,37 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
             "The persisted stock quantity could not be read for ledger cutover.")
     };
 
-    private async Task EnsureDimensionExistsAsync(
+    private async Task<bool?> EnsureDimensionExistsAsync(
         InventoryBalanceKey key,
         CancellationToken cancellationToken)
     {
-        var location = await _context.Locations
+        var dimension = await _context.Locations
             .AsNoTracking()
             .Where(location => location.Id == key.LocationId)
-            .Select(location => new { location.Id, location.WarehouseId })
+            .Select(location => new
+            {
+                location.WarehouseId,
+                ItemExists = _context.Items.Any(item => item.Id == key.ItemId),
+                StatusExists = _context.InventoryStatuses.Any(
+                    status => status.Id == key.InventoryStatusId),
+                WarehouseAllowsNegative = _context.Warehouses
+                    .Where(warehouse => warehouse.Id == location.WarehouseId)
+                    .Select(warehouse => (bool?)warehouse.AllowNegativeStock)
+                    .SingleOrDefault()
+            })
             .SingleOrDefaultAsync(cancellationToken);
-        if (location is null || location.WarehouseId != key.WarehouseId)
+        if (dimension is null || dimension.WarehouseId != key.WarehouseId)
         {
             throw new InvalidOperationException(
                 "The inventory ledger dimension location does not belong to the requested warehouse.");
         }
 
-        if (!await _context.Items.AnyAsync(item => item.Id == key.ItemId, cancellationToken))
+        if (!dimension.ItemExists)
         {
             throw new InvalidOperationException($"Item {key.ItemId} was not found.");
         }
 
-        if (!await _context.InventoryStatuses.AnyAsync(
-                status => status.Id == key.InventoryStatusId,
-                cancellationToken))
+        if (!dimension.StatusExists)
         {
             throw new InvalidOperationException(
                 $"Inventory status {key.InventoryStatusId} was not found.");
@@ -364,7 +411,7 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
 
         if (key.OwnerKind == InventoryOwnerKind.CompanyOwned)
         {
-            return;
+            return dimension.WarehouseAllowsNegative;
         }
 
         var owner = await _context.InventoryOwners
@@ -376,6 +423,8 @@ public sealed class InventoryLedgerService : IInventoryLedgerService
             throw new InvalidOperationException(
                 "The inventory ledger owner dimension is missing, inactive, or does not match its snapshot.");
         }
+
+        return dimension.WarehouseAllowsNegative;
     }
 
     private static void EnsureWarehouseScope(
