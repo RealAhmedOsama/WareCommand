@@ -102,11 +102,6 @@ public sealed class InventoryInquiryService(
 
             var scope = await warehouseAccessService.GetScopeAsync(cancellationToken);
             var balances = BuildQuery(query, scope);
-            if (!await balances.AnyAsync(cancellationToken))
-            {
-                return await SummarizeLegacyStockAsync(query, scope, cancellationToken);
-            }
-
             var summaryRows = await balances
                 .GroupBy(balance => new
                 {
@@ -140,6 +135,11 @@ public sealed class InventoryInquiryService(
                 .OrderBy(summary => summary.Sku)
                 .ThenBy(summary => summary.StatusCode)
                 .ToListAsync(cancellationToken);
+
+            if (summaryRows.Count == 0)
+            {
+                return await SummarizeLegacyStockAsync(query, scope, cancellationToken);
+            }
 
             var summaries = summaryRows
                 .Select(summary => new StockSummaryDto(
