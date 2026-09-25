@@ -1,5 +1,7 @@
+using System.Data.Common;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
 using Wms.Application.Auditing;
 using Wms.Application.Common;
@@ -23,6 +25,7 @@ namespace Wms.Infrastructure.Tests.Receiving;
 public sealed class ReceiptServiceTests : IDisposable
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private readonly SqlCommandCaptureInterceptor _commandCapture = new();
     private readonly Mock<IWarehouseAccessService> _access = new();
     private readonly Mock<IAuditWriter> _audit = new();
     private readonly Mock<IPurchaseOrderService> _purchaseOrders = new();
@@ -41,6 +44,7 @@ public sealed class ReceiptServiceTests : IDisposable
         _connection.Open();
         _context = new WmsDbContext(new DbContextOptionsBuilder<WmsDbContext>()
             .UseSqlite(_connection)
+            .AddInterceptors(_commandCapture)
             .Options);
         _context.Database.EnsureCreated();
 
@@ -148,6 +152,18 @@ public sealed class ReceiptServiceTests : IDisposable
                 !input.QualityInspectionPending),
             "receiver-1",
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task OpenForReceivingLoadsWarehouseLocationAndItemInOneDatabaseCommand()
+    {
+        _commandCapture.Commands.Clear();
+
+        var opened = await _service.OpenForReceivingAsync(CreateReceivingInput(5m), "receiver-1");
+
+        opened.IsSuccess.Should().BeTrue(opened.Error);
+        _commandCapture.Commands.Should().ContainSingle(command =>
+            command.Contains("ReceiptService.OpenForReceivingResources", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -365,5 +381,20 @@ public sealed class ReceiptServiceTests : IDisposable
     private sealed class FixedClock(DateTimeOffset value) : IClock
     {
         public DateTimeOffset UtcNow { get; } = value;
+    }
+
+    private sealed class SqlCommandCaptureInterceptor : DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = [];
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return new ValueTask<InterceptionResult<DbDataReader>>(result);
+        }
     }
 }

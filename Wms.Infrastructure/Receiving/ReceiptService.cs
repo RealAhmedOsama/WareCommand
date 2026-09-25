@@ -280,21 +280,36 @@ public sealed class ReceiptService : IReceiptService
                 "Receipt quantity must be positive."));
         }
 
-        var warehouse = await _context.Warehouses.FirstOrDefaultAsync(
-            candidate => candidate.Id == input.WarehouseId && candidate.IsActive,
-            cancellationToken);
-        if (warehouse is null)
+        var receivingResources = await (
+            from warehouseRow in _context.Warehouses
+            where warehouseRow.Id == input.WarehouseId && warehouseRow.IsActive
+            join locationRow in _context.Locations.Where(location =>
+                    location.Id == input.ReceivingLocationId &&
+                    location.WarehouseId == input.WarehouseId &&
+                    location.IsActive && location.IsReceivable)
+                on 1 equals 1 into eligibleLocations
+            from receivingLocationRow in eligibleLocations.DefaultIfEmpty()
+            join itemRow in _context.Items.Where(candidate =>
+                    candidate.Id == input.ItemId && candidate.IsActive)
+                on 1 equals 1 into activeItems
+            from activeItemRow in activeItems.DefaultIfEmpty()
+            select new
+            {
+                Warehouse = warehouseRow,
+                ReceivingLocation = receivingLocationRow,
+                Item = activeItemRow
+            })
+            .TagWith("ReceiptService.OpenForReceivingResources")
+            .SingleOrDefaultAsync(cancellationToken);
+        if (receivingResources is null || receivingResources.Warehouse is null)
         {
             return Result.Failure<ReceiptReceivingPlan>(WmsErrors.NotFound(
                 "warehouse.not_found",
                 "The receipt warehouse was not found."));
         }
 
-        var receivingLocation = await _context.Locations.FirstOrDefaultAsync(
-            location => location.Id == input.ReceivingLocationId &&
-                        location.WarehouseId == input.WarehouseId &&
-                        location.IsActive && location.IsReceivable,
-            cancellationToken);
+        var warehouse = receivingResources.Warehouse;
+        var receivingLocation = receivingResources.ReceivingLocation;
         if (receivingLocation is null)
         {
             return Result.Failure<ReceiptReceivingPlan>(WmsErrors.Validation(
@@ -302,9 +317,7 @@ public sealed class ReceiptService : IReceiptService
                 "The receipt receiving location is not active or receivable in the selected warehouse."));
         }
 
-        var item = await _context.Items.FirstOrDefaultAsync(
-            candidate => candidate.Id == input.ItemId && candidate.IsActive,
-            cancellationToken);
+        var item = receivingResources.Item;
         if (item is null)
         {
             return Result.Failure<ReceiptReceivingPlan>(WmsErrors.NotFound(
