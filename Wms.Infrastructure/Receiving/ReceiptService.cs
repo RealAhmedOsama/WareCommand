@@ -1607,7 +1607,12 @@ public sealed class ReceiptService : IReceiptService
         var trackedSequence = _context.ChangeTracker
             .Entries<WarehouseNumberSequence>()
             .FirstOrDefault(entry => entry.Entity.WarehouseId == warehouse.Id);
+        // SQLite serializes writes for the whole database, so it must reuse the caller's transaction.
         if (_receiptNumberAllocator is not null &&
+            string.Equals(
+                _context.Database.ProviderName,
+                "Npgsql.EntityFrameworkCore.PostgreSQL",
+                StringComparison.Ordinal) &&
             (trackedSequence is null || trackedSequence.State == EntityState.Unchanged))
         {
             var independentlyAllocatedNumber = await _receiptNumberAllocator.AllocateAsync(
