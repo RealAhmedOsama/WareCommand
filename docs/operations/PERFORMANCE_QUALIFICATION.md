@@ -335,3 +335,37 @@ PostgreSQL integration groups, SQLite-to-PostgreSQL migration, production
 Docker, and secret scan passed. Pull-request dependency review was skipped for
 the direct push. CI does not execute this local performance budget group; keep
 the master capacity gate open.
+
+### Receipt counter update-returning follow-up — 2026-09-25
+
+Commit `ababe694fb468d424eb8cef02b4347077e1b228e` changes the existing
+PostgreSQL receipt-sequence path to one atomic `UPDATE ... RETURNING` statement.
+The previous update, follow-up read, and explicit commit held the sequence row
+lock across additional round trips. The missing-sequence, exhausted-sequence,
+and non-PostgreSQL paths retain their existing behavior. The focused allocator
+test passed 1/1.
+
+The exact-source local profile used PostgreSQL 17, two repeats, ten samples per
+workload, and concurrency 1/4/20. It exited nonzero with 22 budget failures,
+the same count as the prior `6bd664d` profile. All 180 measured HTTP samples in
+each repeat succeeded without errors or conflicts, and both deep reconciliations
+were clean. Receiving p95 at concurrency 1 was 2,605/1,350 ms, at concurrency 4
+1,841/731 ms, and at concurrency 20 2,398/1,584 ms. The prior profile recorded
+1,107/742 ms, 729/980 ms, and 1,566/1,795 ms respectively. Candidate database
+command p95 also varied between 42.23 ms and 23.74 ms across repeats, compared
+with 23.58 ms and 24.84 ms previously. These results do not establish a
+repeatable end-to-end capacity improvement; no budgets or capacity limits
+changed. Keep the master capacity gate open.
+
+Evidence is `%TEMP%\warecommand-postgresql-performance-ababe69.json`.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-ababe69.json')
+```
+
+The local performance group remains outside CI. A green hosted CI run does not
+clear these measured budget misses or establish approved production capacity.

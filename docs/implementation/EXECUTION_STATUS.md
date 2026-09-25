@@ -2,7 +2,7 @@
 
 ## Current checkpoint — 2026-09-25
 
-Code revision under qualification is `6bd664dcc87edc134e04b3ff42019050e4e1b0af`.
+Code revision under qualification is `ababe694fb468d424eb8cef02b4347077e1b228e`.
 The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
 PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
 preserves the caller's SQLite transaction. Commit `64cc727` adds a
@@ -46,6 +46,15 @@ CI does not run the full performance group, so CI does not clear these local
 performance misses or establish capacity. Exact measurements and machine
 boundaries are in
 [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
+
+The receipt-counter follow-up `ababe69` replaces the PostgreSQL sequence
+update/read/commit path with one atomic update-returning statement. Its focused
+allocator test passed 1/1. The exact-source PostgreSQL profile still recorded
+22 budget failures, although all 180 measured HTTP samples in both repeats
+succeeded without errors or conflicts and both deep reconciliations were clean.
+Receiving results varied substantially between repeats and do not establish an
+end-to-end capacity gain; the capacity gate remains open. Exact measurements
+are recorded in [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
 Do not infer production readiness from CI or local results.
 
 Authorization and webhook transport tests passed 30/30 on `6bd664d`; the
