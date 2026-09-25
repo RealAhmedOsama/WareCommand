@@ -82,20 +82,25 @@ public class ReceiveItemUseCase : IReceiveItemUseCase
                 return authorization.ToFailure<ReceiptResultDto>();
             }
 
-            // Validate item exists
-            var item = await _unitOfWork.Items.GetBySkuAsync(request.ItemSku, cancellationToken);
-            if (item == null)
+            // Load the scoped location and item together. The repository keeps
+            // the location hidden outside the caller's warehouse scope.
+            var receivingTarget = await _unitOfWork.Receiving.GetTargetAsync(
+                request.ItemSku,
+                request.LocationCode,
+                cancellationToken);
+            if (receivingTarget is null)
                 return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
                     "item.not_found",
                     $"Item with SKU '{request.ItemSku}' was not found."));
 
+            var item = receivingTarget.Item;
             if (!item.IsActive)
                 return Result.Failure<ReceiptResultDto>(WmsErrors.BusinessRule(
                     "item.inactive",
                     $"Item '{request.ItemSku}' is inactive."));
 
             // Validate location exists and is receivable
-            var location = await _unitOfWork.Locations.GetByCodeAsync(request.LocationCode, cancellationToken);
+            var location = receivingTarget.Location;
             if (location == null)
                 return Result.Failure<ReceiptResultDto>(WmsErrors.NotFound(
                     "location.not_found",

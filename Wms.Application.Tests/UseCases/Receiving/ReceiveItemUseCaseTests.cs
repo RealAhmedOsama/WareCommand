@@ -11,6 +11,7 @@ using Wms.Application.UseCases.Receiving;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
 using Wms.Domain.Repositories;
+using Wms.Domain.Receiving;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 
@@ -20,6 +21,7 @@ public class ReceiveItemUseCaseTests
 {
     private readonly Mock<IItemRepository> _mockItemRepository;
     private readonly Mock<ILocationRepository> _mockLocationRepository;
+    private readonly Mock<IReceivingRepository> _mockReceivingRepository;
     private readonly Mock<ILogger<ReceiveItemUseCase>> _mockLogger;
     private readonly Mock<IStockMovementService> _mockStockMovementService;
     private readonly Mock<ILotService> _mockLotService;
@@ -32,6 +34,7 @@ public class ReceiveItemUseCaseTests
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockItemRepository = new Mock<IItemRepository>();
         _mockLocationRepository = new Mock<ILocationRepository>();
+        _mockReceivingRepository = new Mock<IReceivingRepository>();
         _mockStockMovementService = new Mock<IStockMovementService>();
         _mockLotService = new Mock<ILotService>();
         _mockReceiptService = new Mock<IReceiptService>();
@@ -39,6 +42,24 @@ public class ReceiveItemUseCaseTests
 
         _mockUnitOfWork.Setup(x => x.Items).Returns(_mockItemRepository.Object);
         _mockUnitOfWork.Setup(x => x.Locations).Returns(_mockLocationRepository.Object);
+        _mockUnitOfWork.Setup(x => x.Receiving).Returns(_mockReceivingRepository.Object);
+        _mockReceivingRepository.Setup(x => x.GetTargetAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(async (string itemSku, string locationCode, CancellationToken cancellationToken) =>
+            {
+                var item = await _mockItemRepository.Object.GetBySkuAsync(itemSku, cancellationToken);
+                if (item is null)
+                {
+                    return null;
+                }
+
+                var location = await _mockLocationRepository.Object.GetByCodeAsync(
+                    locationCode,
+                    cancellationToken);
+                return new ReceivingTarget(item, location);
+            });
         _mockReceiptService.Setup(x => x.OpenForReceivingAsync(
                 It.IsAny<ReceiptReceivingInput>(),
                 It.IsAny<string>(),

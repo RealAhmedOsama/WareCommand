@@ -18,6 +18,7 @@ public class UnitOfWork : IUnitOfWork
         _context = context;
         Items = new ItemRepository(context);
         Locations = new LocationRepository(context, warehouseAccessService);
+        Receiving = new ReceivingRepository(context, warehouseAccessService);
         Lots = new LotRepository(context);
         SerialNumbers = new SerialNumberRepository(context);
         InventoryStatuses = new InventoryStatusRepository(context);
@@ -32,6 +33,7 @@ public class UnitOfWork : IUnitOfWork
 
     public IItemRepository Items { get; }
     public ILocationRepository Locations { get; }
+    public IReceivingRepository Receiving { get; }
     public ILotRepository Lots { get; }
     public ISerialNumberRepository SerialNumbers { get; }
     public IInventoryStatusRepository InventoryStatuses { get; }
