@@ -3,7 +3,8 @@
 This is a source map for the next approved UI design phase. It records the web
 surface and operational contracts present in the WareCommand host; it is not a
 visual specification or a statement that every WMS journey is complete. The
-source review was made against the repository after #123 (`b41dec7`).
+source review covers implementation commit `393ac25` and its formatting-only
+correction `5f5d0a5` (2026-09-25).
 
 ## Handoff
 
@@ -19,10 +20,12 @@ source review was made against the repository after #123 (`b41dec7`).
   have authorized service-backed HTTP contracts but no corresponding Razor
   operational screen in this host. They are **API-only** until a screen is
   designed and approved.
-- Reporting assistant, forecasting, anomaly detection, recommendations, and
-  deterministic database generation have application contracts/algorithms but
-  no complete Web-host read/action surface. These are **backend-only/incomplete**
-  and remain assigned to #125–#129. Do not turn them into visual-only work.
+- Reporting assistant, forecasting, anomaly detection, and governed
+  recommendations now have authorized Web API read/action surfaces and service
+  tests. They are **API-only** until their operator screens are designed.
+  Deterministic data generation is a bounded non-production PostgreSQL test
+  fixture, not a customer-facing feature or seeding API. The closed #125–#129
+  implementation slices do not imply visual or release qualification.
 - The result-to-HTTP switches were inconsistent: 23 API controllers could turn
   `BusinessRule` failures into HTTP 500 while peers returned 409. The affected
   switches now map these rejected business/lifecycle outcomes to 409; the
@@ -55,8 +58,8 @@ their routes and do not imply that a screen already exists.
 | Warehouses and locations — **functional screen** | `/Warehouses` list/create/details/edit/configure/activate/deactivate/select; `/Locations` list/create/edit/details/children/generate/import/labels; matching view directories. | `WarehousePageDto`, `WarehouseDto`, `LocationPageDto`, `LocationLabelDto`; warehouse lifecycle/workflow configuration and location CRUD/generation/import. | `warehouse.manage`, `locations.read/manage`; selection exposes only warehouses returned by `IWarehouseAccessService`; services re-check warehouse authorization. | Warehouse/location queries have bounded paging; location list filters by warehouse/search/type/active and sorting is service-defined. Validation is MVC model state plus domain rules. Tests: `WarehouseManagementFlowTests`, `LocationManagementFlowTests`, corresponding service tests, plus cross-warehouse dashboard/inventory tests. | No missing contract for the current forms; visual workflow changes remain for the approved designs. |
 | Suppliers and purchase orders — **functional screen** | `/SupplierMaster` CRUD/details/import/export and `/PurchaseOrderManagement` list/create/details/edit/import; corresponding views. API counterparts: `/api/suppliers`, `/api/purchase-orders`. | `SupplierPageDto` / `SupplierDto`; `PurchaseOrderPageDto` / `PurchaseOrderDto`; supplier resolution, PO create/update/submit/approve/release/cancel/receipt planning/import/export. | `suppliers.read/manage`, `purchase-orders.read/manage`; suppliers/items are master data; PO execution checks its warehouse through the service. | Search/status/supplier/date filters, fixed sort enums, and bounded pages are contract-specific. Domain lifecycle rejects invalid PO transitions; API results carry typed errors and MVC forms surface validation. Tests: supplier and purchase-order service tests; supplier/item/warehouse MVC flows cover the common shell and authorization patterns. | No API-contract gap identified; this host has no dedicated HTTP flow test for each PO transition. |
 | ASN, receipts, receiving, quality, putaway — **functional screen** | `/AdvanceShippingNoticeManagement`, `/ReceiptManagement`, `/Receiving/Receive`, `/Receiving/Putaway`; views under those directories. APIs: `/api/advance-shipping-notices`, `/api/receipts`, `/api/receiving/sessions`, `/api/quality`, `/api/putaway-rules`, `/api/inbound-exceptions`, `/api/inbound/cross-dock`. | `AdvanceShippingNoticePageDto`, `ReceiptPageDto`, `ReceivingSessionDto`, `QualityInspectionPageDto`, `PutawayRulePageDto`; create/submit/arrive/complete ASN, receive/correct/complete receipt, start/scan/pause/resume/complete receiving, inspect/disposition, suggest/execute putaway, and exception/cross-dock commands. | `advance-shipping-notices.read/manage`, `receipts.read/manage`, `receiving.execute`, `quality.read/inspect/manage`, `locations.read`, `work.read/execute/manage`; warehouse-scoped operations authorize their warehouse. | ASN/receipt/inspection/session/work statuses are explicit domain lifecycles. Lists expose filters and bounded pages where the query contract has page fields; scan/command inputs have data annotations and operation/idempotency keys where required. MVC validation and module APIs' `ProblemDetails` are the error surfaces. Tests: ASN, receipt, receiving-execution, quality, putaway-rule, inbound-exception, cross-dock, and putaway-work service tests; `ScanningFlowTests` covers authenticated resolution/invalid scan. | Existing views cover the current receive/putaway/basic receipt workflow. QC, discrepancy, exception, and cross-dock detail screens are API-only. No missing transition contract found in this review. |
-| Picking — **functional screen** | `/Picking`; `Views/Picking/Index.cshtml`. APIs: `/api/outbound/waves`, `/api/outbound/picking-strategies`, `/api/allocations`, `/api/work`, `/api/workforce`, `/api/outbound-exceptions`. | `WavePageDto`, `WarehouseWorkPageDto`, `PickingStrategyPageDto`, allocation/order DTOs; simulate/create/process/cancel wave, allocate/release order, claim/assign/start/exception/complete work, strategy and queue management. | `picking.execute`, `work.read/execute/manage`, `allocation.manage`, `sales-orders.read/manage`; work and inventory commands authorize the selected warehouse. | Query inputs are finite filters/status/typed sort plus bounded page where exposed. Work commands require idempotency keys and use the explicit Open → Available/Assigned → InProgress → Paused/Completed/Exception/Cancelled lifecycle; business-rule failures now map to 409. Tests: `PickingStrategyServiceTests`, `WaveServiceTests`, `SalesOrderAllocationServiceTests`, `WarehouseWorkServiceTests`, pick-work handler and workforce service tests, plus the new HTTP contract tests. | Picking has a screen; wave, allocation, workforce, and exception management do not. Full scanner-to-ship journey remains #130–#131. |
-| Reports — **functional screen** | `/Reports`; `Views/Reports/Index.cshtml`; `ReportsController`. | `ReportPage<T>`, `ReportGroupPageDto`, movement-ledger and report query DTOs; read/export actions only. | `reports.read`; report queries require/validate the authorized warehouse scope. | Search/date/group filters and bounded pages are present for supported reports; deterministic ordering comes from the service query. MVC validation/error handling applies. Tests: `ReportsFlowTests`, inventory/report service tests, and `ApiV1FlowTests` for paged movement reads. | Reporting assistant is not this screen's executor; its missing result/runtime boundary remains #125. |
+| Picking — **functional screen** | `/Picking`; `Views/Picking/Index.cshtml`. APIs: `/api/outbound/waves`, `/api/outbound/picking-strategies`, `/api/allocations`, `/api/work`, `/api/workforce`, `/api/outbound-exceptions`. | `WavePageDto`, `WarehouseWorkPageDto`, `PickingStrategyPageDto`, allocation/order DTOs; simulate/create/process/cancel wave, allocate/release order, claim/assign/start/exception/complete work, strategy and queue management. | `picking.execute`, `work.read/execute/manage`, `allocation.manage`, `sales-orders.read/manage`; work and inventory commands authorize the selected warehouse. | Query inputs are finite filters/status/typed sort plus bounded page where exposed. Work commands require idempotency keys and use the explicit Open → Available/Assigned → InProgress → Paused/Completed/Exception/Cancelled lifecycle; business-rule failures map to 409. Tests: `PickingStrategyServiceTests`, `WaveServiceTests`, `SalesOrderAllocationServiceTests`, `WarehouseWorkServiceTests`, pick-work handler and workforce service tests. #130 records its PostgreSQL journey scope; #131 records the authenticated scanner/dashboard browser scope. | Picking has a screen; wave, allocation, workforce, and exception management do not. Those focused slices do not qualify every scanner route or a physical handheld. |
+| Reports — **functional screen** | `/Reports`; `Views/Reports/Index.cshtml`; `ReportsController`. | `ReportPage<T>`, `ReportGroupPageDto`, movement-ledger and report query DTOs; read/export actions only. | `reports.read`; report queries require/validate the authorized warehouse scope. | Search/date/group filters and bounded pages are present for supported reports; deterministic ordering comes from the service query. MVC validation/error handling applies. Tests: `ReportsFlowTests`, inventory/report service tests, and `ApiV1FlowTests` for paged movement reads. | The separate read-only reporting assistant is API-only at `/api/reporting-assistant/query`; no assistant view or stored conversation history exists. |
 | Administration, settings, audit — **functional screens** | `/Administration`, `/Settings`, `/Audit`; one index view each. Additional service-backed JSON routes: `/api/administration/*`. | `AdministrationModuleDto`, `AdministrationReadinessDto`, `AuditPage`; readiness/history/settings/export/import and audit search/export. | `access.manage`, `settings.manage`, `audit.read`; administration readiness is warehouse-filtered where applicable; settings may be global or warehouse override. | Administration history is paged/bounded; audit filters are allowlisted. Problem responses and MVC validation/errors remain module-specific. Tests: `AdministrationFlowTests`, `SettingsFlowTests`, `AuthorizationFlowTests`, `AdministrationServiceTests`, `AuditEntryTests`. | Existing configuration/readiness screens are functional; integrations/connector-specific operational views remain API-only. |
 | Account and shell — **not applicable to WMS operations** | `/Account/*`, `/Home/*`, retained `Views/Shared/_Layout.cshtml`; sign-in, locale, profile, users/access, privacy and error views. | Identity/profile/user DTOs and forms. The layout links only to the permissions it checks; warehouse selector submits to `POST /Warehouses/Select`. | Identity plus action-level `access.manage` and administrator policies; warehouse selector returns only accessible warehouses. | MVC model state, antiforgery, identity validation and localized errors; account/auth, localization, accessibility and shell tests exercise these flows. | Infrastructure only; menu visibility is not an authorization boundary. Every action retains its own authorization attribute/policy. |
 
@@ -103,22 +106,41 @@ authoritative for exact fields and validation.
 | Bulk exchange, retention, admin API — **API-only** | `/api/bulk`, `/api/retention`, `/api/administration`; import/export execution and retention/readiness/history DTOs; preview/execute/cancel/export, dry-run/purge/restore-policy, client/webhook admin commands. | `settings.manage` or `access.manage` per route; warehouse scope where record-bound. Imports have execution identity/status and cancellation; execution results are idempotent where keys are defined. Tests: `BulkImportServiceTests`, `RetentionServiceTests`, `AdministrationServiceTests` and administration flow tests. | No import execution monitor, retention control, or full admin center beyond the Razor readiness surface. |
 | Versioned API client — **API-only integration boundary** | `/api/v1`: warehouses, items, locations, inventory stock, movement reports, metadata/OpenAPI. | Explicit API client bearer scheme/scopes, not the human cookie; warehouse restrictions checked server-side. Five read resources only; page envelopes expose page/pageSize/count/pages; page size >200 returns `400 api.invalid_paging`; cancellation and allowlisted sort/filter are part of each action query. `ApiV1FlowTests`, `ApiClientSecurityFlowTests`. | Not a browser UI API; no v1 command resources, and it must not be treated as evidence that each operator screen exists. |
 
-## Backend-only and blocked capabilities
+## API-only intelligence and qualification tooling
 
-| Module — classification | Current contract/runtime evidence | Required stable read/action boundary and owner |
+| Module — classification | Current contract/runtime evidence | Visual/runtime boundary |
 |---|---|---|
-| Reporting assistant — **backend-only/incomplete** | Planner/policy contract and tests exist; no executor HTTP route or persisted conversation/read result path. See `Wms.Application/ReportingAssistant/ReportingAssistantContracts.cs` and `docs/modernization/REPORTING_ASSISTANT.md`. | Real, permission/warehouse-revalidated results and safe conversation state remain #125. |
-| Forecasting — **warehouse-scoped backend ready; UI wiring pending** | Deterministic shipment/return history adapter, immutable run/point storage, scheduled/manual recalculation, read/actuals/override routes, and bounded CSV export. See `Wms.Application/Forecasting/ForecastingContracts.cs`, `Wms.Infrastructure/Forecasting/ForecastingService.cs`, and `docs/modernization/FORECASTING.md`. | Future UI can consume versioned runs and separate audited overrides. Supply risk is explicitly limited to available on-hand stock and effective replenishment lead-time policy. |
-| Anomaly detection — **warehouse-scoped backend ready; UI wiring pending** | Nine bounded source adapters, immutable versioned rules/runs/evidence history, stable deduplication, scheduled/manual jobs, warehouse-scoped search/detail/assignment/lifecycle APIs, source-permission redaction, and deduplicated notification-center alerts. See `Wms.Infrastructure/AnomalyDetection/AnomalyDetectionService.cs` and `docs/modernization/ANOMALY_DETECTION.md`. | A future UI can use `/api/anomalies`; source record access remains governed by each module's existing permissions. Localized, browser, handheld, and external-provider qualification remain open. |
-| Recommendations — **API-only** | `/api/recommendations` lists proposals, detail, history, and quality summaries; lifecycle endpoints use revisions, idempotency, warehouse/type permissions, and durable history. Deterministic replenishment, slotting, workforce, exception-hold, and risk-summary proposals revalidate against their WMS sources and execute through existing commands. PostgreSQL HTTP coverage includes replenishment and workload claim. See `Wms.ASP/Controllers/RecommendationsController.cs` and `docs/modernization/RECOMMENDATIONS_GOVERNANCE.md`. | No recommendation UI. Quality summaries track baseline-source matches and command outcomes; measured business lift/calibration, browser and handheld experience, restore/load rehearsal, and production enablement remain separate gates. |
-| Deterministic qualification data — **backend-only/incomplete** | Profile/plan/preview contracts exist, but no database writer/reconciled scenario output. See `Wms.Application/DataGeneration/DataGenerationContracts.cs`, `docs/operations/DATA_GENERATION.md`. | Isolated database writer and coherent qualification profiles remain #129. |
+| Reporting assistant — **API-only** | `POST /api/reporting-assistant/query` plans and executes bounded, read-only answers through six existing report services; permissions and warehouse scope are rechecked for each tool. The response carries typed fields/citations and does not persist raw questions or conversation state. See `Wms.ASP/Controllers/ReportingAssistantController.cs` and `docs/modernization/REPORTING_ASSISTANT.md`. | #125 delivered the executor boundary. No assistant screen, conversation history, or external model/provider is present. |
+| Forecasting — **API-only** | `/api/forecasting` exposes immutable forecast runs/points, actual comparisons, bounded export, recalculation jobs, and separate audited overrides. Forecasts use shipment/return history through a persisted cutoff. See `Wms.ASP/Controllers/ForecastingController.cs` and `docs/modernization/FORECASTING.md`. | #126 delivered the durable runtime. There is no forecast screen. Purchase orders and in-transit inbound supply are excluded; forecast metrics are measured backtest results, not a production accuracy guarantee. |
+| Anomaly detection — **API-only** | `/api/anomalies` exposes bounded source rules, recalculation jobs, findings, assignment, lifecycle, and history. Nine operational source adapters, append-only observations, source-permission redaction, and deduplicated in-app alerts are wired. See `Wms.ASP/Controllers/AnomalyDetectionController.cs` and `docs/modernization/ANOMALY_DETECTION.md`. | #127 delivered the durable runtime. There is no investigation screen; findings do not prove fraud or authorize inventory, account, or worker action. |
+| Governed recommendations — **API-only** | `/api/recommendations` provides type-scoped generation, search/detail/history, review/approve/reject/expire/execute, and bounded quality outcomes. Five deterministic sources revalidate and execute through normal replenishment, slotting, workforce-claim, exception-hold, or forecast commands. See `Wms.ASP/Controllers/RecommendationsController.cs` and `docs/modernization/RECOMMENDATIONS_GOVERNANCE.md`. | #128 delivered the command adapters. No recommendation UI or paid/live provider exists; the registered deterministic provider is disabled by default and shadow-only. Quality outcomes do not claim measured business lift. |
+| Deterministic qualification data — **test fixture only** | `Wms.Application/DataGeneration` defines bounded profiles; `DeterministicPostgreSqlDataGenerationFixture` writes normal-command test journeys into fresh isolated PostgreSQL schemas and reports counts/fingerprints/reconciliation. See `docs/operations/DATA_GENERATION.md`. | #129 delivered the reusable test writer. It is not a customer-facing route, production seed path, or a substitute for the explicit large-capacity workload. |
 
-These are backend gaps, not merely missing visual screens. The operational
-journeys and external qualification still have separate open owners: PostgreSQL
-journeys/reconciliation (#130), remaining authenticated scanner/localization
-browser routes and accessibility qualification (#131), representative
-load/contention (#132), resilience and restore rehearsal (#133), and
-claim-to-evidence documentation reconciliation (#134).
+## Qualification handoff
+
+The stabilization issues close bounded evidence slices, not the entire WMS
+release definition. PostgreSQL #130 recorded 13 scenario reports and 199
+reconciliation checkpoints with no unexpected issues; unsupported scope,
+including cross-dock reservation/work materialization, is recorded in its
+evidence comment. Browser #131 verified the authenticated scanner/picking and
+dashboard journey; the local scanner focus/input case passed 1/1. Physical
+handhelds, all routes, accessibility audits, and partner devices remain
+unverified.
+
+Performance #132 must be read with its measured outcome: 33/48 baseline budget
+evaluations failed and the extended run failed 47/62; 50-way contention was
+admitted and 100-way was classified unsupported. Reconciliation was clean in
+both runs, but the recorded latency budgets were not met. Recovery #133 rehearsed
+response-loss replay, worker restart, dead-letter recovery, PostgreSQL
+serialization retry, and a populated encrypted backup/restore in disposable
+resources; this is not production RPO/RTO evidence.
+
+The source map is ready for the later approved visual-design phase. Master #108
+remains the owner for production migration/deployment, restore ownership,
+independent security/capacity review, partner/handheld acceptance, and any
+provider enablement. A new vendor transport needs a separately selected
+provider/protocol and scoped code issue; missing adapter code is not described
+as a credentials-only blocker.
 
 ## Cross-cutting contract checks
 
@@ -168,8 +190,9 @@ claim-to-evidence documentation reconciliation (#134).
   actual controlled receiving mutation; reviewed operational reads use their
   WMS query services. Connector/provider capability fields explicitly report
   unavailable or contract-only implementations instead of pretending a live
-  connection. This inventory is not a substitute for issue #130's full
-  PostgreSQL reconciliation or #132's representative load evidence.
+  connection. The PostgreSQL journey and load evidence below is bounded to its
+  named scenarios and workload; neither is a claim that every listed module
+  meets the production release gates.
 
 ## Qualification evidence
 
@@ -192,8 +215,26 @@ separate PostgreSQL harness is a different qualification level.
   putaway completion that violates the Open-state lifecycle receives
   `409 work.completion_invalid`; the transaction leaves the work Open, source
   quantity unchanged, destination empty, and movement ledger untouched.
-- Fresh local evidence for this inventory: the selected authenticated ASP flow
-  filter passed 30/30; `WarehouseWorkContractFlowTests` passed 2/2 directly;
-  formatter verification passed for the changed ASP controllers and test file;
-  `git diff --check` was clean. The exact pushed revision and remote CI run are
-  recorded in the issue evidence comment.
+- Original #124 local evidence: the selected authenticated ASP flow filter
+  passed 30/30, `WarehouseWorkContractFlowTests` passed 2/2, and formatter
+  verification passed for the changed controllers/tests. Its exact pushed SHA
+  and CI run remain in the
+  [#124 evidence comment](https://github.com/RealAhmedOsama/WareCommand/issues/124#issuecomment-5796418251).
+- #128 evidence: implementation commit `393ac25`, formatting-only follow-up
+  `5f5d0a5`, and passing exact-SHA
+  [Actions run 36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964).
+  `RecommendationGovernanceServiceTests` passed 7/7; the Release ASP
+  test-project build had 0 warnings/errors; and the authenticated PostgreSQL
+  recommendation HTTP flow passed 1/1 with zero reconciliation issues. Full
+  suite and artifact counts are in the
+  [execution checkpoint](../implementation/EXECUTION_STATUS.md).
+- PostgreSQL #130 recorded 13 scenario reports and 199 checkpoints on its
+  exact revision; unsupported scenarios are excluded from pass counts. Browser
+  #131's local scanner focus/input case passed 1/1. Performance #132 reports
+  33/48 baseline and 47/62 extended budget failures; see the
+  [performance qualification](../operations/PERFORMANCE_QUALIFICATION.md) for
+  the resource decision.
+- The current full Actions run's separate Windows/Linux coverage artifacts,
+  secret-scan artifact, skipped dependency review, exact SHA, and conclusion
+  are recorded in the [execution checkpoint](../implementation/EXECUTION_STATUS.md);
+  these suite results are not added to the focused local counts above.

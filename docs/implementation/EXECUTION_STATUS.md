@@ -1,40 +1,43 @@
 # WareCommand execution status
 
-This tracker is the compact local checkpoint for Master Plan #108. Completed
-locally rows mean the implementation and the applicable local evidence are
-committed; they do not claim deployment, external-provider qualification, or
-remote issue closure. Remote issue/checkpoint synchronization is recorded
-explicitly per row and is performed only after an authorized push.
+## Current checkpoint — 2026-09-25
 
-Audit checkpoint — 2026-09-22: all 106 in-scope issues (#2–#107) have
-committed local evidence. The pushed revision is `86906be`; GitHub issues
-#2–#107 are now synchronized, labeled `completed`, and closed as delivered
-implementation slices. This remote state does not erase the provider, client,
-migration, production, or other external gates listed by the rows.
+Canonical `master` is at code SHA `5f5d0a59300f7b48a7ad31a0b50f0382fcaf609c`:
+recommendation behavior is in `393ac25`, with the Windows formatting correction
+in `5f5d0a5`. Current-SHA Actions run
+[#36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964)
+completed successfully on that exact SHA. Windows, Linux, Docker image build,
+secret scan, and disposable PostgreSQL integration/migration all passed.
+Pull-request dependency review was skipped because the trigger was a direct
+push, not a pull request.
 
-Remote reconciliation — 2026-09-22: historical row text below may still say
-`remote open (pending push)` because it preserves the evidence captured at the
-time of each implementation commit. The current follow-up inventory is
-`docs/implementation/REMAINING_GATES.md`, with focused local workstreams in
-#109–#114 and master-plan roll-up #108. Those follow-up issues must carry fresh
-evidence; #108 is not a production-release sign-off.
+The Windows and Linux jobs each report 782 passed, 77 PostgreSQL provider-gated
+skips, and zero failures; there are no other skips. Each emits separate TRX and
+coverage evidence. The PostgreSQL job passed 75 tests across core (1), harness
+(56), dashboard (3), data-generation (4), journeys (7), resilience (3), and
+browser (1), plus the separate SQLite-to-PostgreSQL migration test (1/1). The
+run's per-assembly counts, coverage, artifact names, and skipped job are in
+[`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md). Do not add
+the independent platform totals together or count the repeated deterministic
+unit checks as a second solution run.
 
-Local follow-up checkpoint — 2026-09-22: #109–#113 have passing local
-qualification packets for their bounded scopes. #114 now has focused ASP flow
-coverage for the registered connector, B2B, bulk-exchange, integration,
-notification, and warehouse-work handler boundaries. These results are local
-implementation evidence only; live transports, partner/device certification,
-production deployment/secrets, independent security review, and capacity
-approval remain separate gates.
+Issue #128's focused local evidence is `RecommendationGovernanceServiceTests`
+7/7, a Release ASP test-project build with zero warnings/errors, and the
+authenticated PostgreSQL recommendation HTTP journey 1/1 with zero deep-
+reconciliation issues. It was closed after the exact-SHA run; the
+[#128 evidence comment](https://github.com/RealAhmedOsama/WareCommand/issues/128#issuecomment-5826763905)
+records the commit chain, test evidence, artifacts, and exclusions. The #134
+documentation checkpoint reconciles the current source, test, UI, connector,
+and release evidence. Master-plan #108 remains open for capacity, production
+deployment/data restore, partner/device acceptance, and independent release
+review.
 
-Tracker evidence checkpoint — 2026-09-22: evidence comments were posted to
-#109, #110, #111, #112, #113, #114, and the reconciliation comment was posted
-to #108. The canonical links and the local-vs-remote revision boundary are
-recorded in `docs/implementation/REMAINING_GATES.md`; issue state is intentionally
-not represented as remotely completed while `origin/master` remains at the
-older revision.
+Historical per-issue rows below preserve the implementation-time evidence and
+status snapshot for audit. A row's `remote open` or `pending push` text is not a
+current GitHub issue-state claim. Current residual owners and their next actions
+are in [`REMAINING_GATES.md`](REMAINING_GATES.md).
 
-| Issue | State | Acceptance evidence | Commit | Dependencies / blocker | Exact next action |
+| Issue | State at historical evidence capture | Acceptance evidence | Commit | Dependencies / blocker | Exact next action |
 | ---: | --- | --- | --- | --- | --- |
 | #2 | verified locally; committed | Restore passed; Debug and Release builds passed with 25 baseline warnings; 147/147 Release tests passed; MVC `/`, `/Dashboard`, `/Items`, `/Inventory` returned 200 against disposable SQLite; WinForms exposed a live main window; reproduction script passed | `f80c431` | Pre-existing untracked `Front-End/` prevents a clean working tree without destroying the supplied package | Upgrade the solution to .NET 10/C# 14 for #3 |
 | #3 | verified locally; committed | .NET 10.0.401 SDK selected; all projects target .NET 10; stable package upgrades restored; Release build and 147/147 tests passed; MVC/WinForms baseline script passed | `342f1da` | Depends on #2; no production deployment or provider qualification claimed | Centralize package versions and establish strict quality gates for #4 |
@@ -146,7 +149,7 @@ older revision.
 | #98 | verified locally; committed; remote open (pending push) | `d1bef01` adds measurable performance budgets for login/dashboard, inventory lookup, receiving scan, allocation, reports, imports, background jobs, and reconciliation; evaluates throughput, p50/p95/p99 latency, error/conflict rates, business outcomes, and reconciliation with required dataset/environment/hardware/revision metadata; `PerformanceBudgetTests` 5/5 passed | `d1bef01` | Depends on #18 telemetry, #21 jobs, #34 ledger, #54 work, #75 reports, #94 invariants, #95 PostgreSQL, #96 journeys, and #102 data generation; committed budget/evaluation foundation, not closure: real benchmark/load runners, representative data, DB/query-plan/GC/pool/backlog metrics, worker scaling, repeated variance, safe defaults, production capacity evidence, push, and remote issue closure remain | Continue with #99; return to #98 after repeatable workload runs establish evidence-backed capacity and scaling limits |
 | #99 | verified locally; committed; remote open (pending push) | `02a9a4b` adds non-production-only resilience scenario/outcome contracts for post-commit response loss, worker restart, permanent-provider dead letter, and backup restore/reconciliation; scenarios declare failure point, classification, retry limit, expected recovery, durable-work/mutation scope, and reconciliation requirement; outcomes reject partial mutations, duplicate business results, unreconciled state, missing durable resume/dead-letter behavior, incomplete diagnostics, and infinite retry; `ResiliencePolicyTests` 5/5 passed | `02a9a4b` | Depends on #21 jobs, #34 idempotency/ledger, #90 outbox/inbox, #94/#95 PostgreSQL/invariants, #96 journeys, #98 telemetry/load, backup/restore, and provider boundaries; committed fault-scenario/recovery-policy foundation, not closure: test-only runtime hooks, real timeout/conflict/restart/storage/provider injection, outbox/job recovery, restore rehearsal, retry/dead-letter metrics, operator runbooks, production-disable proof, push, and remote issue closure remain | Return to #99 after representative failures run against PostgreSQL/workers/providers and restore reconciliation is proven |
 
-## Phase checkpoint
+## Historical phase checkpoints
 - 2026-09-22 broad local completion sweep: #35–#70 passed the focused concurrency/idempotency/reservation/movement/document/operational-core qualification already recorded above; #57–#70 requalification passed 60/60; #71–#75 passed 15/15 scanner/PWA/device/dashboard/report tests; #76–#93 passed 95/95 focused label/return/ownership/VAS/workforce/approval/attachment/notification/retention/API/integration/document tests plus #86 architecture coverage 7/7; #94–#107 passed 47/47 application governance, journey, browser-matrix, performance, resilience, security, data-generation, support, reporting-assistant, forecasting, anomaly, and recommendation tests; the current Debug solution build passed with 0 warnings/0 errors; PostgreSQL 17 integration passed 4/4 in a disposable container. These are local implementation/qualification completions only: provider contention/load, full browser/handheld journeys, external adapters, migration/restore rehearsal, production authorization, push, and remote issue closure remain explicitly open in the issue rows.
 - 2026-09-23 #127 anomaly backend completion: commit `373c7a3da5a7d07674cc43ac8a45bebac93dea8e` passed the complete WareCommand CI run #18, including Linux and Windows solution quality/coverage, PostgreSQL integration/migration, Docker image build, and secret scan; the PostgreSQL dashboard scenario verifies repeated anomaly-run reuse and the 1,001-row source cap. Local focused tests and provider evidence are recorded in the #127 row above. UI, external-provider, load/contention, restore, and production qualification remain separate.
 - 2026-09-23 #128 recommendation-runtime progress: durable, idempotent replenishment proposals now pass current deterministic planning before approval and again inside the normal-work transaction; exact local and PostgreSQL evidence is recorded in the #128 row above. Other recommendation types, calibrated shadow/backtest monitoring, production controls, and broader approval concurrency evidence remain open.

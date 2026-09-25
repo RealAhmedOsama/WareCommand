@@ -1,9 +1,9 @@
 # WareCommand
 
-WareCommand is an early-stage warehouse management system implemented as a
-.NET 10 modular monolith with an ASP.NET Core MVC host and a WinForms desktop
-host. The repository is actively being modernized; local verification is not a
-production-readiness or deployment claim.
+WareCommand is a warehouse management system implemented as a .NET 10 modular
+monolith with an ASP.NET Core MVC host and a retained WinForms desktop host.
+The repository is in stabilization; verified implementation and CI evidence do
+not by themselves qualify a production release.
 
 ## Current state
 
@@ -11,16 +11,26 @@ production-readiness or deployment claim.
 - SQLite is an explicit local/demo adapter only.
 - EF Core migrations are checked in and must be applied explicitly before a
   PostgreSQL host starts.
-- Inventory, catalog, locations, receiving, putaway, picking, adjustments, and
-  movement reporting are implemented at the domain/application level.
-- Identity authentication, account management, lockout, password reset, audit
-  events, permission-based RBAC, warehouse-scoped access, and explicit
-  Web/WinForms user sessions are implemented locally;
-  tenant isolation, external integrations, cycle counting, replenishment,
-  shipping, load qualification, and production operations remain partial or
-  planned.
-- The authoritative implementation checkpoint is
-  [`docs/implementation/EXECUTION_STATUS.md`](docs/implementation/EXECUTION_STATUS.md).
+- Backend services and authorized HTTP routes cover inventory and its ledger,
+  receiving, warehouse work, allocation/picking, shipping, returns, transfers,
+  counting, replenishment, workforce/slotting, reporting, forecasting, anomaly
+  detection, and governed recommendations. The exact screen/runtime boundary is
+  mapped in [`docs/ui/UI_BACKEND_COVERAGE.md`](docs/ui/UI_BACKEND_COVERAGE.md);
+  a service or API does not mean that a designed operator screen exists.
+- Identity authentication, permission- and warehouse-scoped authorization,
+  audit, migration-gated PostgreSQL startup, and deterministic local/CI
+  qualification are implemented.
+  Connector contracts, configured transports, missing provider code, and live
+  partner acceptance are tracked separately in
+  [`docs/modernization/CONNECTORS.md`](docs/modernization/CONNECTORS.md).
+- The recommendation runtime slice is commit `393ac25` with the formatting-gate
+  correction in `5f5d0a5`; exact-SHA CI and the current test/issue checkpoint
+  are in [`docs/implementation/EXECUTION_STATUS.md`](docs/implementation/EXECUTION_STATUS.md).
+- Master issue [#108](https://github.com/RealAhmedOsama/WareCommand/issues/108)
+  remains open for production release gates. Measured load limits, browser and
+  handheld coverage, restore evidence, external-provider acceptance, and
+  environment-specific migration/deployment approval must not be inferred from
+  a green CI run.
 
 ## Supported clients
 

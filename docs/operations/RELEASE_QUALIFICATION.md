@@ -4,6 +4,76 @@ This runbook makes a release reviewable and repeatable. It does not authorize a
 production deployment; the environment owner must approve the change window,
 backup, migration, and rollback decision separately.
 
+## Current repository qualification — 2026-09-25
+
+The source revision under review is code SHA
+`5f5d0a59300f7b48a7ad31a0b50f0382fcaf609c` on canonical `master`. Recommendation
+implementation is `393ac25`; `5f5d0a5` corrects its formatting gate without a
+behavior change. Exact-SHA
+[Actions run 36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964)
+completed with a success conclusion on that exact SHA. Windows, Linux,
+production Docker image, secret scan, and disposable PostgreSQL/migration jobs
+passed. Pull-request dependency review was skipped because the event was a
+direct push.
+
+The Windows and Linux quality jobs each recorded 782 passed, 77 skipped, zero
+failed, and zero other skips. The same per-assembly counts appeared on both
+platforms:
+
+| Test assembly | Passed | Skipped | Total | Qualification note |
+| --- | ---: | ---: | ---: | --- |
+| `Wms.Domain.Tests` | 175 | 0 | 175 | Full solution run |
+| `Wms.Application.Tests` | 137 | 0 | 137 | Full solution run |
+| `Wms.Infrastructure.Tests` | 393 | 68 | 461 | All 68 skips are PostgreSQL-provider gated |
+| `Wms.ASP.Tests` | 62 | 8 | 70 | All 8 skips are PostgreSQL-provider gated |
+| `Wms.Architecture.Tests` | 15 | 0 | 15 | Full solution run |
+| `Wms.DataMigration.Tests` | 0 | 1 | 1 | Provider-backed case runs in the dedicated migration job |
+| **Per-platform total** | **782** | **77** | **859** | No failures; all skips are provider-gated |
+
+The dedicated PostgreSQL job had no skipped or failed test in its selected
+groups:
+
+| Provider group | Test assembly | Passed | Skipped/failed |
+| --- | --- | ---: | ---: |
+| `core` | `Wms.Infrastructure.Tests` | 1 | 0 |
+| `harness` | `Wms.Infrastructure.Tests` | 56 | 0 |
+| `dashboard` | `Wms.ASP.Tests` | 3 | 0 |
+| `data-generation` | `Wms.Infrastructure.Tests` | 4 | 0 |
+| `journeys` | `Wms.Infrastructure.Tests` | 7 | 0 |
+| `resilience` | `Wms.ASP.Tests` | 3 | 0 |
+| `browser` | `Wms.ASP.Tests` | 1 | 0 |
+| **PostgreSQL group total** |  | **75** | **0** |
+| SQLite-to-PostgreSQL migration | `Wms.DataMigration.Tests` | 1 | 0 |
+
+The Linux deterministic-repeat step ran the 312 Domain/Application tests twice;
+both repetitions passed. These repeats are not added to either platform total.
+Measured line coverage was 8.22% on both hosts (Windows 68,698/835,651 lines;
+Linux 68,699/835,651); the CI contract does not set a coverage threshold.
+
+The production Docker image build and secret scan passed. Dependency review was
+skipped because this was a direct push rather than a pull request. The uploaded
+Windows, Linux, and secret-scan artifacts are
+`windows-test-results-36092918964-1` (20,122,104 bytes),
+`linux-test-results-36092918964-1` (20,270,198 bytes), and
+`secret-scan-results-36092918964` (7,417 bytes). Download them from the exact
+Actions run above. The PostgreSQL job publishes its run log, not a success
+artifact; the provider-group counts and migration result are recorded above.
+
+The prior run `36091549462` on `393ac2593ea60ff323dcf7926a5f9ada91f7e1d4`
+failed only its Windows formatter step: nested authorization-switch blocks
+needed one additional indentation level, and the dependent PostgreSQL job was
+skipped. Commit `5f5d0a5` applies that correction; the exact-SHA Windows
+formatting and migration/startup checks have passed in the current run. This
+prior failure is retained as qualification history, not counted as a test
+assertion failure.
+
+The code's focused recommendation evidence is also separate from the solution
+totals: `RecommendationGovernanceServiceTests` passed 7/7, the Release ASP
+test-project build had zero warnings/errors, and the authenticated PostgreSQL
+recommendation lifecycle passed 1/1 with zero reconciliation issues. These
+results are in the [#128 evidence comment](https://github.com/RealAhmedOsama/WareCommand/issues/128#issuecomment-5826763905)
+and the [execution checkpoint](../implementation/EXECUTION_STATUS.md).
+
 ## Evidence packet
 
 Record these values against the exact immutable application revision:

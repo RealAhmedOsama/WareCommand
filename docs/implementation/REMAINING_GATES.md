@@ -1,10 +1,33 @@
 # Remaining Master-Plan Gates
 
-This is the local follow-up inventory for master-plan issue #108. The original
-issues #2–#107 have delivered implementation slices and are closed on GitHub,
-but their comments identify follow-up qualification or integration work. This
-file groups that work into independently verifiable issues without confusing
-local evidence with production, live-provider, or external-review approval.
+This is the current follow-up inventory for master-plan issue #108. Original
+issues #2–#107 and stabilization issues #109–#133 are closed as bounded
+implementation or evidence slices; closure does not erase remaining acceptance
+work. Source and qualification state is reviewed through code SHA
+`5f5d0a59300f7b48a7ad31a0b50f0382fcaf609c` on 2026-09-25. The #134 handoff
+documents the screen, provider, and release boundaries. Local or hosted evidence
+is not production, live-provider, or external-review approval.
+
+## Current residual register
+
+| Owner | Current evidence | Remaining requirement and next action |
+| --- | --- | --- |
+| [#108 master plan](https://github.com/RealAhmedOsama/WareCommand/issues/108) | Open release owner; implementation and local qualification are mapped below and in `EXECUTION_STATUS.md`. | Keep open until every applicable release gate has a named accountable operator and fresh evidence: authorized production migration/deployment and change window; real-data migration and restore; secret/proxy/storage configuration; measured capacity and the failed latency budgets; independent security review; and selected partner/device acceptance. Do not infer release readiness from CI. |
+| [#115](https://github.com/RealAhmedOsama/WareCommand/issues/115), [#116](https://github.com/RealAhmedOsama/WareCommand/issues/116), [#117](https://github.com/RealAhmedOsama/WareCommand/issues/117), [#118](https://github.com/RealAhmedOsama/WareCommand/issues/118), [#119](https://github.com/RealAhmedOsama/WareCommand/issues/119) CI/database gates | Closed after architecture-test portability, formatting/import/migration-encoding, complete secret-scan, coverage-artifact, and PostgreSQL/migration corrections. The 2026-09-25 exact-SHA run and artifact names are in `EXECUTION_STATUS.md`. | No open repair from these bounded issues. Keep their current CI jobs enabled; investigate any future failed job on its exact SHA before release. |
+| [#120 dashboard](https://github.com/RealAhmedOsama/WareCommand/issues/120) | Closed with authorized dashboard refresh/runtime data wiring. | Screen redesign and device coverage belong to the separate UI handoff; do not describe the API/data refresh as complete redesign. |
+| [#121](https://github.com/RealAhmedOsama/WareCommand/issues/121), [#122](https://github.com/RealAhmedOsama/WareCommand/issues/122) notification transports | Closed with guarded HTTP webhook and SMTP transport implementations and controlled local receiver/sink evidence. | Keep transports disabled until explicit configuration. A named destination/provider, production secrets, mailbox/partner acceptance, operations history, and restart/load qualification remain under #108 or a newly scoped provider issue. |
+| [#123 connector capability truth](https://github.com/RealAhmedOsama/WareCommand/issues/123) | Closed with contract-only/reference connector status no longer reported as healthy live connectivity. | Generic ERP/e-commerce/marketplace/carrier operations, B2B EDI, file/SFTP, and partner-specific adapters are still missing code. Select a vendor/protocol, then open scoped implementation work under #108; credentials alone do not supply an adapter. |
+| [#124 UI/backend map](https://github.com/RealAhmedOsama/WareCommand/issues/124) | Closed with a source-linked screen, route, permission, DTO, and test matrix. | Many implemented workflows remain API-only. Ahmed's later design phase owns screen selection and operator-flow design; implementation follows that handoff. |
+| [#125 reporting assistant](https://github.com/RealAhmedOsama/WareCommand/issues/125), follow-up to original #104 | Closed with a bounded, permission-checked, read-only executor over existing report services. | No assistant UI, conversation history, or external model/provider is implemented. Any provider and history need separate privacy, retention, security, and acceptance scope. |
+| [#126 forecasting](https://github.com/RealAhmedOsama/WareCommand/issues/126), follow-up to original #105 | Closed with persisted forecast runs, comparisons, bounded exports, recalculation jobs, and audited overrides. | Forecast inputs omit purchase orders and in-transit supply. No finished forecast UI or production accuracy claim exists; calibration requires a named dataset and agreed backtest thresholds. |
+| [#127 anomaly detection](https://github.com/RealAhmedOsama/WareCommand/issues/127), follow-up to original #106 | Closed with nine bounded source adapters, durable findings/history, scheduled jobs, lifecycle APIs, permission-aware redaction, and deduplicated alerts. | No investigation screen or action authority is supplied; findings do not establish fraud. Browser, handheld, load, and production qualification remain open. |
+| [#128 recommendations](https://github.com/RealAhmedOsama/WareCommand/issues/128), follow-up to original #107 | Closed after [exact-SHA CI run 36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964) passed for five deterministic recommendation sources that revalidate and call normal WMS commands; quality outcomes persist. See the [issue evidence comment](https://github.com/RealAhmedOsama/WareCommand/issues/128#issuecomment-5826763905). | No operator UI, paid/live provider, or measured business lift is present. Provider use stays disabled by default and shadow-only; lift needs an agreed evaluation dataset and thresholds. |
+| [#129 test data](https://github.com/RealAhmedOsama/WareCommand/issues/129) | Closed with a deterministic PostgreSQL test fixture using normal application commands and reconciliation. | The writer is test-only. It is not a production seeding route or a substitute for the large-capacity load dataset; only add those paths after separate authorization and scoped requirements. |
+| [#130 PostgreSQL journeys](https://github.com/RealAhmedOsama/WareCommand/issues/130), follow-up to original #96 | Closed after 13 scenario reports and 199 reconciliation checkpoints; no unexpected reconciliation issues. | Evidence is bounded to named scenarios. Cross-dock reservation/work materialization and other unsupported journey branches remain unverified; expand the matrix before claiming complete workflow qualification. |
+| [#131 browser qualification](https://github.com/RealAhmedOsama/WareCommand/issues/131), follow-up to original #97 | Closed after authenticated scanner/picking/dashboard coverage; the local scanner focus/input case passed 1/1. | Physical handhelds, all operational routes, full accessibility/visual review, and partner/device acceptance remain unverified. |
+| [#132 performance](https://github.com/RealAhmedOsama/WareCommand/issues/132), follow-up to original #98 | Closed with measured bounded workload and reconciliation results. | Budgets did not pass: 33/48 baseline and 47/62 extended evaluations failed; 50-way contention was admitted and 100-way was unsupported. Keep capacity/reliability review open and rerun after an owner approves changed budgets or remediation. |
+| [#133 recovery](https://github.com/RealAhmedOsama/WareCommand/issues/133), follow-up to original #99 | Closed after disposable response-loss, restart, retry/dead-letter, serialization, and populated encrypted restore rehearsals. | These are not production RPO/RTO results. Assign a production backup/restore owner, target, and approved rehearsal before release. |
+| [#134 documentation handoff](https://github.com/RealAhmedOsama/WareCommand/issues/134) | This checkpoint reconciles the source map, connector inventory, current CI evidence, and remaining gates. | The exact pushed documentation commit and its CI run are recorded in the issue evidence comment after that run completes. Visual design itself is Ahmed's later phase. |
 
 ## Local workstreams
 
@@ -50,9 +73,10 @@ Evidence comments were posted to the canonical `WareCommand` repository:
 - [#114 evidence](https://github.com/RealAhmedOsama/WareCommand/issues/114#issuecomment-5782477460)
 - [#108 master-plan reconciliation](https://github.com/RealAhmedOsama/WareCommand/issues/108#issuecomment-5782477673)
 
-At this checkpoint the local branch is `db5e55f` while `origin/master` is
-`86906be`. The issues therefore carry evidence and progress, not a claim that
-the remote branch has received the local commits.
+The links above are historical evidence for the #109–#114 workstreams. The
+current source revision is stated at the top and current issue owners are in the
+residual register; do not use the older revision comparison in any archived
+comment as the current repository state.
 
 ## Explicitly non-local gates
 
@@ -65,8 +89,9 @@ The following cannot be honestly completed by local code changes alone:
 - independent security review, external penetration testing, or production
   capacity approval.
 
-Those gates remain documented in #109–#114 comments and in the release packet;
-they are not silently converted into a local completion claim.
+Those gates remain owned by #108 and the release documents. The #109–#114
+comments preserve the earlier local workstream evidence; they do not convert
+external requirements into a local completion claim.
 
 ## Closure rule
 
