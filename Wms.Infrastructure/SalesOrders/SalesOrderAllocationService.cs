@@ -29,6 +29,8 @@ public sealed class SalesOrderAllocationService(
     IAuditWriter auditWriter,
     ILogger<SalesOrderAllocationService> logger) : ISalesOrderAllocationService
 {
+    private const int MaximumInventoryContentionAttempts = 5;
+
     public async Task<Result<SalesOrderAllocationResultDto>> GetAsync(
         int salesOrderId,
         CancellationToken cancellationToken = default)
@@ -310,6 +312,45 @@ public sealed class SalesOrderAllocationService(
         string userId,
         CancellationToken cancellationToken)
     {
+        for (var attempt = 1; attempt <= MaximumInventoryContentionAttempts; attempt++)
+        {
+            try
+            {
+                return await AllocateCoreAttemptAsync(
+                    salesOrderId,
+                    command,
+                    userId,
+                    cancellationToken);
+            }
+            catch (RetryableInventoryContentionException exception)
+            {
+                context.ChangeTracker.Clear();
+                if (attempt == MaximumInventoryContentionAttempts)
+                {
+                    logger.LogWarning(
+                        exception.InnerException,
+                        "Sales-order allocation {SalesOrderId} exhausted {AttemptCount} retries after inventory balance contention",
+                        salesOrderId,
+                        attempt);
+                    return Result.Failure<SalesOrderAllocationResultDto>(WmsErrors.Concurrency(
+                        "allocation.concurrency_conflict",
+                        "Inventory changed repeatedly during allocation. Retry the allocation."));
+                }
+
+                var backoffMilliseconds = Math.Min(40, 5 * (1 << (attempt - 1))) + Random.Shared.Next(0, 11);
+                await Task.Delay(TimeSpan.FromMilliseconds(backoffMilliseconds), cancellationToken);
+            }
+        }
+
+        throw new InvalidOperationException("The allocation retry loop ended unexpectedly.");
+    }
+
+    private async Task<Result<SalesOrderAllocationResultDto>> AllocateCoreAttemptAsync(
+        int salesOrderId,
+        SalesOrderAllocationCommand command,
+        string userId,
+        CancellationToken cancellationToken)
+    {
         var keyValidation = ValidateIdempotencyKey(command.IdempotencyKey);
         if (keyValidation is not null)
         {
@@ -366,23 +407,35 @@ public sealed class SalesOrderAllocationService(
                     quantity,
                     command,
                     userId);
-                InventoryReservationResult result;
-                if (command.Replan && existingReservations.TryGetValue(line.Id, out var existingReservation))
+                try
                 {
-                    result = await reservationService.ReallocateAsync(
-                        new InventoryReservationMutationRequest(
-                            existingReservation.Id,
-                            null,
-                            userId,
-                            request.CorrelationId,
-                            command.Reason ?? "sales order allocation replanned"),
-                        cancellationToken);
+                    if (command.Replan && existingReservations.TryGetValue(line.Id, out var existingReservation))
+                    {
+                        await reservationService.ReallocateAsync(
+                            new InventoryReservationMutationRequest(
+                                existingReservation.Id,
+                                null,
+                                userId,
+                                request.CorrelationId,
+                                command.Reason ?? "sales order allocation replanned"),
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        await reservationService.ReserveAsync(
+                            request,
+                            cancellationToken);
+                    }
                 }
-                else
+                catch (ConcurrencyConflictException exception) when (
+                    exception.ResourceType == nameof(InventoryBalance))
                 {
-                    result = await reservationService.ReserveAsync(
-                        request,
-                        cancellationToken);
+                    throw new RetryableInventoryContentionException(exception);
+                }
+                catch (DbUpdateConcurrencyException exception) when (
+                    exception.Entries.Any(entry => entry.Entity is InventoryBalance))
+                {
+                    throw new RetryableInventoryContentionException(exception);
                 }
 
             }
@@ -440,6 +493,10 @@ public sealed class SalesOrderAllocationService(
                 cancellationToken));
         }
         catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RetryableInventoryContentionException)
         {
             throw;
         }
@@ -1301,4 +1358,7 @@ public sealed class SalesOrderAllocationService(
                 ["orderRevision"] = order.Revision
             },
             ActorUserId: userId);
+
+    private sealed class RetryableInventoryContentionException(Exception innerException)
+        : Exception("Inventory changed while the allocation was being reserved.", innerException);
 }

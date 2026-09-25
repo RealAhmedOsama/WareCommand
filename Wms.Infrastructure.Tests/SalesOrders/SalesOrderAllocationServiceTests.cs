@@ -29,7 +29,7 @@ public sealed class SalesOrderAllocationServiceTests : IDisposable
         new DateTimeOffset(2026, 9, 21, 12, 0, 0, TimeSpan.Zero));
     private readonly WmsDbContext _context;
     private readonly InventoryLedgerService _ledger;
-    private readonly IInventoryReservationService _reservations;
+    private readonly InventoryReservationService _reservations;
     private readonly WarehouseWorkService _work;
     private readonly SalesOrderAllocationService _service;
     private readonly Warehouse _warehouse;
@@ -181,6 +181,61 @@ public sealed class SalesOrderAllocationServiceTests : IDisposable
         result.FirstError!.Type.Should().Be(ErrorType.Concurrency);
         result.FirstError.Code.Should().Be("data.concurrency_conflict");
         result.FirstError.IsRetryable.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AllocationRetriesInventoryBalanceContentionAndReconcilesBackorder()
+    {
+        await SeedInventoryAsync(2m, "alloc-receipt-contention");
+        var order = await CreateOrderAsync(3m, allowPartialShipment: true);
+        var attempts = 0;
+        var reservations = new Mock<IInventoryReservationService>();
+        reservations
+            .Setup(service => service.ReserveAsync(
+                It.IsAny<InventoryReservationRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(async (InventoryReservationRequest request, CancellationToken cancellationToken) =>
+            {
+                if (Interlocked.Increment(ref attempts) == 1)
+                {
+                    throw new ConcurrencyConflictException(nameof(InventoryBalance), "Id=41");
+                }
+
+                return await _reservations.ReserveAsync(request, cancellationToken);
+            });
+        reservations
+            .Setup(service => service.GetByDemandAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((string demandType, string demandId, int? demandLine, int warehouseId, CancellationToken cancellationToken) =>
+                _reservations.GetByDemandAsync(
+                    demandType,
+                    demandId,
+                    demandLine,
+                    warehouseId,
+                    cancellationToken));
+        var service = new SalesOrderAllocationService(
+            _context,
+            _access.Object,
+            reservations.Object,
+            _work,
+            _audit.Object,
+            NullLogger<SalesOrderAllocationService>.Instance);
+
+        var result = await service.AllocateAsync(
+            order.Id,
+            new SalesOrderAllocationCommand(IdempotencyKey: "allocate-contention-retry"),
+            "allocator-1");
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        result.Value.Lines.Single().AllocatedBaseQuantity.Should().Be(2m);
+        result.Value.Lines.Single().BackorderBaseQuantity.Should().Be(1m);
+        attempts.Should().Be(2);
+        (await _context.InventoryBalances.SingleAsync()).ReservedQuantity.Should().Be(2m);
+        (await _context.InventoryReservations.CountAsync()).Should().Be(1);
     }
 
     [Fact]
