@@ -62,8 +62,14 @@ CPU/memory/GC, Npgsql metrics, sampled PostgreSQL connections/lock waits, an
 Use `-PerformanceSamples 10..100` to change the bounded sample count and
 `-PerformanceRepeats 2..5` to change repeat count. `-ExtendedContention` asks
 for 50- and 100-way cases; the runner records them as unsupported when the host
-or PostgreSQL container fails the resource gate. These extended levels remain
-bounded and are never used against Production or Staging.
+or PostgreSQL container fails the resource gate. The gate also reads
+PostgreSQL `max_connections`, reserved slots, and current sessions. It reserves
+16 connections for fixture and observer work and checks the application pool
+limit (`concurrency + 8`) before admitting each level. Supported levels run;
+unsupported levels carry a reason in the evidence and are omitted from the
+measured request mix. The requested levels and measured levels are recorded
+separately. These extended levels remain bounded and are never used against
+Production or Staging.
 
 The performance group is explicit and is not included in the broad provider
 `all` group. The ordinary PostgreSQL dashboard group keeps a small CI

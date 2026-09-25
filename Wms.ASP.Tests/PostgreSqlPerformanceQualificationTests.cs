@@ -59,10 +59,13 @@ public sealed class PostgreSqlPerformanceQualificationTests
         var resourceProfile = GetResourceProfile();
         var extendedDecision = extendedContention
             ? EvaluateExtendedContentionSupport(resourceProfile)
-            : new ExtendedContentionDecision(false, "not requested");
-        if (extendedContention && extendedDecision.Supported)
+            : new ExtendedContentionDecision(false, []);
+        if (extendedContention)
         {
-            requestedLevels.AddRange([50, 100]);
+            requestedLevels.AddRange(
+                extendedDecision.Levels
+                    .Where(value => value.Supported)
+                    .Select(value => value.Concurrency));
         }
 
         var startedAtUtc = DateTimeOffset.UtcNow;
@@ -2912,35 +2915,118 @@ public sealed class PostgreSqlPerformanceQualificationTests
         var memory = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
         var container = Environment.GetEnvironmentVariable("WARECOMMAND_TEST_POSTGRES_CONTAINER") ?? "unknown";
         var limits = ReadDockerResourceLimits(container);
+        var connections = ReadPostgreSqlConnectionProfile(
+            Environment.GetEnvironmentVariable("WARECOMMAND_TEST_POSTGRES_CONNECTION"));
         return new ResourceProfile(Environment.ProcessorCount, memory, limits with
         {
             ContainerName = container
-        });
+        }, connections);
     }
 
     private static ExtendedContentionDecision EvaluateExtendedContentionSupport(ResourceProfile profile)
     {
+        string? hostBlockReason = null;
         if (profile.ProcessorCount < 4)
         {
-            return new ExtendedContentionDecision(false, "host exposes fewer than four logical processors");
+            hostBlockReason = "host exposes fewer than four logical processors";
         }
-        if (profile.AvailableMemoryBytes < 8L * 1024 * 1024 * 1024)
+        else if (profile.AvailableMemoryBytes < 8L * 1024 * 1024 * 1024)
         {
-            return new ExtendedContentionDecision(false, "host exposes less than 8 GiB of available memory");
+            hostBlockReason = "host exposes less than 8 GiB of available memory";
         }
-        if (!profile.PostgreSqlContainer.Available)
+        else if (!profile.PostgreSqlContainer.Available)
         {
-            return new ExtendedContentionDecision(false, "PostgreSQL container resource limits could not be read");
+            hostBlockReason = "PostgreSQL container resource limits could not be read";
         }
-        if (profile.PostgreSqlContainer.MemoryBytes > 0 && profile.PostgreSqlContainer.MemoryBytes < 2L * 1024 * 1024 * 1024)
+        else if (profile.PostgreSqlContainer.MemoryBytes > 0 && profile.PostgreSqlContainer.MemoryBytes < 2L * 1024 * 1024 * 1024)
         {
-            return new ExtendedContentionDecision(false, "PostgreSQL container is limited to less than 2 GiB");
+            hostBlockReason = "PostgreSQL container is limited to less than 2 GiB";
         }
-        if (profile.PostgreSqlContainer.NanoCpus > 0 && profile.PostgreSqlContainer.NanoCpus < 2_000_000_000)
+        else if (profile.PostgreSqlContainer.NanoCpus > 0 && profile.PostgreSqlContainer.NanoCpus < 2_000_000_000)
         {
-            return new ExtendedContentionDecision(false, "PostgreSQL container is limited to fewer than two CPUs");
+            hostBlockReason = "PostgreSQL container is limited to fewer than two CPUs";
         }
-        return new ExtendedContentionDecision(true, "host and PostgreSQL container pass the bounded 50/100 contention resource gate");
+
+        var levels = new List<ExtendedContentionLevelDecision>(capacity: 2);
+        foreach (var concurrency in new[] { 50, 100 })
+        {
+            var poolLimit = Math.Clamp(Math.Max(16, concurrency + 8), 16, 128);
+            var requiredConnections = poolLimit + 16;
+            var reason = hostBlockReason;
+            if (reason is null && !profile.PostgreSqlConnections.Available)
+            {
+                reason = "PostgreSQL connection capacity could not be read";
+            }
+            else if (reason is null && profile.PostgreSqlConnections.AvailableConnectionSlots < requiredConnections)
+            {
+                reason = $"PostgreSQL has {profile.PostgreSqlConnections.AvailableConnectionSlots} non-reserved connection slots; " +
+                         $"the bounded pool needs {poolLimit} plus 16 fixture and observer connections";
+            }
+
+            levels.Add(new ExtendedContentionLevelDecision(
+                concurrency,
+                poolLimit,
+                requiredConnections,
+                profile.PostgreSqlConnections.AvailableConnectionSlots,
+                reason is null,
+                reason ?? "host and PostgreSQL connection capacity pass the bounded resource gate"));
+        }
+
+        return new ExtendedContentionDecision(true, levels);
+    }
+
+    private static PostgreSqlConnectionProfile ReadPostgreSqlConnectionProfile(string? connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return new PostgreSqlConnectionProfile(false, 0, 0, 0, 0, "PostgreSQL test connection is unavailable");
+        }
+
+        try
+        {
+            var connectionBuilder = new NpgsqlConnectionStringBuilder(connectionString)
+            {
+                ApplicationName = "WareCommand.PerformanceResourceGate",
+                Pooling = false
+            };
+            using var connection = new NpgsqlConnection(connectionBuilder.ConnectionString);
+            connection.Open();
+            using var command = new NpgsqlCommand(
+                "SELECT current_setting('max_connections')::integer, " +
+                "current_setting('superuser_reserved_connections')::integer + " +
+                "COALESCE(NULLIF(current_setting('reserved_connections', true), '')::integer, 0), " +
+                "(SELECT COUNT(*)::integer FROM pg_stat_activity)",
+                connection);
+            using var reader = command.ExecuteReader();
+            if (!reader.Read())
+            {
+                return new PostgreSqlConnectionProfile(false, 0, 0, 0, 0, "PostgreSQL returned no connection-capacity row");
+            }
+
+            var maximumConnections = reader.GetInt32(0);
+            var reservedConnections = reader.GetInt32(1);
+            var currentConnections = reader.GetInt32(2);
+            var availableConnectionSlots = Math.Max(
+                0,
+                maximumConnections - reservedConnections - currentConnections + 1);
+            return new PostgreSqlConnectionProfile(
+                true,
+                maximumConnections,
+                reservedConnections,
+                currentConnections,
+                availableConnectionSlots,
+                null);
+        }
+        catch (Exception exception)
+        {
+            return new PostgreSqlConnectionProfile(
+                false,
+                0,
+                0,
+                0,
+                0,
+                $"{exception.GetType().Name}: {Redact(exception.Message)}");
+        }
     }
 
     private static DockerResourceLimits ReadDockerResourceLimits(string containerName)
@@ -3223,7 +3309,24 @@ public sealed class PostgreSqlPerformanceQualificationTests
     private sealed record ResourceProfile(
         int ProcessorCount,
         long AvailableMemoryBytes,
-        DockerResourceLimits PostgreSqlContainer);
+        DockerResourceLimits PostgreSqlContainer,
+        PostgreSqlConnectionProfile PostgreSqlConnections);
+
+    private sealed record PostgreSqlConnectionProfile(
+        bool Available,
+        int MaximumConnections,
+        int ReservedConnections,
+        int CurrentConnections,
+        int AvailableConnectionSlots,
+        string? Error);
+
+    private sealed record ExtendedContentionLevelDecision(
+        int Concurrency,
+        int PoolLimit,
+        int RequiredConnections,
+        int AvailableConnectionSlots,
+        bool Supported,
+        string Reason);
 
     private sealed record DockerResourceLimits(
         string ContainerName,
@@ -3233,5 +3336,7 @@ public sealed class PostgreSqlPerformanceQualificationTests
         bool Available,
         string? Error);
 
-    private sealed record ExtendedContentionDecision(bool Supported, string Reason);
+    private sealed record ExtendedContentionDecision(
+        bool Requested,
+        IReadOnlyList<ExtendedContentionLevelDecision> Levels);
 }
