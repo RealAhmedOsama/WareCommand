@@ -10,12 +10,14 @@ namespace Wms.Infrastructure.Repositories;
 
 public class LocationRepository : Repository<Location>, ILocationRepository
 {
+    private readonly WmsDbContext _context;
     private readonly IWarehouseAccessService _warehouseAccessService;
 
     public LocationRepository(
         WmsDbContext context,
         IWarehouseAccessService warehouseAccessService) : base(context)
     {
+        _context = context;
         _warehouseAccessService = warehouseAccessService;
     }
 
@@ -24,6 +26,15 @@ public class LocationRepository : Repository<Location>, ILocationRepository
         CancellationToken cancellationToken = default)
     {
         var scope = await _warehouseAccessService.GetScopeAsync(cancellationToken);
+        var trackedLocation = DbSet.Local.FirstOrDefault(location => location.Id == id);
+        if (trackedLocation is not null &&
+            _context.Entry(trackedLocation).State is EntityState.Unchanged or EntityState.Modified)
+        {
+            return scope.HasGlobalAccess || scope.WarehouseIds.Contains(trackedLocation.WarehouseId)
+                ? trackedLocation
+                : null;
+        }
+
         var query = DbSet.AsQueryable();
         query = ApplyScope(query, scope);
         return await query.FirstOrDefaultAsync(location => location.Id == id, cancellationToken);

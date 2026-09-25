@@ -17,6 +17,7 @@ public sealed class ReceivingRepositoryTests : IDisposable
     private readonly Mock<IWarehouseAccessService> _warehouseAccess = new();
     private readonly WmsDbContext _context;
     private readonly ReceivingRepository _repository;
+    private readonly LocationRepository _locationRepository;
     private readonly Warehouse _warehouse;
     private readonly Item _item;
     private readonly Location _location;
@@ -46,6 +47,7 @@ public sealed class ReceivingRepositoryTests : IDisposable
         _context.SaveChanges();
 
         _repository = new ReceivingRepository(_context, _warehouseAccess.Object);
+        _locationRepository = new LocationRepository(_context, _warehouseAccess.Object);
     }
 
     [Fact]
@@ -62,6 +64,22 @@ public sealed class ReceivingRepositoryTests : IDisposable
         target.Location!.Id.Should().Be(_location.Id);
         _commandCapture.Commands.Should().ContainSingle()
             .Which.Should().Contain("ReceivingRepository.GetTarget");
+    }
+
+    [Fact]
+    public async Task GetByIdReusesTheTrackedLocationAfterRecheckingWarehouseScope()
+    {
+        var target = await _repository.GetTargetAsync(
+            _item.Sku,
+            _location.Code);
+        target.Should().NotBeNull();
+        target!.Location.Should().BeSameAs(_location);
+
+        _commandCapture.Commands.Clear();
+        var location = await _locationRepository.GetByIdAsync(_location.Id);
+
+        location.Should().BeSameAs(target.Location);
+        _commandCapture.Commands.Should().BeEmpty();
     }
 
     [Fact]
@@ -96,6 +114,12 @@ public sealed class ReceivingRepositoryTests : IDisposable
         target.Should().NotBeNull();
         target!.Item.Id.Should().Be(_item.Id);
         target.Location.Should().BeNull();
+
+        _commandCapture.Commands.Clear();
+        var location = await _locationRepository.GetByIdAsync(_location.Id);
+
+        location.Should().BeNull();
+        _commandCapture.Commands.Should().BeEmpty();
     }
 
     public void Dispose()
