@@ -7,11 +7,12 @@ backup, migration, and rollback decision separately.
 ## Current repository qualification — 2026-09-25
 
 The code revision under qualification is SHA
-`64cc72784730aa987bf3d144ba378734f0999d3c` on `master`. The pushed follow-up
+`93f1b63ef49a4b5cad456b6e0200d68c9695710e` on `master`. The pushed follow-up
 chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens the PostgreSQL receipt-counter
 lock, adds bounded inventory-balance retries, and preserves SQLite's active
 caller transaction. Commit `64cc727` adds a transaction-scoped PostgreSQL lock
-for concurrent reservations on the same warehouse/item.
+for concurrent reservations on the same warehouse/item. Commit `93f1b63`
+reduces authenticated warehouse authorization to one fresh SQL query per call.
 
 Exact-SHA [Actions run 36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
 completed successfully on `64cc727`. Linux and Windows quality/coverage, all
@@ -20,6 +21,16 @@ formatting, migration/startup checks, production Docker image, and secret scan
 passed. Pull-request dependency review was skipped because the event was a
 direct push. Artifacts are `windows-test-results-36119978483-1`,
 `linux-test-results-36119978483-1`, and `secret-scan-results-36119978483`.
+
+Exact-SHA [Actions run 36125207777](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36125207777)
+completed successfully on `93f1b63`. Linux/Windows quality and coverage, all
+seven disposable PostgreSQL groups, SQLite-to-PostgreSQL migration, production
+Docker, and secret scan passed. Pull-request dependency review was skipped for
+the direct push. Artifacts are `windows-test-results-36125207777-1`,
+`linux-test-results-36125207777-1`, and `secret-scan-results-36125207777`.
+The local performance profile on this SHA still fails 19 budgets; see
+`PERFORMANCE_QUALIFICATION.md` for measurements. CI does not run that full
+profile.
 
 The per-assembly and PostgreSQL group counts in the previous qualification
 record below are from exact-SHA run 36112799593. The follow-up run above also

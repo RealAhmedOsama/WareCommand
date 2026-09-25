@@ -234,3 +234,37 @@ the master performance gate open. Exact-SHA CI run
 [`36119978483`](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
 passed Linux/Windows, all seven PostgreSQL integration groups, migration,
 Docker, and secret scan. CI does not execute this full performance profile.
+
+### Authorization-query follow-up — 2026-09-25
+
+Commit `93f1b63ef49a4b5cad456b6e0200d68c9695710e` reduces each authenticated
+warehouse authorization from eight SQL commands to one fresh EF query. The
+query projects active-user/lockout state, direct or role permission, global
+permission, warehouse state, and user assignment. Focused authorization and
+webhook tests passed 29/29, including one-command and immediate permission
+change assertions.
+
+The exact-SHA local profile used .NET 10.0.12, Windows x64 with 16 logical
+processors, PostgreSQL 17, ten samples, two repeats, and concurrency 1/4/20.
+It exited nonzero with 19 budget failures, compared with 21 on the prior
+`64cc727` profile. Every measured evaluation passed its business assertions and
+reported zero reconciliation errors. The result is a small count change, not
+capacity qualification: same-stock allocation p95 at concurrency 20 was
+3,082/2,944 ms against 2,000 ms, while limited-stock allocation p95 was
+2,020/1,881 ms. Receiving p50 improved in both repeats at concurrency 1 and 4;
+at concurrency 20 the repeats varied (1,138 and 1,555 ms). No budgets changed.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-93f1b63.json')
+```
+
+Exact-SHA Actions run
+[`36125207777`](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36125207777)
+completed successfully on `93f1b63`: Linux and Windows quality/coverage, all
+seven PostgreSQL groups, SQLite-to-PostgreSQL migration, production Docker, and
+secret scan passed. Direct-push dependency review was skipped. CI does not
+execute this full performance group; keep the master capacity gate open.

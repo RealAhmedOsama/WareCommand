@@ -2,12 +2,14 @@
 
 ## Current checkpoint — 2026-09-25
 
-Code revision under qualification is `64cc72784730aa987bf3d144ba378734f0999d3c`.
+Code revision under qualification is `93f1b63ef49a4b5cad456b6e0200d68c9695710e`.
 The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
 PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
 preserves the caller's SQLite transaction. Commit `64cc727` adds a
 transaction-scoped PostgreSQL lock for concurrent reservations on the same
-warehouse/item.
+warehouse/item. Commit `93f1b63` consolidates each authenticated warehouse
+authorization into one fresh SQL query, down from eight commands, while
+preserving immediate permission-change visibility.
 
 Exact-SHA Actions run
 [#36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
@@ -19,12 +21,23 @@ push skipped pull-request dependency review. Artifacts are
 `secret-scan-results-36119978483`; details are linked in
 [`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md).
 
-The focused allocation/reservation tests passed 12/12. The local two-repeat
-PostgreSQL performance profile completed with zero reconciliation issues but
-exited nonzero with 21 budget failures, down from 24 on `0a8c041`. Same-stock
-allocation at concurrency 20 now succeeds 20/20 with no errors or conflicts;
-p95 remains 3,233/3,217 ms against the 2,000 ms budget. The CI workflow does not
-run the full performance group, so its green result does not clear these local
+The focused allocation/reservation tests passed 12/12. Authorization tests
+assert the one-command query boundary and fresh permission checks; the combined
+authorization/webhook focus passed 29/29. The local two-repeat PostgreSQL
+performance profile completed with zero reconciliation issues but exited
+nonzero with 19 budget failures on `93f1b63`, compared with 21 on `64cc727`;
+this does not clear the capacity gate. Every recorded evaluation had zero
+reconciliation errors and passed business assertions. Receiving p50 improved
+in both repeats at concurrency 1 and 4, while the 20-way results varied;
+same-stock allocation p95 at concurrency 20 remained above its 2,000 ms
+budget. Exact-SHA Actions run
+[#36125207777](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36125207777)
+completed successfully on `93f1b63`: Linux/Windows quality and coverage, all
+seven PostgreSQL groups, SQLite-to-PostgreSQL migration, Docker, and secret
+scan passed. Pull-request dependency review was skipped on the direct push.
+Artifacts are `windows-test-results-36125207777-1`,
+`linux-test-results-36125207777-1`, and `secret-scan-results-36125207777`.
+CI does not run the full performance group, so CI does not clear these local
 performance misses or establish capacity. Exact measurements and machine
 boundaries are in
 [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
