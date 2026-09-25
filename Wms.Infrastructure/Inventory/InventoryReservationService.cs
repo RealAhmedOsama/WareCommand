@@ -45,21 +45,27 @@ public sealed class InventoryReservationService(
             request.DemandType,
             request.DemandId,
             request.DemandLine);
-        var existing = await unitOfWork.InventoryReservations.GetByDemandAsync(
-            demandKey,
-            request.WarehouseId,
-            cancellationToken);
-        if (existing is not null)
-        {
-            EnsureSameDemand(existing, request);
-            return ToResult(existing);
-        }
-
         var transactionStarted = false;
         try
         {
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
+            await AcquireReservationBalanceLockAsync(
+                request.WarehouseId,
+                request.ItemId,
+                cancellationToken);
+
+            var existing = await unitOfWork.InventoryReservations.GetByDemandAsync(
+                demandKey,
+                request.WarehouseId,
+                cancellationToken);
+            if (existing is not null)
+            {
+                EnsureSameDemand(existing, request);
+                await unitOfWork.CommitTransactionAsync(cancellationToken);
+                transactionStarted = false;
+                return ToResult(existing);
+            }
 
             var item = await context.Items
                 .SingleOrDefaultAsync(
@@ -185,6 +191,31 @@ public sealed class InventoryReservationService(
             await RollbackIfNeededAsync(transactionStarted);
             throw;
         }
+    }
+
+    private async Task AcquireReservationBalanceLockAsync(
+        int warehouseId,
+        int itemId,
+        CancellationToken cancellationToken)
+    {
+        var providerName = context.Database.ProviderName ?? string.Empty;
+        if (!providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (context.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException(
+                "The PostgreSQL reservation balance lock requires an active transaction.");
+        }
+
+        // Serialize allocations for one item in one warehouse across app
+        // instances before they read candidate balances. The two-key lock is
+        // transaction-scoped and uses the existing positive integer IDs.
+        await context.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock({warehouseId}, {itemId})",
+            cancellationToken);
     }
 
     public async Task<InventoryReservationSimulationResult> SimulateAsync(
