@@ -220,7 +220,7 @@ public sealed class InboundExceptionService(
                 return stockSafety.ToFailure<InboundExceptionDto>();
             }
 
-            if (context.Database.IsRelational())
+            if (context.Database.IsRelational() && context.Database.CurrentTransaction is null)
             {
                 transaction = await context.Database.BeginTransactionAsync(cancellationToken);
             }
@@ -520,7 +520,7 @@ public sealed class InboundExceptionService(
                     cancellationToken)
                 : null;
 
-            if (context.Database.IsRelational())
+            if (context.Database.IsRelational() && context.Database.CurrentTransaction is null)
             {
                 transaction = await context.Database.BeginTransactionAsync(cancellationToken);
             }

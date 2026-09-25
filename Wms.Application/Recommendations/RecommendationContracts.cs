@@ -134,7 +134,42 @@ public sealed record RecommendationRevalidation(
 
 public sealed record RecommendationCommandResult(
     string CommandReference,
-    string OutcomeCode);
+    string OutcomeCode,
+    string ReferenceType = "warehouse-work");
+
+public sealed record RecommendationCandidateSource(
+    RecommendationType Type,
+    int WarehouseId,
+    string SourceSnapshotId,
+    DateTimeOffset SourceFromUtc,
+    DateTimeOffset SourceToUtc,
+    string SourceStateFingerprint,
+    string Explanation,
+    RecommendationAction Action,
+    IReadOnlyDictionary<string, decimal> NumericFeatures,
+    decimal ExpectedImpactLow,
+    decimal ExpectedImpactHigh,
+    DateTimeOffset GeneratedAtUtc,
+    DateTimeOffset ExpiresAtUtc);
+
+public sealed record RecommendationQualityTypeSummary(
+    RecommendationType Type,
+    int Generated,
+    int BaselineMatched,
+    int Reviewed,
+    int Approved,
+    int Rejected,
+    int Expired,
+    int Executed,
+    int ExecutionFailed,
+    IReadOnlyDictionary<string, int> ExecutionOutcomes);
+
+public sealed record RecommendationQualityReport(
+    int? WarehouseId,
+    DateTimeOffset FromUtc,
+    DateTimeOffset ToUtc,
+    IReadOnlyList<RecommendationQualityTypeSummary> Types,
+    bool IsTruncated = false);
 
 public sealed record ReplenishmentRecommendationSource(
     ReplenishmentWorkPlanDto Plan,
@@ -149,6 +184,10 @@ public interface IRecommendationDraftProvider
 
     Task<Result<RecommendationDraft>> CreateReplenishmentDraftAsync(
         ReplenishmentRecommendationSource source,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationDraft>> CreateDraftAsync(
+        RecommendationCandidateSource source,
         CancellationToken cancellationToken = default);
 }
 
@@ -173,6 +212,11 @@ public interface IRecommendationCommandAdapter
 
 public interface IRecommendationGovernanceService
 {
+    Task<Result<IReadOnlyList<RecommendationRecord>>> GenerateAsync(
+        RecommendationType type,
+        RecommendationGenerationRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<Result<IReadOnlyList<RecommendationRecord>>> GenerateReplenishmentAsync(
         RecommendationGenerationRequest request,
         CancellationToken cancellationToken = default);
@@ -187,6 +231,12 @@ public interface IRecommendationGovernanceService
 
     Task<Result<IReadOnlyList<RecommendationHistoryEntry>>> GetHistoryAsync(
         string recommendationId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<RecommendationQualityReport>> GetQualityAsync(
+        int? warehouseId = null,
+        DateTimeOffset? fromUtc = null,
+        DateTimeOffset? toUtc = null,
         CancellationToken cancellationToken = default);
 
     Task<Result<RecommendationRecord>> ApproveAsync(
@@ -279,7 +329,7 @@ public static class RecommendationPolicy
                 "The recommendation warehouse is outside the authenticated scope."));
         }
 
-        var requiredPermission = RequiredPermission(draft.Type);
+        var requiredPermission = RequiredPermission(draft.Type, draft.Action);
         if (request.PermissionCodes is null ||
             !HasPermission(request.PermissionCodes, WmsPermissions.ReportsRead) ||
             !HasPermission(request.PermissionCodes, requiredPermission))
@@ -402,14 +452,33 @@ public static class RecommendationPolicy
             null));
     }
 
-    public static string RequiredPermission(RecommendationType type) =>
+    public static string RequiredPermission(
+        RecommendationType type,
+        RecommendationAction? action = null) =>
         type switch
         {
             RecommendationType.Replenishment => WmsPermissions.InventoryRead,
-            RecommendationType.Slotting => WmsPermissions.LocationsRead,
+            RecommendationType.Slotting => WmsPermissions.InventoryAdjust,
+            RecommendationType.WorkloadPriority => WmsPermissions.WorkExecute,
+            RecommendationType.ExceptionResolution =>
+                action?.ActionType switch
+                {
+                    "inbound-exception-hold" => WmsPermissions.AdvanceShippingNoticesManage,
+                    "outbound-exception-hold" => WmsPermissions.SalesOrdersManage,
+                    _ => WmsPermissions.ReportsRead
+                },
+            RecommendationType.RiskSummary => WmsPermissions.ForecastingRecalculate,
+            _ => throw new ArgumentOutOfRangeException(nameof(type))
+        };
+
+    public static string ReadPermission(RecommendationType type) =>
+        type switch
+        {
+            RecommendationType.Replenishment => WmsPermissions.InventoryRead,
+            RecommendationType.Slotting => WmsPermissions.InventoryRead,
             RecommendationType.WorkloadPriority => WmsPermissions.WorkRead,
             RecommendationType.ExceptionResolution => WmsPermissions.ReportsRead,
-            RecommendationType.RiskSummary => WmsPermissions.ReportsRead,
+            RecommendationType.RiskSummary => WmsPermissions.InventoryRead,
             _ => throw new ArgumentOutOfRangeException(nameof(type))
         };
 
@@ -514,7 +583,9 @@ public static class RecommendationLifecycle
             request.PermissionCodes is null ||
             !request.PermissionCodes.Contains(WmsPermissions.All) &&
             (!request.PermissionCodes.Contains(WmsPermissions.ReportsRead) ||
-             !request.PermissionCodes.Contains(RecommendationPolicy.RequiredPermission(recommendation.Type))))
+            !request.PermissionCodes.Contains(RecommendationPolicy.RequiredPermission(
+                recommendation.Type,
+                recommendation.Action))))
         {
             return Result.Failure<RecommendationRecord>(WmsErrors.Forbidden(
                 "recommendation.approval_forbidden",

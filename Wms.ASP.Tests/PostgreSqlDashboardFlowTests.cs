@@ -438,6 +438,7 @@ public sealed class PostgreSqlDashboardFlowTests
             int warehouseId;
             int itemId;
             int destinationLocationId;
+            string baseUnitOfMeasure;
             InventoryReplenishmentPolicyInput policyInput;
             using (var scope = factory.Services.CreateScope())
             {
@@ -494,6 +495,7 @@ public sealed class PostgreSqlDashboardFlowTests
                     EffectiveFromUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
                 itemId = source.ItemId;
                 destinationLocationId = destination.Id;
+                baseUnitOfMeasure = source.BaseUnitOfMeasure;
             }
 
             using var itemsPage = await client.GetAsync("/Items");
@@ -588,6 +590,111 @@ public sealed class PostgreSqlDashboardFlowTests
             Assert.Equal(["created", "reviewed", "approved", "executed"],
                 history.Select(value => value.EventType));
 
+            using var qualityResponse = await client.GetAsync(
+                $"/api/recommendations/quality?warehouseId={warehouseId}");
+            Assert.Equal(HttpStatusCode.OK, qualityResponse.StatusCode);
+            var quality = await qualityResponse.Content.ReadFromJsonAsync<RecommendationQualityReport>(AssistantJsonOptions);
+            Assert.NotNull(quality);
+            Assert.False(quality.IsTruncated);
+            var replenishmentQuality = Assert.Single(quality.Types, value =>
+                value.Type == RecommendationType.Replenishment);
+            Assert.Equal(1, replenishmentQuality.Generated);
+            Assert.Equal(1, replenishmentQuality.BaselineMatched);
+            Assert.Equal(1, replenishmentQuality.Executed);
+            Assert.Contains("work-created", replenishmentQuality.ExecutionOutcomes.Keys);
+
+            using var workerProfileRequest = new HttpRequestMessage(
+                HttpMethod.Put,
+                $"/api/workforce/profiles/{Uri.EscapeDataString(fixture.ActorCredentials.UserId)}")
+            {
+                Content = JsonContent.Create(new { warehouseId, timeZoneId = "UTC", isActive = true })
+            };
+            workerProfileRequest.Headers.TryAddWithoutValidation(
+                "RequestVerificationToken",
+                antiforgeryToken);
+            using var workerProfileResponse = await client.SendAsync(workerProfileRequest);
+            var workerProfileBody = await workerProfileResponse.Content.ReadAsStringAsync();
+            Assert.True(workerProfileResponse.StatusCode == HttpStatusCode.OK,
+                $"Worker profile setup returned {(int)workerProfileResponse.StatusCode}: {workerProfileBody}");
+
+            using var workCreate = await PostRecommendationAsync(
+                client,
+                "/api/work",
+                new
+                {
+                    creationKey = "issue-128-workload-self-claim",
+                    type = "Other",
+                    warehouseId,
+                    sourceEntityType = "Issue128Integration",
+                    sourceEntityId = "workload-priority",
+                    priority = 30,
+                    makeAvailable = true,
+                    lines = new[]
+                    {
+                        new
+                        {
+                            sequence = 1,
+                            warehouseId,
+                            itemId,
+                            plannedQuantity = 1m,
+                            baseUnitOfMeasure
+                        }
+                    }
+                },
+                antiforgeryToken);
+            var workCreateBody = await workCreate.Content.ReadAsStringAsync();
+            Assert.True(workCreate.StatusCode == HttpStatusCode.OK,
+                $"Self-claimable work creation returned {(int)workCreate.StatusCode}: {workCreateBody}");
+
+            using var workloadGenerate = await PostRecommendationAsync(
+                client,
+                "/api/recommendations/generate/WorkloadPriority",
+                new { warehouseId, limit = 50 },
+                antiforgeryToken);
+            var workloadGenerateBody = await workloadGenerate.Content.ReadAsStringAsync();
+            Assert.True(workloadGenerate.StatusCode == HttpStatusCode.OK,
+                $"Workload recommendation generation returned {(int)workloadGenerate.StatusCode}: {workloadGenerateBody}");
+            var workloadProposals = JsonSerializer.Deserialize<RecommendationRecord[]>(
+                workloadGenerateBody,
+                AssistantJsonOptions);
+            Assert.NotEmpty(workloadProposals!);
+            var workloadProposal = workloadProposals!.First(value =>
+                value.Action.ActionType == "work-claim");
+            var workloadWorkId = int.Parse(
+                workloadProposal.Action.TargetReference,
+                CultureInfo.InvariantCulture);
+
+            using var workloadReview = await PostRecommendationAsync(
+                client,
+                $"/api/recommendations/{workloadProposal.RecommendationId}/review",
+                new { expectedRevision = workloadProposal.Revision, idempotencyKey = "issue-128-workload-review", comment = "Reviewed the deterministic queue ranking." },
+                antiforgeryToken);
+            Assert.Equal(HttpStatusCode.OK, workloadReview.StatusCode);
+            var workloadReviewed = await workloadReview.Content.ReadFromJsonAsync<RecommendationRecord>(AssistantJsonOptions);
+            Assert.NotNull(workloadReviewed);
+            using var workloadApprove = await PostRecommendationAsync(
+                client,
+                $"/api/recommendations/{workloadProposal.RecommendationId}/approve",
+                new { expectedRevision = workloadReviewed.Revision, idempotencyKey = "issue-128-workload-approve" },
+                antiforgeryToken);
+            Assert.Equal(HttpStatusCode.OK, workloadApprove.StatusCode);
+            var workloadApproved = await workloadApprove.Content.ReadFromJsonAsync<RecommendationRecord>(AssistantJsonOptions);
+            Assert.NotNull(workloadApproved);
+            using var workloadExecute = await PostRecommendationAsync(
+                client,
+                $"/api/recommendations/{workloadProposal.RecommendationId}/execute",
+                new { expectedRevision = workloadApproved.Revision, idempotencyKey = "issue-128-workload-execute" },
+                antiforgeryToken);
+            var workloadExecuteBody = await workloadExecute.Content.ReadAsStringAsync();
+            Assert.True(workloadExecute.StatusCode == HttpStatusCode.OK,
+                $"Workload recommendation execution returned {(int)workloadExecute.StatusCode}: {workloadExecuteBody}");
+            var workloadExecuted = JsonSerializer.Deserialize<RecommendationRecord>(
+                workloadExecuteBody,
+                AssistantJsonOptions);
+            Assert.NotNull(workloadExecuted);
+            Assert.Equal(RecommendationStatus.Executed, workloadExecuted.Status);
+            Assert.Equal($"warehouse-work:{workloadWorkId}", workloadExecuted.ExecutionReference);
+
             using (var scope = factory.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<WmsDbContext>();
@@ -596,6 +703,10 @@ public sealed class PostgreSqlDashboardFlowTests
                                     value.SourceEntityId == policyId.ToString(CultureInfo.InvariantCulture) &&
                                     value.WarehouseId == warehouseId)
                     .ToArrayAsync());
+                var claimedWork = await context.WarehouseWorks.AsNoTracking()
+                    .SingleAsync(value => value.Id == workloadWorkId);
+                Assert.Equal(WarehouseWorkStatus.Assigned, claimedWork.Status);
+                Assert.Equal(fixture.ActorCredentials.UserId, claimedWork.AssignedUserId);
                 Assert.Equal(0m, await context.InventoryBalances.AsNoTracking()
                     .Where(value => value.LocationId == destinationLocationId && value.ItemId == itemId)
                     .Select(value => (decimal?)value.ReservedQuantity)

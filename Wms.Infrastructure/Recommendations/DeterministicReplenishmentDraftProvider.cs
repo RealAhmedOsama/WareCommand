@@ -60,4 +60,44 @@ public sealed class DeterministicReplenishmentDraftProvider : IRecommendationDra
             source.ExpiresAtUtc.ToUniversalTime());
         return Task.FromResult(Result.Success(draft));
     }
+
+    public Task<Result<RecommendationDraft>> CreateDraftAsync(
+        RecommendationCandidateSource source,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!Enum.IsDefined(source.Type) || source.Type == RecommendationType.Replenishment ||
+            source.WarehouseId <= 0 ||
+            string.IsNullOrWhiteSpace(source.SourceSnapshotId) ||
+            string.IsNullOrWhiteSpace(source.SourceStateFingerprint) ||
+            string.IsNullOrWhiteSpace(source.Explanation) ||
+            source.Action is null ||
+            source.NumericFeatures is null)
+        {
+            return Task.FromResult(Result.Failure<RecommendationDraft>(WmsErrors.Validation(
+                "recommendation.source_invalid",
+                "A bounded deterministic source is required for this recommendation type.")));
+        }
+
+        var draft = new RecommendationDraft(
+            source.Type,
+            source.WarehouseId,
+            source.SourceSnapshotId,
+            source.SourceFromUtc,
+            source.SourceToUtc,
+            source.SourceStateFingerprint,
+            Name,
+            "rules-v1",
+            $"deterministic-{source.Type.ToString().ToLowerInvariant()}/v1",
+            1m,
+            source.Explanation,
+            source.Action,
+            new Dictionary<string, decimal>(source.NumericFeatures, StringComparer.Ordinal),
+            source.ExpectedImpactLow,
+            source.ExpectedImpactHigh,
+            source.GeneratedAtUtc,
+            source.ExpiresAtUtc);
+        return Task.FromResult(Result.Success(draft));
+    }
 }

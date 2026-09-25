@@ -4,9 +4,15 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Wms.Application.Common;
 using Wms.Application.Context;
+using Wms.Application.Forecasting;
 using Wms.Application.Identity;
+using Wms.Application.Inbound;
 using Wms.Application.Inventory;
+using Wms.Application.Outbound;
 using Wms.Application.Recommendations;
+using Wms.Application.WarehouseWork;
+using Wms.Application.Workforce;
+using Wms.Domain.Enums;
 using Wms.Infrastructure.Data;
 using Wms.Infrastructure.Recommendations;
 
@@ -20,6 +26,11 @@ public sealed class RecommendationGovernanceServiceTests : IDisposable
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
     private readonly WmsDbContext _context;
     private readonly Mock<IReplenishmentExecutionService> _replenishment = new();
+    private readonly Mock<ISlottingService> _slotting = new();
+    private readonly Mock<IWorkforceService> _workforce = new();
+    private readonly Mock<IInboundExceptionService> _inboundExceptions = new();
+    private readonly Mock<IOutboundExceptionService> _outboundExceptions = new();
+    private readonly Mock<IForecastingService> _forecasting = new();
     private readonly Mock<IWarehouseAccessService> _warehouseAccess = new();
     private readonly Mock<ICurrentUser> _currentUser = new();
     private readonly DeterministicReplenishmentDraftProvider _provider = new();
@@ -279,6 +290,69 @@ public sealed class RecommendationGovernanceServiceTests : IDisposable
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task Workload_recommendation_uses_normal_idempotent_claim_and_quality_reports_outcome()
+    {
+        var work = CreateWork();
+        var suggestion = new WorkSuggestionDto(work, "eligible by deterministic queue score", 9, "DEFAULT", null,
+            Score: 12.5m, ScoringBreakdown: "priority=10;due=2.5");
+        _workforce
+            .Setup(service => service.SuggestAsync(
+                It.IsAny<WorkforceSuggestionsQuery>(),
+                "reviewer-1",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success(new WorkforceSuggestionsDto(
+                [suggestion],
+                _clock.UtcNow.UtcDateTime)));
+        _workforce
+            .Setup(service => service.ClaimAsync(
+                work.Id,
+                It.IsAny<WarehouseWorkClaimInput>(),
+                "reviewer-1",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int workId, WarehouseWorkClaimInput _, string _, CancellationToken _) =>
+                Result.Success(CreateWork(workId, WarehouseWorkStatus.Assigned, "reviewer-1", revision: 5)));
+
+        var generated = await _service.GenerateAsync(
+            RecommendationType.WorkloadPriority,
+            new RecommendationGenerationRequest(WarehouseId, 10));
+
+        generated.IsSuccess.Should().BeTrue(generated.Error);
+        generated.Value.Should().ContainSingle();
+        var recommendation = generated.Value.Single();
+        recommendation.Type.Should().Be(RecommendationType.WorkloadPriority);
+        recommendation.Action.ActionType.Should().Be("work-claim");
+
+        var reviewed = await _service.ReviewAsync(
+            recommendation.RecommendationId,
+            new RecommendationLifecycleCommand(1, "workload-review", "Reviewed."));
+        var approved = await _service.ApproveAsync(
+            recommendation.RecommendationId,
+            new RecommendationLifecycleCommand(reviewed.Value.Revision, "workload-approve"));
+        var executed = await _service.ExecuteAsync(
+            recommendation.RecommendationId,
+            new RecommendationLifecycleCommand(approved.Value.Revision, "workload-execute"));
+
+        executed.IsSuccess.Should().BeTrue(executed.Error);
+        executed.Value.Status.Should().Be(RecommendationStatus.Executed);
+        executed.Value.ExecutionReference.Should().Be("warehouse-work:899");
+        _workforce.Verify(service => service.ClaimAsync(
+            work.Id,
+            It.Is<WarehouseWorkClaimInput>(input => input.IdempotencyKey == $"recommendation:{recommendation.RecommendationId}"),
+            "reviewer-1",
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        var quality = await _service.GetQualityAsync(WarehouseId);
+        quality.IsSuccess.Should().BeTrue(quality.Error);
+        var workload = quality.Value.Types.Single(value => value.Type == RecommendationType.WorkloadPriority);
+        workload.Generated.Should().Be(1);
+        workload.BaselineMatched.Should().Be(1);
+        workload.Reviewed.Should().Be(1);
+        workload.Approved.Should().Be(1);
+        workload.Executed.Should().Be(1);
+        workload.ExecutionOutcomes.Should().ContainKey("work-claimed").WhoseValue.Should().Be(1);
+    }
+
     private RecommendationGovernanceService CreateService(
         bool enabled,
         bool providerAvailable = true,
@@ -286,10 +360,29 @@ public sealed class RecommendationGovernanceServiceTests : IDisposable
         int providerTimeoutSeconds = 10)
     {
         var adapter = new ReplenishmentRecommendationCommandAdapter(_replenishment.Object);
+        var adapters = new IRecommendationCommandAdapter[]
+        {
+            adapter,
+            new SlottingRecommendationCommandAdapter(_slotting.Object, _clock),
+            new WorkloadPriorityRecommendationCommandAdapter(_workforce.Object),
+            new ExceptionResolutionRecommendationCommandAdapter(
+                _inboundExceptions.Object,
+                _outboundExceptions.Object),
+            new RiskSummaryRecommendationCommandAdapter(_forecasting.Object)
+        };
+        var sourceFactory = new RecommendationCandidateSourceFactory(
+            _replenishment.Object,
+            _slotting.Object,
+            _workforce.Object,
+            _inboundExceptions.Object,
+            _outboundExceptions.Object,
+            _forecasting.Object,
+            _warehouseAccess.Object,
+            _clock);
         return new RecommendationGovernanceService(
             _context,
             _provider,
-            [adapter],
+            adapters,
             _replenishment.Object,
             _warehouseAccess.Object,
             _currentUser.Object,
@@ -304,8 +397,49 @@ public sealed class RecommendationGovernanceServiceTests : IDisposable
                 MaximumProposalsPerRequest = 50,
                 ProviderTimeoutSeconds = providerTimeoutSeconds
             }),
-            NullLogger<RecommendationGovernanceService>.Instance);
+            NullLogger<RecommendationGovernanceService>.Instance,
+            sourceFactory);
     }
+
+    private static WarehouseWorkDto CreateWork(
+        int id = 899,
+        WarehouseWorkStatus status = WarehouseWorkStatus.Available,
+        string? assignedUserId = null,
+        long revision = 4) => new(
+            Id: id,
+            WorkNumber: $"WW-{id}",
+            CreationKey: $"work-source:{id}",
+            Type: WarehouseWorkType.Pick,
+            WarehouseId: WarehouseId,
+            SourceEntityType: "source",
+            SourceEntityId: "source-id",
+            SourceLineReference: null,
+            QueueCode: "DEFAULT",
+            Priority: 40,
+            DueAtUtc: null,
+            TeamCode: null,
+            Notes: null,
+            Status: status,
+            AssignedUserId: assignedUserId,
+            AssignedTeamCode: null,
+            AssignedByUserId: null,
+            AssignedAtUtc: null,
+            StartedAtUtc: null,
+            PausedAtUtc: null,
+            CompletedAtUtc: null,
+            CancelledAtUtc: null,
+            CompletedByUserId: null,
+            CancelledByUserId: null,
+            CancellationReason: null,
+            ExceptionType: null,
+            ExceptionReason: null,
+            ExceptionAtUtc: null,
+            SupervisorOverride: false,
+            OverrideReason: null,
+            Revision: revision,
+            Lines: [],
+            IsTerminal: status is WarehouseWorkStatus.Completed or WarehouseWorkStatus.Cancelled,
+            HasExceptions: false);
 
     private ReplenishmentWorkPlanDto CreatePlan(bool dryRun) =>
         new(

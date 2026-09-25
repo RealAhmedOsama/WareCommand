@@ -82,8 +82,8 @@ $selectedGroupNames = if ($Group -eq 'all') { @('core', 'harness', 'dashboard', 
 if (-not [string]::IsNullOrWhiteSpace($TestName) -and $TestName -notmatch '^[A-Za-z0-9_]+$') {
     throw 'TestName must be a test method identifier.'
 }
-if (-not [string]::IsNullOrWhiteSpace($TestName) -and $Group -ne 'resilience') {
-    throw 'TestName can only be used with the resilience provider group.'
+if (-not [string]::IsNullOrWhiteSpace($TestName) -and $selectedGroupNames.Count -ne 1) {
+    throw 'TestName requires exactly one PostgreSQL provider group.'
 }
 
 if ($PlanOnly) {

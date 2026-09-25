@@ -26,7 +26,8 @@ public sealed class RecommendationGovernanceService(
     ICurrentUser currentUser,
     IClock clock,
     IOptions<RecommendationGovernanceOptions> options,
-    ILogger<RecommendationGovernanceService> logger) : IRecommendationGovernanceService
+    ILogger<RecommendationGovernanceService> logger,
+    RecommendationCandidateSourceFactory? candidateSourceFactory = null) : IRecommendationGovernanceService
 {
     private const int MaximumPageSize = 100;
     private const int ExpirySweepBatchSize = 500;
@@ -34,6 +35,125 @@ public sealed class RecommendationGovernanceService(
         commandAdapters.ToDictionary(adapter => adapter.Type);
     private readonly RecommendationGovernanceOptions _options = options.Value;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public async Task<Result<IReadOnlyList<RecommendationRecord>>> GenerateAsync(
+        RecommendationType type,
+        RecommendationGenerationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (type == RecommendationType.Replenishment)
+        {
+            return await GenerateReplenishmentAsync(request, cancellationToken);
+        }
+
+        var actor = GetActor();
+        if (actor.IsFailure)
+        {
+            return actor.ToFailure<IReadOnlyList<RecommendationRecord>>();
+        }
+
+        if (!Enum.IsDefined(type) || request.WarehouseId <= 0 ||
+            request.Limit is < 1 || request.Limit > _options.MaximumProposalsPerRequest)
+        {
+            return Result.Failure<IReadOnlyList<RecommendationRecord>>(WmsErrors.Validation(
+                "recommendation.generation_limit_invalid",
+                $"Recommendation type and warehouse must be valid and the limit must be between 1 and {_options.MaximumProposalsPerRequest}."));
+        }
+
+        if (candidateSourceFactory is null)
+        {
+            return Result.Failure<IReadOnlyList<RecommendationRecord>>(WmsErrors.Dependency(
+                "recommendation.source_unavailable",
+                "The deterministic source for this recommendation type is unavailable."));
+        }
+
+        var gate = await CheckGenerationGateAsync(request.WarehouseId, cancellationToken, type);
+        if (gate.IsFailure)
+        {
+            return gate.ToFailure<IReadOnlyList<RecommendationRecord>>();
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(_options.ProviderTimeoutSeconds));
+        try
+        {
+            var sources = await candidateSourceFactory.CreateAsync(type, request, actor.Value, timeout.Token);
+            if (sources.IsFailure)
+            {
+                return sources.ToFailure<IReadOnlyList<RecommendationRecord>>();
+            }
+
+            var output = new List<RecommendationRecord>();
+            foreach (var source in sources.Value.Take(request.Limit))
+            {
+                timeout.Token.ThrowIfCancellationRequested();
+                var draftResult = await draftProvider.CreateDraftAsync(source, timeout.Token);
+                if (draftResult.IsFailure)
+                {
+                    return draftResult.ToFailure<IReadOnlyList<RecommendationRecord>>();
+                }
+
+                if (draftResult.Value.Type != type || draftResult.Value.WarehouseId != request.WarehouseId)
+                {
+                    return Result.Failure<IReadOnlyList<RecommendationRecord>>(WmsErrors.Forbidden(
+                        "recommendation.source_scope_invalid",
+                        "The deterministic provider returned a proposal outside the requested type or warehouse."));
+                }
+
+                var governanceRequest = new RecommendationRequest(
+                    draftResult.Value,
+                    new HashSet<int> { request.WarehouseId },
+                    new HashSet<string>(StringComparer.Ordinal)
+                    {
+                        WmsPermissions.ReportsRead,
+                        RecommendationPolicy.RequiredPermission(type, draftResult.Value.Action)
+                    },
+                    KillSwitchEnabled: _options.KillSwitchEnabled,
+                    ProviderAvailable: _options.ProviderAvailable &&
+                                       draftProvider.IsAvailable &&
+                                       string.Equals(_options.ProviderName, draftProvider.Name, StringComparison.Ordinal),
+                    ShadowMode: _options.ShadowMode);
+                var created = RecommendationPolicy.Create(governanceRequest, clock.UtcNow);
+                if (created.IsFailure)
+                {
+                    return created.ToFailure<IReadOnlyList<RecommendationRecord>>();
+                }
+
+                var saved = await SaveProposalAsync(created.Value, actor.Value, cancellationToken);
+                if (saved.IsFailure)
+                {
+                    return saved.ToFailure<IReadOnlyList<RecommendationRecord>>();
+                }
+
+                output.Add(saved.Value);
+            }
+
+            return Result.Success<IReadOnlyList<RecommendationRecord>>(output);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return Result.Failure<IReadOnlyList<RecommendationRecord>>(WmsErrors.Dependency(
+                "recommendation.provider_timeout",
+                "Recommendation generation exceeded its configured time budget; deterministic operations remain available.",
+                isRetryable: true));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception,
+                "Governed recommendation generation failed for warehouse {WarehouseId} and type {RecommendationType}",
+                request.WarehouseId,
+                type);
+            return Result.Failure<IReadOnlyList<RecommendationRecord>>(WmsErrors.FromException(
+                exception,
+                "recommendation.generation_failed",
+                "Governed recommendations could not be generated."));
+        }
+    }
 
     public async Task<Result<IReadOnlyList<RecommendationRecord>>> GenerateReplenishmentAsync(
         RecommendationGenerationRequest request,
@@ -55,7 +175,10 @@ public sealed class RecommendationGovernanceService(
                 $"Warehouse ID must be positive and the limit must be between 1 and {_options.MaximumProposalsPerRequest}."));
         }
 
-        var gate = await CheckGenerationGateAsync(request.WarehouseId, cancellationToken);
+        var gate = await CheckGenerationGateAsync(
+            request.WarehouseId,
+            cancellationToken,
+            RecommendationType.Replenishment);
         if (gate.IsFailure)
         {
             return gate.ToFailure<IReadOnlyList<RecommendationRecord>>();
@@ -175,7 +298,7 @@ public sealed class RecommendationGovernanceService(
             }
 
             if (await warehouseAccessService.HasPermissionAsync(
-                    RecommendationPolicy.RequiredPermission(type),
+                    RecommendationPolicy.ReadPermission(type),
                     cancellationToken))
             {
                 readableTypes.Add((int)type);
@@ -290,6 +413,157 @@ public sealed class RecommendationGovernanceService(
         return Result.Success<IReadOnlyList<RecommendationHistoryEntry>>(history);
     }
 
+    public async Task<Result<RecommendationQualityReport>> GetQualityAsync(
+        int? warehouseId = null,
+        DateTimeOffset? fromUtc = null,
+        DateTimeOffset? toUtc = null,
+        CancellationToken cancellationToken = default)
+    {
+        var now = clock.UtcNow.ToUniversalTime();
+        var from = (fromUtc ?? now.AddDays(-30)).ToUniversalTime();
+        var to = (toUtc ?? now).ToUniversalTime();
+        if (warehouseId is <= 0 || from > to || to > now.AddMinutes(5) || to - from > TimeSpan.FromDays(366))
+        {
+            return Result.Failure<RecommendationQualityReport>(WmsErrors.Validation(
+                "recommendation.quality_window_invalid",
+                "The warehouse and UTC monitoring window are outside the supported range."));
+        }
+
+        var reportAuthorization = await warehouseAccessService.AuthorizeAsync(
+            WmsPermissions.ReportsRead,
+            warehouseId,
+            cancellationToken);
+        if (reportAuthorization.IsFailure)
+        {
+            return reportAuthorization.ToFailure<RecommendationQualityReport>();
+        }
+
+        var scope = await warehouseAccessService.GetScopeAsync(cancellationToken);
+        if (warehouseId.HasValue && !scope.HasGlobalAccess && !scope.WarehouseIds.Contains(warehouseId.Value))
+        {
+            return Result.Failure<RecommendationQualityReport>(WmsErrors.Forbidden(
+                "recommendation.warehouse_forbidden",
+                "The requested warehouse is outside the authenticated scope."));
+        }
+
+        var readableTypes = new List<int>();
+        foreach (var type in Enum.GetValues<RecommendationType>())
+        {
+            if (await warehouseAccessService.HasPermissionAsync(
+                    RecommendationPolicy.ReadPermission(type),
+                    cancellationToken))
+            {
+                readableTypes.Add((int)type);
+            }
+        }
+
+        if (readableTypes.Count == 0)
+        {
+            return Result.Failure<RecommendationQualityReport>(WmsErrors.Forbidden(
+                "recommendation.permission_denied",
+                "The authenticated user cannot view recommendation quality for any type."));
+        }
+
+        const int maximumQualityRows = 100_000;
+        var rows = context.GovernedRecommendations.AsNoTracking()
+            .Where(row => readableTypes.Contains(row.Type));
+        if (warehouseId.HasValue)
+        {
+            rows = rows.Where(row => row.WarehouseId == warehouseId.Value);
+        }
+        else if (!scope.HasGlobalAccess)
+        {
+            var warehouseIds = scope.WarehouseIds.ToArray();
+            rows = rows.Where(row => warehouseIds.Contains(row.WarehouseId));
+        }
+
+        List<GovernedRecommendation> loadedRows;
+        bool isTruncated;
+        if (context.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            loadedRows = await rows
+                .OrderByDescending(row => row.Id)
+                .Take(maximumQualityRows + 1)
+                .ToListAsync(cancellationToken);
+            isTruncated = loadedRows.Count > maximumQualityRows;
+            loadedRows = loadedRows.Take(maximumQualityRows).ToList();
+            loadedRows = loadedRows.Where(row => row.GeneratedAtUtc >= from && row.GeneratedAtUtc <= to).ToList();
+        }
+        else
+        {
+            loadedRows = await rows
+                .Where(row => row.GeneratedAtUtc >= from && row.GeneratedAtUtc <= to)
+                .OrderByDescending(row => row.GeneratedAtUtc)
+                .Take(maximumQualityRows + 1)
+                .ToListAsync(cancellationToken);
+            isTruncated = loadedRows.Count > maximumQualityRows;
+            loadedRows = loadedRows.Take(maximumQualityRows).ToList();
+        }
+
+        var recommendations = loadedRows;
+        var recommendationIds = recommendations.Select(row => row.Id).ToArray();
+        var eventRows = new List<GovernedRecommendationEvent>();
+        if (recommendationIds.Length > 0)
+        {
+            const int maximumQualityEvents = 1_000_000;
+            var eventQuery = context.GovernedRecommendationEvents.AsNoTracking()
+                .Where(entry => recommendationIds.Contains(entry.RecommendationId));
+            if (context.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                eventRows = await eventQuery.OrderBy(entry => entry.Id)
+                    .Take(maximumQualityEvents + 1)
+                    .ToListAsync(cancellationToken);
+                isTruncated |= eventRows.Count > maximumQualityEvents;
+                eventRows = eventRows.Take(maximumQualityEvents).ToList();
+                eventRows = eventRows.Where(entry => entry.OccurredAtUtc <= to).ToList();
+            }
+            else
+            {
+                eventRows = await eventQuery.Where(entry => entry.OccurredAtUtc <= to)
+                    .OrderBy(entry => entry.Id)
+                    .Take(maximumQualityEvents + 1)
+                    .ToListAsync(cancellationToken);
+                isTruncated |= eventRows.Count > maximumQualityEvents;
+                eventRows = eventRows.Take(maximumQualityEvents).ToList();
+            }
+        }
+
+        var events = eventRows.Select(entry => new
+        {
+            entry.RecommendationId,
+            entry.EventType,
+            entry.OutcomeCode
+        }).ToArray();
+
+        var summaries = Enum.GetValues<RecommendationType>()
+            .Where(type => readableTypes.Contains((int)type))
+            .Select(type =>
+            {
+                var typed = recommendations.Where(row => row.Type == (int)type).ToArray();
+                var typedIds = typed.Select(row => row.Id).ToHashSet();
+                var typedEvents = events.Where(entry => typedIds.Contains(entry.RecommendationId)).ToArray();
+                var executionOutcomes = typedEvents
+                    .Where(entry => entry.EventType is "executed" or "execution-failed")
+                    .GroupBy(entry => entry.OutcomeCode ?? "unspecified", StringComparer.Ordinal)
+                    .OrderBy(group => group.Key, StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
+                return new RecommendationQualityTypeSummary(
+                    type,
+                    typed.Length,
+                    typed.Count(row => row.ShadowComparison is "shadow:deterministic-source-matched" or "deterministic-baseline-matched"),
+                    typedEvents.Count(entry => entry.EventType == "reviewed"),
+                    typedEvents.Count(entry => entry.EventType == "approved"),
+                    typedEvents.Count(entry => entry.EventType == "rejected"),
+                    typedEvents.Count(entry => entry.EventType == "expired"),
+                    typedEvents.Count(entry => entry.EventType == "executed"),
+                    typedEvents.Count(entry => entry.EventType == "execution-failed"),
+                    executionOutcomes);
+            })
+            .ToArray();
+
+        return Result.Success(new RecommendationQualityReport(warehouseId, from, to, summaries, isTruncated));
+    }
+
     public Task<Result<RecommendationRecord>> ReviewAsync(
         string recommendationId,
         RecommendationLifecycleCommand command,
@@ -354,10 +628,19 @@ public sealed class RecommendationGovernanceService(
             return revalidation.ToFailure<RecommendationRecord>();
         }
 
+        var commandAuthorization = await warehouseAccessService.AuthorizeAsync(
+            RecommendationPolicy.RequiredPermission(current.Type, current.Action),
+            entity.WarehouseId,
+            cancellationToken);
+        if (commandAuthorization.IsFailure)
+        {
+            return commandAuthorization.ToFailure<RecommendationRecord>();
+        }
+
         var permissionCodes = new HashSet<string>(StringComparer.Ordinal)
         {
             WmsPermissions.ReportsRead,
-            RecommendationPolicy.RequiredPermission(current.Type)
+            RecommendationPolicy.RequiredPermission(current.Type, current.Action)
         };
         var transition = RecommendationLifecycle.Approve(
             current,
@@ -622,9 +905,11 @@ public sealed class RecommendationGovernanceService(
             return execution.ToFailure<RecommendationRecord>();
         }
 
+        var normalCommandReference =
+            $"{execution.Value.ReferenceType}:{execution.Value.CommandReference}";
         var executed = RecommendationLifecycle.MarkExecuted(
             current,
-            $"warehouse-work:{execution.Value.CommandReference}",
+            normalCommandReference,
             clock.UtcNow);
         if (executed.IsFailure)
         {
@@ -636,7 +921,7 @@ public sealed class RecommendationGovernanceService(
             (int)RecommendationStatus.Executed,
             Redact(command.Comment) ?? executed.Value.LastDispositionComment,
             clock.UtcNow,
-            $"warehouse-work:{execution.Value.CommandReference}");
+            normalCommandReference);
         context.GovernedRecommendationEvents.Add(new GovernedRecommendationEvent(
             entity.Id,
             EventKey("executed", command.IdempotencyKey),
@@ -756,7 +1041,8 @@ public sealed class RecommendationGovernanceService(
 
     private async Task<Result> CheckGenerationGateAsync(
         int warehouseId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        RecommendationType type = RecommendationType.Replenishment)
     {
         if (!_options.Enabled)
         {
@@ -808,19 +1094,74 @@ public sealed class RecommendationGovernanceService(
             return reports;
         }
 
-        var inventory = await warehouseAccessService.AuthorizeAsync(
-            WmsPermissions.InventoryRead,
-            warehouseId,
-            cancellationToken);
-        if (inventory.IsFailure)
+        switch (type)
         {
-            return inventory;
-        }
+            case RecommendationType.Replenishment:
+            {
+                var inventory = await warehouseAccessService.AuthorizeAsync(
+                    WmsPermissions.InventoryRead,
+                    warehouseId,
+                    cancellationToken);
+                return inventory.IsFailure
+                    ? inventory
+                    : await warehouseAccessService.AuthorizeAsync(
+                        WmsPermissions.WorkManage,
+                        warehouseId,
+                        cancellationToken);
+            }
+            case RecommendationType.Slotting:
+            {
+                var inventoryAdjust = await warehouseAccessService.AuthorizeAsync(
+                    WmsPermissions.InventoryAdjust,
+                    warehouseId,
+                    cancellationToken);
+                return inventoryAdjust.IsFailure
+                    ? inventoryAdjust
+                    : await warehouseAccessService.AuthorizeAsync(
+                        WmsPermissions.InventoryRead,
+                        warehouseId,
+                        cancellationToken);
+            }
+            case RecommendationType.WorkloadPriority:
+                return await warehouseAccessService.AuthorizeAsync(
+                    WmsPermissions.WorkExecute,
+                    warehouseId,
+                    cancellationToken);
+            case RecommendationType.ExceptionResolution:
+            {
+                var inbound = await warehouseAccessService.AuthorizeAsync(
+                    WmsPermissions.AdvanceShippingNoticesManage,
+                    warehouseId,
+                    cancellationToken);
+                if (inbound.IsSuccess)
+                {
+                    return inbound;
+                }
 
-        return await warehouseAccessService.AuthorizeAsync(
-            WmsPermissions.WorkManage,
-            warehouseId,
-            cancellationToken);
+                var outbound = await warehouseAccessService.AuthorizeAsync(
+                    WmsPermissions.SalesOrdersManage,
+                    warehouseId,
+                    cancellationToken);
+                return outbound.IsSuccess ? outbound : inbound;
+            }
+            case RecommendationType.RiskSummary:
+            {
+                var inventory = await warehouseAccessService.AuthorizeAsync(
+                    WmsPermissions.InventoryRead,
+                    warehouseId,
+                    cancellationToken);
+                return inventory.IsFailure
+                    ? inventory
+                    : await warehouseAccessService.AuthorizeAsync(
+                        WmsPermissions.ForecastingRecalculate,
+                        warehouseId,
+                        cancellationToken);
+            }
+            default:
+                return Result.Failure(WmsErrors.Validation(
+                    "recommendation.type_invalid",
+                    "The requested recommendation type is not supported."));
+        }
     }
 
     private async Task<Result<RecommendationRecord>> SaveProposalAsync(
@@ -856,7 +1197,7 @@ public sealed class RecommendationGovernanceService(
             recommendation.GeneratedAtUtc,
             recommendation.ExpiresAtUtc,
             recommendation.ShadowMode,
-            "deterministic-baseline-matched",
+            "shadow:deterministic-source-matched",
             actorUserId);
 
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
@@ -1010,7 +1351,7 @@ public sealed class RecommendationGovernanceService(
         }
 
         return await warehouseAccessService.AuthorizeAsync(
-            RecommendationPolicy.RequiredPermission((RecommendationType)recommendation.Type),
+            RecommendationPolicy.ReadPermission((RecommendationType)recommendation.Type),
             recommendation.WarehouseId,
             cancellationToken);
     }

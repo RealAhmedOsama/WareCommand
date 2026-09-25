@@ -26,6 +26,18 @@ public sealed class RecommendationsController(
             new RecommendationGenerationRequest(request.WarehouseId, request.Limit),
             cancellationToken));
 
+    [HttpPost("generate/{type}")]
+    [Authorize(Policy = WmsPermissions.ReportsRead)]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Generate(
+        RecommendationType type,
+        [FromBody] GenerateReplenishmentRequest request,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await recommendationService.GenerateAsync(
+            type,
+            new RecommendationGenerationRequest(request.WarehouseId, request.Limit),
+            cancellationToken));
+
     [HttpGet]
     [Authorize(Policy = WmsPermissions.ReportsRead)]
     public async Task<IActionResult> Search(
@@ -52,6 +64,19 @@ public sealed class RecommendationsController(
         string recommendationId,
         CancellationToken cancellationToken = default) =>
         ToActionResult(await recommendationService.GetHistoryAsync(recommendationId, cancellationToken));
+
+    [HttpGet("quality")]
+    [Authorize(Policy = WmsPermissions.ReportsRead)]
+    public async Task<IActionResult> Quality(
+        [FromQuery] int? warehouseId,
+        [FromQuery] DateTimeOffset? fromUtc,
+        [FromQuery] DateTimeOffset? toUtc,
+        CancellationToken cancellationToken = default) =>
+        ToActionResult(await recommendationService.GetQualityAsync(
+            warehouseId,
+            fromUtc,
+            toUtc,
+            cancellationToken));
 
     [HttpPost("{recommendationId}/review")]
     [Authorize(Policy = WmsPermissions.ApprovalManage)]

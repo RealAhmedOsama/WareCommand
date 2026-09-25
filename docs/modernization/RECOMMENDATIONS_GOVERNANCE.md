@@ -7,7 +7,8 @@ bounded source snapshots, provider/model and deterministic-baseline versions,
 confidence and impact ranges, expiry, numeric feature summaries, explanations,
 permission scope, and lifecycle rules. Proposals are advisory and remain in
 shadow mode. They cannot write stock, change work priority, resolve exceptions,
-or bypass an existing WMS command.
+or bypass an existing WMS command. A reviewer must review and explicitly approve
+each proposal before it can call a normal WMS command.
 
 The runtime stores proposals in `GovernedRecommendations` and immutable
 review/decision/execution events in `GovernedRecommendationEvents`. A proposal
@@ -18,25 +19,49 @@ stored. The runtime does not accept prompts or raw provider payloads.
 
 ## Runtime routes
 
-- `POST /api/recommendations/replenishment/generate` creates deterministic
-  shadow proposals from the current replenishment signal and an eligible
-  replenishment work plan.
+- `POST /api/recommendations/replenishment/generate` keeps the original
+  replenishment route. `POST /api/recommendations/generate/{type}` also
+  generates bounded shadow proposals for `Replenishment`, `Slotting`,
+  `WorkloadPriority`, `ExceptionResolution`, and `RiskSummary`.
 - `GET /api/recommendations`, `GET /api/recommendations/{id}`, and
   `GET /api/recommendations/{id}/history` enforce report, recommendation-type,
   and warehouse scope.
+- `GET /api/recommendations/quality` summarizes baseline matches, lifecycle
+  decisions, normal-command outcomes, and failed executions by type. The
+  default window is 30 days; explicit windows are capped at 366 days. A bounded
+  result reports `isTruncated` when its row or event cap is reached.
 - `POST /api/recommendations/{id}/review`, `/approve`, `/reject`, `/expire`,
   and `/execute` require the expected revision and an idempotency key. Review,
   approval, rejection, expiry, and execution history survives restarts.
 
-Approval re-runs the deterministic replenishment planner in dry-run mode and
-compares a fingerprint of the policy signal, destination capacity, open work,
-eligible source lines, inventory status, lot, serial, license plate, and
-ownership dimensions. A stale or blocked plan returns a conflict without
-creating work. Execution repeats that check inside a serializable transaction,
-then calls the existing replenishment execution service. Its normal
-`WarehouseWorkService` command and the recommendation's executed state commit
-atomically. Work creation keys and event keys make response-loss replay safe;
-failed commands are recorded as retryable and require a new idempotency key.
+Each type uses an authoritative deterministic source and a registered command
+adapter:
+
+- Replenishment re-runs the dry-run planner and fingerprints policy signal,
+  destination capacity, open work, eligible source lines, inventory status,
+  lot, serial, license plate, and ownership dimensions. Execution calls the
+  normal replenishment service.
+- Slotting stores the deterministic slotting analysis reference, re-reads its
+  pending status and source version, then calls `SlottingService.ApproveAsync`
+  to create ordinary warehouse work.
+- Workload priority uses the current deterministic workforce queue, rechecks
+  that the task remains eligible for the actor, then calls the normal work
+  claim command with a stable recommendation-derived idempotency key.
+- Exception resolution proposes only a hold for an inbound or outbound
+  exception already under review. It rechecks status/revision and calls the
+  corresponding normal exception resolution command; it does not approve
+  receipt, allocate stock, or cancel an order.
+- Risk summary is created only from a current medium/high deterministic
+  forecast. It rechecks the input fingerprint and refreshes through the normal
+  forecast recalculation service.
+
+Execution repeats current-state checks inside a serializable transaction. The
+normal command and the recommendation's executed state commit atomically where
+they share the request context. Work creation, exception resolution, and
+recommendation event keys make response-loss replay safe. Failed commands are
+recorded as retryable and require a new lifecycle idempotency key. A source
+that changed or became ineligible returns a conflict before the normal command
+runs.
 
 `PostgreSqlJourneyTests.GovernedReplenishmentRecommendationPersistsApprovalAndCreatesOneNormalWorkCommand`
 qualifies the persisted service path with a deterministic integration fixture.
@@ -51,10 +76,11 @@ history redacts sensitive comment values. Deep inventory reconciliation runs
 after each lifecycle transition.
 
 `PostgreSqlDashboardFlowTests.AuthorizedRecommendationHttpLifecycleUsesPostgreSqlAndCreatesNormalWork`
-qualifies the same replenishment lifecycle through authenticated,
-antiforgery-protected HTTP routes over PostgreSQL. It creates the policy,
-generates and lists the proposal, reviews and approves it, executes the normal
-work command, and reads the persisted event history.
+qualifies replenishment and workload-priority generation/review/approval/
+execution through authenticated, antiforgery-protected HTTP over PostgreSQL.
+It verifies that workload approval uses the existing idempotent claim command,
+and reads the quality summary and persisted event history. Local governance
+tests also exercise the quality outcome aggregation.
 
 ## Provider and operating controls
 
@@ -68,20 +94,17 @@ fails closed while deterministic WMS operations continue. Generation also
 uses the shared API rate limit.
 
 Generated deterministic proposals record
-`deterministic-baseline-matched`; execution events record the normal work
-reference and result. This is a local shadow comparison and outcome trail, not
-a calibrated backtest or model-quality/drift dashboard.
+`shadow:deterministic-source-matched`; execution events record the normal
+command reference and outcome code. `GET /quality` aggregates that evidence.
+The match means the proposal was derived from the current deterministic WMS
+source; it does not claim a calibrated model, measured business lift, or
+permission for automatic operation. Provider enablement remains disabled by
+default and requires separate operational evidence.
 
 ## Current implementation boundary
 
-The durable API and command adapter currently generate and execute replenishment
-recommendations. The application contract still names slotting, workload
-priority, exception resolution, and risk summary, but no adapter is registered
-for those types; they cannot be approved for execution through this runtime.
-No recommendation UI or automatic decision path is included. Other types need
-their own authoritative revalidation and normal-command adapters before they
-can enter the runtime.
-
-Remaining qualification includes broader multi-type adapters, calibrated
-backtest and outcome quality monitoring, provider-failure rehearsal,
-representative load, restore, and production kill-switch evidence.
+No recommendation UI, paid/live model provider, direct stock mutation, or
+automatic decision path is included. The quality endpoint counts persisted
+normal-command dispositions; it does not yet calculate measured forecast
+calibration or business lift. Browser/handheld UI, restore/load rehearsal, and
+production kill-switch enablement remain separate release gates.

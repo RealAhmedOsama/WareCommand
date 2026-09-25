@@ -380,6 +380,11 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddSingleton<IRecommendationDraftProvider, DeterministicReplenishmentDraftProvider>();
         services.AddScoped<IRecommendationCommandAdapter, ReplenishmentRecommendationCommandAdapter>();
+        services.AddScoped<IRecommendationCommandAdapter, SlottingRecommendationCommandAdapter>();
+        services.AddScoped<IRecommendationCommandAdapter, WorkloadPriorityRecommendationCommandAdapter>();
+        services.AddScoped<IRecommendationCommandAdapter, ExceptionResolutionRecommendationCommandAdapter>();
+        services.AddScoped<IRecommendationCommandAdapter, RiskSummaryRecommendationCommandAdapter>();
+        services.AddScoped<RecommendationCandidateSourceFactory>();
         services.AddScoped<IRecommendationGovernanceService, RecommendationGovernanceService>();
         return services;
     }
