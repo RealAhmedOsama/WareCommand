@@ -2,35 +2,37 @@
 
 ## Current checkpoint — 2026-09-25
 
-Canonical `master` is at code SHA
-`2943fdbbad13688c309b70e27b5b54271b657dd4`. The pushed follow-up chain
-`9c2ff15`, `0a8c041`, and `2943fdb` shortens PostgreSQL receipt-counter
-locking, adds bounded inventory-balance retries, and preserves the caller's
-SQLite transaction. Exact-SHA Actions run
-[#36112799593](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36112799593)
-completed successfully: Linux and Windows each recorded 787 passed, 77
-provider-gated skips, and zero failures; disposable PostgreSQL groups recorded
-75 passed with zero skips/failures, and SQLite-to-PostgreSQL migration passed
-1/1. Formatting, migration/startup checks, production Docker image, and secret
-scan passed. Pull-request dependency review was skipped because the trigger
-was a direct push. Artifacts are windows-test-results-36112799593-1,
-linux-test-results-36112799593-1, and secret-scan-results-36112799593; details
-are linked in [`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md).
+Code revision under qualification is `64cc72784730aa987bf3d144ba378734f0999d3c`.
+The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
+PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
+preserves the caller's SQLite transaction. Commit `64cc727` adds a
+transaction-scoped PostgreSQL lock for concurrent reservations on the same
+warehouse/item.
 
-The focused allocation tests passed 5/5, receipt flows passed 2/2, and the
-full ASP test project passed 62 with 8 PostgreSQL-only skips. The local
-PostgreSQL performance profile still exits nonzero with 24 budget failures.
-Receiving completed 10/10 requests at concurrency 20, while same-stock
-allocation completed 5/20 and retained 15 conflicts per repeat; reconciliation
-reported zero issues. A separate local six-project suite attempt stopped in
-Infrastructure after a CLR RW-mapping fatal error, not an assertion failure.
-The exact measurements and machine boundaries are in
+Exact-SHA Actions run
+[#36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
+passed on `64cc727`: Linux and Windows solution quality/coverage, all seven
+disposable PostgreSQL groups, SQLite-to-PostgreSQL migration, formatting,
+migration/startup checks, production Docker image, and secret scan. The direct
+push skipped pull-request dependency review. Artifacts are
+`windows-test-results-36119978483-1`, `linux-test-results-36119978483-1`, and
+`secret-scan-results-36119978483`; details are linked in
+[`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md).
+
+The focused allocation/reservation tests passed 12/12. The local two-repeat
+PostgreSQL performance profile completed with zero reconciliation issues but
+exited nonzero with 21 budget failures, down from 24 on `0a8c041`. Same-stock
+allocation at concurrency 20 now succeeds 20/20 with no errors or conflicts;
+p95 remains 3,233/3,217 ms against the 2,000 ms budget. The CI workflow does not
+run the full performance group, so its green result does not clear these local
+performance misses or establish capacity. Exact measurements and machine
+boundaries are in
 [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
-Do not infer capacity or release approval from local results or green CI.
+Do not infer production readiness from CI or local results.
 
 The detailed per-assembly counts and PostgreSQL breakdown below record the
-exact-SHA run linked above. Do not add independent platform totals together or
-count the repeated deterministic unit checks as a second solution run.
+previous exact-SHA run 36112799593. Do not add independent platform totals
+together or count repeated deterministic unit checks as a second solution run.
 
 Issue #128's focused local evidence is `RecommendationGovernanceServiceTests`
 7/7, a Release ASP test-project build with zero warnings/errors, and the
@@ -39,9 +41,9 @@ reconciliation issues. It was closed after the exact-SHA run; the
 [#128 evidence comment](https://github.com/RealAhmedOsama/WareCommand/issues/128#issuecomment-5826763905)
 records the commit chain, test evidence, artifacts, and exclusions. The #134
 documentation checkpoint reconciles the current source, test, UI, connector,
-and release evidence. Master-plan #108 remains open for capacity, production
-deployment/data restore, partner/device acceptance, and independent release
-review.
+and release evidence. Master-plan #108 remains open for performance budgets,
+production deployment/data restore, partner/device acceptance, and independent
+release review.
 
 Historical per-issue rows below preserve the implementation-time evidence and
 status snapshot for audit. A row's `remote open` or `pending push` text is not a

@@ -198,3 +198,39 @@ project passed 62 tests with 8 PostgreSQL-only skips. Exact-SHA remote CI run
 passed Linux, Windows, PostgreSQL integration/migration, Docker, and secret
 scan. Keep the standard performance gate open; no budget or capacity approval
 changed.
+
+### Reservation contention follow-up — 2026-09-25
+
+Commit `64cc72784730aa987bf3d144ba378734f0999d3c` acquires a transaction-
+scoped PostgreSQL advisory lock for the warehouse/item before checking demand
+replay and reading allocatable balances. This serializes concurrent
+reservations for the same stock key across application instances; non-PostgreSQL
+providers do not acquire the lock. The focused reservation/allocation tests
+passed 12/12.
+
+The exact-SHA local profile used .NET 10.0.12, Windows x64 with 16 logical
+processors, PostgreSQL 17.11, ten samples, two repeats, and concurrency 1/4/20.
+The command exited nonzero because 21 performance budgets still failed, down
+from 24 on `0a8c041`. Both repeats completed and deep reconciliation found zero
+issues. The same-stock 20-way case now succeeds 20/20 with zero errors or
+conflicts in both repeats; throughput was 5.91/5.95 requests/second, while p95
+was 3,233/3,217 ms against the 2,000 ms budget. Limited-stock allocation also
+succeeded 20/20 with no errors or conflicts, but p95 remained 2,290/2,322 ms.
+Receiving at concurrency 20 returned 10/10 responses per repeat, with p95 of
+1,222/1,191 ms against the 750 ms budget. Lower-concurrency allocation,
+receiving, and isolated HTTP budgets also remain unmet.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-64cc727.json')
+```
+
+This change removes the measured allocation conflicts but does not qualify the
+performance catalog or establish supported capacity. No budget changed; keep
+the master performance gate open. Exact-SHA CI run
+[`36119978483`](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
+passed Linux/Windows, all seven PostgreSQL integration groups, migration,
+Docker, and secret scan. CI does not execute this full performance profile.

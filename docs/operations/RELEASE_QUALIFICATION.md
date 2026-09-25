@@ -6,22 +6,29 @@ backup, migration, and rollback decision separately.
 
 ## Current repository qualification — 2026-09-25
 
-The source revision under review is code SHA
-`2943fdbbad13688c309b70e27b5b54271b657dd4` on canonical `master`. The
-follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens the PostgreSQL
-receipt-counter lock, adds bounded inventory-balance retries, and preserves
-SQLite's active caller transaction. Exact-SHA
-[Actions run 36112799593](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36112799593)
-completed successfully. Linux and Windows quality/coverage, formatting,
-migration/startup checks, disposable PostgreSQL integration/migration,
-production Docker image, and secret scan passed. Pull-request dependency
-review was skipped because the event was a direct push. Artifacts are
-`windows-test-results-36112799593-1`,
-`linux-test-results-36112799593-1`, and `secret-scan-results-36112799593`.
+The code revision under qualification is SHA
+`64cc72784730aa987bf3d144ba378734f0999d3c` on `master`. The pushed follow-up
+chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens the PostgreSQL receipt-counter
+lock, adds bounded inventory-balance retries, and preserves SQLite's active
+caller transaction. Commit `64cc727` adds a transaction-scoped PostgreSQL lock
+for concurrent reservations on the same warehouse/item.
 
-The Windows and Linux quality jobs each recorded 787 passed, 77 skipped, zero
-failed, and zero other skips. The same per-assembly counts appeared on both
-platforms:
+Exact-SHA [Actions run 36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
+completed successfully on `64cc727`. Linux and Windows quality/coverage, all
+seven disposable PostgreSQL groups, SQLite-to-PostgreSQL migration,
+formatting, migration/startup checks, production Docker image, and secret scan
+passed. Pull-request dependency review was skipped because the event was a
+direct push. Artifacts are `windows-test-results-36119978483-1`,
+`linux-test-results-36119978483-1`, and `secret-scan-results-36119978483`.
+
+The per-assembly and PostgreSQL group counts in the previous qualification
+record below are from exact-SHA run 36112799593. The follow-up run above also
+passed all jobs; no claim is made here that CI ran the full performance budget
+profile.
+
+The Windows and Linux quality jobs in run 36112799593 each recorded 787
+passed, 77 skipped, zero failed, and zero other skips. The same per-assembly
+counts appeared on both platforms:
 
 | Test assembly | Passed | Skipped | Total | Qualification note |
 | --- | ---: | ---: | ---: | --- |
