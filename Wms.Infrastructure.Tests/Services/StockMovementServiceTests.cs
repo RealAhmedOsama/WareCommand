@@ -9,6 +9,7 @@ using Wms.Application.InventoryStatuses;
 using Wms.Application.SerialNumbers;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
 using Wms.Infrastructure.Auditing;
@@ -117,6 +118,64 @@ public class StockMovementServiceTests : IDisposable
         var auditEntry = await _context.AuditEntries.SingleAsync();
         auditEntry.Action.Should().Be(WmsAuditActions.ReceiptRecorded);
         auditEntry.ActorUserId.Should().Be(userId);
+    }
+
+    [Fact]
+    public async Task ReceiveAsync_ReusesLocationStockSnapshotForCapacityValidation()
+    {
+        var warehouseAccessService = new Mock<IWarehouseAccessService>();
+        warehouseAccessService
+            .Setup(service => service.GetScopeAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WarehouseAccessScope(true, new HashSet<int>()));
+        var repositoryUnitOfWork = new UnitOfWork(_context, warehouseAccessService.Object);
+        var stockRepository = new Mock<IStockRepository>();
+        stockRepository
+            .Setup(repository => repository.GetByLocationIdAsync(
+                _location.Id,
+                It.IsAny<CancellationToken>()))
+            .Returns((int locationId, CancellationToken cancellationToken) =>
+                repositoryUnitOfWork.Stock.GetByLocationIdAsync(locationId, cancellationToken));
+        stockRepository
+            .Setup(repository => repository.AddAsync(
+                It.IsAny<Stock>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((Stock stock, CancellationToken cancellationToken) =>
+                repositoryUnitOfWork.Stock.AddAsync(stock, cancellationToken));
+
+        var unitOfWork = new Mock<IUnitOfWork>();
+        unitOfWork.SetupGet(value => value.Items).Returns(repositoryUnitOfWork.Items);
+        unitOfWork.SetupGet(value => value.Locations).Returns(repositoryUnitOfWork.Locations);
+        unitOfWork.SetupGet(value => value.Stock).Returns(stockRepository.Object);
+        unitOfWork.SetupGet(value => value.Movements).Returns(repositoryUnitOfWork.Movements);
+
+        var clock = new SystemClock();
+        var requestContext = new WmsRequestContext("Test");
+        var auditWriter = new AuditWriter(
+            _context,
+            new DesktopUserSession(),
+            clock,
+            requestContext,
+            new WmsWarehouseContext());
+        var service = new StockMovementService(
+            unitOfWork.Object,
+            NullLogger<StockMovementService>.Instance,
+            auditWriter,
+            requestContext,
+            new WmsOperationContextAccessor(),
+            clock,
+            inventoryStatusService: new InventoryStatusService(
+                repositoryUnitOfWork,
+                auditWriter,
+                clock,
+                NullLogger<InventoryStatusService>.Instance));
+
+        await service.ReceiveAsync(_item.Id, _location.Id, new Quantity(1m), "USER1");
+
+        stockRepository.Verify(
+            repository => repository.GetByLocationIdAsync(
+                _location.Id,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

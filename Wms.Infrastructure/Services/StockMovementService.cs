@@ -99,7 +99,15 @@ public class StockMovementService : IStockMovementService
                 location,
                 itemId,
                 cancellationToken);
-            var existingStock = await FindStockAsync(
+            // Both stock selection and location-capacity validation need the
+            // location's current stock. Reuse one scoped snapshot so receipt
+            // execution does not issue the same multi-include query twice.
+            var stockAtLocation = (await _unitOfWork.Stock.GetByLocationIdAsync(
+                    locationId,
+                    cancellationToken))
+                .ToArray();
+            var existingStock = FindStockInLocation(
+                stockAtLocation,
                 itemId,
                 locationId,
                 lotId,
@@ -107,7 +115,6 @@ public class StockMovementService : IStockMovementService
                 serial?.Id,
                 inboundStatusId,
                 licensePlateId,
-                cancellationToken,
                 ownerKind,
                 inventoryOwnerId,
                 ownerCodeSnapshot);
@@ -117,7 +124,8 @@ public class StockMovementService : IStockMovementService
                 lotId,
                 quantity,
                 cancellationToken,
-                incomingLicensePlateId: licensePlateId);
+                incomingLicensePlateId: licensePlateId,
+                stockAtLocationSnapshot: stockAtLocation);
             var quantityBefore = existingStock?.QuantityAvailable.Value ?? 0m;
 
             // Create receipt movement
@@ -1634,14 +1642,45 @@ public class StockMovementService : IStockMovementService
                 : null;
         }
 
-        var candidates = (await _unitOfWork.Stock.GetByLocationIdAsync(
-                locationId,
-                cancellationToken))
-            .Where(stock => stock.ItemId == itemId && stock.LotId == lotId)
-            .Where(stock => HasSerialIdentity(
-                stock,
-                serialNumber,
-                serialNumberId))
+        var locationStock = await _unitOfWork.Stock.GetByLocationIdAsync(
+            locationId,
+            cancellationToken);
+        return FindStockInLocation(
+            locationStock,
+            itemId,
+            locationId,
+            lotId,
+            serialNumber,
+            serialNumberId,
+            statusId,
+            licensePlateId,
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
+    }
+
+    private static Stock? FindStockInLocation(
+        IEnumerable<Stock> locationStock,
+        int itemId,
+        int locationId,
+        int? lotId,
+        string? serialNumber,
+        int? serialNumberId,
+        int? statusId,
+        int? licensePlateId,
+        InventoryOwnerKind ownerKind,
+        int? inventoryOwnerId,
+        string? ownerCodeSnapshot)
+    {
+        var normalizedOwnerCode = InventoryOwnershipDimension.NormalizeOwnerCode(
+            ownerKind,
+            inventoryOwnerId,
+            ownerCodeSnapshot);
+        var candidates = locationStock
+            .Where(stock => stock.LocationId == locationId &&
+                            stock.ItemId == itemId &&
+                            stock.LotId == lotId)
+            .Where(stock => HasSerialIdentity(stock, serialNumber, serialNumberId))
             .Where(stock => stock.LicensePlateId == licensePlateId)
             .Where(stock => stock.OwnerKind == ownerKind &&
                             stock.InventoryOwnerId == inventoryOwnerId &&
@@ -1771,7 +1810,8 @@ public class StockMovementService : IStockMovementService
         int? lotId,
         Quantity incomingQuantity,
         CancellationToken cancellationToken,
-        int? incomingLicensePlateId = null)
+        int? incomingLicensePlateId = null,
+        IReadOnlyCollection<Stock>? stockAtLocationSnapshot = null)
     {
         if (location is null)
         {
@@ -1780,9 +1820,12 @@ public class StockMovementService : IStockMovementService
                 "The target location was not found.");
         }
 
-        var occupiedStock = (await _unitOfWork.Stock.GetByLocationIdAsync(
-                location.Id,
-                cancellationToken))
+        var locationStock = stockAtLocationSnapshot ??
+                            (await _unitOfWork.Stock.GetByLocationIdAsync(
+                                location.Id,
+                                cancellationToken))
+                            .ToArray();
+        var occupiedStock = locationStock
             .Where(stock => stock.QuantityAvailable.Value > 0 || stock.QuantityReserved.Value > 0)
             .ToArray();
         var item = occupiedStock.FirstOrDefault(stock => stock.ItemId == itemId)?.Item ??
