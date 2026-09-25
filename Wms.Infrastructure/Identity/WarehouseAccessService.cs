@@ -188,15 +188,57 @@ public sealed class WarehouseAccessService(
                     "The API client is not assigned to the requested warehouse."));
         }
 
-        var userId = await GetActiveUserIdAsync(cancellationToken);
-        if (userId is null)
+        if (!currentUser.IsAuthenticated || string.IsNullOrWhiteSpace(currentUser.UserId))
         {
             return Result.Failure(WmsErrors.Unauthorized(
                 "authorization.authentication_required",
                 "An active authenticated user is required."));
         }
 
-        if (!await HasPermissionClaimAsync(userId, permission, cancellationToken))
+        var userId = currentUser.UserId;
+        var nowUtc = clock.UtcNow;
+        var snapshot = await context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => new UserAuthorizationSnapshot(
+                user.IsActive,
+                user.LockoutEnd,
+                context.UserClaims.Any(claim =>
+                    claim.UserId == user.Id &&
+                    claim.ClaimType == WmsAuthorizationClaimTypes.Permission &&
+                    (claim.ClaimValue == permission || claim.ClaimValue == WmsPermissions.All)) ||
+                context.RoleClaims.Any(claim =>
+                    claim.ClaimType == WmsAuthorizationClaimTypes.Permission &&
+                    (claim.ClaimValue == permission || claim.ClaimValue == WmsPermissions.All) &&
+                    context.UserRoles.Any(userRole =>
+                        userRole.UserId == user.Id && userRole.RoleId == claim.RoleId)),
+                context.UserClaims.Any(claim =>
+                    claim.UserId == user.Id &&
+                    claim.ClaimType == WmsAuthorizationClaimTypes.Permission &&
+                    claim.ClaimValue == WmsPermissions.All) ||
+                context.RoleClaims.Any(claim =>
+                    claim.ClaimType == WmsAuthorizationClaimTypes.Permission &&
+                    claim.ClaimValue == WmsPermissions.All &&
+                    context.UserRoles.Any(userRole =>
+                        userRole.UserId == user.Id && userRole.RoleId == claim.RoleId)),
+                !warehouseId.HasValue || context.Warehouses.Any(warehouse =>
+                    warehouse.Id == warehouseId.Value && warehouse.IsActive),
+                !warehouseId.HasValue || context.UserWarehouseAssignments.Any(assignment =>
+                    assignment.UserId == user.Id &&
+                    assignment.WarehouseId == warehouseId.Value &&
+                    assignment.Warehouse.IsActive)))
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (snapshot is null ||
+            !snapshot.IsActive ||
+            (snapshot.LockoutEnd.HasValue && snapshot.LockoutEnd > nowUtc))
+        {
+            return Result.Failure(WmsErrors.Unauthorized(
+                "authorization.authentication_required",
+                "An active authenticated user is required."));
+        }
+
+        if (!snapshot.HasPermission)
         {
             LogDenied(userId, permission, warehouseId, "permission");
             return Result.Failure(WmsErrors.Forbidden(
@@ -209,10 +251,7 @@ public sealed class WarehouseAccessService(
             return Result.Success();
         }
 
-        var warehouseExists = await context.Warehouses
-            .AsNoTracking()
-            .AnyAsync(warehouse => warehouse.Id == warehouseId.Value && warehouse.IsActive, cancellationToken);
-        if (!warehouseExists)
+        if (!snapshot.WarehouseExists)
         {
             LogDenied(userId, permission, warehouseId, "warehouse-not-found");
             return Result.Failure(WmsErrors.NotFound(
@@ -220,8 +259,7 @@ public sealed class WarehouseAccessService(
                 "The requested warehouse was not found or is inactive."));
         }
 
-        var scope = await GetScopeAsync(cancellationToken);
-        if (scope.HasGlobalAccess || scope.WarehouseIds.Contains(warehouseId.Value))
+        if (snapshot.HasGlobalAccess || snapshot.HasWarehouseAssignment)
         {
             return Result.Success();
         }
@@ -381,6 +419,14 @@ public sealed class WarehouseAccessService(
 
     private static bool IsPermissionValueAllowed(string permission) =>
         permission == WmsPermissions.All || WmsPermissions.IsKnown(permission);
+
+    private sealed record UserAuthorizationSnapshot(
+        bool IsActive,
+        DateTimeOffset? LockoutEnd,
+        bool HasPermission,
+        bool HasGlobalAccess,
+        bool WarehouseExists,
+        bool HasWarehouseAssignment);
 
     private void LogDenied(string userId, string permission, int? warehouseId, string reason)
     {

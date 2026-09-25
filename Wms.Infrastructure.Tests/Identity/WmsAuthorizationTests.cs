@@ -111,12 +111,16 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
 
         GetSession().SignIn(user);
         var access = GetAccessService();
+        _commandCounter.Reset();
         Assert.True((await access.AuthorizeAsync(
             WmsPermissions.InventoryRead,
             firstWarehouse.Id)).IsSuccess);
+        Assert.Equal(1, _commandCounter.Count);
+        _commandCounter.Reset();
         Assert.False((await access.AuthorizeAsync(
             WmsPermissions.InventoryRead,
             secondWarehouse.Id)).IsSuccess);
+        Assert.Equal(1, _commandCounter.Count);
 
         var unitOfWork = new UnitOfWork(GetContext(), access);
         var visibleStock = (await unitOfWork.Stock.GetAllAsync()).ToList();
@@ -155,11 +159,13 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
             user,
             new Claim(WmsAuthorizationClaimTypes.Permission, WmsPermissions.InventoryAdjust))).Succeeded);
         Assert.True(await access.HasPermissionAsync(WmsPermissions.InventoryAdjust));
+        Assert.True((await access.AuthorizeAsync(WmsPermissions.InventoryAdjust)).IsSuccess);
 
         Assert.True((await GetUserManager().RemoveClaimAsync(
             user,
             new Claim(WmsAuthorizationClaimTypes.Permission, WmsPermissions.InventoryAdjust))).Succeeded);
         Assert.False(await access.HasPermissionAsync(WmsPermissions.InventoryAdjust));
+        Assert.True((await access.AuthorizeAsync(WmsPermissions.InventoryAdjust)).IsFailure);
     }
 
     [Fact]
