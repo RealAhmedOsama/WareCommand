@@ -9,6 +9,7 @@ using Wms.Application.Tests.Identity;
 using Wms.Application.UseCases.Receiving;
 using Wms.Domain.Entities;
 using Wms.Domain.Enums;
+using Wms.Domain.Receiving;
 using Wms.Domain.Repositories;
 using Wms.Domain.Services;
 using Wms.Domain.ValueObjects;
@@ -21,16 +22,14 @@ public sealed class ReceiveItemIdempotencyTests
     public async Task RepeatedReceiptReplaysTheOriginalResultWithoutCallingMovementServiceTwice()
     {
         var unitOfWork = new Mock<IUnitOfWork>();
-        var items = new Mock<IItemRepository>();
-        var locations = new Mock<ILocationRepository>();
+        var receiving = new Mock<IReceivingRepository>();
         var movementService = new Mock<IStockMovementService>();
         var idempotencyService = new Mock<IInventoryCommandIdempotencyService>();
         var receiptService = new Mock<IReceiptService>();
         var requestContext = new TestRequestContext();
         requestContext.Initialize("correlation-1", "Test", idempotencyKey: "receipt-1");
 
-        unitOfWork.Setup(value => value.Items).Returns(items.Object);
-        unitOfWork.Setup(value => value.Locations).Returns(locations.Object);
+        unitOfWork.Setup(value => value.Receiving).Returns(receiving.Object);
         unitOfWork
             .Setup(value => value.BeginTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -72,10 +71,11 @@ public sealed class ReceiveItemIdempotencyTests
             ResultPayloadJson: InventoryCommandJson.Serialize(replay),
             ResultReference: movement.Id.ToString(CultureInfo.InvariantCulture));
 
-        items.Setup(value => value.GetBySkuAsync(request.ItemSku, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(item);
-        locations.Setup(value => value.GetByCodeAsync(request.LocationCode, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(location);
+        receiving.Setup(value => value.GetTargetAsync(
+                request.ItemSku,
+                request.LocationCode,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReceivingTarget(item, location));
         movementService
             .Setup(value => value.ReceiveAsync(
                 It.IsAny<int>(),
