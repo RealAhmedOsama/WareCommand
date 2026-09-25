@@ -464,3 +464,64 @@ pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
 Exact-SHA hosted CI is recorded in `RELEASE_QUALIFICATION.md`. The local
 performance group remains outside CI; capacity and production readiness remain
 unqualified.
+
+### Reservation resource preflight consolidation — 2026-09-25
+
+Commit `66e1a266e2be48a0d9a3b8a2b3ee5a94249c9f67` combines the active item and
+warehouse preflight reads in `ReserveAsync` into one tagged left-join query,
+while retaining the established exact-warehouse authorization. Focused
+`InventoryReservationServiceTests` passed 8/8, including the one-command and
+single-scope retry assertions.
+
+The exact-source two-repeat PostgreSQL profile recorded 19 failing
+workload/repeat entries and 40 metric breaches; both deep reconciliations were
+clean. All 300 isolated HTTP samples succeeded without errors or conflicts.
+Same-stock allocation completed 25/25 requests per repeat and limited-stock
+allocation completed 20/20 in both repeats. At concurrency 20, same-stock p50
+was 1,339/1,092 ms, still over the 750 ms budget; p95 was 2,266/1,897 ms, under
+the 2,500 ms budget. Receiving p50 at concurrency 1 was 1,450/333 ms, and
+repeat variance remained high. Database-command telemetry recorded
+11,433/11,448 commands versus 11,493/11,492 on `418ace1`. This is a bounded
+query reduction, not capacity qualification; budgets did not change.
+
+Exact-SHA Actions run
+[#36172867712](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36172867712)
+passed Linux and Windows quality/coverage, all seven PostgreSQL groups,
+SQLite-to-PostgreSQL migration, Docker, and secret scan. Pull-request dependency
+review was skipped for the direct push.
+
+Evidence is `%TEMP%\warecommand-postgresql-performance-66e1a26.json`.
+
+### Receipt preflight consolidation — 2026-09-25
+
+Commit `5383231da04332679b774ec422465e7e140cdba8` combines the active
+warehouse, eligible receiving location, and active item validation in
+`OpenForReceivingAsync` into one tagged database command. `ReceiptServiceTests`
+passed 7/7, including the single-command assertion.
+
+The exact-source PostgreSQL performance group used two repeats, ten samples per
+concurrency level, and concurrency 1/4/20. It exited nonzero on budget
+assertions, with 17 failing workload/repeat entries and 31 individual metric
+breaches; no fatal error was recorded. Both deep reconciliations were clean.
+All 300 isolated HTTP samples, all 25 same-stock allocations per repeat, and
+all 20 limited-stock allocation samples per repeat succeeded without errors or
+conflicts. Receiving p50 at concurrency 1 was 449/452 ms. Same-stock allocation
+at concurrency 20 recorded p50 1,519/1,222 ms and p95 2,871/2,515 ms, which
+remain above the 750/2,500 ms budgets. Database-command telemetry recorded
+11,370 commands in each repeat, compared with 11,433/11,448 on the preceding
+`66e1a26` profile. These local results do not qualify capacity; no budgets
+changed.
+
+Evidence is `%TEMP%\warecommand-postgresql-performance-5383231.json`.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-5383231.json')
+```
+
+Exact-SHA hosted CI is recorded in `RELEASE_QUALIFICATION.md`. The local
+performance group remains outside CI; capacity and production readiness remain
+unqualified.

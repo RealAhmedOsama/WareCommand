@@ -7,18 +7,19 @@ backup, migration, and rollback decision separately.
 ## Current repository qualification — 2026-09-25
 
 The latest pushed application code is SHA
-`418ace18d42430a8beaa98a47050174857258d89` on `master`. Its reservation
-idempotency follow-up passed focused tests 7/7 and exact-SHA Actions run
-[#36169163010](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36169163010):
-Linux and Windows quality/coverage, all seven disposable PostgreSQL groups,
-SQLite-to-PostgreSQL migration, production Docker, and secret scan passed.
-Dependency review was skipped for the direct push. The exact-source local
-performance profile still records 17 failing workload/repeat entries and 35
-individual metric breaches, with clean deep reconciliation but high repeat
-variance. It does not qualify capacity or production readiness.
+`5383231da04332679b774ec422465e7e140cdba8` on `master`. Its receiving preflight
+consolidation passed focused tests 7/7 and exact-SHA Actions run
+[#36174604818](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36174604818)
+passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
+SQLite-to-PostgreSQL migration, production Docker, and secret scan. Dependency
+review was skipped for the direct push. CI does not run the local performance
+group. The exact-source local performance profile records 17 failing
+workload/repeat entries and 31 metric breaches with clean deep reconciliation.
+Same-stock allocation at concurrency 20 remains over its p50 and p95 budgets,
+so this does not qualify capacity or production readiness.
 The change was pushed to GitHub only; no production deployment was performed.
 
-The previous code revision under qualification was SHA
+An earlier code revision under qualification was SHA
 `6bd664dcc87edc134e04b3ff42019050e4e1b0af` on `master`. The pushed follow-up
 chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens the PostgreSQL receipt-counter
 lock, adds bounded inventory-balance retries, and preserves SQLite's active

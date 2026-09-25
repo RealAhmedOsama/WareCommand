@@ -2,7 +2,7 @@
 
 ## Current checkpoint — 2026-09-25
 
-Latest code revision under qualification is `418ace18d42430a8beaa98a47050174857258d89`.
+Latest code revision under qualification is `5383231da04332679b774ec422465e7e140cdba8`.
 The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
 PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
 preserves the caller's SQLite transaction. Commit `64cc727` adds a
@@ -94,6 +94,35 @@ large, so this result does not qualify capacity. Exact-SHA Actions run
 passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
 SQLite-to-PostgreSQL migration, Docker, and secret scan. Dependency review was
 skipped for the direct push. CI does not run the full performance profile.
+
+The reservation resource preflight follow-up `66e1a26` combines the active
+item and warehouse reads into one tagged left-join query; focused reservation
+tests passed 8/8. Its exact-source local profile recorded 19 failing
+workload/repeat entries and 40 metric breaches with clean reconciliation.
+Same-stock c20 p95 fell below budget in both repeats, while p50 and receiving
+latency still missed budgets and repeat variance remained high. Exact-SHA
+Actions run
+[#36172867712](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36172867712)
+passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
+migration, Docker, and secret scan. The exact measurements are in
+[`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
+
+The reservation preflight follow-up `5383231` loads the authorized warehouse,
+eligible receiving location, and active item in one tagged SQL command instead
+of three reads. `ReceiptServiceTests` passed 7/7, including the one-command
+assertion. The exact-source PostgreSQL profile exited nonzero with 17 failing
+workload/repeat entries and 31 metric breaches; both deep reconciliations were
+clean. All 300 isolated HTTP samples and all 25 same-stock allocations per
+repeat succeeded without errors or conflicts. Receiving p50 at concurrency 1
+was 449/452 ms. Same-stock allocation at concurrency 20 recorded p50
+1,519/1,222 ms and p95 2,871/2,515 ms, still above the 750/2,500 ms budgets.
+The run reduced database-command telemetry from 11,433/11,448 on `66e1a26` to
+11,370 in both repeats, but does not qualify capacity. Exact-SHA Actions run
+[#36174604818](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36174604818)
+passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
+SQLite-to-PostgreSQL migration, production Docker, and secret scan. Dependency
+review was skipped for the direct push. CI does not run the local performance
+group; exact-source evidence remains in `PERFORMANCE_QUALIFICATION.md`.
 
 Authorization and webhook transport tests passed 30/30 on `6bd664d`; the
 navigation snapshot test asserts one SQL command and immediate permission

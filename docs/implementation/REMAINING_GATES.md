@@ -4,7 +4,7 @@ This is the current follow-up inventory for master-plan issue #108. Original
 issues #2–#107 and stabilization issues #109–#133 are closed as bounded
 implementation or evidence slices; closure does not erase remaining acceptance
 work. Source and qualification state is reviewed through code SHA
-`418ace18d42430a8beaa98a47050174857258d89` on 2026-09-25. Earlier exact-SHA
+`5383231da04332679b774ec422465e7e140cdba8` on 2026-09-25. Earlier exact-SHA
 CI run
 [#36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
 passed on `64cc727`: Linux and Windows solution checks, all seven disposable
@@ -28,16 +28,23 @@ The local two-repeat profile on `6bd664d` exited nonzero with 22 budget misses;
 all 194 HTTP requests succeeded per repeat and both deep reconciliations had no
 issues. This does not clear the capacity gate.
 
-Latest pushed code SHA `418ace18d42430a8beaa98a47050174857258d89` passed
-exact-SHA Actions run
-[#36169163010](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36169163010):
-Linux and Windows quality/coverage, all seven PostgreSQL groups,
-SQLite-to-PostgreSQL migration, Docker, and secret scan passed. Dependency
-review was skipped for the direct push. The exact-source local performance
-profile records 17 failing workload/repeat entries and 35 individual metric
-breaches with clean reconciliation; see `PERFORMANCE_QUALIFICATION.md`.
+Latest pushed code SHA `5383231da04332679b774ec422465e7e140cdba8` has exact-SHA
+Actions run
+[#36174604818](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36174604818)
+passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
+SQLite-to-PostgreSQL migration, Docker, and secret scan. Dependency review was
+skipped for the direct push. The exact-source local performance profile records
+17 failing workload/repeat entries and 31 metric breaches with clean
+reconciliation; see `PERFORMANCE_QUALIFICATION.md`. The focused receipt tests
+passed 7/7. CI does not qualify the local performance budgets or production
+capacity.
 
 ## Current residual register
+
+The latest local performance profile is on `5383231`; it recorded 17 failing
+workload/repeat entries and 31 metric breaches. The remaining master-plan gates
+below still require fresh evidence and assigned owners; a passing code CI run
+does not close capacity or production approval.
 
 | Owner | Current evidence | Remaining requirement and next action |
 | --- | --- | --- |
