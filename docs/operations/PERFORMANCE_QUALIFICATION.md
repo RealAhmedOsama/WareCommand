@@ -100,9 +100,9 @@ throughput budgets; they do not establish a supported service capacity.
 The representative inventory-balance plan used
 `IX_InventoryBalances_ItemId` and completed in 0.14–0.17 ms. Database-command
 p95 ranged from 13.5 to 18.3 ms, while captured request tails were much longer
-and lock waiters peaked at 19. This evidence does not identify an index or
-cache change as the remedy; profile the slow application paths before changing
-query architecture.
+and lock waiters peaked at 19. The navigation snapshot follow-up below reduces
+repeated layout permission reads. Continue profiling receiving and contention
+paths before changing their query architecture.
 
 The extended-resource-gate run used the committed gate at
 `e7c0351057b484bc9734a5fab5ced82f25d868ff`, with two repeats and ten samples
@@ -122,6 +122,39 @@ behind the live resource gate. These are test-runner limits only. Since the
 current workload misses its existing thresholds, this machine has no measured
 approved operating capacity; do not infer a production concurrency limit from
 the admitted 50-way case.
+
+### Navigation snapshot follow-up — 2026-09-25
+
+Commit `5b89bfdaad82d3d3597e2d2860af8335f17a62c8` replaces the layout's
+repeated sequential authorization checks with one fresh navigation snapshot
+per render. Controller and endpoint authorization remain on their existing
+paths. The focused SQLite test verifies three database reads for the snapshot,
+current permission changes on the next call, API-client exact scopes, and
+user-only wildcard behavior.
+
+The local before/after probe used the same .NET 10.0.12 Windows x64 host,
+PostgreSQL 17.11, dataset fingerprint
+`f1ec8698f34bd4ee605c085e33750580eb40583cdd93ca8f09faced54145cf9b`, two
+repeats, ten samples per workload, and concurrency 1/4/20. The baseline was
+code SHA `2e94bfa28bb2984f7e8c9a7f1706d64c31b4beca`; the candidate was
+`5b89bfdaad82d3d3597e2d2860af8335f17a62c8`.
+
+| Isolated workload | Concurrency | Baseline average throughput / p95 | Candidate average throughput / p95 |
+| --- | ---: | ---: | ---: |
+| Dashboard | 1 | 1.04 req/s / 2,021 ms | 3.72 req/s / 322 ms |
+| Inventory | 1 | 1.84 req/s / 1,092 ms | 9.76 req/s / 133 ms |
+| Report | 20 | 9.37 req/s / 1,407 ms | 33.50 req/s / 301 ms |
+| Receiving | 20 | 1.20 req/s / 15,061 ms | 2.11 req/s / 4,910 ms |
+
+Across all 48 checks, failures fell from 37 to 29; isolated HTTP failures fell
+from 23/30 to 16/30. All six report and all six item-import checks passed on
+the candidate. The 194 measured HTTP requests succeeded in each repeat, and
+both candidate repeats passed deep reconciliation with no fatal harness
+error. Database-command p95 was 45.04/18.26 ms on the two baseline repeats and
+11.84/14.39 ms on the candidate repeats. The benchmark still exits nonzero:
+dashboard and inventory throughput budgets, all receiving levels, and
+allocation/contention budgets remain unmet. No budget changed, and no service
+capacity is approved by this local TestServer/PostgreSQL result.
 
 Every result is local TestServer/PostgreSQL qualification only. It does not
 establish production capacity, worker scaling limits, production RTO/RPO, or a

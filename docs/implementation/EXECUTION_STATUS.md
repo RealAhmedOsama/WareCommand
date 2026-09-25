@@ -2,24 +2,32 @@
 
 ## Current checkpoint — 2026-09-25
 
-Canonical `master` is at code SHA `5f5d0a59300f7b48a7ad31a0b50f0382fcaf609c`:
-recommendation behavior is in `393ac25`, with the Windows formatting correction
-in `5f5d0a5`. Current-SHA Actions run
-[#36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964)
-completed successfully on that exact SHA. Windows, Linux, Docker image build,
-secret scan, and disposable PostgreSQL integration/migration all passed.
-Pull-request dependency review was skipped because the trigger was a direct
-push, not a pull request.
+Canonical `master` is at code SHA
+`5b89bfdaad82d3d3597e2d2860af8335f17a62c8`. Commit `5b89bfd` replaces the MVC
+layout's repeated sequential permission checks with a fresh aggregate
+permission/warehouse snapshot per render. Exact-SHA Actions run
+[#36102019301](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36102019301)
+completed successfully: Linux and Windows quality/coverage, formatting,
+migration/startup checks, disposable PostgreSQL integration/migration,
+production Docker image, and secret scan all passed. Pull-request dependency
+review was skipped because the trigger was a direct push. The run's test and
+secret-scan artifacts are linked in
+[`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md).
 
-The Windows and Linux jobs each report 782 passed, 77 PostgreSQL provider-gated
-skips, and zero failures; there are no other skips. Each emits separate TRX and
-coverage evidence. The PostgreSQL job passed 75 tests across core (1), harness
-(56), dashboard (3), data-generation (4), journeys (7), resilience (3), and
-browser (1), plus the separate SQLite-to-PostgreSQL migration test (1/1). The
-run's per-assembly counts, coverage, artifact names, and skipped job are in
-[`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md). Do not add
-the independent platform totals together or count the repeated deterministic
-unit checks as a second solution run.
+The focused authorization suite passed 6/6 and the Release ASP build passed
+with zero warnings/errors. The same-SHA local PostgreSQL performance probe
+improved 48-check failures from 37 to 29, with both repeats cleanly reconciled;
+it still exits nonzero on throughput, receiving, and allocation/contention
+budgets. The exact before/after measurements and machine boundaries are in
+[`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
+Do not infer capacity or release approval from the local improvement or green
+CI.
+
+The detailed 782-pass/77-provider-skip platform counts and 75-test PostgreSQL
+breakdown below refer to the preceding exact-SHA run
+[#36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964)
+on `5f5d0a5`. Do not add independent platform totals together or count the
+repeated deterministic unit checks as a second solution run.
 
 Issue #128's focused local evidence is `RecommendationGovernanceServiceTests`
 7/7, a Release ASP test-project build with zero warnings/errors, and the

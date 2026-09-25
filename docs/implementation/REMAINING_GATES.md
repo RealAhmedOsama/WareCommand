@@ -4,7 +4,9 @@ This is the current follow-up inventory for master-plan issue #108. Original
 issues #2–#107 and stabilization issues #109–#133 are closed as bounded
 implementation or evidence slices; closure does not erase remaining acceptance
 work. Source and qualification state is reviewed through code SHA
-`5f5d0a59300f7b48a7ad31a0b50f0382fcaf609c` on 2026-09-25. The #134 handoff
+`5b89bfdaad82d3d3597e2d2860af8335f17a62c8` on 2026-09-25. Exact-SHA CI run
+[#36102019301](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36102019301)
+passed. The #134 handoff
 documents the screen, provider, and release boundaries. Local or hosted evidence
 is not production, live-provider, or external-review approval.
 
@@ -25,7 +27,7 @@ is not production, live-provider, or external-review approval.
 | [#129 test data](https://github.com/RealAhmedOsama/WareCommand/issues/129) | Closed with a deterministic PostgreSQL test fixture using normal application commands and reconciliation. | The writer is test-only. It is not a production seeding route or a substitute for the large-capacity load dataset; only add those paths after separate authorization and scoped requirements. |
 | [#130 PostgreSQL journeys](https://github.com/RealAhmedOsama/WareCommand/issues/130), follow-up to original #96 | Closed after 13 scenario reports and 199 reconciliation checkpoints; no unexpected reconciliation issues. | Evidence is bounded to named scenarios. Cross-dock reservation/work materialization and other unsupported journey branches remain unverified; expand the matrix before claiming complete workflow qualification. |
 | [#131 browser qualification](https://github.com/RealAhmedOsama/WareCommand/issues/131), follow-up to original #97 | Closed after authenticated scanner/picking/dashboard coverage; the local scanner focus/input case passed 1/1. | Physical handhelds, all operational routes, full accessibility/visual review, and partner/device acceptance remain unverified. |
-| [#132 performance](https://github.com/RealAhmedOsama/WareCommand/issues/132), follow-up to original #98 | Closed with measured bounded workload and reconciliation results. | Budgets did not pass: 33/48 baseline and 47/62 extended evaluations failed; 50-way contention was admitted and 100-way was unsupported. Keep capacity/reliability review open and rerun after an owner approves changed budgets or remediation. |
+| [#132 performance](https://github.com/RealAhmedOsama/WareCommand/issues/132), follow-up to original #98 | Closed with measured bounded workload and reconciliation results. The 2026-09-25 navigation-read follow-up on `5b89bfd` reduced local standard-profile budget failures from 37/48 on `2e94bfa` to 29/48; both candidate repeats reconciled cleanly. HTTP failures fell from 23/30 to 16/30. | Performance budgets still fail, including dashboard/inventory throughput, receiving latency, and allocation/contention. The earlier extended run still records 47/62 failures; 50-way ran and 100-way was unsupported. Keep capacity/reliability review open; no budget or approved capacity changed. |
 | [#133 recovery](https://github.com/RealAhmedOsama/WareCommand/issues/133), follow-up to original #99 | Closed after disposable response-loss, restart, retry/dead-letter, serialization, and populated encrypted restore rehearsals. | These are not production RPO/RTO results. Assign a production backup/restore owner, target, and approved rehearsal before release. |
 | [#134 documentation handoff](https://github.com/RealAhmedOsama/WareCommand/issues/134) | This checkpoint reconciles the source map, connector inventory, current CI evidence, and remaining gates. | The exact pushed documentation commit and its CI run are recorded in the issue evidence comment after that run completes. Visual design itself is Ahmed's later phase. |
 

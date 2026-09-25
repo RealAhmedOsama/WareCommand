@@ -7,14 +7,22 @@ backup, migration, and rollback decision separately.
 ## Current repository qualification — 2026-09-25
 
 The source revision under review is code SHA
-`5f5d0a59300f7b48a7ad31a0b50f0382fcaf609c` on canonical `master`. Recommendation
-implementation is `393ac25`; `5f5d0a5` corrects its formatting gate without a
-behavior change. Exact-SHA
-[Actions run 36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964)
-completed with a success conclusion on that exact SHA. Windows, Linux,
-production Docker image, secret scan, and disposable PostgreSQL/migration jobs
-passed. Pull-request dependency review was skipped because the event was a
-direct push.
+`5b89bfdaad82d3d3597e2d2860af8335f17a62c8` on canonical `master`. It adds a
+fresh aggregate permission/warehouse snapshot for the shared MVC layout to
+reduce repeated database reads. Exact-SHA
+[Actions run 36102019301](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36102019301)
+completed successfully: Linux and Windows solution quality/coverage,
+formatting, migrations/startup, disposable PostgreSQL integration/migration,
+production Docker image, and secret scan passed. Pull-request dependency review
+was skipped because the event was a direct push. The run's artifacts are
+`windows-test-results-36102019301-1`,
+`linux-test-results-36102019301-1`, and `secret-scan-results-36102019301`.
+
+The detailed per-assembly and PostgreSQL test counts below are from the
+preceding full qualification, [run 36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964),
+on code SHA `5f5d0a59300f7b48a7ad31a0b50f0382fcaf609c`. The current run above
+repeated the platform and provider checks after three additional navigation
+authorization tests; its result artifacts are available from the linked run.
 
 The Windows and Linux quality jobs each recorded 782 passed, 77 skipped, zero
 failed, and zero other skips. The same per-assembly counts appeared on both
@@ -63,9 +71,9 @@ The prior run `36091549462` on `393ac2593ea60ff323dcf7926a5f9ada91f7e1d4`
 failed only its Windows formatter step: nested authorization-switch blocks
 needed one additional indentation level, and the dependent PostgreSQL job was
 skipped. Commit `5f5d0a5` applies that correction; the exact-SHA Windows
-formatting and migration/startup checks have passed in the current run. This
-prior failure is retained as qualification history, not counted as a test
-assertion failure.
+formatting and migration/startup checks passed in run `36092918964` and passed
+again in run `36102019301`. The formatter failure is retained as qualification
+history, not counted as a test assertion failure.
 
 The code's focused recommendation evidence is also separate from the solution
 totals: `RecommendationGovernanceServiceTests` passed 7/7, the Release ASP
