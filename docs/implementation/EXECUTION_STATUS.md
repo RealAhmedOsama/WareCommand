@@ -2,7 +2,7 @@
 
 ## Current checkpoint — 2026-09-25
 
-Code revision under qualification is `a1c27b764743b6286a213b77b9e1652e5fb59734`.
+Latest code revision under qualification is `431b2aab082bd0fcb3c54ebc91643e0114b28674`.
 The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
 PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
 preserves the caller's SQLite transaction. Commit `64cc727` adds a
@@ -25,6 +25,13 @@ push skipped pull-request dependency review. Artifacts are
 `windows-test-results-36119978483-1`, `linux-test-results-36119978483-1`, and
 `secret-scan-results-36119978483`; details are linked in
 [`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md).
+
+Exact-SHA Actions run
+[#36162502487](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36162502487)
+passed on `431b2aa`: Linux and Windows quality/coverage, all seven disposable
+PostgreSQL groups, SQLite-to-PostgreSQL migration, production Docker, and secret
+scan passed. Dependency review was skipped because this was a direct push. CI
+does not run the local performance budget group; its 20 misses remain open.
 
 The focused allocation/reservation tests passed 12/12. Authorization tests
 assert the one-command query boundary and fresh permission checks; the combined
@@ -65,6 +72,16 @@ repeats and did not establish a capacity gain. The master performance gate
 remains open; measurements are in
 [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
 Do not infer production readiness from CI or local results.
+
+The ledger-write follow-up `431b2aa` reduces repeated authorization-scope and
+dimension-validation queries inside inventory ledger writes. Its focused ledger
+tests passed 9/9, including warehouse-scope denial. The exact-source two-repeat
+PostgreSQL profile reduced failures from 24 to 20; same-stock allocation at
+concurrency 20 completed 20/20 requests without errors/conflicts and both
+reconciliations were clean. Allocation p95 improved from 7,122/7,324 ms to
+3,404/3,538 ms, but the profile still fails 20 latency/throughput budgets, so
+capacity remains unqualified. Exact measurements are in
+[`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
 
 Authorization and webhook transport tests passed 30/30 on `6bd664d`; the
 navigation snapshot test asserts one SQL command and immediate permission

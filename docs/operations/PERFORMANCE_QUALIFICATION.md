@@ -398,3 +398,35 @@ pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
   -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
   -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-a1c27b7.json')
 ```
+
+### Ledger write round-trip reduction — 2026-09-25
+
+Commit `431b2aab082bd0fcb3c54ebc91643e0114b28674` reuses the warehouse scope
+already resolved for a ledger operation, consolidates location/item/status and
+negative-stock validation into one query, and applies the same checked scope to
+idempotency, balance, and legacy-stock reads. The focused
+`InventoryLedgerServiceTests` group passed 9/9, including one scope resolution
+per operation and denial outside the resolved warehouse scope.
+
+The exact-source local PostgreSQL profile used two repeats, ten samples, and
+concurrency 1/4/20. It exited nonzero with 20 budget failures, down from 24 on
+`a1c27b7`. Both deep reconciliations were clean. Same-stock allocation at
+concurrency 20 completed all 20 requests without errors or conflicts in both
+repeats; throughput rose from 2.68/2.62 to 5.56/5.04 requests per second, and
+p95 fell from 7,122/7,324 ms to 3,404/3,538 ms. The 2,500 ms p95 and 750 ms p50
+allocation budgets still fail. Receiving and other isolated HTTP latency budgets
+also remain unmet. No budget or capacity limit changed; this is a bounded local
+improvement, not capacity qualification.
+
+Evidence is `%TEMP%\warecommand-postgresql-performance-431b2aa.json`.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-431b2aa.json')
+```
+
+The local performance group remains outside CI. A green hosted CI run does not
+clear these measured budget misses or establish approved production capacity.

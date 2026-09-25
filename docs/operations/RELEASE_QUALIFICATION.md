@@ -6,7 +6,18 @@ backup, migration, and rollback decision separately.
 
 ## Current repository qualification — 2026-09-25
 
-The code revision under qualification is SHA
+The latest pushed application code is SHA
+`431b2aab082bd0fcb3c54ebc91643e0114b28674` on `master`. Its ledger-write
+follow-up passed focused tests 9/9 and exact-SHA Actions run
+[#36162502487](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36162502487):
+Linux and Windows quality/coverage, all seven disposable PostgreSQL groups,
+SQLite-to-PostgreSQL migration, production Docker, and secret scan passed.
+Dependency review was skipped for the direct push. The exact-source local
+performance profile still records 20 budget misses, including allocation and
+receiving latency; this run does not qualify capacity or production readiness.
+The change was pushed to GitHub only; no production deployment was performed.
+
+The previous code revision under qualification was SHA
 `6bd664dcc87edc134e04b3ff42019050e4e1b0af` on `master`. The pushed follow-up
 chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens the PostgreSQL receipt-counter
 lock, adds bounded inventory-balance retries, and preserves SQLite's active
@@ -34,7 +45,7 @@ The local performance profile on this SHA still fails 19 budgets; see
 `PERFORMANCE_QUALIFICATION.md` for measurements. CI does not run that full
 profile.
 
-The current code SHA is `6bd664dcc87edc134e04b3ff42019050e4e1b0af`. It combines
+That previous code SHA, `6bd664dcc87edc134e04b3ff42019050e4e1b0af`, combines
 the shared MVC navigation snapshot in one fresh SQL command; focused
 authorization and webhook transport tests passed 30/30, and the Release ASP
 build passed with zero warnings/errors. Its exact-SHA Actions run
