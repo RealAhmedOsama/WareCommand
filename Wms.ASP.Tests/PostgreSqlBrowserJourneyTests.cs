@@ -439,9 +439,20 @@ public sealed class PostgreSqlBrowserJourneyTests
                 TaskCreationOptions.RunContinuationsAsynchronously);
             Volatile.Write(ref expectedOfflineFailure, 1);
             var scanInput = page.Locator("#receiving-session-scan");
+            await page.Locator("#receiving-session-active").WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible
+            });
             Assert.True(await scanInput.IsEnabledAsync());
             await scanInput.FocusAsync();
-            await scanInput.PressSequentiallyAsync(firstScenario.ItemSku);
+            await page.WaitForFunctionAsync(
+                "() => document.activeElement?.id === 'receiving-session-scan'");
+            await scanInput.PressSequentiallyAsync(
+                firstScenario.ItemSku,
+                new LocatorPressSequentiallyOptions { Delay = 10 });
+            await page.WaitForFunctionAsync(
+                "value => document.getElementById('receiving-session-scan')?.value === value",
+                firstScenario.ItemSku);
             Assert.True(
                 string.Equals(
                     await scanInput.InputValueAsync(),
@@ -638,6 +649,51 @@ public sealed class PostgreSqlBrowserJourneyTests
 
             Volatile.Write(ref expectedOfflineFailure, 0);
             await page.Context.SetOfflineAsync(false);
+
+            activeCase = "dashboard-before-picking-mutation";
+            await page.GotoAsync(LocalizedUrl(host.Origin, "/Dashboard", "en-US"));
+            var dashboardOnHandBeforePicking = decimal.Parse(
+                await page.Locator("[data-dashboard-value='inventory.onHandQuantity']").Nth(0).InnerTextAsync(),
+                NumberStyles.Number,
+                CultureInfo.GetCultureInfo("en-US"));
+
+            activeCase = "picking-durable-server-outcome";
+            await page.GotoAsync(LocalizedUrl(host.Origin, "/Picking", "en-US"));
+            await page.Locator("#OrderNumber").FillAsync("BROWSER-PICK-" + Guid.NewGuid().ToString("N"));
+            await page.Locator("#ItemSku").FillAsync(firstScenario.ItemSku);
+            await page.Locator("#LocationCode").FillAsync(firstScenario.LocationCode);
+            await page.Locator("#Quantity").FillAsync("1");
+            var pickingResponse = page.WaitForResponseAsync(response =>
+                string.Equals(response.Request.Method, "POST", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(SafePath(response.Url), "/Picking/Pick", StringComparison.OrdinalIgnoreCase));
+            await page.Locator("form[action='/Picking/Pick'] button[type='submit']").ClickAsync();
+            Assert.Equal((int)HttpStatusCode.OK, (await pickingResponse).Status);
+            await page.Locator(".alert-success").WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible
+            });
+            using (var sessionScope = factory.Services.CreateScope())
+            {
+                var context = sessionScope.ServiceProvider.GetRequiredService<WmsDbContext>();
+                Assert.Equal(9m, await ReadOnHandAsync(context, firstScenario.ItemId, firstLocationId));
+                Assert.Equal(1m, await ReadOnHandAsync(context, firstScenario.ItemId, destinationLocationId));
+            }
+            activeCase = "dashboard-refresh-after-picking-mutation";
+            await page.GotoAsync(LocalizedUrl(host.Origin, "/Dashboard", "en-US"));
+            var dashboardRefresh = page.WaitForResponseAsync(response =>
+                string.Equals(response.Request.Method, "GET", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(SafePath(response.Url), "/Dashboard/RefreshData", StringComparison.OrdinalIgnoreCase));
+            await page.Locator("#refreshBtn").ClickAsync();
+            Assert.Equal((int)HttpStatusCode.OK, (await dashboardRefresh).Status);
+            await page.Locator("#dashboardRefreshStatus").WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible
+            });
+            var dashboardOnHandAfterPicking = decimal.Parse(
+                await page.Locator("[data-dashboard-value='inventory.onHandQuantity']").Nth(0).InnerTextAsync(),
+                NumberStyles.Number,
+                CultureInfo.GetCultureInfo("en-US"));
+            Assert.Equal(dashboardOnHandBeforePicking - 1m, dashboardOnHandAfterPicking);
 
             activeCase = "actor-session-isolation-after-logout";
             await page.GotoAsync(LocalizedUrl(host.Origin, "/Receiving/Receive", "en-US"));
