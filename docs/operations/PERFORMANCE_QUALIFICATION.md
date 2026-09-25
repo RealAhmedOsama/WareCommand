@@ -268,3 +268,70 @@ completed successfully on `93f1b63`: Linux and Windows quality/coverage, all
 seven PostgreSQL groups, SQLite-to-PostgreSQL migration, production Docker, and
 secret scan passed. Direct-push dependency review was skipped. CI does not
 execute this full performance group; keep the master capacity gate open.
+
+### Warehouse-scope query follow-up — 2026-09-25
+
+Commit `efda6b042372b8f6a3561a6a6adbb20b78f06777` consolidates the active
+user, permission, and assigned-warehouse checks in `GetScopeAsync` from four
+database commands to one fresh query. The authorization/webhook focus passed
+30/30, including the one-command boundary and immediate role grant/removal
+freshness checks.
+
+The exact-SHA local profile used the same .NET 10.0.12, Windows x64, PostgreSQL
+17, two-repeat, ten-sample, concurrency 1/4/20 configuration. It exited with 20
+performance-budget failures, compared with 19 on `93f1b63`. Database-command
+telemetry recorded 12,746 samples per repeat, compared with 18,342 on
+`93f1b63`; both candidate repeats passed their business assertions and deep
+reconciliation with zero issues. The profile does not establish a capacity
+gain: budgets remain unmet and none were changed. Evidence is
+`%TEMP%\warecommand-postgresql-performance-efda6b0.json`.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-efda6b0.json')
+```
+
+Exact-SHA Actions run
+[`36130823467`](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36130823467)
+passed Linux and Windows quality/coverage, all seven PostgreSQL integration
+groups, SQLite-to-PostgreSQL migration, Docker, and secret scan. Pull-request
+dependency review was skipped for the direct push.
+
+### Navigation snapshot follow-up — 2026-09-25
+
+Commit `6bd664dcc87edc134e04b3ff42019050e4e1b0af` consolidates the authenticated
+MVC layout's navigation snapshot from three SQL commands to one `UNION ALL`
+query. It reads active/lockout state, direct and role permissions, and accessible
+warehouses in one fresh command, without multiplying claim rows by warehouse
+rows. The focused authorization and webhook transport tests passed 30/30; the
+navigation regression asserts one command and visibility of a permission added
+immediately before the next snapshot. The Release ASP build had zero warnings
+and errors, and the focused whitespace-format check passed.
+
+The exact-SHA local profile used the same .NET 10.0.12, Windows x64, PostgreSQL
+17, two-repeat, ten-sample, concurrency 1/4/20 configuration. It exited nonzero
+with 22 budget failures, compared with 20 on `efda6b0`. All 194 HTTP requests
+succeeded in each repeat and both deep reconciliations had zero issues. The
+database-command telemetry sample counts were 13,050 and 13,026. This run does
+not show an end-to-end capacity improvement, and no budget or capacity approval
+changed. Evidence is
+`%TEMP%\warecommand-postgresql-performance-6bd664d.json`.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-6bd664d.json')
+```
+
+Exact-SHA Actions run
+[`36133733475`](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36133733475)
+completed successfully: Linux and Windows quality/coverage, all seven
+PostgreSQL integration groups, SQLite-to-PostgreSQL migration, production
+Docker, and secret scan passed. Pull-request dependency review was skipped for
+the direct push. CI does not execute this local performance budget group; keep
+the master capacity gate open.

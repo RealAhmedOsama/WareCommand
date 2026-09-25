@@ -2,14 +2,19 @@
 
 ## Current checkpoint — 2026-09-25
 
-Code revision under qualification is `93f1b63ef49a4b5cad456b6e0200d68c9695710e`.
+Code revision under qualification is `6bd664dcc87edc134e04b3ff42019050e4e1b0af`.
 The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
 PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
 preserves the caller's SQLite transaction. Commit `64cc727` adds a
 transaction-scoped PostgreSQL lock for concurrent reservations on the same
 warehouse/item. Commit `93f1b63` consolidates each authenticated warehouse
 authorization into one fresh SQL query, down from eight commands, while
-preserving immediate permission-change visibility.
+preserving immediate permission-change visibility. Commit `efda6b0` reduces
+the fresh warehouse-scope lookup from four SQL commands to one. Commit
+`6bd664d` reduces the shared MVC navigation snapshot from three commands to one
+`UNION ALL` query without multiplying permissions by warehouses; user
+active/lockout state and current direct or role grants remain fresh on each
+render.
 
 Exact-SHA Actions run
 [#36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
@@ -42,6 +47,19 @@ performance misses or establish capacity. Exact measurements and machine
 boundaries are in
 [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
 Do not infer production readiness from CI or local results.
+
+Authorization and webhook transport tests passed 30/30 on `6bd664d`; the
+navigation snapshot test asserts one SQL command and immediate permission
+freshness. The Release ASP build passed with zero warnings/errors, and focused
+format verification passed. Its two-repeat local PostgreSQL profile exited
+nonzero with 22 budget failures, despite 194 successful HTTP requests per
+repeat and zero deep-reconciliation issues. Exact-SHA Actions run
+[#36133733475](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36133733475)
+completed successfully: Linux and Windows quality/coverage, all seven
+PostgreSQL integration groups, SQLite-to-PostgreSQL migration, production
+Docker, and secret scan passed. Pull-request dependency review was skipped for
+the direct push. Profile details are in
+[`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
 
 The detailed per-assembly counts and PostgreSQL breakdown below record the
 previous exact-SHA run 36112799593. Do not add independent platform totals

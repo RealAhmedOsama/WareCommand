@@ -4,18 +4,29 @@ This is the current follow-up inventory for master-plan issue #108. Original
 issues #2–#107 and stabilization issues #109–#133 are closed as bounded
 implementation or evidence slices; closure does not erase remaining acceptance
 work. Source and qualification state is reviewed through code SHA
-`93f1b63ef49a4b5cad456b6e0200d68c9695710e` on 2026-09-25. Exact-SHA CI run
+`6bd664dcc87edc134e04b3ff42019050e4e1b0af` on 2026-09-25. Earlier exact-SHA
+CI run
 [#36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
-passed Linux and Windows solution checks, all seven disposable PostgreSQL
-groups, migration, production Docker, and secret scan. The #134 handoff
+passed on `64cc727`: Linux and Windows solution checks, all seven disposable
+PostgreSQL groups, migration, production Docker, and secret scan. The #134 handoff
 documents the screen, provider, and release boundaries. Local or hosted evidence
 is not production, live-provider, or external-review approval.
 
-Current code SHA `93f1b63ef49a4b5cad456b6e0200d68c9695710e` passed exact-SHA
+Current code SHA `6bd664dcc87edc134e04b3ff42019050e4e1b0af` passed exact-SHA
 Actions run
+[#36133733475](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36133733475),
+which passed Linux and Windows quality/coverage, all seven PostgreSQL groups,
+SQLite-to-PostgreSQL migration, Docker, and secret scanning. The direct-push
+dependency review was skipped. The preceding
+code SHA `efda6b042372b8f6a3561a6a6adbb20b78f06777` passed exact-SHA run
+[#36130823467](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36130823467).
+SHA `93f1b63ef49a4b5cad456b6e0200d68c9695710e` passed exact-SHA Actions run
 [#36125207777](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36125207777):
 Linux/Windows quality and coverage, all seven PostgreSQL groups, migration,
 production Docker, and secret scan. Direct-push dependency review was skipped.
+The local two-repeat profile on `6bd664d` exited nonzero with 22 budget misses;
+all 194 HTTP requests succeeded per repeat and both deep reconciliations had no
+issues. This does not clear the capacity gate.
 
 ## Current residual register
 

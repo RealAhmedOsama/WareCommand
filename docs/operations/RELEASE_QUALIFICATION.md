@@ -7,12 +7,14 @@ backup, migration, and rollback decision separately.
 ## Current repository qualification — 2026-09-25
 
 The code revision under qualification is SHA
-`93f1b63ef49a4b5cad456b6e0200d68c9695710e` on `master`. The pushed follow-up
+`6bd664dcc87edc134e04b3ff42019050e4e1b0af` on `master`. The pushed follow-up
 chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens the PostgreSQL receipt-counter
 lock, adds bounded inventory-balance retries, and preserves SQLite's active
 caller transaction. Commit `64cc727` adds a transaction-scoped PostgreSQL lock
 for concurrent reservations on the same warehouse/item. Commit `93f1b63`
 reduces authenticated warehouse authorization to one fresh SQL query per call.
+Commit `efda6b0` reduces the warehouse-scope lookup to one query; `6bd664d`
+consolidates the shared MVC navigation snapshot from three SQL commands to one.
 
 Exact-SHA [Actions run 36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
 completed successfully on `64cc727`. Linux and Windows quality/coverage, all
@@ -31,6 +33,18 @@ the direct push. Artifacts are `windows-test-results-36125207777-1`,
 The local performance profile on this SHA still fails 19 budgets; see
 `PERFORMANCE_QUALIFICATION.md` for measurements. CI does not run that full
 profile.
+
+The current code SHA is `6bd664dcc87edc134e04b3ff42019050e4e1b0af`. It combines
+the shared MVC navigation snapshot in one fresh SQL command; focused
+authorization and webhook transport tests passed 30/30, and the Release ASP
+build passed with zero warnings/errors. Its exact-SHA Actions run
+[#36133733475](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36133733475)
+completed successfully: Linux and Windows quality/coverage, all seven
+PostgreSQL integration groups, SQLite-to-PostgreSQL migration, production
+Docker, and secret scan passed. Pull-request dependency review was skipped for
+the direct push. The exact-SHA two-repeat local performance profile exits with
+22 budget misses and does not establish capacity; request success and
+reconciliation details are recorded in `PERFORMANCE_QUALIFICATION.md`.
 
 The per-assembly and PostgreSQL group counts in the previous qualification
 record below are from exact-SHA run 36112799593. The follow-up run above also
