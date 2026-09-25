@@ -7,24 +7,19 @@ backup, migration, and rollback decision separately.
 ## Current repository qualification — 2026-09-25
 
 The source revision under review is code SHA
-`5b89bfdaad82d3d3597e2d2860af8335f17a62c8` on canonical `master`. It adds a
-fresh aggregate permission/warehouse snapshot for the shared MVC layout to
-reduce repeated database reads. Exact-SHA
-[Actions run 36102019301](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36102019301)
-completed successfully: Linux and Windows solution quality/coverage,
-formatting, migrations/startup, disposable PostgreSQL integration/migration,
-production Docker image, and secret scan passed. Pull-request dependency review
-was skipped because the event was a direct push. The run's artifacts are
-`windows-test-results-36102019301-1`,
-`linux-test-results-36102019301-1`, and `secret-scan-results-36102019301`.
+`2943fdbbad13688c309b70e27b5b54271b657dd4` on canonical `master`. The
+follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens the PostgreSQL
+receipt-counter lock, adds bounded inventory-balance retries, and preserves
+SQLite's active caller transaction. Exact-SHA
+[Actions run 36112799593](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36112799593)
+completed successfully. Linux and Windows quality/coverage, formatting,
+migration/startup checks, disposable PostgreSQL integration/migration,
+production Docker image, and secret scan passed. Pull-request dependency
+review was skipped because the event was a direct push. Artifacts are
+`windows-test-results-36112799593-1`,
+`linux-test-results-36112799593-1`, and `secret-scan-results-36112799593`.
 
-The detailed per-assembly and PostgreSQL test counts below are from the
-preceding full qualification, [run 36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964),
-on code SHA `5f5d0a59300f7b48a7ad31a0b50f0382fcaf609c`. The current run above
-repeated the platform and provider checks after three additional navigation
-authorization tests; its result artifacts are available from the linked run.
-
-The Windows and Linux quality jobs each recorded 782 passed, 77 skipped, zero
+The Windows and Linux quality jobs each recorded 787 passed, 77 skipped, zero
 failed, and zero other skips. The same per-assembly counts appeared on both
 platforms:
 
@@ -32,14 +27,14 @@ platforms:
 | --- | ---: | ---: | ---: | --- |
 | `Wms.Domain.Tests` | 175 | 0 | 175 | Full solution run |
 | `Wms.Application.Tests` | 137 | 0 | 137 | Full solution run |
-| `Wms.Infrastructure.Tests` | 393 | 68 | 461 | All 68 skips are PostgreSQL-provider gated |
+| `Wms.Infrastructure.Tests` | 398 | 68 | 466 | All 68 skips are PostgreSQL-provider gated |
 | `Wms.ASP.Tests` | 62 | 8 | 70 | All 8 skips are PostgreSQL-provider gated |
 | `Wms.Architecture.Tests` | 15 | 0 | 15 | Full solution run |
 | `Wms.DataMigration.Tests` | 0 | 1 | 1 | Provider-backed case runs in the dedicated migration job |
-| **Per-platform total** | **782** | **77** | **859** | No failures; all skips are provider-gated |
+| **Per-platform total** | **787** | **77** | **864** | No failures; all skips are provider-gated |
 
-The dedicated PostgreSQL job had no skipped or failed test in its selected
-groups:
+The dedicated PostgreSQL job in run 36112799593 had no skipped or failed test
+in its selected groups:
 
 | Provider group | Test assembly | Passed | Skipped/failed |
 | --- | --- | ---: | ---: |
@@ -55,17 +50,14 @@ groups:
 
 The Linux deterministic-repeat step ran the 312 Domain/Application tests twice;
 both repetitions passed. These repeats are not added to either platform total.
-Measured line coverage was 8.22% on both hosts (Windows 68,698/835,651 lines;
-Linux 68,699/835,651); the CI contract does not set a coverage threshold.
+TRX and Cobertura evidence validated on both hosts; the CI contract does not
+set a coverage threshold.
 
 The production Docker image build and secret scan passed. Dependency review was
-skipped because this was a direct push rather than a pull request. The uploaded
-Windows, Linux, and secret-scan artifacts are
-`windows-test-results-36092918964-1` (20,122,104 bytes),
-`linux-test-results-36092918964-1` (20,270,198 bytes), and
-`secret-scan-results-36092918964` (7,417 bytes). Download them from the exact
-Actions run above. The PostgreSQL job publishes its run log, not a success
-artifact; the provider-group counts and migration result are recorded above.
+skipped because this was a direct push rather than a pull request. Download the
+Windows, Linux, and secret-scan artifacts from the exact Actions run above. The
+PostgreSQL job publishes its run log, not a success artifact; the provider-group
+counts and migration result are recorded above.
 
 The prior run `36091549462` on `393ac2593ea60ff323dcf7926a5f9ada91f7e1d4`
 failed only its Windows formatter step: nested authorization-switch blocks

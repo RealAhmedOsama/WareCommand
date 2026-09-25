@@ -160,3 +160,41 @@ Every result is local TestServer/PostgreSQL qualification only. It does not
 establish production capacity, worker scaling limits, production RTO/RPO, or a
 release approval. Keep any machine-specific JSON evidence outside the
 repository; publish only a reviewed, redacted summary with its exact SHA.
+
+### Receipt-counter and allocation follow-up — 2026-09-25
+
+Commit `9c2ff159671e02cda0dc98f953a77468f1006965` moves the PostgreSQL
+per-warehouse receipt counter into a short independent transaction, so the
+counter row is not held for the full receipt transaction. Commit
+`0a8c041dcb2465fefd59c3b2a1871997c29b25cd` adds up to five bounded retries for
+inventory-balance conflicts during order allocation. The follow-up
+`2943fdbbad13688c309b70e27b5b54271b657dd4` uses the independent allocator only
+for PostgreSQL; SQLite keeps the caller's transaction because its database-
+wide write lock conflicts with a second writer.
+
+The standard two-repeat PostgreSQL profile on `0a8c041` used .NET 10.0.12,
+Windows x64 with 16 logical processors, PostgreSQL 17.11, the same logical
+dataset fingerprint as the navigation profile, and ten samples at
+concurrency 1/4/20. Both repeats completed without a fatal harness error and
+deep reconciliation found zero issues. The run still exited nonzero with 24
+performance-budget failures.
+
+At concurrency 20, receiving returned all 10/10 responses in both repeats;
+throughput was 5.44 and 5.02 requests/second and p95 was 1,837 and 1,992 ms.
+The preceding receipt-counter candidate `9c2ff15` measured c20 receiving p95
+at 1,960/2,002 ms, compared with 4,007/5,813 ms on the navigation-only
+candidate `5b89bfd`. Other percentile and low-concurrency budgets still fail.
+Same-stock allocation improved from 1/20
+to 5/20 successful requests per repeat after retries, while 15/20 still ended
+in balance conflicts; p95 was 3,943 and 9,925 ms. Limited-stock allocation
+completed 20/20 requests without errors or conflicts, but p95 remained 3,727
+to 5,103 ms. These results do not satisfy the performance catalog and do not
+establish supported capacity.
+
+The PostgreSQL performance path is unchanged by the SQLite provider guard in
+`2943fdb`. Its focused receipt-flow tests passed 2/2, and the complete ASP test
+project passed 62 tests with 8 PostgreSQL-only skips. Exact-SHA remote CI run
+[`36112799593`](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36112799593)
+passed Linux, Windows, PostgreSQL integration/migration, Docker, and secret
+scan. Keep the standard performance gate open; no budget or capacity approval
+changed.

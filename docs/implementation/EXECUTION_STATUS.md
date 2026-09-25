@@ -3,31 +3,34 @@
 ## Current checkpoint — 2026-09-25
 
 Canonical `master` is at code SHA
-`5b89bfdaad82d3d3597e2d2860af8335f17a62c8`. Commit `5b89bfd` replaces the MVC
-layout's repeated sequential permission checks with a fresh aggregate
-permission/warehouse snapshot per render. Exact-SHA Actions run
-[#36102019301](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36102019301)
-completed successfully: Linux and Windows quality/coverage, formatting,
-migration/startup checks, disposable PostgreSQL integration/migration,
-production Docker image, and secret scan all passed. Pull-request dependency
-review was skipped because the trigger was a direct push. The run's test and
-secret-scan artifacts are linked in
-[`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md).
+`2943fdbbad13688c309b70e27b5b54271b657dd4`. The pushed follow-up chain
+`9c2ff15`, `0a8c041`, and `2943fdb` shortens PostgreSQL receipt-counter
+locking, adds bounded inventory-balance retries, and preserves the caller's
+SQLite transaction. Exact-SHA Actions run
+[#36112799593](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36112799593)
+completed successfully: Linux and Windows each recorded 787 passed, 77
+provider-gated skips, and zero failures; disposable PostgreSQL groups recorded
+75 passed with zero skips/failures, and SQLite-to-PostgreSQL migration passed
+1/1. Formatting, migration/startup checks, production Docker image, and secret
+scan passed. Pull-request dependency review was skipped because the trigger
+was a direct push. Artifacts are windows-test-results-36112799593-1,
+linux-test-results-36112799593-1, and secret-scan-results-36112799593; details
+are linked in [`RELEASE_QUALIFICATION.md`](../operations/RELEASE_QUALIFICATION.md).
 
-The focused authorization suite passed 6/6 and the Release ASP build passed
-with zero warnings/errors. The same-SHA local PostgreSQL performance probe
-improved 48-check failures from 37 to 29, with both repeats cleanly reconciled;
-it still exits nonzero on throughput, receiving, and allocation/contention
-budgets. The exact before/after measurements and machine boundaries are in
+The focused allocation tests passed 5/5, receipt flows passed 2/2, and the
+full ASP test project passed 62 with 8 PostgreSQL-only skips. The local
+PostgreSQL performance profile still exits nonzero with 24 budget failures.
+Receiving completed 10/10 requests at concurrency 20, while same-stock
+allocation completed 5/20 and retained 15 conflicts per repeat; reconciliation
+reported zero issues. A separate local six-project suite attempt stopped in
+Infrastructure after a CLR RW-mapping fatal error, not an assertion failure.
+The exact measurements and machine boundaries are in
 [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
-Do not infer capacity or release approval from the local improvement or green
-CI.
+Do not infer capacity or release approval from local results or green CI.
 
-The detailed 782-pass/77-provider-skip platform counts and 75-test PostgreSQL
-breakdown below refer to the preceding exact-SHA run
-[#36092918964](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36092918964)
-on `5f5d0a5`. Do not add independent platform totals together or count the
-repeated deterministic unit checks as a second solution run.
+The detailed per-assembly counts and PostgreSQL breakdown below record the
+exact-SHA run linked above. Do not add independent platform totals together or
+count the repeated deterministic unit checks as a second solution run.
 
 Issue #128's focused local evidence is `RecommendationGovernanceServiceTests`
 7/7, a Release ASP test-project build with zero warnings/errors, and the
