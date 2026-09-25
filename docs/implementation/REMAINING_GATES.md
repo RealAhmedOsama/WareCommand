@@ -3,8 +3,9 @@
 This is the current follow-up inventory for master-plan issue #108. Original
 issues #2–#107 and stabilization issues #109–#133 are closed as bounded
 implementation or evidence slices; closure does not erase remaining acceptance
-work. Source and qualification state is reviewed through code SHA
-`5383231da04332679b774ec422465e7e140cdba8` on 2026-09-25. Earlier exact-SHA
+work. Source and qualification state is reviewed through application-code SHA
+`7b75257bb59a4d46b37a3c782f877c8f5a72c61c` on 2026-09-25. Test-only commits
+`1696005` and `08640cf` follow it. Earlier exact-SHA
 CI run
 [#36119978483](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36119978483)
 passed on `64cc727`: Linux and Windows solution checks, all seven disposable
@@ -28,21 +29,22 @@ The local two-repeat profile on `6bd664d` exited nonzero with 22 budget misses;
 all 194 HTTP requests succeeded per repeat and both deep reconciliations had no
 issues. This does not clear the capacity gate.
 
-Latest pushed code SHA `5383231da04332679b774ec422465e7e140cdba8` has exact-SHA
-Actions run
-[#36174604818](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36174604818)
+The latest pushed application-code SHA `7b75257bb59a4d46b37a3c782f877c8f5a72c61c`
+consolidates receiving item and scoped-location reads. Test-only commits
+`1696005` and `08640cf` correct the new repository mock and import ordering.
+Exact-SHA Actions run
+[#36184066847](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36184066847)
 passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
 SQLite-to-PostgreSQL migration, Docker, and secret scan. Dependency review was
-skipped for the direct push. The exact-source local performance profile records
-17 failing workload/repeat entries and 31 metric breaches with clean
-reconciliation; see `PERFORMANCE_QUALIFICATION.md`. The focused receipt tests
-passed 7/7. CI does not qualify the local performance budgets or production
-capacity.
+skipped for the direct push. The exact-source local profile on `7b75257` recorded
+16 failing workload/repeat entries and 27 metric breaches, with clean
+reconciliation; CI does not run this performance group or qualify capacity.
+See `PERFORMANCE_QUALIFICATION.md` for measurements.
 
 ## Current residual register
 
-The latest local performance profile is on `5383231`; it recorded 17 failing
-workload/repeat entries and 31 metric breaches. The remaining master-plan gates
+The latest local performance profile is on `7b75257`; it recorded 16 failing
+workload/repeat entries and 27 metric breaches. The remaining master-plan gates
 below still require fresh evidence and assigned owners; a passing code CI run
 does not close capacity or production approval.
 
@@ -61,7 +63,7 @@ does not close capacity or production approval.
 | [#129 test data](https://github.com/RealAhmedOsama/WareCommand/issues/129) | Closed with a deterministic PostgreSQL test fixture using normal application commands and reconciliation. | The writer is test-only. It is not a production seeding route or a substitute for the large-capacity load dataset; only add those paths after separate authorization and scoped requirements. |
 | [#130 PostgreSQL journeys](https://github.com/RealAhmedOsama/WareCommand/issues/130), follow-up to original #96 | Original qualification recorded 13 scenario reports and 199 clean reconciliation checkpoints. A later journey now verifies cross-dock reservation and pick-work materialization, idempotent replay, the one-unit fallback putaway, pick completion from receiving, and partial-plan status; exact pushed-SHA CI evidence is linked in the issue comment. | Evidence remains bounded to named scenarios. Cluster picking and other unsupported journey branches remain unverified; expand the matrix before claiming complete workflow qualification. |
 | [#131 browser qualification](https://github.com/RealAhmedOsama/WareCommand/issues/131), follow-up to original #97 | Closed after authenticated scanner/picking/dashboard coverage; the local scanner focus/input case passed 1/1. | Physical handhelds, all operational routes, full accessibility/visual review, and partner/device acceptance remain unverified. |
-| [#132 performance](https://github.com/RealAhmedOsama/WareCommand/issues/132), follow-up to original #98 | Closed with measured bounded workload and reconciliation results. The 2026-09-25 navigation-read follow-up on `5b89bfd` reduced local standard-profile budget failures from 37/48 on `2e94bfa` to 29/48; both candidate repeats reconciled cleanly. HTTP failures fell from 23/30 to 16/30. Later #108 follow-ups `9c2ff15` shortened the PostgreSQL receipt-counter lock and `0a8c041` added bounded inventory-balance retries; the two-repeat profile reconciled with zero issues but recorded 24 budget failures. Same-stock allocation at concurrency 20 improved to 5/20 successes, with 15 conflicts still remaining; limited-stock allocation completed 20/20 but retained high latency. Follow-up `64cc727` serializes same-warehouse/item PostgreSQL reservations; the local same-stock c20 burst then succeeded 20/20 with zero errors/conflicts, and both deep reconciliations were clean. The profile still recorded 21 budget failures, including allocation and receiving latency. Commit `93f1b63` reduces authenticated warehouse authorization from eight SQL commands to one fresh query; focused authorization/webhook tests pass 29/29. Its two-repeat profile recorded 19 budget failures with zero reconciliation errors and business assertions passing. Same-stock allocation c20 p95 remained over budget at 3,082/2,944 ms. Exact-SHA CI run `36125207777` passed Linux/Windows, all seven PostgreSQL groups, migration, Docker, and secret scan. The SQLite transaction guard is `2943fdb`; its focused and full ASP tests passed locally. The #108 receipt-counter follow-up `ababe69` uses PostgreSQL `UPDATE ... RETURNING`; its two-repeat profile recorded 22 budget failures, with clean reconciliation but variable receiving percentiles. The inventory-summary follow-up `a1c27b7` recorded 24 misses. The ledger-write follow-up `431b2aa` recorded 20 failing workload/repeat entries and cleaner allocation c20 p95, but p50/p95, receiving, and other latency budgets remained unmet. Latest follow-up `418ace1` reuses the authorized warehouse scope for demand idempotency; focused tests passed 7/7, while its exact-source profile recorded 17 failing entries (35 metric breaches) with clean reconciliation and high repeat variance. Detailed figures are in `PERFORMANCE_QUALIFICATION.md`. | The latest #108 profile still has 17 failing workload/repeat entries (35 metric breaches); allocation c20 p50/p95 exceed budget. The earlier extended run still records 47/62 failures and 100-way was unsupported. Keep capacity/reliability open; no budgets or approved capacity changed. |
+| [#132 performance](https://github.com/RealAhmedOsama/WareCommand/issues/132), follow-up to original #98 | Closed with measured bounded workload and reconciliation results. The 2026-09-25 navigation-read follow-up on `5b89bfd` reduced local standard-profile budget failures from 37/48 on `2e94bfa` to 29/48; both candidate repeats reconciled cleanly. HTTP failures fell from 23/30 to 16/30. Later #108 follow-ups `9c2ff15` shortened the PostgreSQL receipt-counter lock and `0a8c041` added bounded inventory-balance retries; the two-repeat profile reconciled with zero issues but recorded 24 budget failures. Same-stock allocation at concurrency 20 improved to 5/20 successes, with 15 conflicts still remaining; limited-stock allocation completed 20/20 but retained high latency. Follow-up `64cc727` serializes same-warehouse/item PostgreSQL reservations; the local same-stock c20 burst then succeeded 20/20 with zero errors/conflicts, and both deep reconciliations were clean. The profile still recorded 21 budget failures, including allocation and receiving latency. Commit `93f1b63` reduces authenticated warehouse authorization from eight SQL commands to one fresh query; focused authorization/webhook tests pass 29/29. Its two-repeat profile recorded 19 budget failures with zero reconciliation errors and business assertions passing. Same-stock allocation c20 p95 remained over budget at 3,082/2,944 ms. Exact-SHA CI run `36125207777` passed Linux/Windows, all seven PostgreSQL groups, migration, Docker, and secret scan. The SQLite transaction guard is `2943fdb`; its focused and full ASP tests passed locally. The #108 receipt-counter follow-up `ababe69` uses PostgreSQL `UPDATE ... RETURNING`; its two-repeat profile recorded 22 budget failures, with clean reconciliation but variable receiving percentiles. The inventory-summary follow-up `a1c27b7` recorded 24 misses. The ledger-write follow-up `431b2aa` recorded 20 failing workload/repeat entries and cleaner allocation c20 p95, but p50/p95, receiving, and other latency budgets remained unmet. Latest follow-up `418ace1` reuses the authorized warehouse scope for demand idempotency; focused tests passed 7/7, while its exact-source profile recorded 17 failing entries (35 metric breaches) with clean reconciliation and high repeat variance. Detailed figures are in `PERFORMANCE_QUALIFICATION.md`. | The latest #108 profile on 7b75257 has 16 failing workload/repeat entries (27 metric breaches); same-stock allocation c20 p50 misses both repeats and p95 misses one. The earlier extended run still records 47/62 failures and 100-way was unsupported. Keep capacity/reliability open; no budgets or approved capacity changed. |
 | [#133 recovery](https://github.com/RealAhmedOsama/WareCommand/issues/133), follow-up to original #99 | Closed after disposable response-loss, restart, retry/dead-letter, serialization, and populated encrypted restore rehearsals. | These are not production RPO/RTO results. Assign a production backup/restore owner, target, and approved rehearsal before release. |
 | [#134 documentation handoff](https://github.com/RealAhmedOsama/WareCommand/issues/134) | This checkpoint reconciles the source map, connector inventory, current CI evidence, and remaining gates. | The exact pushed documentation commit and its CI run are recorded in the issue evidence comment after that run completes. Visual design itself is Ahmed's later phase. |
 

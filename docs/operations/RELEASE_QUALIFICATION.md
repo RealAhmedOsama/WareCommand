@@ -6,18 +6,24 @@ backup, migration, and rollback decision separately.
 
 ## Current repository qualification — 2026-09-25
 
-The latest pushed application code is SHA
-`5383231da04332679b774ec422465e7e140cdba8` on `master`. Its receiving preflight
-consolidation passed focused tests 7/7 and exact-SHA Actions run
-[#36174604818](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36174604818)
-passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
-SQLite-to-PostgreSQL migration, production Docker, and secret scan. Dependency
-review was skipped for the direct push. CI does not run the local performance
-group. The exact-source local performance profile records 17 failing
-workload/repeat entries and 31 metric breaches with clean deep reconciliation.
-Same-stock allocation at concurrency 20 remains over its p50 and p95 budgets,
-so this does not qualify capacity or production readiness.
-The change was pushed to GitHub only; no production deployment was performed.
+The latest application-code SHA is
+`7b75257bb59a4d46b37a3c782f877c8f5a72c61c` on `master`; test-only commits
+`1696005` and `08640cf` update the receiving mocks and import order. Its scoped
+receiving preflight consolidation passed focused receiving tests 12/12 and
+repository tests 3/3. Exact-SHA Actions run
+[#36184066847](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36184066847)
+passed Linux/Windows quality and coverage, formatting, all seven PostgreSQL
+groups, SQLite-to-PostgreSQL migration, Docker, and secret scanning. Dependency
+review was skipped for the direct push. The run does not include the local
+performance budget profile.
+
+The exact-source local performance profile on `7b75257` recorded 16 failing
+workload/repeat entries and 27 metric breaches with clean deep reconciliation.
+All 300 isolated HTTP samples and same-stock/limited-stock 20-way allocations
+succeeded without errors or conflicts, but receiving and allocation latency/
+throughput budgets still fail. CI does not run the local performance group and
+does not establish capacity or production readiness. The changes were pushed to
+GitHub only; no production deployment was performed.
 
 An earlier code revision under qualification was SHA
 `6bd664dcc87edc134e04b3ff42019050e4e1b0af` on `master`. The pushed follow-up

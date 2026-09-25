@@ -2,7 +2,9 @@
 
 ## Current checkpoint — 2026-09-25
 
-Latest code revision under qualification is `5383231da04332679b774ec422465e7e140cdba8`.
+Latest application-code revision under qualification is
+`7b75257bb59a4d46b37a3c782f877c8f5a72c61c`; later commits `1696005` and
+`08640cf` update receiving test setup and import order only.
 The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
 PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
 preserves the caller's SQLite transaction. Commit `64cc727` adds a
@@ -123,6 +125,25 @@ passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
 SQLite-to-PostgreSQL migration, production Docker, and secret scan. Dependency
 review was skipped for the direct push. CI does not run the local performance
 group; exact-source evidence remains in `PERFORMANCE_QUALIFICATION.md`.
+
+The receiving use-case preflight follow-up `7b75257` loads the item and
+scope-visible location in one tagged query, preserving the existing generic
+and warehouse-specific authorization checks. Focused receiving application
+tests passed 12/12 and infrastructure repository tests passed 3/3. A two-repeat
+exact-source PostgreSQL profile on `7b75257` recorded 16 budget-failing
+workload/repeat entries and 27 metric breaches with no fatal error. Both deep
+reconciliations were clean; all 300 isolated HTTP samples and all same-stock
+and limited-stock concurrency-20 allocation samples succeeded without errors
+or conflicts. Database-command telemetry was 11,331 per repeat, compared with
+11,370 on `5383231`. Receiving and allocation latency/throughput budgets still
+fail, so capacity remains unqualified. The first exact-SHA Actions run exposed
+a missing test mock and an import-order formatter violation; test-only commits
+`1696005` and `08640cf` corrected both. Exact-SHA run
+[#36184066847](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36184066847)
+passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
+SQLite-to-PostgreSQL migration, Docker, and secret scan. Dependency review was
+skipped for the direct push. The run did not execute the local performance
+budget group.
 
 Authorization and webhook transport tests passed 30/30 on `6bd664d`; the
 navigation snapshot test asserts one SQL command and immediate permission

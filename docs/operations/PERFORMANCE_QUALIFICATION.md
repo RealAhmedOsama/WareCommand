@@ -525,3 +525,42 @@ pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
 Exact-SHA hosted CI is recorded in `RELEASE_QUALIFICATION.md`. The local
 performance group remains outside CI; capacity and production readiness remain
 unqualified.
+
+### Scoped receiving preflight consolidation — 2026-09-25
+
+Commit `7b75257bb59a4d46b37a3c782f877c8f5a72c61c` adds a receiving repository
+query that loads the requested item and caller-scope-visible location in one
+tagged SQL command. `ReceiveItemUseCase` keeps the generic permission check,
+warehouse scope filter, exact-warehouse authorization, and active/receivable
+checks. When location codes repeat across accessible warehouses, the query
+selects one location deterministically. Focused receiving application tests
+passed 12/12 and infrastructure repository tests passed 3/3, including the
+single-command and out-of-scope visibility assertions.
+
+The exact-source local profile used .NET 10.0.12, PostgreSQL 17.11, two repeats,
+ten samples, and concurrency 1/4/20. It exited nonzero on 16 workload/repeat
+entries with 27 metric breaches and no fatal error. Both deep reconciliations
+were clean (34 transactions scanned each). All 300 isolated HTTP samples and
+the 20-way same-stock and limited-stock allocation samples succeeded without
+errors or conflicts. Receiving throughput at concurrency 1 was 2.12/2.64
+requests per second with p50 475/373 ms; at concurrency 4 it was 6.06/6.88
+requests per second with p50 505/491 ms; at concurrency 20 it was 9.61/7.32
+requests per second, p50 980/1,284 ms, and p95 1,039/1,365 ms. Same-stock
+allocation at concurrency 20 recorded p50 1,937/1,321 ms and p95 2,972/2,283
+ms. Limited-stock allocation p50 was 952/1,223 ms. These latency and throughput
+budgets remain unmet. Database-command telemetry fell from 11,370 on `5383231`
+to 11,331 in each repeat. PostgreSQL lock sampling still observed up to 19
+waiting sessions, so the run does not qualify capacity.
+
+Evidence is `%TEMP%\warecommand-postgresql-performance-7b75257.json`.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-7b75257.json')
+```
+
+Hosted CI does not execute this local performance budget group. A green CI run
+does not clear the measured misses or establish production capacity.
