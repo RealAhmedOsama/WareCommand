@@ -4,26 +4,27 @@ This runbook makes a release reviewable and repeatable. It does not authorize a
 production deployment; the environment owner must approve the change window,
 backup, migration, and rollback decision separately.
 
-## Current repository qualification — 2026-09-25
+## Current repository qualification — 2026-09-26
 
 The latest application-code SHA is
-`7b75257bb59a4d46b37a3c782f877c8f5a72c61c` on `master`; test-only commits
-`1696005` and `08640cf` update the receiving mocks and import order. Its scoped
-receiving preflight consolidation passed focused receiving tests 12/12 and
-repository tests 3/3. Exact-SHA Actions run
-[#36184066847](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36184066847)
-passed Linux/Windows quality and coverage, formatting, all seven PostgreSQL
-groups, SQLite-to-PostgreSQL migration, Docker, and secret scanning. Dependency
-review was skipped for the direct push. The run does not include the local
-performance budget profile.
+`c7ee719927eec08e0902d99302cf17ec615a28b8` on `master`. Commits `5d0cfd5` and
+`c7ee719` reuse the receiving stock snapshot and caller-scope-visible tracked
+location. Focused stock movement, receiving use case, and repository tests
+passed 17/17, 11/11, and 4/4; the combined repository/service suite passed
+21/21. Exact-SHA Actions run
+[#36193896584](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36193896584)
+is running Linux/Windows quality and coverage, PostgreSQL groups, migration,
+Docker, and secret scan. Direct-push dependency review is skipped. The run does
+not include the local performance budget profile.
 
-The exact-source local performance profile on `7b75257` recorded 16 failing
-workload/repeat entries and 27 metric breaches with clean deep reconciliation.
-All 300 isolated HTTP samples and same-stock/limited-stock 20-way allocations
-succeeded without errors or conflicts, but receiving and allocation latency/
-throughput budgets still fail. CI does not run the local performance group and
-does not establish capacity or production readiness. The changes were pushed to
-GitHub only; no production deployment was performed.
+The exact-source local performance profile on `c7ee719` recorded 20 failing
+workload/repeat entries and 35 metric breaches with clean deep reconciliation.
+All 300 isolated HTTP samples and both 20-way allocation workloads completed
+without errors or conflicts, but receiving and allocation latency/throughput
+budgets still fail. Database-command telemetry recorded 11,199/11,214 samples,
+down from 11,331 on `7b75257`; the query reduction does not qualify capacity.
+CI does not run the local performance group or establish production readiness.
+The commits were pushed to GitHub only; no production deployment was performed.
 
 An earlier code revision under qualification was SHA
 `6bd664dcc87edc134e04b3ff42019050e4e1b0af` on `master`. The pushed follow-up

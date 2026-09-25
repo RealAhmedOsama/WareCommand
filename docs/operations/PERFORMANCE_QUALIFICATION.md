@@ -564,3 +564,26 @@ pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
 
 Hosted CI does not execute this local performance budget group. A green CI run
 does not clear the measured misses or establish production capacity.
+
+### Receiving stock snapshot reuse — 2026-09-26
+
+Commits `5d0cfd5` and `c7ee719` reuse the location-stock snapshot during
+receiving capacity checks and reuse the already tracked target location within
+the current warehouse scope. Focused tests passed: stock movement 17/17,
+receiving use case 11/11, receiving repository 4/4, and the combined receiving
+repository plus stock movement suite 21/21.
+
+The exact-source PostgreSQL performance profile used two repeats, ten samples,
+and concurrency 1/4/20. It exited nonzero on 20 workload/repeat entries with 35
+metric breaches. Both deep reconciliations were clean; all 300 isolated HTTP
+samples and both 20-way allocation workloads completed without errors or
+conflicts. Receiving p50 at concurrency 1 was 654/315 ms; at concurrency 4,
+510/655 ms; and at concurrency 20, 1,222/1,312 ms. Same-stock allocation at
+concurrency 20 recorded p50 1,535/1,311 ms and p95 2,856/2,317 ms; limited-stock
+allocation p50 was 989/1,158 ms. Repeat variance remains high and the approved
+latency/throughput budgets remain unmet. Database-command telemetry recorded
+11,199/11,214 samples, down from 11,331 on `7b75257`; this query reduction does
+not qualify capacity.
+
+Evidence is `%TEMP%\warecommand-postgresql-performance-c7ee719.json`. Hosted CI
+does not run the local performance group and does not clear these budget misses.
