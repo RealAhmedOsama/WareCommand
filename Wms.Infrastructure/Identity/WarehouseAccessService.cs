@@ -57,72 +57,105 @@ public sealed class WarehouseAccessService(
         }
 
         var userId = currentUser.UserId;
-        var user = await context.Users
-            .AsNoTracking()
-            .Where(candidate => candidate.Id == userId)
-            .Select(candidate => new { candidate.Id, candidate.IsActive, candidate.LockoutEnd })
-            .SingleOrDefaultAsync(cancellationToken);
-
-        if (user is null ||
-            !user.IsActive ||
-            (user.LockoutEnd.HasValue && user.LockoutEnd > clock.UtcNow))
-        {
-            return WarehouseNavigationAccess.Empty;
-        }
-
+        var nowUtc = clock.UtcNow;
         var directPermissions = context.UserClaims
             .AsNoTracking()
-            .Where(claim => claim.UserId == user.Id &&
+            .Where(claim => claim.UserId == userId &&
                             claim.ClaimType == WmsAuthorizationClaimTypes.Permission)
             .Select(claim => claim.ClaimValue);
         var rolePermissions = context.RoleClaims
             .AsNoTracking()
             .Where(claim => claim.ClaimType == WmsAuthorizationClaimTypes.Permission &&
                             context.UserRoles.Any(userRole =>
-                                userRole.UserId == user.Id && userRole.RoleId == claim.RoleId))
+                                userRole.UserId == userId && userRole.RoleId == claim.RoleId))
             .Select(claim => claim.ClaimValue);
-        var permissionValues = await directPermissions
-                .Concat(rolePermissions)
-                .Distinct()
-                .ToListAsync(cancellationToken);
-        var permissions = permissionValues
+        var hasGlobalAccess = directPermissions.Contains(WmsPermissions.All) ||
+                              rolePermissions.Contains(WmsPermissions.All);
+        var canViewDashboard = hasGlobalAccess ||
+                               directPermissions.Contains(WmsPermissions.DashboardView) ||
+                               rolePermissions.Contains(WmsPermissions.DashboardView);
+        var permissionValues = directPermissions
+            .Concat(rolePermissions)
+            .Where(permission => permission != null)
+            .Distinct();
+        var accessibleWarehouses = context.Warehouses
+            .AsNoTracking()
+            .Where(warehouse => warehouse.IsActive &&
+                canViewDashboard &&
+                (hasGlobalAccess || context.UserWarehouseAssignments.Any(assignment =>
+                    assignment.UserId == userId &&
+                    assignment.WarehouseId == warehouse.Id)))
+            .Select(warehouse => new
+            {
+                Id = (int?)warehouse.Id,
+                warehouse.Code,
+                warehouse.Name,
+                IsDefault = context.UserWarehouseAssignments.Any(assignment =>
+                    assignment.UserId == userId &&
+                    assignment.WarehouseId == warehouse.Id &&
+                    assignment.IsDefault),
+                warehouse.TimeZone
+            });
+        // Concat emits one row set per snapshot collection without multiplying permissions by warehouses.
+        var permissionRows =
+                from user in context.Users.AsNoTracking().Where(user => user.Id == userId)
+                from permission in permissionValues.DefaultIfEmpty()
+                select new
+                {
+                    user.IsActive,
+                    user.LockoutEnd,
+                    Permission = permission,
+                    WarehouseId = (int?)null,
+                    WarehouseCode = (string?)null,
+                    WarehouseName = (string?)null,
+                    WarehouseIsDefault = false,
+                    WarehouseTimeZone = (string?)null
+                };
+        var warehouseRows =
+                from user in context.Users.AsNoTracking().Where(user => user.Id == userId)
+                from warehouse in accessibleWarehouses
+                select new
+                {
+                    user.IsActive,
+                    user.LockoutEnd,
+                    Permission = (string?)null,
+                    WarehouseId = warehouse.Id,
+                    WarehouseCode = warehouse.Code,
+                    WarehouseName = warehouse.Name,
+                    WarehouseIsDefault = warehouse.IsDefault,
+                    WarehouseTimeZone = warehouse.TimeZone
+                };
+        var navigationRows = await permissionRows
+            .Concat(warehouseRows)
+            .ToListAsync(cancellationToken);
+
+        if (navigationRows.Count == 0 ||
+            !navigationRows[0].IsActive ||
+            (navigationRows[0].LockoutEnd.HasValue && navigationRows[0].LockoutEnd > nowUtc))
+        {
+            return WarehouseNavigationAccess.Empty;
+        }
+
+        var permissions = navigationRows
+            .Select(row => row.Permission)
             .Where(permission => permission is not null)
             .Select(permission => permission!)
             .ToHashSet(StringComparer.Ordinal);
-
-        IReadOnlyList<WmsWarehouseOption> accessibleWarehouses = [];
-        if (permissions.Contains(WmsPermissions.DashboardView) ||
-            permissions.Contains(WmsPermissions.All))
-        {
-            var hasGlobalAccess = permissions.Contains(WmsPermissions.All);
-            var userWarehousesQuery = context.Warehouses
-                .AsNoTracking()
-                .Where(warehouse => warehouse.IsActive);
-            if (!hasGlobalAccess)
-            {
-                userWarehousesQuery = userWarehousesQuery
-                    .Where(warehouse => context.UserWarehouseAssignments
-                        .Any(assignment => assignment.UserId == user.Id &&
-                                           assignment.WarehouseId == warehouse.Id));
-            }
-
-            accessibleWarehouses = await userWarehousesQuery
-                .OrderBy(warehouse => warehouse.Code)
-                .Select(warehouse => new WmsWarehouseOption(
-                    warehouse.Id,
-                    warehouse.Code,
-                    warehouse.Name,
-                    context.UserWarehouseAssignments.Any(assignment =>
-                        assignment.UserId == user.Id &&
-                        assignment.WarehouseId == warehouse.Id &&
-                        assignment.IsDefault),
-                    warehouse.TimeZone))
-                .ToListAsync(cancellationToken);
-        }
+        var warehouseOptions = navigationRows
+            .Where(row => row.WarehouseId.HasValue)
+            .DistinctBy(row => row.WarehouseId)
+            .OrderBy(row => row.WarehouseCode)
+            .Select(row => new WmsWarehouseOption(
+                row.WarehouseId!.Value,
+                row.WarehouseCode!,
+                row.WarehouseName!,
+                row.WarehouseIsDefault,
+                row.WarehouseTimeZone!))
+            .ToArray();
 
         return new WarehouseNavigationAccess(
             permissions,
-            accessibleWarehouses,
+            warehouseOptions,
             HasWildcardPermissions: true);
     }
 

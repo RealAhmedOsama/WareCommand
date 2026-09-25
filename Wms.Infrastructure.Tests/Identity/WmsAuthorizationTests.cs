@@ -242,7 +242,7 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
 
         var snapshot = await navigationService.GetNavigationAccessAsync();
 
-        Assert.Equal(3, _commandCounter.Count);
+        Assert.Equal(1, _commandCounter.Count);
         Assert.True(snapshot.HasPermission(WmsPermissions.DashboardView));
         Assert.True(snapshot.HasPermission(WmsPermissions.InventoryRead));
         Assert.False(snapshot.HasPermission(WmsPermissions.InventoryAdjust));
@@ -253,8 +253,11 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
         Assert.True((await GetUserManager().AddClaimAsync(
             user,
             new Claim(WmsAuthorizationClaimTypes.Permission, WmsPermissions.InventoryAdjust))).Succeeded);
-        Assert.True((await navigationService.GetNavigationAccessAsync())
-            .HasPermission(WmsPermissions.InventoryAdjust));
+        _commandCounter.Reset();
+        var refreshedSnapshot = await navigationService.GetNavigationAccessAsync();
+
+        Assert.Equal(1, _commandCounter.Count);
+        Assert.True(refreshedSnapshot.HasPermission(WmsPermissions.InventoryAdjust));
     }
 
     [Fact]
