@@ -369,3 +369,32 @@ pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
 
 The local performance group remains outside CI. A green hosted CI run does not
 clear these measured budget misses or establish approved production capacity.
+
+### Inventory summary query follow-up — 2026-09-25
+
+Commit `a1c27b764743b6286a213b77b9e1652e5fb59734` removes the separate
+`AnyAsync` existence check from the populated inventory-summary path. The
+aggregate query now determines whether canonical balances exist; an empty
+result still invokes the legacy-stock fallback. The focused
+`InventoryInquiryServiceTests` group passed 7/7, including that fallback.
+
+The exact-source profile used two repeats, ten samples per workload, and
+concurrency 1/4/20. It exited nonzero with 24 budget failures, compared with 22
+on `ababe69`. All 180 measured HTTP samples per repeat succeeded without errors
+or conflicts, and both deep reconciliations were clean. Inventory p50
+milliseconds by repeat changed from 482/95 to 109/329 at concurrency 1, 398/111
+to 118/292 at concurrency 4, and 437/266 to 293/394 at concurrency 20.
+Database-command p95 also varied between 38.22/51.46 ms, compared with
+42.23/23.74 ms on the previous profile. The results are mixed and do not
+establish a repeatable throughput gain; no budgets or capacity limits changed.
+Keep the master capacity gate open.
+
+Evidence is `%TEMP%\warecommand-postgresql-performance-a1c27b7.json`.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-a1c27b7.json')
+```

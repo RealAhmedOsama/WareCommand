@@ -2,7 +2,7 @@
 
 ## Current checkpoint — 2026-09-25
 
-Code revision under qualification is `ababe694fb468d424eb8cef02b4347077e1b228e`.
+Code revision under qualification is `a1c27b764743b6286a213b77b9e1652e5fb59734`.
 The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
 PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
 preserves the caller's SQLite transaction. Commit `64cc727` adds a
@@ -55,6 +55,15 @@ succeeded without errors or conflicts and both deep reconciliations were clean.
 Receiving results varied substantially between repeats and do not establish an
 end-to-end capacity gain; the capacity gate remains open. Exact measurements
 are recorded in [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
+
+The inventory-summary follow-up `a1c27b7` removes one existence-query round trip
+for populated canonical balances while retaining the tested legacy-stock
+fallback; `InventoryInquiryServiceTests` passed 7/7. Its exact-source PostgreSQL
+profile recorded 24 budget misses, compared with 22 on `ababe69`. All measured
+HTTP samples and reconciliation checks passed, but results varied between
+repeats and did not establish a capacity gain. The master performance gate
+remains open; measurements are in
+[`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
 Do not infer production readiness from CI or local results.
 
 Authorization and webhook transport tests passed 30/30 on `6bd664d`; the
