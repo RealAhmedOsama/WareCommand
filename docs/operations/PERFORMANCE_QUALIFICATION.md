@@ -430,3 +430,37 @@ pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
 
 The local performance group remains outside CI. A green hosted CI run does not
 clear these measured budget misses or establish approved production capacity.
+
+### Reservation idempotency scope reuse — 2026-09-25
+
+Commit `418ace18d42430a8beaa98a47050174857258d89` reuses the exact warehouse
+scope already checked at the start of `ReserveAsync` for the demand-key lookup.
+The lookup remains constrained to the requested warehouse and loads the same
+allocation/event history. `InventoryReservationServiceTests` passed 7/7; the
+idempotent retry assertion confirms one scope resolution.
+
+The exact-source PostgreSQL profile used two repeats, ten samples, and
+concurrency 1/4/20. Both deep reconciliations were clean. All 300 isolated HTTP
+samples succeeded without errors or conflicts; same-stock allocation completed
+all 25 requests per repeat across concurrency 1/4/20, and limited-stock
+allocation completed 20/20 in both repeats. The profile exited nonzero with 17
+repeat/scenario entries containing 35 individual latency/throughput breaches.
+At concurrency 20, same-stock allocation p50 was 1,559/2,966 ms and p95 was
+2,594/4,149 ms, above the 750/2,500 ms budgets. Receiving p50 at concurrency 1
+was 405/572 ms. Large repeat spreads remain, so the lower failure-entry count
+than the previous `431b2aa` profile does not establish a repeatable gain or
+capacity. No budgets changed.
+
+Evidence is `%TEMP%\warecommand-postgresql-performance-418ace1.json`.
+
+Run command:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-postgresql.ps1 -Group performance `
+  -Port 55437 -PerformanceSamples 10 -PerformanceRepeats 2 `
+  -EvidencePath (Join-Path $env:TEMP 'warecommand-postgresql-performance-418ace1.json')
+```
+
+Exact-SHA hosted CI is recorded in `RELEASE_QUALIFICATION.md`. The local
+performance group remains outside CI; capacity and production readiness remain
+unqualified.

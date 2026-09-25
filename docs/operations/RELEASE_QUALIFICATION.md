@@ -7,14 +7,15 @@ backup, migration, and rollback decision separately.
 ## Current repository qualification — 2026-09-25
 
 The latest pushed application code is SHA
-`431b2aab082bd0fcb3c54ebc91643e0114b28674` on `master`. Its ledger-write
-follow-up passed focused tests 9/9 and exact-SHA Actions run
-[#36162502487](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36162502487):
+`418ace18d42430a8beaa98a47050174857258d89` on `master`. Its reservation
+idempotency follow-up passed focused tests 7/7 and exact-SHA Actions run
+[#36169163010](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36169163010):
 Linux and Windows quality/coverage, all seven disposable PostgreSQL groups,
 SQLite-to-PostgreSQL migration, production Docker, and secret scan passed.
 Dependency review was skipped for the direct push. The exact-source local
-performance profile still records 20 budget misses, including allocation and
-receiving latency; this run does not qualify capacity or production readiness.
+performance profile still records 17 failing workload/repeat entries and 35
+individual metric breaches, with clean deep reconciliation but high repeat
+variance. It does not qualify capacity or production readiness.
 The change was pushed to GitHub only; no production deployment was performed.
 
 The previous code revision under qualification was SHA

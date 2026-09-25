@@ -2,7 +2,7 @@
 
 ## Current checkpoint — 2026-09-25
 
-Latest code revision under qualification is `431b2aab082bd0fcb3c54ebc91643e0114b28674`.
+Latest code revision under qualification is `418ace18d42430a8beaa98a47050174857258d89`.
 The pushed follow-up chain `9c2ff15`, `0a8c041`, and `2943fdb` shortens
 PostgreSQL receipt-counter locking, adds bounded inventory-balance retries, and
 preserves the caller's SQLite transaction. Commit `64cc727` adds a
@@ -82,6 +82,18 @@ reconciliations were clean. Allocation p95 improved from 7,122/7,324 ms to
 3,404/3,538 ms, but the profile still fails 20 latency/throughput budgets, so
 capacity remains unqualified. Exact measurements are in
 [`PERFORMANCE_QUALIFICATION.md`](../operations/PERFORMANCE_QUALIFICATION.md).
+
+The reservation idempotency follow-up `418ace1` uses the already-checked
+warehouse scope for the exact-warehouse demand lookup. Its focused reservation
+tests passed 7/7, including a single scope resolution on retry. The exact-source
+two-repeat PostgreSQL profile exited nonzero with 17 failing workload/repeat
+entries and 35 individual metric breaches; both deep reconciliations were clean.
+Same-stock allocation c20 p50/p95 remained above budget and repeat variance was
+large, so this result does not qualify capacity. Exact-SHA Actions run
+[#36169163010](https://github.com/RealAhmedOsama/WareCommand/actions/runs/36169163010)
+passed Linux/Windows quality and coverage, all seven PostgreSQL groups,
+SQLite-to-PostgreSQL migration, Docker, and secret scan. Dependency review was
+skipped for the direct push. CI does not run the full performance profile.
 
 Authorization and webhook transport tests passed 30/30 on `6bd664d`; the
 navigation snapshot test asserts one SQL command and immediate permission
