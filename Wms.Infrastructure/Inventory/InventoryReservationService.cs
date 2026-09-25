@@ -73,10 +73,17 @@ public sealed class InventoryReservationService(
                 return ToResult(existing);
             }
 
-            var item = await context.Items
-                .SingleOrDefaultAsync(
-                    candidate => candidate.Id == request.ItemId,
-                    cancellationToken)
+            var reservationResources = await (
+                from resourceItem in context.Items
+                where resourceItem.Id == request.ItemId
+                join activeWarehouse in context.Warehouses.Where(
+                        candidate => candidate.Id == request.WarehouseId && candidate.IsActive)
+                    on 1 equals 1 into activeWarehouses
+                from resourceWarehouse in activeWarehouses.DefaultIfEmpty()
+                select new { Item = resourceItem, Warehouse = resourceWarehouse })
+                .TagWith("InventoryReservationService.ReserveResources")
+                .SingleOrDefaultAsync(cancellationToken);
+            var item = reservationResources?.Item
                 ?? throw new InvalidOperationException(
                     $"Item '{request.ItemId}' was not found.");
             if (!item.IsActive)
@@ -85,10 +92,7 @@ public sealed class InventoryReservationService(
                     $"Item '{item.Sku}' is inactive and cannot be reserved.");
             }
 
-            var warehouse = await context.Warehouses
-                .SingleOrDefaultAsync(
-                    candidate => candidate.Id == request.WarehouseId && candidate.IsActive,
-                    cancellationToken)
+            var warehouse = reservationResources?.Warehouse
                 ?? throw new InvalidOperationException(
                     $"Warehouse '{request.WarehouseId}' was not found or is inactive.");
 
