@@ -169,6 +169,53 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task WarehouseScopeUsesOneFreshDatabaseQuery()
+    {
+        var user = await CreateUserAsync("scope-operator");
+        var assignedWarehouse = new Warehouse("SCOPE-MAIN", "Scope Main");
+        GetContext().Warehouses.Add(assignedWarehouse);
+        await GetContext().SaveChangesAsync();
+        GetContext().UserWarehouseAssignments.Add(new WmsUserWarehouseAssignment
+        {
+            UserId = user.Id,
+            WarehouseId = assignedWarehouse.Id,
+            IsDefault = true
+        });
+        await GetContext().SaveChangesAsync();
+        GetSession().SignIn(user);
+
+        var access = GetAccessService();
+        _commandCounter.Reset();
+        var assignedScope = await access.GetScopeAsync();
+
+        Assert.Equal(1, _commandCounter.Count);
+        Assert.False(assignedScope.HasGlobalAccess);
+        Assert.Equal(assignedWarehouse.Id, Assert.Single(assignedScope.WarehouseIds));
+
+        var role = await CreateRoleAsync(WmsRoleNames.Administrator);
+        await AddPermissionAsync(role, WmsPermissions.All);
+        Assert.True((await GetUserManager().AddToRoleAsync(user, role.Name!)).Succeeded);
+
+        _commandCounter.Reset();
+        var globalScope = await access.GetScopeAsync();
+
+        Assert.Equal(1, _commandCounter.Count);
+        Assert.True(globalScope.HasGlobalAccess);
+        Assert.Empty(globalScope.WarehouseIds);
+
+        Assert.True((await GetRoleManager().RemoveClaimAsync(
+            role,
+            new Claim(WmsAuthorizationClaimTypes.Permission, WmsPermissions.All))).Succeeded);
+
+        _commandCounter.Reset();
+        var refreshedScope = await access.GetScopeAsync();
+
+        Assert.Equal(1, _commandCounter.Count);
+        Assert.False(refreshedScope.HasGlobalAccess);
+        Assert.Equal(assignedWarehouse.Id, Assert.Single(refreshedScope.WarehouseIds));
+    }
+
+    [Fact]
     public async Task NavigationAccessUsesOneFreshPermissionAndWarehouseSnapshot()
     {
         var user = await CreateUserAsync("navigation-operator");

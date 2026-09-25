@@ -280,22 +280,56 @@ public sealed class WarehouseAccessService(
                 apiClient.WarehouseIds);
         }
 
-        var userId = await GetActiveUserIdAsync(cancellationToken);
-        if (userId is null)
+        if (!currentUser.IsAuthenticated || string.IsNullOrWhiteSpace(currentUser.UserId))
         {
             return WarehouseAccessScope.None;
         }
 
-        if (await HasPermissionClaimAsync(userId, WmsPermissions.All, cancellationToken))
+        var userId = currentUser.UserId;
+        var nowUtc = clock.UtcNow;
+        var snapshots = await (
+            from user in context.Users.AsNoTracking()
+            where user.Id == userId
+            let hasGlobalAccess =
+                context.UserClaims.Any(claim =>
+                    claim.UserId == user.Id &&
+                    claim.ClaimType == WmsAuthorizationClaimTypes.Permission &&
+                    claim.ClaimValue == WmsPermissions.All) ||
+                context.RoleClaims.Any(claim =>
+                    claim.ClaimType == WmsAuthorizationClaimTypes.Permission &&
+                    claim.ClaimValue == WmsPermissions.All &&
+                    context.UserRoles.Any(userRole =>
+                        userRole.UserId == user.Id &&
+                        userRole.RoleId == claim.RoleId))
+            join assignment in context.UserWarehouseAssignments
+                    .AsNoTracking()
+                    .Where(value => value.Warehouse.IsActive)
+                on user.Id equals assignment.UserId into assignments
+            from assignment in assignments.DefaultIfEmpty()
+            select new
+            {
+                user.IsActive,
+                user.LockoutEnd,
+                HasGlobalAccess = hasGlobalAccess,
+                WarehouseId = assignment == null ? (int?)null : assignment.WarehouseId
+            }).ToListAsync(cancellationToken);
+
+        if (snapshots.Count == 0 ||
+            !snapshots[0].IsActive ||
+            (snapshots[0].LockoutEnd.HasValue && snapshots[0].LockoutEnd > nowUtc))
+        {
+            return WarehouseAccessScope.None;
+        }
+
+        if (snapshots[0].HasGlobalAccess)
         {
             return new WarehouseAccessScope(true, new HashSet<int>());
         }
 
-        var warehouseIds = await context.UserWarehouseAssignments
-            .AsNoTracking()
-            .Where(assignment => assignment.UserId == userId && assignment.Warehouse.IsActive)
-            .Select(assignment => assignment.WarehouseId)
-            .ToHashSetAsync(cancellationToken);
+        var warehouseIds = snapshots
+            .Where(snapshot => snapshot.WarehouseId.HasValue)
+            .Select(snapshot => snapshot.WarehouseId!.Value)
+            .ToHashSet();
 
         return new WarehouseAccessScope(false, warehouseIds);
     }
