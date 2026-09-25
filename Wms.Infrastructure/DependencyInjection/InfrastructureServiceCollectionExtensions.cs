@@ -309,7 +309,7 @@ public static class InfrastructureServiceCollectionExtensions
             provider,
             connectionStringConfigured: provider == WmsDatabaseProvider.Sqlite ||
                 !string.IsNullOrWhiteSpace(connectionString)));
-        services.AddDbContext<WmsDbContext>((serviceProvider, options) =>
+        services.AddDbContextFactory<WmsDbContext>((serviceProvider, options) =>
         {
             if (provider == WmsDatabaseProvider.PostgreSql)
             {
@@ -325,6 +325,7 @@ public static class InfrastructureServiceCollectionExtensions
             options.AddInterceptors(
                 serviceProvider.GetRequiredService<WmsDbCommandMetricsInterceptor>());
         });
+        services.AddScoped<WarehouseReceiptNumberAllocator>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IItemRepository, ItemRepository>();
         services.AddScoped<ILocationRepository, LocationRepository>();

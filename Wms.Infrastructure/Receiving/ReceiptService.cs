@@ -35,6 +35,7 @@ public sealed class ReceiptService : IReceiptService
     private readonly ILogger<ReceiptService> _logger;
     private readonly IQualityInspectionService? _qualityInspectionService;
     private readonly IWarehouseWorkService? _warehouseWorkService;
+    private readonly WarehouseReceiptNumberAllocator? _receiptNumberAllocator;
 
     public ReceiptService(
         WmsDbContext context,
@@ -47,7 +48,8 @@ public sealed class ReceiptService : IReceiptService
         IClock clock,
         ILogger<ReceiptService> logger,
         IQualityInspectionService? qualityInspectionService = null,
-        IWarehouseWorkService? warehouseWorkService = null)
+        IWarehouseWorkService? warehouseWorkService = null,
+        WarehouseReceiptNumberAllocator? receiptNumberAllocator = null)
     {
         _context = context;
         _warehouseAccessService = warehouseAccessService;
@@ -60,6 +62,7 @@ public sealed class ReceiptService : IReceiptService
         _logger = logger;
         _qualityInspectionService = qualityInspectionService;
         _warehouseWorkService = warehouseWorkService;
+        _receiptNumberAllocator = receiptNumberAllocator;
     }
 
     public async Task<Result<ReceiptPageDto>> ListAsync(
@@ -1601,6 +1604,23 @@ public sealed class ReceiptService : IReceiptService
         Warehouse warehouse,
         CancellationToken cancellationToken)
     {
+        var trackedSequence = _context.ChangeTracker
+            .Entries<WarehouseNumberSequence>()
+            .FirstOrDefault(entry => entry.Entity.WarehouseId == warehouse.Id);
+        if (_receiptNumberAllocator is not null &&
+            (trackedSequence is null || trackedSequence.State == EntityState.Unchanged))
+        {
+            var independentlyAllocatedNumber = await _receiptNumberAllocator.AllocateAsync(
+                warehouse.Id,
+                cancellationToken);
+            if (trackedSequence is not null)
+            {
+                await trackedSequence.ReloadAsync(cancellationToken);
+            }
+
+            return $"RCPT-{warehouse.Code}-{independentlyAllocatedNumber:D6}";
+        }
+
         var updatedAt = _clock.UtcNow.UtcDateTime;
         var rowsUpdated = await _context.WarehouseNumberSequences
             .Where(sequence => sequence.WarehouseId == warehouse.Id &&
@@ -1618,9 +1638,6 @@ public sealed class ReceiptService : IReceiptService
                 .Where(sequence => sequence.WarehouseId == warehouse.Id)
                 .Select(sequence => sequence.NextReceiptNumber)
                 .SingleAsync(cancellationToken);
-            var trackedSequence = _context.ChangeTracker
-                .Entries<WarehouseNumberSequence>()
-                .FirstOrDefault(entry => entry.Entity.WarehouseId == warehouse.Id);
             if (trackedSequence is not null)
             {
                 await trackedSequence.ReloadAsync(cancellationToken);
