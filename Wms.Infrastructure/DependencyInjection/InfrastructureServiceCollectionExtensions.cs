@@ -134,7 +134,11 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddRecommendationInfrastructure(configuration);
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
         services.AddScoped<IAccountDirectory, AccountDirectory>();
-        services.AddScoped<IWarehouseAccessService, WarehouseAccessService>();
+        services.AddScoped<WarehouseAccessService>();
+        services.AddScoped<IWarehouseAccessService>(provider =>
+            provider.GetRequiredService<WarehouseAccessService>());
+        services.AddScoped<IWarehouseNavigationAccessService>(provider =>
+            provider.GetRequiredService<WarehouseAccessService>());
         services.AddScoped<IUserAccessDirectory, UserAccessDirectory>();
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddSingleton<IWmsOperationContextAccessor, WmsOperationContextAccessor>();

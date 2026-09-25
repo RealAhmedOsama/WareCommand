@@ -13,8 +13,119 @@ public sealed class WarehouseAccessService(
     ICurrentUser currentUser,
     IClock clock,
     ILogger<WarehouseAccessService> logger,
-    IApiClientContextAccessor apiClientContext) : IWarehouseAccessService
+    IApiClientContextAccessor apiClientContext) :
+    IWarehouseAccessService,
+    IWarehouseNavigationAccessService
 {
+    public async Task<WarehouseNavigationAccess> GetNavigationAccessAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (apiClientContext.Current is { } apiClient)
+        {
+            IReadOnlyList<WmsWarehouseOption> apiWarehouses = [];
+            if (apiClient.HasScope(WmsPermissions.DashboardView))
+            {
+                var apiWarehousesQuery = context.Warehouses
+                    .AsNoTracking()
+                    .Where(warehouse => warehouse.IsActive);
+                if (!apiClient.HasGlobalWarehouseAccess)
+                {
+                    apiWarehousesQuery = apiWarehousesQuery
+                        .Where(warehouse => apiClient.WarehouseIds.Contains(warehouse.Id));
+                }
+
+                apiWarehouses = await apiWarehousesQuery
+                    .OrderBy(warehouse => warehouse.Code)
+                    .Select(warehouse => new WmsWarehouseOption(
+                        warehouse.Id,
+                        warehouse.Code,
+                        warehouse.Name,
+                        false,
+                        warehouse.TimeZone))
+                    .ToListAsync(cancellationToken);
+            }
+
+            return new WarehouseNavigationAccess(
+                new HashSet<string>(apiClient.Scopes, StringComparer.Ordinal),
+                apiWarehouses,
+                HasWildcardPermissions: false);
+        }
+
+        if (!currentUser.IsAuthenticated || string.IsNullOrWhiteSpace(currentUser.UserId))
+        {
+            return WarehouseNavigationAccess.Empty;
+        }
+
+        var userId = currentUser.UserId;
+        var user = await context.Users
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == userId)
+            .Select(candidate => new { candidate.Id, candidate.IsActive, candidate.LockoutEnd })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (user is null ||
+            !user.IsActive ||
+            (user.LockoutEnd.HasValue && user.LockoutEnd > clock.UtcNow))
+        {
+            return WarehouseNavigationAccess.Empty;
+        }
+
+        var directPermissions = context.UserClaims
+            .AsNoTracking()
+            .Where(claim => claim.UserId == user.Id &&
+                            claim.ClaimType == WmsAuthorizationClaimTypes.Permission)
+            .Select(claim => claim.ClaimValue);
+        var rolePermissions = context.RoleClaims
+            .AsNoTracking()
+            .Where(claim => claim.ClaimType == WmsAuthorizationClaimTypes.Permission &&
+                            context.UserRoles.Any(userRole =>
+                                userRole.UserId == user.Id && userRole.RoleId == claim.RoleId))
+            .Select(claim => claim.ClaimValue);
+        var permissionValues = await directPermissions
+                .Concat(rolePermissions)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+        var permissions = permissionValues
+            .Where(permission => permission is not null)
+            .Select(permission => permission!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        IReadOnlyList<WmsWarehouseOption> accessibleWarehouses = [];
+        if (permissions.Contains(WmsPermissions.DashboardView) ||
+            permissions.Contains(WmsPermissions.All))
+        {
+            var hasGlobalAccess = permissions.Contains(WmsPermissions.All);
+            var userWarehousesQuery = context.Warehouses
+                .AsNoTracking()
+                .Where(warehouse => warehouse.IsActive);
+            if (!hasGlobalAccess)
+            {
+                userWarehousesQuery = userWarehousesQuery
+                    .Where(warehouse => context.UserWarehouseAssignments
+                        .Any(assignment => assignment.UserId == user.Id &&
+                                           assignment.WarehouseId == warehouse.Id));
+            }
+
+            accessibleWarehouses = await userWarehousesQuery
+                .OrderBy(warehouse => warehouse.Code)
+                .Select(warehouse => new WmsWarehouseOption(
+                    warehouse.Id,
+                    warehouse.Code,
+                    warehouse.Name,
+                    context.UserWarehouseAssignments.Any(assignment =>
+                        assignment.UserId == user.Id &&
+                        assignment.WarehouseId == warehouse.Id &&
+                        assignment.IsDefault),
+                    warehouse.TimeZone))
+                .ToListAsync(cancellationToken);
+        }
+
+        return new WarehouseNavigationAccess(
+            permissions,
+            accessibleWarehouses,
+            HasWildcardPermissions: true);
+    }
+
     public async Task<bool> HasPermissionAsync(
         string permission,
         CancellationToken cancellationToken = default)

@@ -1,31 +1,32 @@
 ﻿<!DOCTYPE html>
 @using Wms.Application.Context
-@inject IWarehouseAccessService WarehouseAccessService
+@inject IWarehouseNavigationAccessService WarehouseNavigationAccessService
 @inject IWarehouseContext WarehouseContext
 @{
     var currentCulture = System.Globalization.CultureInfo.CurrentUICulture;
     var isRtl = currentCulture.TextInfo.IsRightToLeft;
     var languageReturnUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
-    var canDashboard = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.DashboardView)).Succeeded;
-    var canReceive = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ReceivingExecute)).Succeeded;
-    var canPutaway = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PutawayExecute)).Succeeded;
-    var canPick = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PickingExecute)).Succeeded;
-    var canInventory = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.InventoryRead)).Succeeded;
-    var canReports = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ReportsRead)).Succeeded;
-    var canItems = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ItemsRead)).Succeeded;
-    var canSuppliers = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SuppliersRead)).Succeeded;
-    var canPurchaseOrders = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.PurchaseOrdersRead)).Succeeded;
-    var canAdvanceShippingNotices = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AdvanceShippingNoticesRead)).Succeeded;
-    var canReceipts = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.ReceiptsRead)).Succeeded;
-    var canLocations = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.LocationsRead)).Succeeded;
-    var canAudit = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AuditRead)).Succeeded;
-    var canWarehouses = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.WarehouseManage)).Succeeded;
-    var canSettings = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.SettingsManage)).Succeeded;
-    var canAccess = (await AuthorizationService.AuthorizeAsync(User, WmsPermissions.AccessManage)).Succeeded;
+    var navigationAccess = User.Identity?.IsAuthenticated == true
+        ? await WarehouseNavigationAccessService.GetNavigationAccessAsync()
+        : WarehouseNavigationAccess.Empty;
+    var canDashboard = navigationAccess.HasPermission(WmsPermissions.DashboardView);
+    var canReceive = navigationAccess.HasPermission(WmsPermissions.ReceivingExecute);
+    var canPutaway = navigationAccess.HasPermission(WmsPermissions.PutawayExecute);
+    var canPick = navigationAccess.HasPermission(WmsPermissions.PickingExecute);
+    var canInventory = navigationAccess.HasPermission(WmsPermissions.InventoryRead);
+    var canReports = navigationAccess.HasPermission(WmsPermissions.ReportsRead);
+    var canItems = navigationAccess.HasPermission(WmsPermissions.ItemsRead);
+    var canSuppliers = navigationAccess.HasPermission(WmsPermissions.SuppliersRead);
+    var canPurchaseOrders = navigationAccess.HasPermission(WmsPermissions.PurchaseOrdersRead);
+    var canAdvanceShippingNotices = navigationAccess.HasPermission(WmsPermissions.AdvanceShippingNoticesRead);
+    var canReceipts = navigationAccess.HasPermission(WmsPermissions.ReceiptsRead);
+    var canLocations = navigationAccess.HasPermission(WmsPermissions.LocationsRead);
+    var canAudit = navigationAccess.HasPermission(WmsPermissions.AuditRead);
+    var canWarehouses = navigationAccess.HasPermission(WmsPermissions.WarehouseManage);
+    var canSettings = navigationAccess.HasPermission(WmsPermissions.SettingsManage);
+    var canAccess = navigationAccess.HasPermission(WmsPermissions.AccessManage);
     var canAdministration = canAccess;
-    var accessibleWarehouses = User.Identity?.IsAuthenticated == true
-        ? await WarehouseAccessService.GetAccessibleWarehousesAsync(WmsPermissions.DashboardView)
-        : Array.Empty<WmsWarehouseOption>();
+    var accessibleWarehouses = navigationAccess.AccessibleWarehouses;
     var layoutReturnUrl = $"{Context.Request.PathBase}{Context.Request.Path}{Context.Request.QueryString}";
     var scannerRoute = Context.Request.Path.Value?.StartsWith("/Receiving", StringComparison.OrdinalIgnoreCase) == true
         || Context.Request.Path.Value?.StartsWith("/Picking", StringComparison.OrdinalIgnoreCase) == true

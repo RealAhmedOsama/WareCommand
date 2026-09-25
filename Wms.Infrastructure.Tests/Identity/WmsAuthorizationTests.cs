@@ -1,7 +1,9 @@
+using System.Data.Common;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Wms.Application.ApiClients;
 using Wms.Application.Auditing;
@@ -21,6 +23,7 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
 {
     private const string ValidPassword = "ValidPassword123!";
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
+    private readonly CountingCommandInterceptor _commandCounter = new();
     private ServiceProvider _serviceProvider = null!;
     private IServiceScope _scope = null!;
 
@@ -30,7 +33,8 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
 
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddDbContext<WmsDbContext>(options => options.UseSqlite(_connection));
+        services.AddDbContext<WmsDbContext>(options =>
+            options.UseSqlite(_connection).AddInterceptors(_commandCounter));
         services
             .AddIdentityCore<WmsUser>(options =>
             {
@@ -46,6 +50,7 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
         services.AddScoped<Wms.Application.Identity.ICurrentUser>(
             provider => provider.GetRequiredService<DesktopUserSession>());
         services.AddScoped<IWarehouseAccessService, WarehouseAccessService>();
+        services.AddScoped<IWarehouseNavigationAccessService, WarehouseAccessService>();
         services.AddScoped<IApiClientContextAccessor, ApiClientContextAccessor>();
         services.AddScoped<IUserAccessDirectory, UserAccessDirectory>();
         services.AddScoped<IAuthenticationAuditService, AuthenticationAuditService>();
@@ -158,6 +163,113 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task NavigationAccessUsesOneFreshPermissionAndWarehouseSnapshot()
+    {
+        var user = await CreateUserAsync("navigation-operator");
+        var role = await CreateRoleAsync(WmsRoleNames.InventoryController);
+        await AddPermissionAsync(role, WmsPermissions.DashboardView);
+        await AddPermissionAsync(role, WmsPermissions.InventoryRead);
+        Assert.True((await GetUserManager().AddToRoleAsync(user, role.Name!)).Succeeded);
+
+        var assignedWarehouse = new Warehouse("NAV-MAIN", "Navigation Main");
+        var unassignedWarehouse = new Warehouse("NAV-OTHER", "Navigation Other");
+        GetContext().Warehouses.AddRange(assignedWarehouse, unassignedWarehouse);
+        await GetContext().SaveChangesAsync();
+        GetContext().UserWarehouseAssignments.Add(new WmsUserWarehouseAssignment
+        {
+            UserId = user.Id,
+            WarehouseId = assignedWarehouse.Id,
+            IsDefault = true
+        });
+        await GetContext().SaveChangesAsync();
+
+        GetSession().SignIn(user);
+        var navigationService = GetNavigationAccessService();
+        _commandCounter.Reset();
+
+        var snapshot = await navigationService.GetNavigationAccessAsync();
+
+        Assert.Equal(3, _commandCounter.Count);
+        Assert.True(snapshot.HasPermission(WmsPermissions.DashboardView));
+        Assert.True(snapshot.HasPermission(WmsPermissions.InventoryRead));
+        Assert.False(snapshot.HasPermission(WmsPermissions.InventoryAdjust));
+        var warehouse = Assert.Single(snapshot.AccessibleWarehouses);
+        Assert.Equal(assignedWarehouse.Id, warehouse.Id);
+        Assert.True(warehouse.IsDefault);
+
+        Assert.True((await GetUserManager().AddClaimAsync(
+            user,
+            new Claim(WmsAuthorizationClaimTypes.Permission, WmsPermissions.InventoryAdjust))).Succeeded);
+        Assert.True((await navigationService.GetNavigationAccessAsync())
+            .HasPermission(WmsPermissions.InventoryAdjust));
+    }
+
+    [Fact]
+    public async Task ApiClientNavigationUsesExactScopesAndWarehouseScope()
+    {
+        var assignedWarehouse = new Warehouse("API-NAV-MAIN", "API Navigation Main");
+        var unassignedWarehouse = new Warehouse("API-NAV-OTHER", "API Navigation Other");
+        GetContext().Warehouses.AddRange(assignedWarehouse, unassignedWarehouse);
+        await GetContext().SaveChangesAsync();
+
+        GetApiClientContextAccessor().Current = new ApiClientContext(
+            "navigation-client",
+            "Navigation Client",
+            new HashSet<string>([WmsPermissions.DashboardView], StringComparer.Ordinal),
+            new HashSet<int> { assignedWarehouse.Id },
+            HasGlobalWarehouseAccess: false);
+
+        var snapshot = await GetNavigationAccessService().GetNavigationAccessAsync();
+
+        Assert.True(snapshot.HasPermission(WmsPermissions.DashboardView));
+        Assert.False(snapshot.HasPermission(WmsPermissions.InventoryRead));
+        var warehouse = Assert.Single(snapshot.AccessibleWarehouses);
+        Assert.Equal(assignedWarehouse.Id, warehouse.Id);
+        Assert.False(warehouse.IsDefault);
+
+        GetApiClientContextAccessor().Current = new ApiClientContext(
+            "legacy-all-scope-client",
+            "Legacy All Scope Client",
+            new HashSet<string>([WmsPermissions.All], StringComparer.Ordinal),
+            new HashSet<int>(),
+            HasGlobalWarehouseAccess: false);
+        var legacySnapshot = await GetNavigationAccessService().GetNavigationAccessAsync();
+        Assert.False(legacySnapshot.HasPermission(WmsPermissions.DashboardView));
+        Assert.Empty(legacySnapshot.AccessibleWarehouses);
+    }
+
+    [Fact]
+    public async Task UserNavigationWildcardIncludesActiveWarehousesAndDefaults()
+    {
+        var user = await CreateUserAsync("navigation-administrator");
+        var role = await CreateRoleAsync(WmsRoleNames.Administrator);
+        await AddPermissionAsync(role, WmsPermissions.All);
+        Assert.True((await GetUserManager().AddToRoleAsync(user, role.Name!)).Succeeded);
+
+        var assignedWarehouse = new Warehouse("ADMIN-NAV-MAIN", "Administrator Navigation Main");
+        var unassignedWarehouse = new Warehouse("ADMIN-NAV-OTHER", "Administrator Navigation Other");
+        GetContext().Warehouses.AddRange(assignedWarehouse, unassignedWarehouse);
+        await GetContext().SaveChangesAsync();
+        GetContext().UserWarehouseAssignments.Add(new WmsUserWarehouseAssignment
+        {
+            UserId = user.Id,
+            WarehouseId = assignedWarehouse.Id,
+            IsDefault = true
+        });
+        await GetContext().SaveChangesAsync();
+        GetSession().SignIn(user);
+
+        var snapshot = await GetNavigationAccessService().GetNavigationAccessAsync();
+
+        Assert.True(snapshot.HasPermission(WmsPermissions.InventoryAdjust));
+        Assert.Equal(2, snapshot.AccessibleWarehouses.Count);
+        Assert.Contains(snapshot.AccessibleWarehouses, warehouse =>
+            warehouse.Id == assignedWarehouse.Id && warehouse.IsDefault);
+        Assert.Contains(snapshot.AccessibleWarehouses, warehouse =>
+            warehouse.Id == unassignedWarehouse.Id && !warehouse.IsDefault);
+    }
+
+    [Fact]
     public async Task AdministratorAccessDirectoryUpdatesRolesPermissionsAndDefaultWarehouse()
     {
         var administrator = await CreateUserAsync("administrator");
@@ -217,6 +329,12 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
     private IWarehouseAccessService GetAccessService() =>
         _scope.ServiceProvider.GetRequiredService<IWarehouseAccessService>();
 
+    private IWarehouseNavigationAccessService GetNavigationAccessService() =>
+        _scope.ServiceProvider.GetRequiredService<IWarehouseNavigationAccessService>();
+
+    private IApiClientContextAccessor GetApiClientContextAccessor() =>
+        _scope.ServiceProvider.GetRequiredService<IApiClientContextAccessor>();
+
     private IUserAccessDirectory GetAccessDirectory() =>
         _scope.ServiceProvider.GetRequiredService<IUserAccessDirectory>();
 
@@ -253,5 +371,24 @@ public sealed class WmsAuthorizationTests : IAsyncLifetime, IDisposable
             role,
             new Claim(WmsAuthorizationClaimTypes.Permission, permission));
         Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(error => error.Description)));
+    }
+
+    private sealed class CountingCommandInterceptor : DbCommandInterceptor
+    {
+        private int _count;
+
+        public int Count => Volatile.Read(ref _count);
+
+        public void Reset() => Interlocked.Exchange(ref _count, 0);
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command,
+            CommandEventData eventData,
+            InterceptionResult<DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _count);
+            return ValueTask.FromResult(result);
+        }
     }
 }
