@@ -78,7 +78,11 @@ public sealed class InventoryReservationServiceTests : IDisposable
 
         var request = CreateRequest("SO-100", requestedQuantity: 8m);
         var first = await _service.ReserveAsync(request);
+        _warehouseAccess.Invocations.Clear();
         var retry = await _service.ReserveAsync(request);
+        _warehouseAccess.Verify(
+            service => service.GetScopeAsync(It.IsAny<CancellationToken>()),
+            Times.Once);
 
         first.Status.Should().Be(InventoryReservationStatus.PartiallyReserved);
         first.AllocatedQuantity.Should().Be(5m);

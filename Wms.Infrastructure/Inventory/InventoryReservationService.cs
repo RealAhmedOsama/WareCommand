@@ -55,10 +55,16 @@ public sealed class InventoryReservationService(
                 request.ItemId,
                 cancellationToken);
 
-            var existing = await unitOfWork.InventoryReservations.GetByDemandAsync(
-                demandKey,
-                request.WarehouseId,
-                cancellationToken);
+            // The requested warehouse was authorized above. Keep this idempotency
+            // lookup constrained to that exact warehouse without resolving the
+            // same warehouse scope again in the repository.
+            var existing = await context.InventoryReservations
+                .Include(reservation => reservation.Allocations)
+                .Include(reservation => reservation.Events)
+                .SingleOrDefaultAsync(
+                    reservation => reservation.WarehouseId == request.WarehouseId &&
+                                   reservation.DemandKey == demandKey,
+                    cancellationToken);
             if (existing is not null)
             {
                 EnsureSameDemand(existing, request);
